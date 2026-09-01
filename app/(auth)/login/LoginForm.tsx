@@ -1,25 +1,66 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState } from "react";
+import { signIn } from "next-auth/react";
 import { Loader2, Lock, Mail } from "lucide-react";
-import { loginAction, type LoginFormState } from "@/src/actions/auth";
 
-const initialState: LoginFormState = {};
+function safeRedirectPath(raw: string | null): string {
+  if (!raw) return "/crm/dashboard";
+  try {
+    if (raw.startsWith("/") && !raw.startsWith("//")) {
+      return raw.startsWith("/crm") ? raw : "/crm/dashboard";
+    }
+    const url = new URL(raw);
+    if (
+      url.origin === window.location.origin &&
+      url.pathname.startsWith("/crm")
+    ) {
+      return `${url.pathname}${url.search}`;
+    }
+  } catch {
+    // URL inválida: caer al dashboard.
+  }
+  return "/crm/dashboard";
+}
 
 export function LoginForm() {
-  const [state, formAction, isPending] = useActionState(
-    loginAction,
-    initialState,
-  );
+  const [error, setError] = useState<string | undefined>();
+  const [pending, setPending] = useState(false);
+
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPending(true);
+    setError(undefined);
+
+    const formData = new FormData(event.currentTarget);
+    const callbackUrl = safeRedirectPath(
+      new URLSearchParams(window.location.search).get("callbackUrl"),
+    );
+
+    const result = await signIn("credentials", {
+      email: String(formData.get("email") ?? ""),
+      password: String(formData.get("password") ?? ""),
+      redirect: false,
+      callbackUrl,
+    });
+
+    if (!result || result.error) {
+      setError("Correo o contraseña incorrectos.");
+      setPending(false);
+      return;
+    }
+
+    window.location.assign(result.url || callbackUrl);
+  }
 
   return (
-    <form action={formAction} className="space-y-5">
-      {state.error ? (
+    <form onSubmit={onSubmit} className="space-y-5">
+      {error ? (
         <div
           role="alert"
           className="rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
         >
-          {state.error}
+          {error}
         </div>
       ) : null}
 
@@ -73,10 +114,10 @@ export function LoginForm() {
 
       <button
         type="submit"
-        disabled={isPending}
+        disabled={pending}
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-control bg-action-primary px-4 py-2.5 text-sm font-semibold text-action-primary-foreground transition-colors duration-200 hover:bg-action-secondary motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isPending ? (
+        {pending ? (
           <>
             <Loader2 className="size-4 animate-spin" aria-hidden />
             Ingresando…

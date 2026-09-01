@@ -8,6 +8,8 @@ export const metadata: Metadata = {
   title: "Iniciar sesión — J&H CRM",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function LoginPage() {
   const session = await auth();
   if (session?.user?.id) {

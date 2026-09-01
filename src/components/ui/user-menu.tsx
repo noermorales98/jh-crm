@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { signOut } from "next-auth/react";
 import { LogOut, ScrollText, Settings, UserCog } from "lucide-react";
-import { logoutAction } from "@/src/actions/auth";
 
 /**
  * Menú de usuario del header: avatar circular que abre un dropdown
@@ -185,7 +185,11 @@ export function UserMenu({
           <div className="mx-3 my-1 h-px bg-border-subtle" role="separator" />
 
           <div className="px-1.5">
-            <form action={logoutAction}>
+            <form
+              action={() => {
+                void signOut({ redirectTo: "/login" });
+              }}
+            >
               <button
                 type="submit"
                 role="menuitem"

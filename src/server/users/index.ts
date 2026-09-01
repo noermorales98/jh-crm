@@ -1,0 +1,188 @@
+import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
+import type { Role } from "@prisma/client";
+import { prisma } from "@/src/lib/db";
+import { DomainError } from "@/src/server/errors";
+import { writeAuditLog } from "@/src/server/audit";
+import type { OrganizationContext } from "@/src/server/auth/guards";
+import { toAuditContext } from "@/src/server/context";
+
+/**
+ * Gestión de miembros de la organización. Sin email transaccional en
+ * esta fase: inviteUser genera una contraseña temporal y la devuelve
+ * para entrega manual.
+ */
+
+export interface InviteUserData {
+  name: string;
+  email: string;
+  role: Role;
+}
+
+function generateTemporaryPassword(): string {
+  // Legible a mano pero con suficiente entropía (~48 bits).
+  return crypto.randomBytes(6).toString("base64url") + "-" + crypto.randomBytes(4).toString("base64url");
+}
+
+async function countActiveOwners(ctx: OrganizationContext): Promise<number> {
+  return prisma.organizationMember.count({
+    where: {
+      organizationId: ctx.organizationId,
+      role: "OWNER",
+      user: { isActive: true },
+    },
+  });
+}
+
+async function getMemberOrThrow(ctx: OrganizationContext, userId: string) {
+  const member = await prisma.organizationMember.findUnique({
+    where: {
+      userId_organizationId: { userId, organizationId: ctx.organizationId },
+    },
+    include: { user: { select: { id: true, email: true, name: true, isActive: true } } },
+  });
+  if (!member) {
+    throw new DomainError("El usuario no es miembro de la organización.");
+  }
+  return member;
+}
+
+/** Crea User + OrganizationMember. Devuelve la contraseña temporal. */
+export async function inviteUser(ctx: OrganizationContext, data: InviteUserData) {
+  if (data.role === "OWNER" && ctx.role !== "OWNER") {
+    throw new DomainError("Solo el propietario puede invitar a otro propietario.");
+  }
+  const email = data.email.trim().toLowerCase();
+  const existing = await prisma.user.findUnique({ where: { email } });
+  if (existing) {
+    const membership = await prisma.organizationMember.findUnique({
+      where: {
+        userId_organizationId: { userId: existing.id, organizationId: ctx.organizationId },
+      },
+    });
+    if (membership) {
+      throw new DomainError("Ese correo ya pertenece a un miembro de la organización.");
+    }
+    throw new DomainError("Ese correo ya está registrado en el sistema.");
+  }
+
+  const temporaryPassword = generateTemporaryPassword();
+  const passwordHash = await bcrypt.hash(temporaryPassword, 12);
+
+  const result = await prisma.$transaction(async (tx) => {
+    const user = await tx.user.create({
+      data: { email, name: data.name.trim(), passwordHash },
+    });
+    const member = await tx.organizationMember.create({
+      data: { userId: user.id, organizationId: ctx.organizationId, role: data.role },
+    });
+    await writeAuditLog(
+      toAuditContext(ctx),
+      {
+        action: "MEMBER_INVITED",
+        entityType: "OrganizationMember",
+        entityId: member.id,
+        metadata: { role: data.role, invitedUserId: user.id },
+      },
+      tx,
+    );
+    return { user, member };
+  });
+
+  return {
+    userId: result.user.id,
+    email: result.user.email,
+    name: result.user.name,
+    role: result.member.role,
+    temporaryPassword,
+  };
+}
+
+export async function updateMemberRole(
+  ctx: OrganizationContext,
+  userId: string,
+  role: Role,
+) {
+  const member = await getMemberOrThrow(ctx, userId);
+
+  if (member.role === "OWNER" && role !== "OWNER") {
+    if ((await countActiveOwners(ctx)) <= 1) {
+      throw new DomainError("No puedes degradar al único propietario activo.");
+    }
+  }
+  if (role === "OWNER" && ctx.role !== "OWNER") {
+    throw new DomainError("Solo el propietario puede nombrar a otro propietario.");
+  }
+  if (member.role === role) {
+    throw new DomainError("El miembro ya tiene ese rol.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.organizationMember.update({
+      where: { id: member.id },
+      data: { role },
+    });
+    // El rol vive en el JWT: invalidar sesiones para que tome efecto.
+    await tx.user.update({
+      where: { id: userId },
+      data: { sessionVersion: { increment: 1 } },
+    });
+    await writeAuditLog(
+      toAuditContext(ctx),
+      {
+        action: "MEMBER_ROLE_CHANGED",
+        entityType: "OrganizationMember",
+        entityId: member.id,
+        metadata: { targetUserId: userId, from: member.role, to: role },
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
+export async function deactivateUser(ctx: OrganizationContext, userId: string) {
+  if (userId === ctx.userId) {
+    throw new DomainError("No puedes desactivar tu propio usuario.");
+  }
+  const member = await getMemberOrThrow(ctx, userId);
+  if (member.role === "OWNER" && (await countActiveOwners(ctx)) <= 1) {
+    throw new DomainError("No puedes desactivar al único propietario activo.");
+  }
+  if (!member.user.isActive) {
+    throw new DomainError("El usuario ya está desactivado.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const user = await tx.user.update({
+      where: { id: userId },
+      data: { isActive: false, sessionVersion: { increment: 1 } },
+    });
+    await writeAuditLog(
+      toAuditContext(ctx),
+      {
+        action: "MEMBER_DEACTIVATED",
+        entityType: "User",
+        entityId: userId,
+        metadata: { email: user.email },
+      },
+      tx,
+    );
+    return user;
+  });
+}
+
+export async function listMembers(ctx: OrganizationContext) {
+  return prisma.organizationMember.findMany({
+    where: { organizationId: ctx.organizationId },
+    select: {
+      id: true,
+      role: true,
+      createdAt: true,
+      user: {
+        select: { id: true, name: true, email: true, isActive: true, lastLoginAt: true },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+}

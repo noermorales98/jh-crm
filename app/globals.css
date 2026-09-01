@@ -1,26 +1,101 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/**
+ * Design system J&H CRM
+ * Paleta: Índigo (acción) · Jazmín (fondo app) · Lavanda (paneles) ·
+ * Obsidiana (tinta) · Lima (énfasis excepcional).
+ * Reglas: plano por defecto (sombras solo en overlays), radios 10/12px,
+ * tipografía mínima 12px, acentos saturados ~10% de la pantalla.
+ */
+@theme {
+  --font-sans: "Open Sauce Two", system-ui, -apple-system, "Segoe UI",
+    sans-serif;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+  /* Marca */
+  --color-brand-indigo: #3545d6;
+  --color-brand-discord: #5363ee;
+  --color-brand-memory: #7f96f9;
+  --color-brand-lime: #c8fe37;
+  --color-brand-obsidian: #0b0b18;
+  --color-brand-jasmine: #f5f6fb;
+  --color-brand-lavender: #ebedfa;
+  --color-brand-silver: #9ca3b7;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Roles semánticos */
+  --color-action-primary: #3545d6;
+  --color-action-primary-foreground: #ffffff;
+  --color-action-secondary: #5363ee;
+  --color-selection-soft: #7f96f9;
+  --color-highlight: #c8fe37;
+  --color-ink: #0b0b18;
+  --color-surface-app: #f5f6fb;
+  --color-surface-panel: #ebedfa;
+  --color-surface-elevated: #ffffff;
+  --color-text-primary: #0b0b18;
+  --color-text-secondary: #6b7184;
+  --color-text-secondary-strong: #555b6e;
+  --color-text-placeholder: #555b6e;
+  --color-border-subtle: #dcdfe6;
+  --color-nav-active: #dde3fe;
+  --color-nav-hover: #f0f2fe;
+  --color-focus: #3545d6;
+
+  /* Compatibilidad con utilidades bg-background/text-foreground */
+  --color-background: #f5f6fb;
+  --color-foreground: #0b0b18;
+
+  /* Radios: control 10px, superficie 12px, pill 9999px */
+  --radius-control: 10px;
+  --radius-surface: 12px;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-surface-app);
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+::placeholder {
+  color: var(--color-text-placeholder);
+  opacity: 1;
+}
+
+/* Foco visible: anillo índigo 2px con offset 2px, sin desplazar layout */
+:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* Sombras solo en overlays/dropdowns/modales, nunca combinadas con borde */
+.jh-overlay-shadow {
+  box-shadow: 0 8px 8px rgba(11, 11, 24, 0.1);
+}
+
+/* Scrollbar discreto */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #9ca3b7;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7184;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

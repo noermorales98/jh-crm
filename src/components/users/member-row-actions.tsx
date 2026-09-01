@@ -1,0 +1,110 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Alert,
+  Button,
+  ConfirmDialog,
+  Select,
+} from "@/src/components/ui";
+import { deactivateUser, updateMemberRole } from "@/src/actions/users";
+import { ROLE_LABELS } from "./invite-user-button";
+
+const ALL_ROLES = ["OWNER", "ADMIN", "SPECIALIST", "STAFF", "VIEWER"];
+
+/**
+ * Acciones por miembro: cambiar rol (select + guardar) y desactivar.
+ * El backend protege al único OWNER activo y al propio usuario.
+ */
+export function MemberRowActions({
+  userId,
+  name,
+  role,
+  isActive,
+  isSelf,
+  canAssignOwner,
+}: {
+  userId: string;
+  name: string;
+  role: string;
+  isActive: boolean;
+  isSelf: boolean;
+  canAssignOwner: boolean;
+}) {
+  const router = useRouter();
+  const [selectedRole, setSelectedRole] = useState(role);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  const roleChanged = selectedRole !== role;
+  const roles = canAssignOwner
+    ? ALL_ROLES
+    : ALL_ROLES.filter((r) => r !== "OWNER");
+
+  function saveRole() {
+    setError(null);
+    startTransition(async () => {
+      const result = await updateMemberRole(userId, { role: selectedRole });
+      if (!result.ok) {
+        setError(result.error);
+        setSelectedRole(role);
+        return;
+      }
+      router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-1">
+        <Select
+          aria-label={`Rol de ${name}`}
+          value={selectedRole}
+          onChange={(e) => setSelectedRole(e.target.value)}
+          disabled={pending || !isActive}
+          className="w-36"
+        >
+          {roles.map((value) => (
+            <option key={value} value={value}>
+              {ROLE_LABELS[value]}
+            </option>
+          ))}
+        </Select>
+        {roleChanged ? (
+          <Button size="sm" onClick={saveRole} disabled={pending}>
+            {pending ? "Guardando…" : "Guardar"}
+          </Button>
+        ) : null}
+        {isActive && !isSelf ? (
+          <ConfirmDialog
+            title="Desactivar usuario"
+            message={
+              <>
+                <strong>{name}</strong> ya no podrá iniciar sesión. Sus
+                registros y auditoría se conservan.
+              </>
+            }
+            confirmLabel="Desactivar"
+            danger
+            trigger={
+              <Button variant="ghost" size="sm">
+                Desactivar
+              </Button>
+            }
+            onConfirm={async () => {
+              const result = await deactivateUser(userId);
+              if (!result.ok) return result.error;
+              router.refresh();
+            }}
+          />
+        ) : null}
+      </div>
+      {error ? (
+        <Alert tone="error">
+          <span className="text-xs">{error}</span>
+        </Alert>
+      ) : null}
+    </div>
+  );
+}

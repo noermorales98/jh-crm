@@ -65,27 +65,19 @@ export function SensitiveProfileForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-3">
       {error ? <Alert tone="error">{error}</Alert> : null}
       {success ? <Alert tone="success">{success}</Alert> : null}
 
-      <div className="rounded-control border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-        Por seguridad los valores guardados no se muestran descifrados. Al
-        guardar se reemplazan los cuatro campos: deja un campo vacío solo si
-        quieres eliminar su valor.
-        {updatedAt ? ` Última actualización: ${updatedAt}.` : ""}
-      </div>
+      <p className="text-xs leading-relaxed text-text-secondary">
+        Los valores guardados no se muestran descifrados. Un campo vacío elimina
+        el valor previo.
+        {ssnMasked ? ` SSN actual: ${ssnMasked}.` : " SSN no registrado."}
+        {updatedAt ? ` Actualizado ${updatedAt}.` : ""}
+      </p>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field
-          label="SSN"
-          htmlFor="ssn"
-          hint={
-            ssnMasked
-              ? `Actualmente registrado: ${ssnMasked}`
-              : "No registrado. Formato 123-45-6789."
-          }
-        >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="SSN" htmlFor="ssn">
           <Input
             id="ssn"
             value={ssn}
@@ -111,19 +103,19 @@ export function SensitiveProfileForm({
             autoComplete="off"
           />
         </Field>
+        <Field label="Notas sensibles" htmlFor="sensitiveNotes">
+          <Textarea
+            id="sensitiveNotes"
+            value={sensitiveNotes}
+            onChange={(e) => setSensitiveNotes(e.target.value)}
+            maxLength={2000}
+            rows={2}
+          />
+        </Field>
       </div>
-      <Field label="Notas sensibles" htmlFor="sensitiveNotes">
-        <Textarea
-          id="sensitiveNotes"
-          value={sensitiveNotes}
-          onChange={(e) => setSensitiveNotes(e.target.value)}
-          maxLength={2000}
-          rows={3}
-        />
-      </Field>
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={pending}>
+      <div>
+        <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Guardando…" : "Guardar perfil sensible"}
         </Button>
       </div>

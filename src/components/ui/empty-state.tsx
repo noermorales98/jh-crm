@@ -7,16 +7,25 @@ export function EmptyState({
   title,
   description,
   action,
+  compact = false,
 }: {
   icon?: LucideIcon;
   title: string;
   description?: string;
   action?: ReactNode;
+  compact?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-14 text-center">
+    <div
+      className={`flex flex-col items-center justify-center text-center ${
+        compact ? "px-4 py-6" : "px-6 py-14"
+      }`}
+    >
       {Icon ? (
-        <Icon className="mb-3 size-9 text-brand-silver" aria-hidden />
+        <Icon
+          className={`mb-2 text-brand-silver ${compact ? "size-7" : "mb-3 size-9"}`}
+          aria-hidden
+        />
       ) : null}
       <p className="text-sm font-semibold text-ink">{title}</p>
       {description ? (

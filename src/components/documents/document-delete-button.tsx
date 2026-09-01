@@ -23,10 +23,11 @@ export function DocumentDeleteButton({ documentId }: { documentId: string }) {
         trigger={
           <button
             type="button"
-            className="inline-flex items-center gap-1 rounded-control px-2 py-1 text-xs font-medium text-red-600 transition-colors hover:bg-red-50"
+            title="Eliminar"
+            aria-label="Eliminar documento"
+            className="inline-flex size-8 items-center justify-center rounded-control text-red-600 transition-colors hover:bg-red-50"
           >
-            <Trash2 className="size-3.5" aria-hidden />
-            Eliminar
+            <Trash2 className="size-4" aria-hidden />
           </button>
         }
         onConfirm={async () => {

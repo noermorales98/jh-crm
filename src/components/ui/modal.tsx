@@ -44,25 +44,27 @@ export function Modal({
         // Clic en el backdrop cierra.
         if (e.target === ref.current) onClose();
       }}
-      className="jh-overlay-shadow w-full max-w-lg rounded-surface bg-surface-elevated p-0 backdrop:bg-ink/40"
+      className="fixed inset-0 z-50 m-0 hidden h-dvh max-h-dvh w-full max-w-none items-center justify-center bg-transparent p-4 backdrop:bg-ink/40 open:flex"
     >
-      <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 py-4">
-        <div>
-          <h2 className="text-base font-semibold text-ink">{title}</h2>
-          {description ? (
-            <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
-          ) : null}
+      <div className="jh-overlay-shadow flex max-h-full w-full max-w-lg flex-col overflow-y-auto rounded-surface bg-surface-elevated">
+        <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-ink">{title}</h2>
+            {description ? (
+              <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
+            ) : null}
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar">
+            <X className="size-4" aria-hidden />
+          </Button>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar">
-          <X className="size-4" aria-hidden />
-        </Button>
+        <div className="px-5 py-4">{children}</div>
+        {footer ? (
+          <div className="flex justify-end gap-2 border-t border-border-subtle px-5 py-3">
+            {footer}
+          </div>
+        ) : null}
       </div>
-      <div className="px-5 py-4">{children}</div>
-      {footer ? (
-        <div className="flex justify-end gap-2 border-t border-border-subtle px-5 py-3">
-          {footer}
-        </div>
-      ) : null}
     </dialog>
   );
 }

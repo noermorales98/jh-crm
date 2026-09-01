@@ -14,6 +14,9 @@ import {
   listNotificationsForUser,
 } from "@/src/server/notifications";
 import { SidebarNav } from "./SidebarNav";
+import { CrmHeader, HeaderTitleProvider } from "./CrmHeader";
+import { CrmMain } from "./CrmMain";
+import { CrmChat } from "@/src/components/ai/crm-chat";
 
 export const metadata: Metadata = {
   title: {
@@ -56,11 +59,8 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
       </aside>
 
       <div className="flex min-h-screen flex-1 flex-col pl-64">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between bg-surface-app px-6">
-          <span className="text-sm font-medium text-text-secondary">
-            J&H Multiservices LLC
-          </span>
-          <div className="flex items-center gap-2">
+        <HeaderTitleProvider>
+          <CrmHeader>
             <NotificationBell
               unreadCount={unreadCount}
               items={inbox.map((item) => ({
@@ -78,10 +78,11 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
               email={session.user.email ?? ""}
               role={session.user.role ?? null}
             />
-          </div>
-        </header>
-        <main className="flex-1 px-6 py-6 lg:px-8">{children}</main>
+          </CrmHeader>
+          <CrmMain>{children}</CrmMain>
+        </HeaderTitleProvider>
       </div>
+      <CrmChat />
     </div>
   );
 }

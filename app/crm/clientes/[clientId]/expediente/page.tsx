@@ -67,15 +67,12 @@ export default async function ClientRecordPage({
     <div>
       <ClientHeader client={client} />
 
-      <div className="space-y-6">
+      <div className="grid items-start gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader
-            title="Datos del cliente"
-            description="Información general de contacto y dirección."
-          />
-          <CardBody>
+          <CardHeader title="Datos del cliente" compact />
+          <CardBody className="px-4 py-3">
             {client.status === "ARCHIVED" ? (
-              <div className="mb-4">
+              <div className="mb-3">
                 <Alert tone="info">
                   Este cliente está archivado; no se puede editar sin cambiar su estado.
                 </Alert>
@@ -87,6 +84,7 @@ export default async function ClientRecordPage({
                 clientId={client.id}
                 initialValues={formValues}
                 members={members}
+                compact
               />
             ) : (
               <Alert tone="info">
@@ -96,62 +94,61 @@ export default async function ClientRecordPage({
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader
-            title="Datos sensibles"
-            description="SSN, fecha de nacimiento y licencia. Se guardan cifrados y cada acceso queda auditado."
-          />
-          <CardBody>
-            {canSensitiveEdit ? (
-              <SensitiveProfileForm
-                clientId={client.id}
-                ssnMasked={client.ssnMasked}
-                updatedAt={
-                  client.sensitiveProfileUpdatedAt
-                    ? formatDateTime(client.sensitiveProfileUpdatedAt)
-                    : null
-                }
-              />
-            ) : canSensitiveView ? (
-              <Alert tone="info">
-                SSN registrado: {client.ssnMasked ?? "no registrado"}. Tu rol
-                permite ver pero no editar el perfil sensible.
-              </Alert>
-            ) : (
-              <Alert tone="info">
-                <span className="inline-flex items-center gap-1.5">
-                  <ShieldAlert className="size-4" aria-hidden />
-                  Tu rol no tiene acceso a los datos sensibles de este cliente.
-                </span>
-              </Alert>
-            )}
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader
-            title="Documentos del cliente"
-            description="Identificaciones, comprobantes y reportes. Los archivos viven en almacenamiento privado."
-          />
-          <CardBody className="space-y-6">
-            {storageReady ? (
-              canUpload ? (
-                <DocumentUploader clientId={client.id} />
+        <div className="space-y-4 lg:sticky lg:top-20">
+          <Card>
+            <CardHeader title="Datos sensibles" compact />
+            <CardBody className="px-4 py-3">
+              {canSensitiveEdit ? (
+                <SensitiveProfileForm
+                  clientId={client.id}
+                  ssnMasked={client.ssnMasked}
+                  updatedAt={
+                    client.sensitiveProfileUpdatedAt
+                      ? formatDateTime(client.sensitiveProfileUpdatedAt)
+                      : null
+                  }
+                />
+              ) : canSensitiveView ? (
+                <Alert tone="info">
+                  SSN registrado: {client.ssnMasked ?? "no registrado"}. Tu rol
+                  permite ver pero no editar el perfil sensible.
+                </Alert>
               ) : (
                 <Alert tone="info">
-                  Tu rol es de solo lectura: no puedes subir documentos.
+                  <span className="inline-flex items-center gap-1.5">
+                    <ShieldAlert className="size-4" aria-hidden />
+                    Tu rol no tiene acceso a los datos sensibles de este cliente.
+                  </span>
                 </Alert>
-              )
-            ) : (
-              <Alert tone="info">
-                El almacenamiento de archivos no está configurado en este
-                entorno (faltan variables S3). La lista de documentos sigue
-                disponible, pero la subida está deshabilitada.
-              </Alert>
-            )}
-          </CardBody>
-          <DocumentTable documents={documents.items} canDelete={canUpload} />
-        </Card>
+              )}
+            </CardBody>
+          </Card>
+
+          <Card className="overflow-hidden">
+            <CardHeader
+              title="Documentos"
+              description={`${documents.items.length} archivo${documents.items.length === 1 ? "" : "s"}`}
+              compact
+            />
+            <CardBody className="space-y-3 px-4 py-3">
+              {storageReady ? (
+                canUpload ? (
+                  <DocumentUploader clientId={client.id} />
+                ) : (
+                  <Alert tone="info">
+                    Tu rol es de solo lectura: no puedes subir documentos.
+                  </Alert>
+                )
+              ) : (
+                <Alert tone="info">
+                  El almacenamiento no está configurado. Puedes ver la lista,
+                  pero no subir archivos.
+                </Alert>
+              )}
+            </CardBody>
+            <DocumentTable documents={documents.items} canDelete={canUpload} />
+          </Card>
+        </div>
       </div>
     </div>
   );

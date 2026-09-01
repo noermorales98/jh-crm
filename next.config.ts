@@ -10,6 +10,7 @@ const crmPrefixes = [
   "cotizaciones",
   "pagos",
   "recibos",
+  "chats",
   "usuarios",
   "auditoria",
   "configuracion",

@@ -2,8 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Upload } from "lucide-react";
-import { Alert, Button, Field, Select } from "@/src/components/ui";
+import { FileUp, Loader2 } from "lucide-react";
+import { Alert, Select } from "@/src/components/ui";
 import {
   DOCUMENT_CATEGORY_LABELS,
   DOCUMENT_SENSITIVITY_LABELS,
@@ -13,12 +13,9 @@ const MAX_BYTES = 15 * 1024 * 1024;
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png"];
 
 /**
- * DocumentUploader: subida directa a S3 en 3 pasos:
- *   1. POST /api/files/upload-url  → URL firmada
- *   2. PUT del archivo a la URL firmada (directo al bucket)
- *   3. POST /api/files/confirm     → registro Document
- * Trata 307/redirect como sesión expirada. Solo se renderiza si el
- * servidor confirma que el almacenamiento está configurado.
+ * Subida directa a S3 en 3 pasos (URL firmada → PUT → confirm).
+ * El archivo se envía al soltarlo o al elegirlo; categoría y sensibilidad
+ * se eligen antes, en la misma fila.
  */
 export function DocumentUploader({
   clientId,
@@ -33,6 +30,7 @@ export function DocumentUploader({
   const fileRef = useRef<HTMLInputElement>(null);
   const [category, setCategory] = useState("IDENTITY");
   const [sensitivity, setSensitivity] = useState("CONFIDENTIAL");
+  const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -42,7 +40,6 @@ export function DocumentUploader({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
-      // El proxy redirige (307) a /login si la sesión expiró.
       redirect: "error",
     });
     const json = (await res.json()) as
@@ -52,18 +49,12 @@ export function DocumentUploader({
     return json.data;
   }
 
-  async function handleUpload(e: React.FormEvent) {
-    e.preventDefault();
+  async function uploadFile(file: File) {
     setError(null);
     setSuccess(null);
 
-    const file = fileRef.current?.files?.[0];
-    if (!file) {
-      setError("Selecciona un archivo PDF, JPG o PNG.");
-      return;
-    }
     if (!ALLOWED.includes(file.type)) {
-      setError("Tipo de archivo no permitido. Solo PDF, JPG y PNG.");
+      setError("Solo se aceptan PDF, JPG y PNG.");
       return;
     }
     if (file.size > MAX_BYTES) {
@@ -72,8 +63,12 @@ export function DocumentUploader({
     }
 
     try {
-      setBusy("Solicitando URL de subida…");
-      const linkInfo = { clientId, ...(caseId ? { caseId } : {}), ...(roundId ? { roundId } : {}) };
+      setBusy("Preparando…");
+      const linkInfo = {
+        clientId,
+        ...(caseId ? { caseId } : {}),
+        ...(roundId ? { roundId } : {}),
+      };
       const upload = await postJson("/api/files/upload-url", {
         ...linkInfo,
         category,
@@ -83,7 +78,7 @@ export function DocumentUploader({
         sizeBytes: file.size,
       });
 
-      setBusy("Subiendo archivo…");
+      setBusy("Subiendo…");
       const put = await fetch(upload.url as string, {
         method: "PUT",
         headers: { "Content-Type": file.type },
@@ -91,7 +86,7 @@ export function DocumentUploader({
       });
       if (!put.ok) throw new Error("La subida al almacenamiento falló.");
 
-      setBusy("Registrando documento…");
+      setBusy("Registrando…");
       await postJson("/api/files/confirm", {
         ...linkInfo,
         storageKey: upload.storageKey,
@@ -102,12 +97,11 @@ export function DocumentUploader({
         sizeBytes: file.size,
       });
 
-      setSuccess(`Documento "${file.name}" subido correctamente.`);
+      setSuccess(`“${file.name}” listo.`);
       if (fileRef.current) fileRef.current.value = "";
       router.refresh();
     } catch (err) {
       if (err instanceof TypeError) {
-        // fetch con redirect:"error" lanza TypeError ante un 307 del proxy.
         setError("Tu sesión expiró. Vuelve a iniciar sesión e intenta de nuevo.");
       } else {
         setError(err instanceof Error ? err.message : "No se pudo subir el archivo.");
@@ -117,16 +111,27 @@ export function DocumentUploader({
     }
   }
 
+  function takeFile(files: FileList | null) {
+    const file = files?.[0];
+    if (file) void uploadFile(file);
+  }
+
   return (
-    <form onSubmit={handleUpload} className="space-y-4">
+    <div className="space-y-2.5">
       {error ? <Alert tone="error">{error}</Alert> : null}
       {success ? <Alert tone="success">{success}</Alert> : null}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Categoría" htmlFor="doc-category">
+
+      <div className="grid grid-cols-2 gap-2">
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold text-text-secondary">
+            Categoría
+          </span>
           <Select
             id="doc-category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
+            className="min-h-10 py-2 text-sm"
+            disabled={busy !== null}
           >
             {Object.entries(DOCUMENT_CATEGORY_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
@@ -134,12 +139,17 @@ export function DocumentUploader({
               </option>
             ))}
           </Select>
-        </Field>
-        <Field label="Sensibilidad" htmlFor="doc-sensitivity">
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-[11px] font-semibold text-text-secondary">
+            Sensibilidad
+          </span>
           <Select
             id="doc-sensitivity"
             value={sensitivity}
             onChange={(e) => setSensitivity(e.target.value)}
+            className="min-h-10 py-2 text-sm"
+            disabled={busy !== null}
           >
             {Object.entries(DOCUMENT_SENSITIVITY_LABELS).map(([value, label]) => (
               <option key={value} value={value}>
@@ -147,23 +157,61 @@ export function DocumentUploader({
               </option>
             ))}
           </Select>
-        </Field>
+        </label>
       </div>
-      <Field label="Archivo" htmlFor="doc-file" hint="PDF, JPG o PNG. Máximo 15 MB.">
-        <input
-          ref={fileRef}
-          id="doc-file"
-          type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
-          className="block w-full text-sm text-text-secondary-strong file:mr-3 file:rounded-control file:border-0 file:bg-nav-active file:px-3 file:py-2 file:text-sm file:font-medium file:text-action-primary hover:file:bg-nav-active"
-        />
-      </Field>
-      <div className="flex justify-end">
-        <Button type="submit" disabled={busy !== null}>
-          <Upload className="size-4" aria-hidden />
-          {busy ?? "Subir documento"}
-        </Button>
-      </div>
-    </form>
+
+      <input
+        ref={fileRef}
+        id="doc-file"
+        type="file"
+        accept=".pdf,.jpg,.jpeg,.png"
+        className="sr-only"
+        disabled={busy !== null}
+        onChange={(e) => takeFile(e.target.files)}
+      />
+
+      <button
+        type="button"
+        disabled={busy !== null}
+        onClick={() => fileRef.current?.click()}
+        onDragEnter={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragging(true);
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault();
+          if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+          setDragging(false);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragging(false);
+          takeFile(e.dataTransfer.files);
+        }}
+        className={`flex w-full items-center gap-3 rounded-control border border-dashed px-3 py-3 text-left transition-colors ${
+          dragging
+            ? "border-action-primary bg-nav-active"
+            : "border-border-subtle bg-surface-app hover:border-action-primary hover:bg-nav-hover"
+        } disabled:cursor-not-allowed disabled:opacity-60`}
+      >
+        {busy ? (
+          <Loader2 className="size-5 shrink-0 animate-spin text-action-primary" aria-hidden />
+        ) : (
+          <FileUp className="size-5 shrink-0 text-action-primary" aria-hidden />
+        )}
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-ink">
+            {busy ?? (dragging ? "Suelta el archivo" : "Suelta aquí o haz clic")}
+          </span>
+          <span className="block text-xs text-text-secondary">
+            PDF, JPG o PNG · máximo 15 MB
+          </span>
+        </span>
+      </button>
+    </div>
   );
 }

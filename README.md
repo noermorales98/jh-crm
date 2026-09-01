@@ -36,6 +36,7 @@ Login con `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` definidos en
 - `AUTH_SECRET` — secreto de sesión NextAuth.
 - `CRON_SECRET` — Bearer token para `GET /api/cron/reminders`.
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` / `BOOTSTRAP_OWNER_NAME`.
+- `OPENROUTER_API_KEY` — chat de IA en el CRM (modelos gratuitos). Opcional: `OPENROUTER_API_KEY_SECONDARY`.
 
 ## Scripts
 
@@ -55,6 +56,16 @@ Scripts auxiliares en `scripts/`:
 - `smoke/` — fixtures y verificaciones de humo (dominio, UI, finanzas, HTTP,
   E2E integral `e2e-flow.ts`, verificación en navegador `browser-verify.mjs`),
   cada uno con su cleanup correspondiente.
+
+## Asistente de IA
+
+El CRM incluye un chat flotante (esquina inferior derecha) que usa modelos
+gratuitos de [OpenRouter](https://openrouter.ai/keys) (`openrouter/free`).
+Responde con datos de la organización (clientes, casos, cotizaciones, pagos),
+la configuración de la empresa y las rutas para guiar al usuario con enlaces
+`/crm/...`. Requiere sesión; no expone SSN descifrado ni secretos.
+
+`OPENROUTER_API_KEY_SECONDARY` se usa si la clave primaria responde 429/402/401.
 
 ## Cron de recordatorios
 

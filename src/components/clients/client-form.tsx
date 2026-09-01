@@ -46,11 +46,13 @@ export function ClientForm({
   clientId,
   initialValues = EMPTY_CLIENT_VALUES,
   members,
+  compact = false,
 }: {
   mode: "create" | "edit";
   clientId?: string;
   initialValues?: ClientFormValues;
   members: { id: string; name: string }[];
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<ClientFormValues>(initialValues);
@@ -96,10 +98,13 @@ export function ClientForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form
+      onSubmit={handleSubmit}
+      className={compact ? "space-y-3" : "space-y-5"}
+    >
       {error ? <Alert tone="error">{error}</Alert> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={compact ? "grid gap-3 sm:grid-cols-2" : "grid gap-4 sm:grid-cols-2"}>
         <Field label="Nombre" htmlFor="firstName" required>
           <Input
             id="firstName"
@@ -128,7 +133,7 @@ export function ClientForm({
             autoComplete="email"
           />
         </Field>
-        <Field label="Teléfono" htmlFor="phone" hint="Ej. +1 555 123 4567">
+        <Field label="Teléfono" htmlFor="phone" hint={compact ? undefined : "Ej. +1 555 123 4567"}>
           <Input
             id="phone"
             type="tel"
@@ -137,10 +142,7 @@ export function ClientForm({
             autoComplete="tel"
           />
         </Field>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Dirección" htmlFor="addressLine1" className="sm:col-span-2">
+        <Field label="Dirección" htmlFor="addressLine1">
           <Input
             id="addressLine1"
             value={values.addressLine1}
@@ -149,7 +151,7 @@ export function ClientForm({
             autoComplete="address-line1"
           />
         </Field>
-        <Field label="Dirección (línea 2)" htmlFor="addressLine2" className="sm:col-span-2">
+        <Field label="Dirección (línea 2)" htmlFor="addressLine2">
           <Input
             id="addressLine2"
             value={values.addressLine2}
@@ -167,8 +169,8 @@ export function ClientForm({
             autoComplete="address-level2"
           />
         </Field>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Estado (EE. UU.)" htmlFor="state" hint="2 letras, ej. TX">
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Estado" htmlFor="state" hint={compact ? undefined : "2 letras, ej. TX"}>
             <Input
               id="state"
               value={values.state}
@@ -177,7 +179,7 @@ export function ClientForm({
               autoComplete="address-level1"
             />
           </Field>
-          <Field label="Código postal" htmlFor="postalCode">
+          <Field label="C.P." htmlFor="postalCode">
             <Input
               id="postalCode"
               value={values.postalCode}
@@ -186,7 +188,7 @@ export function ClientForm({
             />
           </Field>
         </div>
-        <Field label="Fuente" htmlFor="source" hint="¿Cómo llegó? (referido, web…)" >
+        <Field label="Fuente" htmlFor="source" hint={compact ? undefined : "¿Cómo llegó? (referido, web…)"}>
           <Input
             id="source"
             value={values.source}
@@ -227,21 +229,27 @@ export function ClientForm({
         ) : null}
       </div>
 
-      <div className="flex items-center gap-2 border-t border-border-subtle pt-4">
-        <Button type="submit" disabled={pending}>
+      <div
+        className={`flex items-center gap-2 ${
+          compact ? "pt-1" : "border-t border-border-subtle pt-4"
+        }`}
+      >
+        <Button type="submit" size={compact ? "sm" : "md"} disabled={pending}>
           {pending
             ? "Guardando…"
             : mode === "create"
               ? "Crear cliente"
               : "Guardar cambios"}
         </Button>
-        <Button
-          variant="secondary"
-          onClick={() => router.back()}
-          disabled={pending}
-        >
-          Cancelar
-        </Button>
+        {compact ? null : (
+          <Button
+            variant="secondary"
+            onClick={() => router.back()}
+            disabled={pending}
+          >
+            Cancelar
+          </Button>
+        )}
       </div>
     </form>
   );

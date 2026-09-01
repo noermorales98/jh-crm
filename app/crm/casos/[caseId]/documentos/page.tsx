@@ -48,9 +48,10 @@ export default async function CaseDocumentsPage({
       <Card>
         <CardHeader
           title="Documentos del proceso"
-          description="Cartas de disputa, reportes de crédito y actualizaciones ligadas a este caso."
+          description="Cartas, reportes y adjuntos de este caso."
+          compact
         />
-        <CardBody className="space-y-6">
+        <CardBody className="space-y-3 px-4 py-3">
           {storageReady ? (
             canUpload ? (
               <DocumentUploader clientId={creditCase.client.id} caseId={creditCase.id} />

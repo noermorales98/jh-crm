@@ -180,6 +180,7 @@ model User {
   auditLogs        AuditLog[]      @relation("AuditActor")
   notifications    Notification[]
   intakeLinks      IntakeLink[]    @relation("IntakeLinkCreator")
+  aiChats          AiChat[]
 }
 
 model Organization {
@@ -206,6 +207,7 @@ model Organization {
   receipts           Receipt[]
   notifications      Notification[]
   auditLogs          AuditLog[]
+  aiChats            AiChat[]
   intakeLinks        IntakeLink[]
   intakeSubmissions  IntakeSubmission[]
   consents           ConsentRecord[]
@@ -815,4 +817,19 @@ model ExternalReference {
   @@index([organizationId, provider])
   @@index([clientId, provider])
   @@index([caseId, provider])
+}
+
+model AiChat {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  title          String   @db.VarChar(120)
+  messages       Json
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, userId, updatedAt])
 }

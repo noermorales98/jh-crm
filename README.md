@@ -34,7 +34,7 @@ Login con `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` definidos en
 
 - `DATABASE_URL` — MySQL remoto.
 - `AUTH_SECRET` — secreto de sesión NextAuth.
-- `CRON_SECRET` — Bearer token para `GET /api/cron/reminders` y `GET /api/cron/digest`.
+- `CRON_SECRET` — Bearer token para `GET /api/cron/reminders`, `GET /api/cron/digest` y `GET /api/cron/mails-sync`.
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` / `BOOTSTRAP_OWNER_NAME`.
 - `OPENROUTER_API_KEY` — chat de IA en el CRM (modelos gratuitos). Opcional: `OPENROUTER_API_KEY_SECONDARY`.
 
@@ -69,8 +69,17 @@ la configuración de la empresa y las rutas para guiar al usuario con enlaces
 
 ## Cron (cron-job.org)
 
-Crea **dos** jobs en [cron-job.org](https://cron-job.org/en/) contra la URL de producción.
-Ambos usan el header `Authorization: Bearer $CRON_SECRET`.
+No hay cron de Vercel (`vercel.json` / Cron Jobs del dashboard). Todo se dispara desde [cron-job.org](https://cron-job.org/en/) contra la URL de producción.
+Crea **tres** jobs. Todos usan el header `Authorization: Bearer $CRON_SECRET`.
+
+### Correos (IMAP)
+
+- URL: `https://TU-DOMINIO/api/cron/mails-sync`
+- Método: `GET`
+- Cada **1 minuto**
+- Header: `Authorization` = `Bearer $CRON_SECRET`
+- Importa correos nuevos y avisa en la campana y por WhatsApp (si está activo).
+- Idempotente: el mismo mensaje no se importa ni notifica dos veces.
 
 ### Recordatorios (tareas, revisiones, pagos)
 

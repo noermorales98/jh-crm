@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `MailMessage` MODIFY `folder` ENUM('INBOX', 'SENT', 'DRAFTS', 'ARCHIVE', 'SPAM', 'TRASH') NOT NULL DEFAULT 'INBOX';

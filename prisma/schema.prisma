@@ -100,7 +100,23 @@ enum ActivityType {
   QUOTE_SENT
   PAYMENT_RECORDED
   RECEIPT_CREATED
+  MAIL_SENT
+  MAIL_RECEIVED
   OTHER
+}
+
+enum MailFolder {
+  INBOX
+  SENT
+  DRAFTS
+  ARCHIVE
+  SPAM
+  TRASH
+}
+
+enum MailDirection {
+  INBOUND
+  OUTBOUND
 }
 
 enum QuoteStatus {
@@ -156,6 +172,7 @@ enum NotificationType {
   PAYMENT_DUE
   SYSTEM
   DAILY_DIGEST
+  MAIL_RECEIVED
 }
 
 model User {
@@ -182,6 +199,7 @@ model User {
   notifications    Notification[]
   intakeLinks      IntakeLink[]    @relation("IntakeLinkCreator")
   aiChats          AiChat[]
+  createdMails     MailMessage[] @relation("MailCreator")
 }
 
 model Organization {
@@ -214,6 +232,7 @@ model Organization {
   consents           ConsentRecord[]
   externalReferences ExternalReference[]
   whatsappRecipients WhatsappRecipient[]
+  mailMessages       MailMessage[]
 }
 
 model OrganizationSettings {
@@ -260,6 +279,8 @@ model OrganizationSettings {
   notifyWhatsappPayment    Boolean  @default(true)
   notifyEmailDigest        Boolean  @default(true)
   notifyWhatsappDigest     Boolean  @default(true)
+  notifyEmailMail          Boolean  @default(true)
+  notifyWhatsappMail       Boolean  @default(true)
   emailClientPaymentDue    Boolean  @default(false)
   emailClientDocsPending   Boolean  @default(false)
   emailClientQuoteSent     Boolean  @default(false)
@@ -359,6 +380,7 @@ model Client {
   intakeSubmits   IntakeSubmission[]
   consents        ConsentRecord[]
   externalRefs    ExternalReference[]
+  mailMessages    MailMessage[]
 
   @@unique([organizationId, clientCode])
   @@index([organizationId, status])
@@ -872,4 +894,44 @@ model AiChat {
   user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([organizationId, userId, updatedAt])
+}
+
+model MailMessage {
+  id                 String        @id @default(cuid())
+  organizationId     String
+  folder             MailFolder    @default(INBOX)
+  direction          MailDirection
+  fromAddress        String
+  fromName           String?
+  toAddresses        Json
+  ccAddresses        Json?
+  subject            String        @db.VarChar(500)
+  bodyText           String        @db.Text
+  bodyHtml           String?       @db.LongText
+  translationEsSubject String?     @db.VarChar(500)
+  translationEsBody    String?     @db.Text
+  translatedAt         DateTime?
+  isRead             Boolean       @default(false)
+  internetMessageId  String?       @db.VarChar(255)
+  inReplyToId        String?
+  clientId           String?
+  createdById        String?
+  sentAt             DateTime?
+  receivedAt         DateTime?
+  archivedAt         DateTime?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("MailCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  inReplyTo    MailMessage? @relation("MailThread", fields: [inReplyToId], references: [id], onDelete: SetNull)
+  replies      MailMessage[] @relation("MailThread")
+
+  @@unique([organizationId, internetMessageId])
+  @@index([organizationId, folder, createdAt])
+  @@index([organizationId, isRead, folder])
+  @@index([clientId])
+  @@index([createdById])
+  @@index([inReplyToId])
 }

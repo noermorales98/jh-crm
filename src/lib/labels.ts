@@ -119,6 +119,8 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   QUOTE_SENT: "Cotización enviada",
   PAYMENT_RECORDED: "Pago registrado",
   RECEIPT_CREATED: "Recibo emitido",
+  MAIL_SENT: "Correo enviado",
+  MAIL_RECEIVED: "Correo recibido",
   OTHER: "Otro",
 };
 
@@ -129,6 +131,17 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   ROUND_REVIEW_DUE: "Revisión de ronda",
   PAYMENT_DUE: "Pago pendiente",
   SYSTEM: "Sistema",
+  DAILY_DIGEST: "Resumen diario",
+  MAIL_RECEIVED: "Correo nuevo",
+};
+
+export const MAIL_FOLDER_LABELS: Record<string, string> = {
+  INBOX: "Bandeja de entrada",
+  SENT: "Enviados",
+  DRAFTS: "Borradores",
+  ARCHIVE: "Archivados",
+  SPAM: "Spam",
+  TRASH: "Papelera",
 };
 
 export function labelFor(map: Record<string, string>, value: string): string {

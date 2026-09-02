@@ -24,6 +24,7 @@ export const authConfig = {
         pathname.startsWith("/api/auth") ||
         pathname.startsWith("/api/public") ||
         pathname.startsWith("/api/cron") ||
+        pathname.startsWith("/api/mails") ||
         pathname === "/api/health" ||
         pathname.startsWith("/_next") ||
         pathname === "/favicon.ico" ||

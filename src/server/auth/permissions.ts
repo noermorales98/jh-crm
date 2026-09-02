@@ -24,6 +24,7 @@ export const PERMISSION_ACTIONS = [
   "receipts.view",
   "catalog.view",
   "dashboard.view",
+  "mails.view",
   // Escritura operativa
   "clients.create",
   "clients.edit",
@@ -33,6 +34,7 @@ export const PERMISSION_ACTIONS = [
   "documents.upload",
   "quotes.manage",
   "payments.register",
+  "mails.manage",
   // Datos sensibles
   "sensitive.view",
   "sensitive.edit",
@@ -58,6 +60,7 @@ const ALL_READ: PermissionAction[] = [
   "receipts.view",
   "catalog.view",
   "dashboard.view",
+  "mails.view",
 ];
 
 const STAFF_WRITE: PermissionAction[] = [
@@ -69,6 +72,7 @@ const STAFF_WRITE: PermissionAction[] = [
   "documents.upload",
   "quotes.manage",
   "payments.register",
+  "mails.manage",
 ];
 
 const SENSITIVE: PermissionAction[] = [

@@ -25,6 +25,7 @@ const SECTION_TITLES: Record<string, string> = {
   pagos: "Pagos",
   recibos: "Recibos",
   chats: "Chats",
+  mails: "Correos",
   usuarios: "Usuarios",
   auditoria: "Auditoría",
   configuracion: "Configuración",
@@ -175,6 +176,9 @@ export function headerForPath(pathname: string): {
   }
 
   const last = parts[parts.length - 1];
+  if (section === "mails" && last === "nuevo") {
+    return { title: "Redactar", backHref: "/crm/mails" };
+  }
   const nestedTitle = NESTED_TITLES[last];
   const title = nestedTitle
     ? nestedTitle

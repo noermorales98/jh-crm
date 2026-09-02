@@ -4,7 +4,7 @@ import { safeEqual } from "@/src/lib/security/tokens";
 import { createNotification } from "@/src/server/notifications";
 
 /**
- * GET /api/cron/reminders — cron cada 15 minutos.
+ * GET /api/cron/reminders — cron-job.org cada 15 minutos.
  *
  * Protección: Authorization: Bearer <CRON_SECRET> (comparación timing-safe).
  * Idempotente: cada Notification lleva dedupeKey único (upsert), por lo que

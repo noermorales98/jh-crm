@@ -1,4 +1,5 @@
 import { decrypt } from "@/src/lib/security/encryption";
+import { DomainError } from "@/src/server/errors";
 
 export type SmtpSettings = {
   smtpHost: string | null;
@@ -9,15 +10,33 @@ export type SmtpSettings = {
   smtpSecure: boolean;
 };
 
+export type SmtpMessage = {
+  to: string | string[];
+  cc?: string | string[];
+  subject: string;
+  text: string;
+  html?: string;
+  inReplyTo?: string;
+  references?: string;
+};
+
 export function isSmtpConfigured(s: SmtpSettings): boolean {
   return Boolean(s.smtpHost && s.smtpPort && s.smtpFrom);
 }
 
 export async function sendSmtpMail(
   settings: SmtpSettings,
-  message: { to: string; subject: string; text: string },
-): Promise<void> {
-  if (!isSmtpConfigured(settings)) return;
+  message: SmtpMessage,
+  options?: { requireConfigured?: boolean },
+): Promise<{ messageId?: string }> {
+  if (!isSmtpConfigured(settings)) {
+    if (options?.requireConfigured) {
+      throw new DomainError(
+        "El servidor SMTP no está configurado. Ve a Configuración → Notificaciones.",
+      );
+    }
+    return {};
+  }
   const nodemailer = await import("nodemailer");
   const password = settings.smtpPasswordEncrypted
     ? decrypt(settings.smtpPasswordEncrypted)
@@ -30,10 +49,15 @@ export async function sendSmtpMail(
       ? { user: settings.smtpUser, pass: password }
       : undefined,
   });
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from: settings.smtpFrom!,
     to: message.to,
+    cc: message.cc,
     subject: message.subject,
     text: message.text,
+    html: message.html,
+    inReplyTo: message.inReplyTo,
+    references: message.references,
   });
+  return { messageId: info.messageId };
 }

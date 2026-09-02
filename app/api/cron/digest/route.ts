@@ -7,7 +7,7 @@ import { createNotification } from "@/src/server/notifications";
 import { getDashboardSummary } from "@/src/server/dashboard";
 
 /**
- * GET /api/cron/digest — cron cada hora.
+ * GET /api/cron/digest — cron-job.org cada hora.
  * Solo envía si digestEnabled y la hora local de la org coincide con digestHour.
  */
 

@@ -6,4 +6,10 @@ export {
   type ClientCreateInput,
   type ClientUpdateInput,
 } from "./client";
-export type { } from "./common";
+export {
+  mailComposeSchema,
+  mailDraftSchema,
+  parseAddressList,
+  type MailComposeInput,
+  type MailDraftInput,
+} from "./mail";

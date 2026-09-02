@@ -11,6 +11,7 @@ const crmPrefixes = [
   "pagos",
   "recibos",
   "chats",
+  "mails",
   "usuarios",
   "auditoria",
   "configuracion",
@@ -62,6 +63,7 @@ const nextConfig: NextConfig = {
       },
     ]);
   },
+  serverExternalPackages: ["imapflow", "mailparser"],
 };
 
 export default nextConfig;

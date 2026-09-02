@@ -29,6 +29,8 @@ export const CRM_ROUTES = [
   { href: "/crm/pagos/nuevo", label: "Registrar pago", how: "Cliente, cotización opcional, monto, método (Zelle, Stripe, efectivo, transferencia)." },
   { href: "/crm/recibos", label: "Recibos", how: "Recibos emitidos al confirmar un pago. Se pueden anular (admin)." },
   { href: "/crm/chats", label: "Chats", how: "Historial de conversaciones con el asistente. Crear un chat nuevo o continuar uno reciente." },
+  { href: "/crm/mails", label: "Correos", how: "Bandeja de la organización: ver, enviar, archivar, traducir al español y eliminar correos. Redactar en /crm/mails/nuevo. cron-job.org llama /api/cron/mails-sync cada minuto para IMAP y avisos." },
+  { href: "/crm/mails/nuevo", label: "Redactar correo", how: "Enviar un correo por SMTP. La copia queda en Enviados. Se puede enlazar a un cliente." },
   { href: "/crm/usuarios", label: "Usuarios", how: "Miembros de la organización e invitaciones (solo admin/owner)." },
   { href: "/crm/auditoria", label: "Auditoría", how: "Eventos sensibles: perfil, documentos, recibos (solo admin/owner)." },
   { href: "/crm/configuracion", label: "Configuración", how: "Datos de empresa, moneda, prefijos, hasta 4 números WhatsApp CallMeBot." },
@@ -69,6 +71,12 @@ export const HOW_TO_GUIDE = `
 ### Registrar un pago y ver el recibo
 1. [Registrar pago](/crm/pagos/nuevo) (se puede partir de una cotización).
 2. Al marcar recibido se emite recibo con folio. Ver [Recibos](/crm/recibos) o PDF.
+
+### Enviar un correo
+1. [Correos](/crm/mails) → Redactar, o /crm/mails/nuevo.
+2. Para, asunto y mensaje. Opcional: enlazar un cliente.
+3. Enviar (SMTP de Configuración → Notificaciones) o guardar borrador. Archivar o eliminar desde el detalle.
+4. En el detalle: Traducir al español (IA, o MyMemory si no hay clave). Los correos nuevos se sincronizan cada minuto y avisan en la campana y por WhatsApp.
 
 ### Invitar un usuario
 1. [Usuarios](/crm/usuarios) (admin/owner). Invitar con correo y rol.

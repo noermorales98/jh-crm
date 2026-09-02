@@ -29,8 +29,10 @@
     "blobatar": "^2.7.0",
     "cuelume": "^0.2.2",
     "date-fns": "^4.4.0",
+    "imapflow": "^1.7.8",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.38.0",
+    "mailparser": "^3.9.20",
     "next": "16.3.4",
     "next-auth": "^5.0.0-beta.32",
     "nodemailer": "^8.0.11",
@@ -41,6 +43,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/mailparser": "^3.4.6",
     "@types/node": "^20",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19",

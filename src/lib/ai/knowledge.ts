@@ -31,7 +31,7 @@ export const CRM_ROUTES = [
   { href: "/crm/chats", label: "Chats", how: "Historial de conversaciones con el asistente. Crear un chat nuevo o continuar uno reciente." },
   { href: "/crm/usuarios", label: "Usuarios", how: "Miembros de la organización e invitaciones (solo admin/owner)." },
   { href: "/crm/auditoria", label: "Auditoría", how: "Eventos sensibles: perfil, documentos, recibos (solo admin/owner)." },
-  { href: "/crm/configuracion", label: "Configuración", how: "Datos de empresa, moneda, prefijos, WhatsApp CallMeBot." },
+  { href: "/crm/configuracion", label: "Configuración", how: "Datos de empresa, moneda, prefijos, hasta 4 números WhatsApp CallMeBot." },
   { href: "/crm/configuracion/etapas", label: "Etapas del pipeline", how: "Etapas del caso: nombre, color y orden." },
 ] as const;
 

@@ -5,6 +5,11 @@ import {
   formatWhatsappNotification,
   sendCallmebotMessage,
 } from "./callmebot";
+import {
+  MAX_WHATSAPP_RECIPIENTS,
+  selectWhatsappDeliveryTargets,
+  sendWhatsappToEach,
+} from "./whatsapp-recipients";
 
 /**
  * Notificaciones in-app + WhatsApp (CallMeBot).
@@ -76,39 +81,52 @@ async function deliverWhatsapp(notification: {
   body: string | null;
   link: string | null;
 }) {
-  const settings = await prisma.organizationSettings.findUnique({
-    where: { organizationId: notification.organizationId },
-    select: {
-      callmebotEnabled: true,
-      callmebotPhone: true,
-      callmebotApiKeyEncrypted: true,
-    },
-  });
-  if (
-    !settings?.callmebotEnabled ||
-    !settings.callmebotPhone ||
-    !settings.callmebotApiKeyEncrypted
-  ) {
-    return;
-  }
-
-  let apiKey: string;
-  try {
-    apiKey = decrypt(settings.callmebotApiKeyEncrypted);
-  } catch {
-    console.error("[notifications] no se pudo descifrar el API key de CallMeBot.");
-    return;
-  }
-
-  await sendCallmebotMessage({
-    phone: settings.callmebotPhone,
-    apiKey,
-    text: formatWhatsappNotification({
-      title: notification.title,
-      body: notification.body,
-      link: notification.link,
+  const [settings, recipients] = await Promise.all([
+    prisma.organizationSettings.findUnique({
+      where: { organizationId: notification.organizationId },
+      select: { callmebotEnabled: true },
     }),
+    prisma.whatsappRecipient.findMany({
+      where: { organizationId: notification.organizationId },
+      orderBy: { sortOrder: "asc" },
+      take: MAX_WHATSAPP_RECIPIENTS,
+      select: {
+        id: true,
+        enabled: true,
+        phone: true,
+        apiKeyEncrypted: true,
+      },
+    }),
+  ]);
+
+  const targets = selectWhatsappDeliveryTargets({
+    callmebotEnabled: Boolean(settings?.callmebotEnabled),
+    recipients,
   });
+  if (targets.length === 0) return;
+
+  const text = formatWhatsappNotification({
+    title: notification.title,
+    body: notification.body,
+    link: notification.link,
+  });
+
+  const ready: Array<{ phone: string; apiKey: string }> = [];
+  for (const target of targets) {
+    try {
+      ready.push({
+        phone: target.phone,
+        apiKey: decrypt(target.apiKeyEncrypted),
+      });
+    } catch {
+      console.error(
+        "[notifications] no se pudo descifrar el API key de CallMeBot.",
+      );
+    }
+  }
+  if (ready.length === 0) return;
+
+  await sendWhatsappToEach(ready, text, sendCallmebotMessage);
 }
 
 export async function listNotificationsForUser(

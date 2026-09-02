@@ -40,8 +40,18 @@ const settingsSchema = z.object({
   casePrefix: z.string().trim().optional(),
   defaultTerms: z.string().trim().max(10000).nullish(),
   callmebotEnabled: z.boolean().optional(),
-  callmebotPhone: z.string().trim().max(20).nullish(),
-  callmebotApiKey: z.string().trim().max(80).optional(),
+  whatsappRecipients: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(40).nullish(),
+        label: z.string().trim().max(80),
+        phone: z.string().trim().max(20),
+        apiKey: z.string().trim().max(80).optional(),
+        enabled: z.boolean(),
+      }),
+    )
+    .max(4)
+    .optional(),
 });
 
 export async function updateSettings(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -57,10 +67,13 @@ export async function updateSettings(input: unknown): Promise<ActionResult<{ id:
   }
 }
 
-export async function sendTestWhatsapp(): Promise<ActionResult<{ message: string }>> {
+export async function sendTestWhatsapp(
+  recipientId: string,
+): Promise<ActionResult<{ message: string }>> {
   try {
     const ctx = await requireRole("OWNER", "ADMIN");
-    const result = await configService.sendTestWhatsapp(ctx);
+    const id = cuidSchema.parse(recipientId);
+    const result = await configService.sendTestWhatsapp(ctx, id);
     revalidatePath("/crm", "layout");
     revalidatePath("/crm/configuracion");
     return actionOk({ message: result.message });

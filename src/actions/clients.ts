@@ -20,7 +20,10 @@ import * as clientService from "@/src/server/clients";
 function revalidateClients(clientId?: string) {
   revalidatePath("/crm/clientes");
   revalidatePath("/crm/dashboard");
-  if (clientId) revalidatePath(`/crm/clientes/${clientId}`);
+  if (clientId) {
+    revalidatePath(`/crm/clientes/${clientId}`);
+    revalidatePath(`/crm/clientes/${clientId}/expediente`);
+  }
 }
 
 export async function createClient(

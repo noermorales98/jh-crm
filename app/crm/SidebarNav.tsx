@@ -12,9 +12,6 @@ import {
   CreditCard,
   Receipt,
   MessageCircle,
-  UserCog,
-  ScrollText,
-  Settings,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Home01Icon } from "@hugeicons/core-free-icons";
@@ -35,9 +32,6 @@ const NAV_ITEMS: readonly {
   { href: "/crm/pagos", label: "Pagos", icon: CreditCard },
   { href: "/crm/recibos", label: "Recibos", icon: Receipt },
   { href: "/crm/chats", label: "Chats", icon: MessageCircle },
-  { href: "/crm/usuarios", label: "Usuarios", icon: UserCog },
-  { href: "/crm/auditoria", label: "Auditoría", icon: ScrollText },
-  { href: "/crm/configuracion", label: "Configuración", icon: Settings },
 ];
 
 export function SidebarNav() {

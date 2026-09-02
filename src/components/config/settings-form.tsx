@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { play } from "cuelume";
+import { Plus, Trash2 } from "lucide-react";
 import {
   Alert,
   Button,
@@ -11,6 +12,16 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { sendTestWhatsapp, updateSettings } from "@/src/actions/config";
+
+const MAX_WHATSAPP_RECIPIENTS = 4;
+
+export type WhatsappRecipientFormValue = {
+  id: string;
+  label: string;
+  phone: string;
+  apiKeyConfigured: boolean;
+  enabled: boolean;
+};
 
 export interface SettingsFormValues {
   legalName: string;
@@ -33,8 +44,29 @@ export interface SettingsFormValues {
   casePrefix: string;
   defaultTerms: string;
   callmebotEnabled: boolean;
-  callmebotPhone: string;
-  callmebotApiKeyConfigured: boolean;
+  whatsappRecipients: WhatsappRecipientFormValue[];
+}
+
+type RecipientDraft = {
+  key: string;
+  id: string | null;
+  label: string;
+  phone: string;
+  apiKey: string;
+  apiKeyConfigured: boolean;
+  enabled: boolean;
+};
+
+function draftsFromValues(values: SettingsFormValues): RecipientDraft[] {
+  return values.whatsappRecipients.map((row) => ({
+    key: row.id,
+    id: row.id,
+    label: row.label,
+    phone: row.phone,
+    apiKey: "",
+    apiKeyConfigured: row.apiKeyConfigured,
+    enabled: row.enabled,
+  }));
 }
 
 /** Formulario de OrganizationSettings (solo OWNER/ADMIN). */
@@ -45,12 +77,24 @@ export function SettingsForm({
 }) {
   const router = useRouter();
   const [values, setValues] = useState<SettingsFormValues>(initialValues);
-  const [apiKey, setApiKey] = useState("");
+  const [recipients, setRecipients] = useState<RecipientDraft[]>(() =>
+    draftsFromValues(initialValues),
+  );
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [testing, startTest] = useTransition();
+
+  const recipientsStamp = initialValues.whatsappRecipients
+    .map((row) => `${row.id}:${row.phone}:${row.label}:${row.enabled}:${row.apiKeyConfigured}`)
+    .join("|");
+
+  useEffect(() => {
+    setValues(initialValues);
+    setRecipients(draftsFromValues(initialValues));
+  }, [initialValues, recipientsStamp]);
 
   function set<K extends keyof SettingsFormValues>(
     key: K,
@@ -86,8 +130,13 @@ export function SettingsForm({
         casePrefix: values.casePrefix.trim().toUpperCase(),
         defaultTerms: values.defaultTerms.trim() || null,
         callmebotEnabled: values.callmebotEnabled,
-        callmebotPhone: values.callmebotPhone.trim() || null,
-        callmebotApiKey: apiKey.trim() || undefined,
+        whatsappRecipients: recipients.map((row) => ({
+          id: row.id,
+          label: row.label,
+          phone: row.phone,
+          apiKey: row.apiKey.trim() || undefined,
+          enabled: row.enabled,
+        })),
       });
       if (!result.ok) {
         play("error");
@@ -95,12 +144,14 @@ export function SettingsForm({
         return;
       }
       play("success");
-      const savedKey = Boolean(apiKey.trim());
       setSuccess(true);
-      setApiKey("");
-      if (savedKey) {
-        setValues((v) => ({ ...v, callmebotApiKeyConfigured: true }));
-      }
+      setRecipients((rows) =>
+        rows.map((row) => ({
+          ...row,
+          apiKey: "",
+          apiKeyConfigured: row.apiKeyConfigured || Boolean(row.apiKey.trim()),
+        })),
+      );
       router.refresh();
     });
   }
@@ -316,11 +367,11 @@ export function SettingsForm({
           Notificaciones WhatsApp (CallMeBot)
         </h3>
         <Alert tone="info">
-          CallMeBot envía avisos a <strong>tu</strong> WhatsApp (uso personal).
-          Activa el bot una vez: agrégalo al +34 684 72 39 62, envía{" "}
-          <em>I allow callmebot to send me messages</em> y pega aquí el API key
-          que te responda. El número y la clave se guardan en la base de datos,
-          no en variables de entorno.
+          CallMeBot envía avisos a <strong>tu</strong> WhatsApp (uso personal),
+          no a clientes. Cada persona activa el bot una vez: agrégalo al +34 684
+          72 39 62, envía <em>I allow callmebot to send me messages</em> y pega
+          aquí el API key que te responda. Hasta {MAX_WHATSAPP_RECIPIENTS}{" "}
+          números; cada aviso se envía a todos los activos, uno por uno.
         </Alert>
         <label className="flex items-center gap-2 text-sm text-text-secondary-strong">
           <input
@@ -335,78 +386,187 @@ export function SettingsForm({
           />
           Enviar notificaciones del CRM por WhatsApp
         </label>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Field
-            label="Número de WhatsApp"
-            htmlFor="callmebotPhone"
-            hint="Con código de país, sin espacios. Ej. +17135551234"
-            required={values.callmebotEnabled}
-          >
-            <Input
-              id="callmebotPhone"
-              type="tel"
-              value={values.callmebotPhone}
-              onChange={(e) => set("callmebotPhone", e.target.value)}
-              placeholder="+17135551234"
-              maxLength={20}
-              autoComplete="off"
-            />
-          </Field>
-          <Field
-            label="API key de CallMeBot"
-            htmlFor="callmebotApiKey"
-            hint={
-              values.callmebotApiKeyConfigured
-                ? "Ya hay una clave guardada. Déjalo vacío para conservarla."
-                : "La que te envió el bot por WhatsApp."
-            }
-            required={values.callmebotEnabled && !values.callmebotApiKeyConfigured}
-          >
-            <Input
-              id="callmebotApiKey"
-              type="password"
-              value={apiKey}
-              onChange={(e) => {
-                setApiKey(e.target.value);
-                setSuccess(false);
-              }}
-              placeholder={
-                values.callmebotApiKeyConfigured ? "••••••••" : "Ej. 123456"
-              }
-              maxLength={80}
-              autoComplete="off"
-            />
-          </Field>
+        <div className="space-y-4">
+          {recipients.map((row, index) => (
+            <div
+              key={row.key}
+              className="space-y-3 rounded-control border border-border-subtle p-4"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-ink">
+                  Número {index + 1}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => {
+                    setRecipients((rows) => rows.filter((item) => item.key !== row.key));
+                    setSuccess(false);
+                  }}
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                  Quitar
+                </Button>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Nombre" htmlFor={`wa-label-${row.key}`}>
+                  <Input
+                    id={`wa-label-${row.key}`}
+                    value={row.label}
+                    onChange={(e) => {
+                      const label = e.target.value;
+                      setRecipients((rows) =>
+                        rows.map((item) =>
+                          item.key === row.key ? { ...item, label } : item,
+                        ),
+                      );
+                      setSuccess(false);
+                    }}
+                    placeholder="Jazmín"
+                    maxLength={80}
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field
+                  label="Número de WhatsApp"
+                  htmlFor={`wa-phone-${row.key}`}
+                  hint="Con código de país. Ej. +17135551234"
+                >
+                  <Input
+                    id={`wa-phone-${row.key}`}
+                    type="tel"
+                    value={row.phone}
+                    onChange={(e) => {
+                      const phone = e.target.value;
+                      setRecipients((rows) =>
+                        rows.map((item) =>
+                          item.key === row.key ? { ...item, phone } : item,
+                        ),
+                      );
+                      setSuccess(false);
+                    }}
+                    placeholder="+17135551234"
+                    maxLength={20}
+                    autoComplete="off"
+                  />
+                </Field>
+                <Field
+                  label="API key de CallMeBot"
+                  htmlFor={`wa-key-${row.key}`}
+                  hint={
+                    row.apiKeyConfigured
+                      ? "Ya hay una clave guardada. Déjalo vacío para conservarla."
+                      : "La que te envió el bot por WhatsApp."
+                  }
+                  className="sm:col-span-2"
+                >
+                  <Input
+                    id={`wa-key-${row.key}`}
+                    type="password"
+                    value={row.apiKey}
+                    onChange={(e) => {
+                      const apiKey = e.target.value;
+                      setRecipients((rows) =>
+                        rows.map((item) =>
+                          item.key === row.key ? { ...item, apiKey } : item,
+                        ),
+                      );
+                      setSuccess(false);
+                    }}
+                    placeholder={row.apiKeyConfigured ? "••••••••" : "Ej. 123456"}
+                    maxLength={80}
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <label className="flex items-center gap-2 text-sm text-text-secondary-strong">
+                  <input
+                    type="checkbox"
+                    data-cuelume-toggle="toggle"
+                    checked={row.enabled}
+                    onChange={(e) => {
+                      const enabled = e.target.checked;
+                      setRecipients((rows) =>
+                        rows.map((item) =>
+                          item.key === row.key ? { ...item, enabled } : item,
+                        ),
+                      );
+                      setSuccess(false);
+                    }}
+                    className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+                  />
+                  Activo
+                </label>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={testing || pending || !row.id}
+                  onClick={() => {
+                    if (!row.id) return;
+                    setError(null);
+                    setTestMessage(null);
+                    setTestingId(row.id);
+                    startTest(async () => {
+                      const result = await sendTestWhatsapp(row.id!);
+                      setTestingId(null);
+                      if (!result.ok) {
+                        play("error");
+                        setError(result.error);
+                        return;
+                      }
+                      play("success");
+                      setTestMessage(
+                        `Prueba enviada a ${row.label || row.phone}. Revisa WhatsApp.`,
+                      );
+                      router.refresh();
+                    });
+                  }}
+                >
+                  {testing && testingId === row.id
+                    ? "Enviando…"
+                    : "Enviar prueba"}
+                </Button>
+              </div>
+              {!row.id ? (
+                <p className="text-xs text-text-secondary">
+                  Guarda los cambios para poder enviar una prueba a este número.
+                </p>
+              ) : null}
+            </div>
+          ))}
         </div>
-        <div>
+        {recipients.length < MAX_WHATSAPP_RECIPIENTS ? (
           <Button
             type="button"
             variant="secondary"
-            disabled={testing || pending}
+            disabled={pending}
             onClick={() => {
-              setError(null);
-              setTestMessage(null);
-              startTest(async () => {
-                const result = await sendTestWhatsapp();
-                if (!result.ok) {
-                  play("error");
-                  setError(result.error);
-                  return;
-                }
-                play("success");
-                setTestMessage(
-                  "Mensaje de prueba enviado. Revisa WhatsApp y la campana del header.",
-                );
-                router.refresh();
-              });
+              setRecipients((rows) => [
+                ...rows,
+                {
+                  key: `new-${crypto.randomUUID()}`,
+                  id: null,
+                  label: "",
+                  phone: "",
+                  apiKey: "",
+                  apiKeyConfigured: false,
+                  enabled: true,
+                },
+              ]);
+              setSuccess(false);
             }}
           >
-            {testing ? "Enviando prueba…" : "Enviar mensaje de prueba"}
+            <Plus className="size-4" aria-hidden />
+            Añadir número
           </Button>
-          {testMessage ? (
-            <p className="mt-2 text-xs text-emerald-700">{testMessage}</p>
-          ) : null}
-        </div>
+        ) : null}
+        {testMessage ? (
+          <p className="text-xs text-emerald-700">{testMessage}</p>
+        ) : null}
       </section>
 
       <div className="flex items-center gap-2 border-t border-border-subtle pt-4">

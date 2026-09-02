@@ -1,6 +1,14 @@
 import { z } from "zod";
 import { emailSchema, usPhoneSchema, usStateSchema, postalCodeSchema } from "./common";
 
+const CLIENT_EDITABLE_STATUSES = [
+  "LEAD",
+  "ACTIVE",
+  "PAUSED",
+  "COMPLETED",
+  "CANCELLED",
+] as const;
+
 /** Cliente: datos NO sensibles. El SSN vive en ClientSensitiveProfile. */
 export const clientCreateSchema = z.object({
   firstName: z.string().trim().min(1, "El nombre es obligatorio.").max(100),
@@ -15,7 +23,10 @@ export const clientCreateSchema = z.object({
   source: z.string().trim().max(100).optional().or(z.literal("")),
 });
 
-export const clientUpdateSchema = clientCreateSchema.partial();
+export const clientUpdateSchema = clientCreateSchema.partial().extend({
+  status: z.enum(CLIENT_EDITABLE_STATUSES).optional(),
+  assignedToId: z.string().trim().optional().or(z.literal("")),
+});
 
 /** Datos sensibles: solo SPECIALIST/ADMIN/OWNER (ver permissions.ts). */
 export const sensitiveProfileSchema = z.object({

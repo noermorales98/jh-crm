@@ -212,6 +212,7 @@ model Organization {
   intakeSubmissions  IntakeSubmission[]
   consents           ConsentRecord[]
   externalReferences ExternalReference[]
+  whatsappRecipients WhatsappRecipient[]
 }
 
 model OrganizationSettings {
@@ -240,13 +241,28 @@ model OrganizationSettings {
   clientCounter  Int      @default(0)
   caseCounter    Int      @default(0)
   defaultTerms   String?  @db.Text
-  callmebotEnabled         Boolean  @default(false)
-  callmebotPhone           String?
-  callmebotApiKeyEncrypted String?  @db.Text
+  callmebotEnabled Boolean @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+model WhatsappRecipient {
+  id              String   @id @default(cuid())
+  organizationId  String
+  label           String
+  phone           String
+  apiKeyEncrypted String   @db.Text
+  enabled         Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, phone])
+  @@index([organizationId, enabled])
 }
 
 model OrganizationMember {

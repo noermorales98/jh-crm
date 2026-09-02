@@ -2,7 +2,7 @@
 
 Fecha: 2026-09-01  
 Proyecto: J&H CRM (`jh-crm`)  
-Estado: diseño aprobado en chat; pendiente de revisión de esta spec
+Estado: diseño aprobado en chat (incl. 2–4 destinatarios WhatsApp); pendiente de tu revisión de este archivo
 
 ## Problema
 
@@ -18,12 +18,13 @@ Las listas del CRM son una sola columna: hay que hacer mucho scroll para trabaja
 - Hora del digest: **configurable** en Ajustes; default **08:00** en el timezone de la org (`America/Chicago` salvo que se cambie).
 - Correo: **SMTP configurable a mano** (host, puerto, usuario, contraseña, remitente, TLS).
 - Destinatarios de correo: **equipo y clientes**, con plantillas distintas y cada tipo on/off.
-- WhatsApp: **solo el número del equipo** (CallMeBot actual). Los clientes no reciben WhatsApp.
+- WhatsApp: **solo el equipo**, nunca clientes. Hasta **4 números** CallMeBot; **todos los activos reciben todos** los avisos. CallMeBot no hace broadcast: **una petición HTTP por número**, en serie.
 - Cron: [cron-job.org](https://cron-job.org/en/) llama endpoints protegidos con `Authorization: Bearer CRON_SECRET`.
 
 ## Fuera de alcance
 
 - WhatsApp Business / Twilio a clientes.
+- Más de 4 números WhatsApp, enrutado por tipo de aviso, o un número por miembro del CRM.
 - Rediseño del dashboard como inbox.
 - Cambiar el chat de IA, el login o las páginas de “nuevo” (formularios de alta siguen a página completa).
 - Usuarios, auditoría y configuración de etapas no son listas master-detail.
@@ -72,8 +73,38 @@ Las subrutas (`/expediente`, `/documentos`, “Nuevo cliente”, etc.) siguen si
 ### Lo que ya existe
 
 - `GET /api/cron/reminders` cada 15 min: tareas con `reminderAt`, tareas vencidas, revisión de caso, revisión de ronda, pagos PENDING. Idempotente por `dedupeKey`.
-- `createNotification` escribe in-app y, si CallMeBot está activo, manda WhatsApp al teléfono de la org.
+- `createNotification` escribe in-app y, si CallMeBot está activo, manda WhatsApp a **cada** destinatario activo (antes: un solo teléfono de la org).
 - No hay envío de correo hoy.
+
+### Destinatarios WhatsApp (CallMeBot)
+
+Tabla nueva `WhatsappRecipient` (no un JSON ni `phone2`/`key2`):
+
+| Campo | Uso |
+| --- | --- |
+| `label` | Nombre interno (“Jazmín”, “Principal”) |
+| `phone` | E.164, misma validación actual |
+| `apiKeyEncrypted` | API key de CallMeBot, cifrada como hoy |
+| `enabled` | Apagar sin borrar |
+| `sortOrder` | Orden en el formulario |
+
+Tope **4** por organización, validado en servidor (`DomainError`). Teléfono único por org.
+
+`OrganizationSettings.callmebotEnabled` sigue siendo el interruptor global. Si está apagado, **cero** peticiones aunque haya filas activas.
+
+Migración: si la org ya tiene `callmebotPhone` + `callmebotApiKeyEncrypted`, crear una fila `label = "Principal"` y dejar de usar esos dos campos (se eliminan en la misma migrate).
+
+**Envío** (`deliverWhatsapp`):
+
+1. Si `!callmebotEnabled`, return.
+2. Cargar destinatarios `enabled` de la org, máx. 4, orden `sortOrder`.
+3. Armar el texto **una vez** con `formatWhatsappNotification`.
+4. Para cada fila, en **serie**: descifrar key → `sendCallmebotMessage({ phone, apiKey, text })`.
+5. Un fallo (red, key inválida) se loguea y **no** aborta el resto.
+
+In-app y correo se crean **una vez**. Solo WhatsApp se multiplica.
+
+**Ajustes:** lista de filas (nombre, teléfono, API key, activo, “Enviar prueba” a esa fila). “Añadir número” se oculta al llegar a 4. Key vacía al guardar = conservar la cifrada. Clientes no aparecen aquí.
 
 ### SMTP
 
@@ -144,7 +175,7 @@ cron-job.org
 
 createNotification()
   ├─ DB (in-app, dedupeKey)
-  ├─ WhatsApp CallMeBot (si toggle + settings)
+  ├─ WhatsApp: loop serial de WhatsappRecipient activos (si toggle global)
   └─ email (si toggle + SMTP)  [nuevo]
 
 sendSmtpMail(settings, { to, subject, text })
@@ -158,6 +189,8 @@ sendSmtpMail(settings, { to, subject, text })
 
 - Cron sin `CRON_SECRET` válido: 401.
 - SMTP mal configurado o rechazo del servidor: log + no tumbar el resto del job.
+- CallMeBot rechaza un número: log + continuar con los demás.
+- Destinatario sin key descifrable: skip esa fila.
 - Cliente sin email: skip.
 - Digest ya enviado hoy: no-op por `dedupeKey`.
 
@@ -167,9 +200,10 @@ sendSmtpMail(settings, { to, subject, text })
 - Cron reminders: sigue siendo idempotente.
 - Digest: no envía fuera de `digestHour`; segundo hit el mismo día no duplica.
 - SMTP: prueba desde Ajustes; si falta host, el botón explica que falta configurar.
+- WhatsApp: 2 números activos → 2 peticiones CallMeBot en serie con el mismo texto; 1 desactivado → 1 petición; global off → 0. Prueba por fila. Quinto número rechazado.
 
 ## Orden de implementación
 
 1. Master-detail en las 8 listas (SplitView + paneles).
-2. SMTP + preferencias + `/api/cron/digest` + docs de cron-job.org.
+2. Destinatarios WhatsApp (tabla + loop serial + UI) junto con SMTP + preferencias + `/api/cron/digest` + docs de cron-job.org.
 3. Correos a clientes desde el cron de reminders.

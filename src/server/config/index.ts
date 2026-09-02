@@ -9,6 +9,10 @@ import {
   sendCallmebotMessage,
 } from "@/src/server/notifications/callmebot";
 import { createNotification } from "@/src/server/notifications";
+import {
+  MAX_WHATSAPP_RECIPIENTS,
+  assertRecipientCount,
+} from "@/src/server/notifications/whatsapp-recipients";
 
 /**
  * Configuración de la organización: datos de empresa, moneda, impuesto,
@@ -36,9 +40,16 @@ export interface SettingsUpdateData {
   casePrefix?: string;
   defaultTerms?: string | null;
   callmebotEnabled?: boolean;
-  callmebotPhone?: string | null;
-  callmebotApiKey?: string | null;
+  whatsappRecipients?: WhatsappRecipientInput[];
 }
+
+export type WhatsappRecipientInput = {
+  id?: string | null;
+  label: string;
+  phone: string;
+  apiKey?: string | null;
+  enabled: boolean;
+};
 
 export async function getSettings(ctx: OrganizationContext) {
   // Bootstrap garantiza su existencia; upsert vacío por seguridad.
@@ -73,8 +84,26 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
     casePrefix: settings.casePrefix,
     defaultTerms: settings.defaultTerms ?? "",
     callmebotEnabled: settings.callmebotEnabled,
-    callmebotPhone: settings.callmebotPhone ?? "",
-    callmebotApiKeyConfigured: Boolean(settings.callmebotApiKeyEncrypted),
+    whatsappRecipients: (
+      await prisma.whatsappRecipient.findMany({
+        where: { organizationId: ctx.organizationId },
+        orderBy: { sortOrder: "asc" },
+        take: MAX_WHATSAPP_RECIPIENTS,
+        select: {
+          id: true,
+          label: true,
+          phone: true,
+          apiKeyEncrypted: true,
+          enabled: true,
+        },
+      })
+    ).map((row) => ({
+      id: row.id,
+      label: row.label,
+      phone: row.phone,
+      apiKeyConfigured: Boolean(row.apiKeyEncrypted),
+      enabled: row.enabled,
+    })),
   };
 }
 
@@ -98,91 +127,158 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
     }
   }
 
-  const current = await getSettings(ctx);
-  let callmebotPhone: string | null | undefined;
-  let callmebotApiKeyEncrypted: string | undefined;
-
-  if (data.callmebotEnabled) {
-    const phoneSource =
-      data.callmebotPhone !== undefined
-        ? data.callmebotPhone
-        : current.callmebotPhone;
-    if (!phoneSource) {
+  if (data.callmebotEnabled && data.whatsappRecipients) {
+    const usable = data.whatsappRecipients.filter((row) => row.phone.trim());
+    const hasReady = usable.some(
+      (row) =>
+        row.enabled &&
+        (Boolean(row.apiKey?.trim()) || Boolean(row.id)),
+    );
+    if (!hasReady) {
       throw new DomainError(
-        "Indica el número de WhatsApp (con código de país) para activar CallMeBot.",
+        "Añade al menos un número de WhatsApp con su API key para activar las notificaciones.",
       );
     }
-    callmebotPhone = assertCallmebotPhone(phoneSource);
-    const hasKey =
-      Boolean(current.callmebotApiKeyEncrypted) ||
-      Boolean(data.callmebotApiKey?.trim());
-    if (!hasKey) {
-      throw new DomainError(
-        "Pega el API key que te envió CallMeBot por WhatsApp para activar las notificaciones.",
-      );
+  }
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const settings = await tx.organizationSettings.update({
+        where: { organizationId: ctx.organizationId },
+        data: {
+          ...(data.legalName !== undefined ? { legalName: data.legalName } : {}),
+          ...(data.logoUrl !== undefined ? { logoUrl: data.logoUrl } : {}),
+          ...(data.phone !== undefined ? { phone: data.phone } : {}),
+          ...(data.email !== undefined ? { email: data.email } : {}),
+          ...(data.website !== undefined ? { website: data.website } : {}),
+          ...(data.addressLine1 !== undefined ? { addressLine1: data.addressLine1 } : {}),
+          ...(data.addressLine2 !== undefined ? { addressLine2: data.addressLine2 } : {}),
+          ...(data.city !== undefined ? { city: data.city } : {}),
+          ...(data.state !== undefined ? { state: data.state } : {}),
+          ...(data.postalCode !== undefined ? { postalCode: data.postalCode } : {}),
+          ...(data.country !== undefined ? { country: data.country } : {}),
+          ...(data.timezone !== undefined ? { timezone: data.timezone } : {}),
+          ...(data.currency !== undefined ? { currency: data.currency } : {}),
+          ...(data.defaultTaxRate !== undefined
+            ? { defaultTaxRate: new Prisma.Decimal(data.defaultTaxRate) }
+            : {}),
+          ...(data.quotePrefix !== undefined ? { quotePrefix: data.quotePrefix } : {}),
+          ...(data.receiptPrefix !== undefined ? { receiptPrefix: data.receiptPrefix } : {}),
+          ...(data.clientPrefix !== undefined ? { clientPrefix: data.clientPrefix } : {}),
+          ...(data.casePrefix !== undefined ? { casePrefix: data.casePrefix } : {}),
+          ...(data.defaultTerms !== undefined ? { defaultTerms: data.defaultTerms } : {}),
+          ...(data.callmebotEnabled !== undefined
+            ? { callmebotEnabled: data.callmebotEnabled }
+            : {}),
+        },
+      });
+
+      if (data.whatsappRecipients) {
+        await replaceWhatsappRecipients(tx, ctx.organizationId, data.whatsappRecipients);
+      }
+
+      return settings;
+    });
+  } catch (error) {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new DomainError("Ese número de WhatsApp ya está en la lista.");
     }
-  } else if (data.callmebotPhone) {
-    callmebotPhone = assertCallmebotPhone(data.callmebotPhone);
-  } else if (data.callmebotPhone === null) {
-    callmebotPhone = null;
+    throw error;
   }
-
-  if (data.callmebotApiKey?.trim()) {
-    callmebotApiKeyEncrypted = encrypt(data.callmebotApiKey.trim());
-  }
-
-  return prisma.organizationSettings.update({
-    where: { organizationId: ctx.organizationId },
-    data: {
-      ...(data.legalName !== undefined ? { legalName: data.legalName } : {}),
-      ...(data.logoUrl !== undefined ? { logoUrl: data.logoUrl } : {}),
-      ...(data.phone !== undefined ? { phone: data.phone } : {}),
-      ...(data.email !== undefined ? { email: data.email } : {}),
-      ...(data.website !== undefined ? { website: data.website } : {}),
-      ...(data.addressLine1 !== undefined ? { addressLine1: data.addressLine1 } : {}),
-      ...(data.addressLine2 !== undefined ? { addressLine2: data.addressLine2 } : {}),
-      ...(data.city !== undefined ? { city: data.city } : {}),
-      ...(data.state !== undefined ? { state: data.state } : {}),
-      ...(data.postalCode !== undefined ? { postalCode: data.postalCode } : {}),
-      ...(data.country !== undefined ? { country: data.country } : {}),
-      ...(data.timezone !== undefined ? { timezone: data.timezone } : {}),
-      ...(data.currency !== undefined ? { currency: data.currency } : {}),
-      ...(data.defaultTaxRate !== undefined
-        ? { defaultTaxRate: new Prisma.Decimal(data.defaultTaxRate) }
-        : {}),
-      ...(data.quotePrefix !== undefined ? { quotePrefix: data.quotePrefix } : {}),
-      ...(data.receiptPrefix !== undefined ? { receiptPrefix: data.receiptPrefix } : {}),
-      ...(data.clientPrefix !== undefined ? { clientPrefix: data.clientPrefix } : {}),
-      ...(data.casePrefix !== undefined ? { casePrefix: data.casePrefix } : {}),
-      ...(data.defaultTerms !== undefined ? { defaultTerms: data.defaultTerms } : {}),
-      ...(data.callmebotEnabled !== undefined
-        ? { callmebotEnabled: data.callmebotEnabled }
-        : {}),
-      ...(callmebotPhone !== undefined ? { callmebotPhone } : {}),
-      ...(callmebotApiKeyEncrypted !== undefined
-        ? { callmebotApiKeyEncrypted }
-        : {}),
-    },
-  });
 }
 
-export async function sendTestWhatsapp(ctx: OrganizationContext) {
-  const settings = await getSettings(ctx);
-  if (!settings.callmebotPhone || !settings.callmebotApiKeyEncrypted) {
-    throw new DomainError(
-      "Guarda primero el número y el API key de CallMeBot.",
-    );
+async function replaceWhatsappRecipients(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  rows: WhatsappRecipientInput[],
+) {
+  const incoming = rows.filter((row) => row.phone.trim());
+  assertRecipientCount(incoming.length);
+
+  const phones = incoming.map((row) => assertCallmebotPhone(row.phone));
+  if (new Set(phones).size !== phones.length) {
+    throw new DomainError("No puedes repetir el mismo número de WhatsApp.");
+  }
+
+  const existing = await tx.whatsappRecipient.findMany({
+    where: { organizationId },
+  });
+  const existingById = new Map(existing.map((row) => [row.id, row]));
+  const keepIds = new Set(
+    incoming.map((row) => row.id).filter((id): id is string => Boolean(id)),
+  );
+
+  const toDelete = existing.filter((row) => !keepIds.has(row.id));
+  if (toDelete.length > 0) {
+    await tx.whatsappRecipient.deleteMany({
+      where: { id: { in: toDelete.map((row) => row.id) } },
+    });
+  }
+
+  for (const [index, row] of incoming.entries()) {
+    const phone = phones[index];
+    const label = row.label.trim() || (index === 0 ? "Principal" : `Número ${index + 1}`);
+    if (row.id) {
+      const current = existingById.get(row.id);
+      if (!current || current.organizationId !== organizationId) {
+        throw new DomainError("Destinatario de WhatsApp no encontrado.");
+      }
+      const apiKeyEncrypted = row.apiKey?.trim()
+        ? encrypt(row.apiKey.trim())
+        : current.apiKeyEncrypted;
+      await tx.whatsappRecipient.update({
+        where: { id: current.id },
+        data: {
+          label,
+          phone,
+          enabled: row.enabled,
+          sortOrder: index,
+          apiKeyEncrypted,
+        },
+      });
+    } else {
+      if (!row.apiKey?.trim()) {
+        throw new DomainError(
+          `Pega el API key de CallMeBot para ${label}.`,
+        );
+      }
+      await tx.whatsappRecipient.create({
+        data: {
+          organizationId,
+          label,
+          phone,
+          enabled: row.enabled,
+          sortOrder: index,
+          apiKeyEncrypted: encrypt(row.apiKey.trim()),
+        },
+      });
+    }
+  }
+}
+
+export async function sendTestWhatsapp(
+  ctx: OrganizationContext,
+  recipientId: string,
+) {
+  const recipient = await prisma.whatsappRecipient.findFirst({
+    where: { id: recipientId, organizationId: ctx.organizationId },
+  });
+  if (!recipient) {
+    throw new DomainError("Guarda primero el número y el API key de CallMeBot.");
   }
   let apiKey: string;
   try {
-    apiKey = decrypt(settings.callmebotApiKeyEncrypted);
+    apiKey = decrypt(recipient.apiKeyEncrypted);
   } catch {
     throw new DomainError(
       "No se pudo leer el API key guardado. Vuelve a pegarlo y guarda de nuevo.",
     );
   }
   const result = await sendCallmebotMessage({
-    phone: settings.callmebotPhone,
+    phone: recipient.phone,
     apiKey,
     text: formatWhatsappNotification({
       title: "Mensaje de prueba",
@@ -195,7 +291,7 @@ export async function sendTestWhatsapp(ctx: OrganizationContext) {
     userId: ctx.userId,
     type: "SYSTEM",
     title: "Mensaje de prueba",
-    body: "Se envió un WhatsApp de prueba con CallMeBot.",
+    body: `Se envió un WhatsApp de prueba a ${recipient.label}.`,
     link: "/crm/configuracion",
     skipWhatsapp: true,
   });

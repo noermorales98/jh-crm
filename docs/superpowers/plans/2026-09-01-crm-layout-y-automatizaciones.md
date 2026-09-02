@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Copy en español.
-- WhatsApp solo al teléfono de la org (CallMeBot). Nunca a clientes.
+- WhatsApp: **hasta 4 números del equipo** (tabla `WhatsappRecipient`). Nunca a clientes. Una petición CallMeBot **por número**, en serie.
 - In-app siempre on; correo y WhatsApp respetan toggles.
 - Secretos SMTP cifrados con `encrypt()` / `decrypt()` de `src/lib/security/encryption.ts`.
 - Cron: `Authorization: Bearer $CRON_SECRET`, comparación con `safeEqual`.

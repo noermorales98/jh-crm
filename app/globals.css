@@ -90,6 +90,36 @@ body {
   }
 }
 
+/* Marca J&H del home: solo el nombre en el sidebar del CRM */
+.crm-brand .brand {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+}
+
+.crm-brand .brand-mark {
+  font-family: var(--font-jh-display), ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  color: #0a1f44;
+}
+
+.crm-brand .brand-mark span {
+  color: #1570ef;
+}
+
+.crm-brand .brand-tag {
+  font-family: var(--font-jh-mono), ui-monospace, monospace;
+  font-size: 0.62rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #4a5568;
+}
+
 /* Scrollbar discreto */
 ::-webkit-scrollbar {
   width: 5px;

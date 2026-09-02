@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import "@fontsource/open-sauce-two/400.css";
 import "@fontsource/open-sauce-two/500.css";
 import "@fontsource/open-sauce-two/600.css";
 import "@fontsource/open-sauce-two/700.css";
 import { auth } from "@/auth";
 import { UserMenu } from "@/src/components/ui";
-import { AppIcon } from "@/src/components/icons/app-icon";
 import { NotificationBell } from "@/src/components/notifications/notification-bell";
 import {
   countUnreadNotifications,
@@ -25,6 +25,18 @@ export const metadata: Metadata = {
   },
   description: "CRM interno de J&H Multiservices LLC",
 };
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-jh-display",
+  weight: ["700"],
+});
+
+const ibmPlexMono = IBM_Plex_Mono({
+  subsets: ["latin"],
+  variable: "--font-jh-mono",
+  weight: ["400", "500"],
+});
 
 export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
   // Barrera de servidor: el layout nunca renderiza sin sesión.
@@ -44,15 +56,19 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
 
   return (
     <div className="flex min-h-screen bg-surface-app">
-      <aside className="fixed inset-y-0 left-0 flex w-64 flex-col bg-surface-panel">
-        <div className="flex h-16 items-center gap-3 px-5">
+      <aside
+        className={`crm-brand fixed inset-y-0 left-0 flex w-64 flex-col bg-surface-panel ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
+      >
+        <div className="flex h-16 items-center px-5">
           <Link
             href="/crm/dashboard"
-            className="flex min-w-0 items-center gap-3"
-            aria-label="Ir al inicio"
+            className="brand"
+            aria-label="J&H MultiServices LLC — Inicio"
           >
-            <AppIcon />
-            <p className="truncate text-sm font-semibold text-ink">J&H CRM</p>
+            <span className="brand-mark">
+              J<span>&</span>H
+            </span>
+            <span className="brand-tag">MultiServices LLC</span>
           </Link>
         </div>
         <SidebarNav />

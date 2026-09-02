@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { playActionResult } from "@/src/lib/cuelume";
+import { defaultAssigneeId } from "@/src/lib/assignee";
 import {
   Alert,
   Button,
@@ -38,7 +39,9 @@ export function RoundActions({
   const [sentOpen, setSentOpen] = useState(false);
   const [expectedReviewAt, setExpectedReviewAt] = useState("");
   const [createReviewTask, setCreateReviewTask] = useState(true);
-  const [assignedToId, setAssignedToId] = useState("");
+  const [assignedToId, setAssignedToId] = useState(() =>
+    defaultAssigneeId(members),
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 

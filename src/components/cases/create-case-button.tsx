@@ -13,6 +13,7 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { createCreditCase } from "@/src/actions/cases";
+import { defaultAssigneeId } from "@/src/lib/assignee";
 
 export interface StageOption {
   id: string;
@@ -36,7 +37,9 @@ export function CreateCaseButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [stageId, setStageId] = useState("");
-  const [assignedToId, setAssignedToId] = useState("");
+  const [assignedToId, setAssignedToId] = useState(() =>
+    defaultAssigneeId(members),
+  );
   const [summary, setSummary] = useState("");
   const [nextReviewAt, setNextReviewAt] = useState("");
   const [error, setError] = useState<string | null>(null);

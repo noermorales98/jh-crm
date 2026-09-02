@@ -5,6 +5,7 @@ import { nextCaseCode } from "@/src/server/folios";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
+import { resolveAssigneeForOrg } from "@/src/server/users";
 
 /**
  * Servicio de casos de reparación de crédito.
@@ -98,7 +99,11 @@ export async function createCreditCase(ctx: OrganizationContext, data: CaseCreat
   if (client.status === "ARCHIVED") {
     throw new DomainError("No se puede crear un caso para un cliente archivado.");
   }
-  if (data.assignedToId) await assertMember(ctx, data.assignedToId);
+  const assigneeId = await resolveAssigneeForOrg(
+    ctx.organizationId,
+    data.assignedToId,
+  );
+  if (assigneeId) await assertMember(ctx, assigneeId);
   const stage = data.stageId
     ? await getActiveStageOrThrow(ctx, data.stageId)
     : await getDefaultStage(ctx);
@@ -111,7 +116,7 @@ export async function createCreditCase(ctx: OrganizationContext, data: CaseCreat
         clientId: client.id,
         caseCode: code,
         stageId: stage.id,
-        assignedToId: data.assignedToId ?? null,
+        assignedToId: assigneeId,
         summary: data.summary ?? null,
         nextReviewAt: data.nextReviewAt ?? null,
       },

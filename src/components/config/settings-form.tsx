@@ -9,9 +9,14 @@ import {
   Button,
   Field,
   Input,
+  Select,
   Textarea,
 } from "@/src/components/ui";
-import { sendTestWhatsapp, updateSettings } from "@/src/actions/config";
+import {
+  sendTestEmail,
+  sendTestWhatsapp,
+  updateSettings,
+} from "@/src/actions/config";
 
 const MAX_WHATSAPP_RECIPIENTS = 4;
 
@@ -44,6 +49,28 @@ export interface SettingsFormValues {
   casePrefix: string;
   defaultTerms: string;
   callmebotEnabled: boolean;
+  smtpHost: string;
+  smtpPort: string;
+  smtpUser: string;
+  smtpFrom: string;
+  smtpSecure: boolean;
+  smtpConfigured: boolean;
+  digestEnabled: boolean;
+  digestHour: number;
+  notifyEmailTask: boolean;
+  notifyWhatsappTask: boolean;
+  notifyEmailCase: boolean;
+  notifyWhatsappCase: boolean;
+  notifyEmailPayment: boolean;
+  notifyWhatsappPayment: boolean;
+  notifyEmailDigest: boolean;
+  notifyWhatsappDigest: boolean;
+  emailClientPaymentDue: boolean;
+  emailClientDocsPending: boolean;
+  emailClientQuoteSent: boolean;
+  emailClientQuoteExpiring: boolean;
+  emailClientCaseReview: boolean;
+  emailClientRoundReview: boolean;
   whatsappRecipients: WhatsappRecipientFormValue[];
 }
 
@@ -80,6 +107,7 @@ export function SettingsForm({
   const [recipients, setRecipients] = useState<RecipientDraft[]>(() =>
     draftsFromValues(initialValues),
   );
+  const [smtpPassword, setSmtpPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
@@ -129,6 +157,28 @@ export function SettingsForm({
         clientPrefix: values.clientPrefix.trim().toUpperCase(),
         casePrefix: values.casePrefix.trim().toUpperCase(),
         defaultTerms: values.defaultTerms.trim() || null,
+        smtpHost: values.smtpHost.trim() || null,
+        smtpPort: values.smtpPort ? Number(values.smtpPort) : null,
+        smtpUser: values.smtpUser.trim() || null,
+        smtpPassword: smtpPassword.trim() || undefined,
+        smtpFrom: values.smtpFrom.trim() || null,
+        smtpSecure: values.smtpSecure,
+        digestEnabled: values.digestEnabled,
+        digestHour: Number(values.digestHour),
+        notifyEmailTask: values.notifyEmailTask,
+        notifyWhatsappTask: values.notifyWhatsappTask,
+        notifyEmailCase: values.notifyEmailCase,
+        notifyWhatsappCase: values.notifyWhatsappCase,
+        notifyEmailPayment: values.notifyEmailPayment,
+        notifyWhatsappPayment: values.notifyWhatsappPayment,
+        notifyEmailDigest: values.notifyEmailDigest,
+        notifyWhatsappDigest: values.notifyWhatsappDigest,
+        emailClientPaymentDue: values.emailClientPaymentDue,
+        emailClientDocsPending: values.emailClientDocsPending,
+        emailClientQuoteSent: values.emailClientQuoteSent,
+        emailClientQuoteExpiring: values.emailClientQuoteExpiring,
+        emailClientCaseReview: values.emailClientCaseReview,
+        emailClientRoundReview: values.emailClientRoundReview,
         callmebotEnabled: values.callmebotEnabled,
         whatsappRecipients: recipients.map((row) => ({
           id: row.id,
@@ -145,6 +195,10 @@ export function SettingsForm({
       }
       play("success");
       setSuccess(true);
+      if (smtpPassword.trim()) {
+        setSmtpPassword("");
+        setValues((v) => ({ ...v, smtpConfigured: true }));
+      }
       setRecipients((rows) =>
         rows.map((row) => ({
           ...row,
@@ -360,6 +414,207 @@ export function SettingsForm({
             maxLength={10000}
           />
         </Field>
+      </section>
+
+      <section className="space-y-4 border-t border-border-subtle pt-4">
+        <h3 className="text-sm font-semibold text-ink">Correo (SMTP)</h3>
+        <Alert tone="info">
+          Los avisos internos y el resumen diario salen por este servidor. La
+          contraseña se cifra. Déjala vacía para conservar la guardada.
+        </Alert>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Host" htmlFor="smtpHost">
+            <Input
+              id="smtpHost"
+              value={values.smtpHost}
+              onChange={(e) => set("smtpHost", e.target.value)}
+              placeholder="smtp.tu-proveedor.com"
+              autoComplete="off"
+            />
+          </Field>
+          <Field label="Puerto" htmlFor="smtpPort" hint="587 (STARTTLS) o 465 (TLS).">
+            <Input
+              id="smtpPort"
+              type="number"
+              min={1}
+              max={65535}
+              value={values.smtpPort}
+              onChange={(e) => set("smtpPort", e.target.value)}
+            />
+          </Field>
+          <Field label="Usuario" htmlFor="smtpUser">
+            <Input
+              id="smtpUser"
+              value={values.smtpUser}
+              onChange={(e) => set("smtpUser", e.target.value)}
+              autoComplete="off"
+            />
+          </Field>
+          <Field
+            label="Contraseña"
+            htmlFor="smtpPassword"
+            hint={
+              values.smtpConfigured
+                ? "Ya hay una contraseña guardada."
+                : "La del buzón SMTP."
+            }
+          >
+            <Input
+              id="smtpPassword"
+              type="password"
+              value={smtpPassword}
+              onChange={(e) => {
+                setSmtpPassword(e.target.value);
+                setSuccess(false);
+              }}
+              placeholder={values.smtpConfigured ? "••••••••" : ""}
+              autoComplete="new-password"
+            />
+          </Field>
+          <Field label="Remitente (From)" htmlFor="smtpFrom">
+            <Input
+              id="smtpFrom"
+              type="email"
+              value={values.smtpFrom}
+              onChange={(e) => set("smtpFrom", e.target.value)}
+              placeholder="crm@jhmultiservices.com"
+            />
+          </Field>
+          <label className="flex items-center gap-2 self-end text-sm text-text-secondary-strong">
+            <input
+              type="checkbox"
+              data-cuelume-toggle="toggle"
+              checked={values.smtpSecure}
+              onChange={(e) => set("smtpSecure", e.target.checked)}
+              className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+            />
+            TLS / conexión segura
+          </label>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          disabled={pending || testing}
+          onClick={() => {
+            setError(null);
+            setTestMessage(null);
+            startTest(async () => {
+              const result = await sendTestEmail();
+              if (!result.ok) {
+                play("error");
+                setError(result.error);
+                return;
+              }
+              play("success");
+              setTestMessage(result.data.message);
+            });
+          }}
+        >
+          {testing ? "Enviando…" : "Enviar correo de prueba"}
+        </Button>
+      </section>
+
+      <section className="space-y-4 border-t border-border-subtle pt-4">
+        <h3 className="text-sm font-semibold text-ink">Notificaciones</h3>
+        <p className="text-sm text-text-secondary">
+          La campana del CRM siempre registra el aviso. Correo y WhatsApp se
+          pueden apagar por tipo.
+        </p>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="flex items-center gap-2 text-sm text-text-secondary-strong">
+            <input
+              type="checkbox"
+              data-cuelume-toggle="toggle"
+              checked={values.digestEnabled}
+              onChange={(e) => set("digestEnabled", e.target.checked)}
+              className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+            />
+            Enviar resumen diario
+          </label>
+          <Field label="Hora del resumen (zona de la org)" htmlFor="digestHour">
+            <Select
+              id="digestHour"
+              value={String(values.digestHour)}
+              onChange={(e) => set("digestHour", Number(e.target.value))}
+            >
+              {Array.from({ length: 24 }, (_, hour) => (
+                <option key={hour} value={hour}>
+                  {String(hour).padStart(2, "0")}:00
+                </option>
+              ))}
+            </Select>
+          </Field>
+        </div>
+        <div className="overflow-x-auto rounded-control border border-border-subtle">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-nav-hover text-xs text-text-secondary">
+              <tr>
+                <th className="px-3 py-2 font-medium">Tipo</th>
+                <th className="px-3 py-2 font-medium">Correo al equipo</th>
+                <th className="px-3 py-2 font-medium">WhatsApp al equipo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(
+                [
+                  ["Tareas (recordatorio / vencida)", "notifyEmailTask", "notifyWhatsappTask"],
+                  ["Revisión de caso / ronda", "notifyEmailCase", "notifyWhatsappCase"],
+                  ["Pago por cobrar", "notifyEmailPayment", "notifyWhatsappPayment"],
+                  ["Resumen diario", "notifyEmailDigest", "notifyWhatsappDigest"],
+                ] as const
+              ).map(([label, emailKey, waKey]) => (
+                <tr key={emailKey} className="border-t border-border-subtle">
+                  <td className="px-3 py-2 text-ink">{label}</td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      data-cuelume-toggle="toggle"
+                      checked={values[emailKey]}
+                      onChange={(e) => set(emailKey, e.target.checked)}
+                      className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      data-cuelume-toggle="toggle"
+                      checked={values[waKey]}
+                      onChange={(e) => set(waKey, e.target.checked)}
+                      className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs font-medium text-text-secondary-strong">
+          Correos a clientes (requiere SMTP)
+        </p>
+        {(
+          [
+            ["Pago por cobrar", "emailClientPaymentDue"],
+            ["Documentos / intake pendiente", "emailClientDocsPending"],
+            ["Cotización enviada", "emailClientQuoteSent"],
+            ["Cotización por vencer", "emailClientQuoteExpiring"],
+            ["Revisión de caso", "emailClientCaseReview"],
+            ["Revisión de ronda", "emailClientRoundReview"],
+          ] as const
+        ).map(([label, key]) => (
+          <label
+            key={key}
+            className="flex items-center gap-2 text-sm text-text-secondary-strong"
+          >
+            <input
+              type="checkbox"
+              data-cuelume-toggle="toggle"
+              checked={values[key]}
+              onChange={(e) => set(key, e.target.checked)}
+              className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+            />
+            {label}
+          </label>
+        ))}
       </section>
 
       <section className="space-y-4 border-t border-border-subtle pt-4">

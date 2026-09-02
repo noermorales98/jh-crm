@@ -38,7 +38,7 @@ const createTaskSchema = z.object({
   priority: taskPriorityEnum.optional(),
   dueAt: optionalDateSchema,
   reminderAt: optionalDateSchema,
-  assignedToId: cuidSchema,
+  assignedToId: cuidSchema.optional(),
   clientId: cuidSchema.nullish(),
   caseId: cuidSchema.nullish(),
   roundId: cuidSchema.nullish(),

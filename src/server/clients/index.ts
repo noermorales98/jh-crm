@@ -7,6 +7,7 @@ import { writeActivityLog } from "@/src/server/activity";
 import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
+import { resolveAssigneeForOrg } from "@/src/server/users";
 
 /**
  * Servicio de clientes. Toda query está scopeada por organizationId
@@ -87,7 +88,11 @@ async function getClientOrThrow(ctx: OrganizationContext, clientId: string) {
 
 export async function createClient(ctx: OrganizationContext, data: ClientCreateData) {
   const clean = emptyToNull({ ...data });
-  if (clean.assignedToId) await assertMember(ctx, clean.assignedToId as string);
+  const assigneeId = await resolveAssigneeForOrg(
+    ctx.organizationId,
+    (clean.assignedToId as string | null) ?? null,
+  );
+  if (assigneeId) await assertMember(ctx, assigneeId);
 
   return prisma.$transaction(async (tx) => {
     const { code } = await nextClientCode(tx, ctx.organizationId);
@@ -107,7 +112,7 @@ export async function createClient(ctx: OrganizationContext, data: ClientCreateD
         country: (clean.country as string | null) ?? "US",
         source: (clean.source as string | null) ?? null,
         status: clean.status ?? "LEAD",
-        assignedToId: (clean.assignedToId as string | null) ?? null,
+        assignedToId: assigneeId,
       },
     });
 

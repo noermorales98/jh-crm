@@ -5,6 +5,7 @@ import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
+import { resolveAssigneeForOrg } from "@/src/server/users";
 
 /**
  * Servicio de tareas/recordatorios internos.
@@ -17,7 +18,7 @@ export interface TaskCreateData {
   priority?: TaskPriority;
   dueAt?: Date | null;
   reminderAt?: Date | null;
-  assignedToId: string;
+  assignedToId?: string;
   clientId?: string | null;
   caseId?: string | null;
   roundId?: string | null;
@@ -128,7 +129,14 @@ async function validateLinks(
 }
 
 export async function createTask(ctx: OrganizationContext, data: TaskCreateData) {
-  await assertMember(ctx, data.assignedToId);
+  const assigneeId = await resolveAssigneeForOrg(
+    ctx.organizationId,
+    data.assignedToId,
+  );
+  if (!assigneeId) {
+    throw new DomainError("Selecciona un responsable.");
+  }
+  await assertMember(ctx, assigneeId);
   const { clientId } = await validateLinks(ctx, data);
 
   return prisma.$transaction(async (tx) => {
@@ -141,7 +149,7 @@ export async function createTask(ctx: OrganizationContext, data: TaskCreateData)
         priority: data.priority ?? "NORMAL",
         dueAt: data.dueAt ?? null,
         reminderAt: data.reminderAt ?? null,
-        assignedToId: data.assignedToId,
+        assignedToId: assigneeId,
         createdById: ctx.userId,
         clientId,
         caseId: data.caseId ?? null,

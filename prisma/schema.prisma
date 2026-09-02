@@ -155,6 +155,7 @@ enum NotificationType {
   ROUND_REVIEW_DUE
   PAYMENT_DUE
   SYSTEM
+  DAILY_DIGEST
 }
 
 model User {
@@ -242,6 +243,28 @@ model OrganizationSettings {
   caseCounter    Int      @default(0)
   defaultTerms   String?  @db.Text
   callmebotEnabled Boolean @default(false)
+  smtpHost                 String?
+  smtpPort                 Int?
+  smtpUser                 String?
+  smtpPasswordEncrypted    String?  @db.Text
+  smtpFrom                 String?
+  smtpSecure               Boolean  @default(true)
+  digestEnabled            Boolean  @default(true)
+  digestHour               Int      @default(8)
+  notifyEmailTask          Boolean  @default(true)
+  notifyWhatsappTask       Boolean  @default(true)
+  notifyEmailCase          Boolean  @default(true)
+  notifyWhatsappCase       Boolean  @default(true)
+  notifyEmailPayment       Boolean  @default(true)
+  notifyWhatsappPayment    Boolean  @default(true)
+  notifyEmailDigest        Boolean  @default(true)
+  notifyWhatsappDigest     Boolean  @default(true)
+  emailClientPaymentDue    Boolean  @default(false)
+  emailClientDocsPending   Boolean  @default(false)
+  emailClientQuoteSent     Boolean  @default(false)
+  emailClientQuoteExpiring Boolean  @default(false)
+  emailClientCaseReview    Boolean  @default(false)
+  emailClientRoundReview   Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

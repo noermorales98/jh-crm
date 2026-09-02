@@ -18,6 +18,7 @@ import {
 } from "@/src/lib/labels";
 import { createTask } from "@/src/actions/tasks";
 import { playActionResult } from "@/src/lib/cuelume";
+import { defaultAssigneeId } from "@/src/lib/assignee";
 
 /**
  * Botón + modal para crear una tarea.
@@ -45,7 +46,9 @@ export function CreateTaskButton({
   const [priority, setPriority] = useState("NORMAL");
   const [dueAt, setDueAt] = useState("");
   const [reminderAt, setReminderAt] = useState("");
-  const [assignedToId, setAssignedToId] = useState("");
+  const [assignedToId, setAssignedToId] = useState(() =>
+    defaultAssigneeId(members),
+  );
   const [clientId, setClientId] = useState(fixedClientId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -57,7 +60,7 @@ export function CreateTaskButton({
     setPriority("NORMAL");
     setDueAt("");
     setReminderAt("");
-    setAssignedToId("");
+    setAssignedToId(defaultAssigneeId(members));
     setClientId(fixedClientId ?? "");
   }
 

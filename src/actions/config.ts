@@ -52,6 +52,28 @@ const settingsSchema = z.object({
     )
     .max(4)
     .optional(),
+  smtpHost: z.string().trim().max(200).nullish(),
+  smtpPort: z.coerce.number().int().min(1).max(65535).nullish(),
+  smtpUser: z.string().trim().max(200).nullish(),
+  smtpPassword: z.string().max(200).optional(),
+  smtpFrom: z.string().trim().max(200).nullish(),
+  smtpSecure: z.boolean().optional(),
+  digestEnabled: z.boolean().optional(),
+  digestHour: z.coerce.number().int().min(0).max(23).optional(),
+  notifyEmailTask: z.boolean().optional(),
+  notifyWhatsappTask: z.boolean().optional(),
+  notifyEmailCase: z.boolean().optional(),
+  notifyWhatsappCase: z.boolean().optional(),
+  notifyEmailPayment: z.boolean().optional(),
+  notifyWhatsappPayment: z.boolean().optional(),
+  notifyEmailDigest: z.boolean().optional(),
+  notifyWhatsappDigest: z.boolean().optional(),
+  emailClientPaymentDue: z.boolean().optional(),
+  emailClientDocsPending: z.boolean().optional(),
+  emailClientQuoteSent: z.boolean().optional(),
+  emailClientQuoteExpiring: z.boolean().optional(),
+  emailClientCaseReview: z.boolean().optional(),
+  emailClientRoundReview: z.boolean().optional(),
 });
 
 export async function updateSettings(input: unknown): Promise<ActionResult<{ id: string }>> {
@@ -77,6 +99,17 @@ export async function sendTestWhatsapp(
     revalidatePath("/crm", "layout");
     revalidatePath("/crm/configuracion");
     return actionOk({ message: result.message });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+export async function sendTestEmail(): Promise<ActionResult<{ message: string }>> {
+  try {
+    const ctx = await requireRole("OWNER", "ADMIN");
+    const result = await configService.sendTestEmail(ctx);
+    return actionOk(result);
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

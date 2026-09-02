@@ -6,6 +6,7 @@ import { DomainError } from "@/src/server/errors";
 import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toAuditContext } from "@/src/server/context";
+import { soleId, resolveAssigneeId } from "@/src/lib/assignee";
 
 /**
  * Gestión de miembros de la organización. Sin email transaccional en
@@ -185,4 +186,24 @@ export async function listMembers(ctx: OrganizationContext) {
     },
     orderBy: { createdAt: "asc" },
   });
+}
+
+/** Si la org tiene exactamente un miembro activo, su userId; si no, null. */
+export async function findSoleActiveUserId(
+  organizationId: string,
+): Promise<string | null> {
+  const members = await prisma.organizationMember.findMany({
+    where: { organizationId, user: { isActive: true } },
+    select: { userId: true },
+    take: 2,
+  });
+  return soleId(members.map((m) => ({ id: m.userId })));
+}
+
+/** Asignado explícito, o el único usuario activo de la org. */
+export async function resolveAssigneeForOrg(
+  organizationId: string,
+  explicit?: string | null,
+): Promise<string | null> {
+  return resolveAssigneeId(explicit, await findSoleActiveUserId(organizationId));
 }

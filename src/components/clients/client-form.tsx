@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, Field, Input, Select } from "@/src/components/ui";
 import { playActionResult } from "@/src/lib/cuelume";
+import { defaultAssigneeId } from "@/src/lib/assignee";
 import { CLIENT_STATUS_LABELS } from "@/src/lib/labels";
 import { createClient, updateClient } from "@/src/actions/clients";
 
@@ -56,7 +57,11 @@ export function ClientForm({
   compact?: boolean;
 }) {
   const router = useRouter();
-  const [values, setValues] = useState<ClientFormValues>(initialValues);
+  const [values, setValues] = useState<ClientFormValues>(() => ({
+    ...initialValues,
+    assignedToId:
+      initialValues.assignedToId || defaultAssigneeId(members),
+  }));
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 

@@ -30,7 +30,9 @@ import {
   TR,
 } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
-import { CLIENT_STATUS_LABELS } from "@/src/lib/labels";
+import { SplitView } from "@/src/components/layout/split-view";
+import { SplitLink } from "@/src/components/layout/split-link";
+import { ClientDetailPanel } from "@/src/components/clients/client-detail-panel";
 
 export const metadata: Metadata = {
   title: "Clientes",
@@ -50,6 +52,7 @@ export default async function ClientsPage({
   const status = parseEnumParam(firstParam(sp, "status"), CLIENT_STATUSES);
   const assignedToId = firstParam(sp, "assignedTo");
   const cursor = firstParam(sp, "cursor");
+  const selectedId = firstParam(sp, "id") ?? null;
 
   const [result, members] = await Promise.all([
     clientService.listClients(ctx, { q, status, assignedToId, cursor }),
@@ -57,7 +60,7 @@ export default async function ClientsPage({
   ]);
 
   return (
-    <div>
+    <div className="flex min-h-0 flex-1 flex-col">
       <PageHeader
         title="Clientes"
         description="Cartera de clientes y prospectos de reparación de crédito."
@@ -71,7 +74,12 @@ export default async function ClientsPage({
         }
       />
 
-      <Card>
+      <SplitView
+        selectedId={selectedId}
+        emptyTitle="Elige un cliente"
+        emptyDescription="Selecciona una fila para ver el resumen a la derecha."
+        list={
+      <Card className="md:border-0 md:bg-transparent md:shadow-none">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
           <SearchInput placeholder="Buscar por nombre, código, correo o teléfono…" defaultValue={q ?? ""} />
           <FilterBar>
@@ -123,17 +131,23 @@ export default async function ClientsPage({
             </THead>
             <TBody>
               {result.items.map((client) => (
-                <TR key={client.id} className="transition-colors hover:bg-nav-hover">
+                <TR
+                  key={client.id}
+                  className={`transition-colors hover:bg-nav-hover ${
+                    client.id === selectedId ? "bg-nav-active" : ""
+                  }`}
+                >
                   <TD className="whitespace-nowrap font-mono text-xs text-text-secondary">
                     {client.clientCode}
                   </TD>
                   <TD>
-                    <Link
-                      href={`/crm/clientes/${client.id}`}
+                    <SplitLink
+                      href="/crm/clientes"
+                      id={client.id}
                       className="font-medium text-action-primary hover:text-action-secondary"
                     >
                       {clientFullName(client)}
-                    </Link>
+                    </SplitLink>
                   </TD>
                   <TD>
                     <div className="text-xs">
@@ -172,6 +186,9 @@ export default async function ClientsPage({
           nextCursor={result.nextCursor}
         />
       </Card>
+        }
+        detail={selectedId ? <ClientDetailPanel clientId={selectedId} /> : null}
+      />
     </div>
   );
 }

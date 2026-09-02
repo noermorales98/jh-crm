@@ -10,6 +10,8 @@ import {
   selectWhatsappDeliveryTargets,
   sendWhatsappToEach,
 } from "./whatsapp-recipients";
+import { emailEnabledFor, whatsappEnabledFor } from "./prefs";
+import { isSmtpConfigured, sendSmtpMail } from "./smtp";
 
 /**
  * Notificaciones in-app + WhatsApp (CallMeBot).
@@ -62,11 +64,18 @@ export async function createNotification(
     data: { ...data, dedupeKey: dedupeKey ?? null },
   });
 
-  // Fuera de transacción: si el cron hace rollback, no queremos WhatsApp huérfano.
-  if (!tx && !skipWhatsapp) {
-    await deliverWhatsapp(created).catch((error) => {
+  if (!tx) {
+    if (!skipWhatsapp) {
+      await deliverWhatsapp(created).catch((error) => {
+        console.error(
+          "[notifications] WhatsApp no enviado:",
+          error instanceof Error ? error.message : "error",
+        );
+      });
+    }
+    await deliverEmail(created).catch((error) => {
       console.error(
-        "[notifications] WhatsApp no enviado:",
+        "[notifications] correo no enviado:",
         error instanceof Error ? error.message : "error",
       );
     });
@@ -75,8 +84,47 @@ export async function createNotification(
   return created;
 }
 
+async function deliverEmail(notification: {
+  organizationId: string;
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  link: string | null;
+}) {
+  const [settings, user] = await Promise.all([
+    prisma.organizationSettings.findUnique({
+      where: { organizationId: notification.organizationId },
+    }),
+    prisma.user.findUnique({
+      where: { id: notification.userId },
+      select: { email: true },
+    }),
+  ]);
+  if (!settings || !user?.email) return;
+  if (!emailEnabledFor(notification.type, settings)) return;
+  if (!isSmtpConfigured(settings)) return;
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+  const href = notification.link
+    ? notification.link.startsWith("http")
+      ? notification.link
+      : `${appUrl}${notification.link}`
+    : "";
+  const text = [notification.title, notification.body, href]
+    .filter(Boolean)
+    .join("\n\n");
+
+  await sendSmtpMail(settings, {
+    to: user.email,
+    subject: notification.title,
+    text,
+  });
+}
+
 async function deliverWhatsapp(notification: {
   organizationId: string;
+  type: NotificationType;
   title: string;
   body: string | null;
   link: string | null;
@@ -84,7 +132,6 @@ async function deliverWhatsapp(notification: {
   const [settings, recipients] = await Promise.all([
     prisma.organizationSettings.findUnique({
       where: { organizationId: notification.organizationId },
-      select: { callmebotEnabled: true },
     }),
     prisma.whatsappRecipient.findMany({
       where: { organizationId: notification.organizationId },
@@ -98,9 +145,10 @@ async function deliverWhatsapp(notification: {
       },
     }),
   ]);
+  if (!settings || !whatsappEnabledFor(notification.type, settings)) return;
 
   const targets = selectWhatsappDeliveryTargets({
-    callmebotEnabled: Boolean(settings?.callmebotEnabled),
+    callmebotEnabled: Boolean(settings.callmebotEnabled),
     recipients,
   });
   if (targets.length === 0) return;

@@ -4,6 +4,7 @@ import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
+import { resolveAssigneeForOrg } from "@/src/server/users";
 
 /**
  * Servicio de rondas de disputa. Numeración por caso con
@@ -174,6 +175,13 @@ export async function markRoundSent(
     throw new DomainError("Debes indicar la fecha esperada de revisión.");
   }
 
+  const reviewAssignee = data.createReviewTask
+    ? (await resolveAssigneeForOrg(
+        ctx.organizationId,
+        data.assignedToId ?? round.case.assignedToId,
+      )) ?? ctx.userId
+    : null;
+
   return prisma.$transaction(async (tx) => {
     const updated = await tx.creditRound.update({
       where: { id: round.id },
@@ -186,7 +194,7 @@ export async function markRoundSent(
 
     let reviewTask = null;
     if (data.createReviewTask) {
-      const assignee = data.assignedToId ?? round.case.assignedToId ?? ctx.userId;
+      const assignee = reviewAssignee!;
       reviewTask = await tx.task.create({
         data: {
           organizationId: ctx.organizationId,

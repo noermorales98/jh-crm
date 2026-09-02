@@ -13,6 +13,7 @@ import {
   MAX_WHATSAPP_RECIPIENTS,
   assertRecipientCount,
 } from "@/src/server/notifications/whatsapp-recipients";
+import { isSmtpConfigured, sendSmtpMail } from "@/src/server/notifications/smtp";
 
 /**
  * Configuración de la organización: datos de empresa, moneda, impuesto,
@@ -41,6 +42,28 @@ export interface SettingsUpdateData {
   defaultTerms?: string | null;
   callmebotEnabled?: boolean;
   whatsappRecipients?: WhatsappRecipientInput[];
+  smtpHost?: string | null;
+  smtpPort?: number | null;
+  smtpUser?: string | null;
+  smtpPassword?: string | null;
+  smtpFrom?: string | null;
+  smtpSecure?: boolean;
+  digestEnabled?: boolean;
+  digestHour?: number;
+  notifyEmailTask?: boolean;
+  notifyWhatsappTask?: boolean;
+  notifyEmailCase?: boolean;
+  notifyWhatsappCase?: boolean;
+  notifyEmailPayment?: boolean;
+  notifyWhatsappPayment?: boolean;
+  notifyEmailDigest?: boolean;
+  notifyWhatsappDigest?: boolean;
+  emailClientPaymentDue?: boolean;
+  emailClientDocsPending?: boolean;
+  emailClientQuoteSent?: boolean;
+  emailClientQuoteExpiring?: boolean;
+  emailClientCaseReview?: boolean;
+  emailClientRoundReview?: boolean;
 }
 
 export type WhatsappRecipientInput = {
@@ -84,6 +107,28 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
     casePrefix: settings.casePrefix,
     defaultTerms: settings.defaultTerms ?? "",
     callmebotEnabled: settings.callmebotEnabled,
+    smtpHost: settings.smtpHost ?? "",
+    smtpPort: settings.smtpPort?.toString() ?? "587",
+    smtpUser: settings.smtpUser ?? "",
+    smtpFrom: settings.smtpFrom ?? "",
+    smtpSecure: settings.smtpSecure,
+    smtpConfigured: Boolean(settings.smtpPasswordEncrypted || settings.smtpHost),
+    digestEnabled: settings.digestEnabled,
+    digestHour: settings.digestHour,
+    notifyEmailTask: settings.notifyEmailTask,
+    notifyWhatsappTask: settings.notifyWhatsappTask,
+    notifyEmailCase: settings.notifyEmailCase,
+    notifyWhatsappCase: settings.notifyWhatsappCase,
+    notifyEmailPayment: settings.notifyEmailPayment,
+    notifyWhatsappPayment: settings.notifyWhatsappPayment,
+    notifyEmailDigest: settings.notifyEmailDigest,
+    notifyWhatsappDigest: settings.notifyWhatsappDigest,
+    emailClientPaymentDue: settings.emailClientPaymentDue,
+    emailClientDocsPending: settings.emailClientDocsPending,
+    emailClientQuoteSent: settings.emailClientQuoteSent,
+    emailClientQuoteExpiring: settings.emailClientQuoteExpiring,
+    emailClientCaseReview: settings.emailClientCaseReview,
+    emailClientRoundReview: settings.emailClientRoundReview,
     whatsappRecipients: (
       await prisma.whatsappRecipient.findMany({
         where: { organizationId: ctx.organizationId },
@@ -124,6 +169,12 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
     const rate = new Prisma.Decimal(data.defaultTaxRate);
     if (rate.lt(0) || rate.gt(100)) {
       throw new DomainError("La tasa de impuesto debe estar entre 0 y 100.");
+    }
+  }
+
+  if (data.digestHour !== undefined) {
+    if (!Number.isInteger(data.digestHour) || data.digestHour < 0 || data.digestHour > 23) {
+      throw new DomainError("La hora del resumen diario debe estar entre 0 y 23.");
     }
   }
 
@@ -169,6 +220,60 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
           ...(data.defaultTerms !== undefined ? { defaultTerms: data.defaultTerms } : {}),
           ...(data.callmebotEnabled !== undefined
             ? { callmebotEnabled: data.callmebotEnabled }
+            : {}),
+          ...(data.smtpHost !== undefined ? { smtpHost: data.smtpHost } : {}),
+          ...(data.smtpPort !== undefined ? { smtpPort: data.smtpPort } : {}),
+          ...(data.smtpUser !== undefined ? { smtpUser: data.smtpUser } : {}),
+          ...(data.smtpFrom !== undefined ? { smtpFrom: data.smtpFrom } : {}),
+          ...(data.smtpSecure !== undefined ? { smtpSecure: data.smtpSecure } : {}),
+          ...(data.smtpPassword?.trim()
+            ? { smtpPasswordEncrypted: encrypt(data.smtpPassword.trim()) }
+            : {}),
+          ...(data.digestEnabled !== undefined
+            ? { digestEnabled: data.digestEnabled }
+            : {}),
+          ...(data.digestHour !== undefined ? { digestHour: data.digestHour } : {}),
+          ...(data.notifyEmailTask !== undefined
+            ? { notifyEmailTask: data.notifyEmailTask }
+            : {}),
+          ...(data.notifyWhatsappTask !== undefined
+            ? { notifyWhatsappTask: data.notifyWhatsappTask }
+            : {}),
+          ...(data.notifyEmailCase !== undefined
+            ? { notifyEmailCase: data.notifyEmailCase }
+            : {}),
+          ...(data.notifyWhatsappCase !== undefined
+            ? { notifyWhatsappCase: data.notifyWhatsappCase }
+            : {}),
+          ...(data.notifyEmailPayment !== undefined
+            ? { notifyEmailPayment: data.notifyEmailPayment }
+            : {}),
+          ...(data.notifyWhatsappPayment !== undefined
+            ? { notifyWhatsappPayment: data.notifyWhatsappPayment }
+            : {}),
+          ...(data.notifyEmailDigest !== undefined
+            ? { notifyEmailDigest: data.notifyEmailDigest }
+            : {}),
+          ...(data.notifyWhatsappDigest !== undefined
+            ? { notifyWhatsappDigest: data.notifyWhatsappDigest }
+            : {}),
+          ...(data.emailClientPaymentDue !== undefined
+            ? { emailClientPaymentDue: data.emailClientPaymentDue }
+            : {}),
+          ...(data.emailClientDocsPending !== undefined
+            ? { emailClientDocsPending: data.emailClientDocsPending }
+            : {}),
+          ...(data.emailClientQuoteSent !== undefined
+            ? { emailClientQuoteSent: data.emailClientQuoteSent }
+            : {}),
+          ...(data.emailClientQuoteExpiring !== undefined
+            ? { emailClientQuoteExpiring: data.emailClientQuoteExpiring }
+            : {}),
+          ...(data.emailClientCaseReview !== undefined
+            ? { emailClientCaseReview: data.emailClientCaseReview }
+            : {}),
+          ...(data.emailClientRoundReview !== undefined
+            ? { emailClientRoundReview: data.emailClientRoundReview }
             : {}),
         },
       });
@@ -296,6 +401,26 @@ export async function sendTestWhatsapp(
     skipWhatsapp: true,
   });
   return result;
+}
+
+export async function sendTestEmail(ctx: OrganizationContext) {
+  const settings = await getSettings(ctx);
+  if (!isSmtpConfigured(settings)) {
+    throw new DomainError("Configura el servidor SMTP primero (host, puerto y remitente).");
+  }
+  const user = await prisma.user.findUnique({
+    where: { id: ctx.userId },
+    select: { email: true },
+  });
+  if (!user?.email) {
+    throw new DomainError("Tu usuario no tiene un correo para enviar la prueba.");
+  }
+  await sendSmtpMail(settings, {
+    to: user.email,
+    subject: "Prueba de correo — J&H CRM",
+    text: "Si lees este mensaje, el servidor SMTP de J&H CRM está bien configurado.",
+  });
+  return { message: `Correo de prueba enviado a ${user.email}.` };
 }
 
 // ---------------------------------------------------------------------------

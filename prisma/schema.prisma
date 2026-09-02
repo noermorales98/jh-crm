@@ -173,6 +173,7 @@ enum NotificationType {
   SYSTEM
   DAILY_DIGEST
   MAIL_RECEIVED
+  CONTACT_FORM
 }
 
 model User {
@@ -281,6 +282,8 @@ model OrganizationSettings {
   notifyWhatsappDigest     Boolean  @default(true)
   notifyEmailMail          Boolean  @default(true)
   notifyWhatsappMail       Boolean  @default(true)
+  notifyEmailContact       Boolean  @default(true)
+  notifyWhatsappContact    Boolean  @default(true)
   emailClientPaymentDue    Boolean  @default(false)
   emailClientDocsPending   Boolean  @default(false)
   emailClientQuoteSent     Boolean  @default(false)

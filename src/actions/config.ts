@@ -71,6 +71,8 @@ const settingsSchema = z.object({
   notifyWhatsappDigest: z.boolean().optional(),
   notifyEmailMail: z.boolean().optional(),
   notifyWhatsappMail: z.boolean().optional(),
+  notifyEmailContact: z.boolean().optional(),
+  notifyWhatsappContact: z.boolean().optional(),
   emailClientPaymentDue: z.boolean().optional(),
   emailClientDocsPending: z.boolean().optional(),
   emailClientQuoteSent: z.boolean().optional(),

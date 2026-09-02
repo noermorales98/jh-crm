@@ -133,6 +133,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   SYSTEM: "Sistema",
   DAILY_DIGEST: "Resumen diario",
   MAIL_RECEIVED: "Correo nuevo",
+  CONTACT_FORM: "Formulario de contacto",
 };
 
 export const MAIL_FOLDER_LABELS: Record<string, string> = {

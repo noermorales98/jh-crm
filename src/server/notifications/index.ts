@@ -156,7 +156,10 @@ async function deliverWhatsapp(notification: {
   const text = formatWhatsappNotification({
     title: notification.title,
     body: notification.body,
-    link: notification.type === "MAIL_RECEIVED" ? null : notification.link,
+    link:
+      notification.type === "MAIL_RECEIVED" || notification.type === "CONTACT_FORM"
+        ? null
+        : notification.link,
   });
 
   const ready: Array<{ phone: string; apiKey: string }> = [];

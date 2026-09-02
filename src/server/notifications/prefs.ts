@@ -11,6 +11,8 @@ export type ChannelPrefs = {
   notifyWhatsappDigest: boolean;
   notifyEmailMail: boolean;
   notifyWhatsappMail: boolean;
+  notifyEmailContact: boolean;
+  notifyWhatsappContact: boolean;
 };
 
 export function emailEnabledFor(
@@ -24,6 +26,7 @@ export function emailEnabledFor(
   if (type === "PAYMENT_DUE") return p.notifyEmailPayment;
   if (type === "DAILY_DIGEST") return p.notifyEmailDigest;
   if (type === "MAIL_RECEIVED") return p.notifyEmailMail;
+  if (type === "CONTACT_FORM") return p.notifyEmailContact;
   return false;
 }
 
@@ -38,5 +41,6 @@ export function whatsappEnabledFor(
   if (type === "PAYMENT_DUE") return p.notifyWhatsappPayment;
   if (type === "DAILY_DIGEST") return p.notifyWhatsappDigest;
   if (type === "MAIL_RECEIVED") return p.notifyWhatsappMail;
+  if (type === "CONTACT_FORM") return p.notifyWhatsappContact;
   return false;
 }

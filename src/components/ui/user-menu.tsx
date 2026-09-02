@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Bell, LogOut, ScrollText, Settings, UserCog, Volume2, VolumeX } from "lucide-react";
+import { Bell, Globe, LogOut, ScrollText, Settings, UserCog, Volume2, VolumeX } from "lucide-react";
 import { useCuelumeMute } from "@/src/components/cuelume/cuelume-provider";
 
 /**
@@ -152,6 +152,18 @@ export function UserMenu({
           <div className="mx-3 my-1 h-px bg-border-subtle" role="separator" />
 
           <div className="px-1.5">
+            <a
+              href="/"
+              target="_blank"
+              rel="noopener noreferrer"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              data-cuelume-hover="tick"
+              className={MENU_ITEM_CLASSES}
+            >
+              <Globe className={MENU_ICON_CLASSES} aria-hidden />
+              Ir al sitio web principal
+            </a>
             <Link
               href="/crm/configuracion"
               role="menuitem"

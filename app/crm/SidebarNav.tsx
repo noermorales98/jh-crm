@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   Trash2,
   ChevronDown,
+  Globe,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { Home01Icon } from "@hugeicons/core-free-icons";
@@ -123,6 +124,16 @@ export function SidebarNav() {
                     </Link>
                   );
                 })}
+                <a
+                  href="/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-cuelume-hover="tick"
+                  className={linkClass(false, "min-h-9 py-1.5 text-[13px]")}
+                >
+                  <Globe className="size-3.5 shrink-0" aria-hidden />
+                  Ir al sitio web principal
+                </a>
               </div>
             ) : null}
           </div>

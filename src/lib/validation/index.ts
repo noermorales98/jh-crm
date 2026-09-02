@@ -7,6 +7,10 @@ export {
   type ClientUpdateInput,
 } from "./client";
 export {
+  contactFormSchema,
+  type ContactFormInput,
+} from "./contact";
+export {
   mailComposeSchema,
   mailDraftSchema,
   parseAddressList,

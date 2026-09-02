@@ -72,6 +72,11 @@ export const HOW_TO_GUIDE = `
 1. [Registrar pago](/crm/pagos/nuevo) (se puede partir de una cotización).
 2. Al marcar recibido se emite recibo con folio. Ver [Recibos](/crm/recibos) o PDF.
 
+### Formulario de contacto del sitio
+1. En la portada (/) hay un formulario de contacto. Al enviar se pide un desliz para confirmar que no es un robot.
+2. Cada envío nuevo se guarda como cliente Prospecto (LEAD) en [Clientes](/crm/clientes), fuente Sitio web.
+3. Avisa en la campana y por WhatsApp (CallMeBot). Si el correo o teléfono ya existe, se anota la consulta en el expediente y no se vuelve a notificar.
+
 ### Enviar un correo
 1. [Correos](/crm/mails) → Redactar, o /crm/mails/nuevo.
 2. Para, asunto y mensaje. Opcional: enlazar un cliente.

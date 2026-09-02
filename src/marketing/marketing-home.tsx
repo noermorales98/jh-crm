@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ContactForm } from "./contact-form";
 import "./landing.css";
 
 export function MarketingHome() {
@@ -363,15 +364,7 @@ export function MarketingHome() {
         </div>
       </div>
       <div className="contact-card reveal d1">
-        <h3>Su consulta es bienvenida</h3>
-        <p>
-          Cuéntenos su situación y le orientaremos con una solución práctica.
-          Respondemos personalmente a cada mensaje y cada llamada.
-        </p>
-        <a className="btn btn-light" href="mailto:jhmultiservices10@gmail.com">
-          Escribir un correo
-          <svg className="arrow" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </a>
+        <ContactForm />
         <div className="contact-hours">
           <span className="dot-live" aria-hidden={true}></span>
           Disponibles para atenderle

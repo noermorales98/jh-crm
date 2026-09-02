@@ -68,6 +68,8 @@ export interface SettingsFormValues {
   notifyWhatsappDigest: boolean;
   notifyEmailMail: boolean;
   notifyWhatsappMail: boolean;
+  notifyEmailContact: boolean;
+  notifyWhatsappContact: boolean;
   emailClientPaymentDue: boolean;
   emailClientDocsPending: boolean;
   emailClientQuoteSent: boolean;
@@ -181,6 +183,8 @@ export function SettingsForm({
         notifyWhatsappDigest: values.notifyWhatsappDigest,
         notifyEmailMail: values.notifyEmailMail,
         notifyWhatsappMail: values.notifyWhatsappMail,
+        notifyEmailContact: values.notifyEmailContact,
+        notifyWhatsappContact: values.notifyWhatsappContact,
         emailClientPaymentDue: values.emailClientPaymentDue,
         emailClientDocsPending: values.emailClientDocsPending,
         emailClientQuoteSent: values.emailClientQuoteSent,
@@ -590,6 +594,7 @@ export function SettingsForm({
                   ["Revisión de caso / ronda", "notifyEmailCase", "notifyWhatsappCase"],
                   ["Pago por cobrar", "notifyEmailPayment", "notifyWhatsappPayment"],
                   ["Correo nuevo", "notifyEmailMail", "notifyWhatsappMail"],
+                  ["Formulario de contacto", "notifyEmailContact", "notifyWhatsappContact"],
                   ["Resumen diario", "notifyEmailDigest", "notifyWhatsappDigest"],
                 ] as const
               ).map(([label, emailKey, waKey]) => (

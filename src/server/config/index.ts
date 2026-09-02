@@ -61,6 +61,8 @@ export interface SettingsUpdateData {
   notifyWhatsappDigest?: boolean;
   notifyEmailMail?: boolean;
   notifyWhatsappMail?: boolean;
+  notifyEmailContact?: boolean;
+  notifyWhatsappContact?: boolean;
   emailClientPaymentDue?: boolean;
   emailClientDocsPending?: boolean;
   emailClientQuoteSent?: boolean;
@@ -129,6 +131,8 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
     notifyWhatsappDigest: settings.notifyWhatsappDigest,
     notifyEmailMail: settings.notifyEmailMail,
     notifyWhatsappMail: settings.notifyWhatsappMail,
+    notifyEmailContact: settings.notifyEmailContact,
+    notifyWhatsappContact: settings.notifyWhatsappContact,
     emailClientPaymentDue: settings.emailClientPaymentDue,
     emailClientDocsPending: settings.emailClientDocsPending,
     emailClientQuoteSent: settings.emailClientQuoteSent,
@@ -271,6 +275,12 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
             : {}),
           ...(data.notifyWhatsappMail !== undefined
             ? { notifyWhatsappMail: data.notifyWhatsappMail }
+            : {}),
+          ...(data.notifyEmailContact !== undefined
+            ? { notifyEmailContact: data.notifyEmailContact }
+            : {}),
+          ...(data.notifyWhatsappContact !== undefined
+            ? { notifyWhatsappContact: data.notifyWhatsappContact }
             : {}),
           ...(data.emailClientPaymentDue !== undefined
             ? { emailClientPaymentDue: data.emailClientPaymentDue }

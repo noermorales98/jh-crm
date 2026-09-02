@@ -56,7 +56,11 @@ export async function POST(request: Request) {
 
     const result = streamText({
       model: createOpenRouterModel(),
-      system: buildSystemPrompt(ctx, company.legalName || company.organizationName),
+      system: buildSystemPrompt(
+        ctx,
+        company.legalName || company.organizationName,
+        typeof company.timezone === "string" ? company.timezone : undefined,
+      ),
       messages: modelMessages,
       tools,
       stopWhen: isStepCount(8),

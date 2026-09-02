@@ -11,15 +11,11 @@ import {
   Tabs,
 } from "@/src/components/ui";
 import { SettingsForm } from "@/src/components/config/settings-form";
+import { CONFIG_TABS } from "./config-tabs";
 
 export const metadata: Metadata = {
   title: "Configuración",
 };
-
-const CONFIG_TABS = [
-  { href: "/crm/configuracion", label: "Empresa y folios" },
-  { href: "/crm/configuracion/etapas", label: "Etapas del proceso" },
-];
 
 export default async function SettingsPage() {
   const ctx = await requireOrganization();
@@ -48,14 +44,14 @@ export default async function SettingsPage() {
     <div className="mx-auto max-w-4xl">
       <PageHeader
         title="Configuración"
-        description="Datos de la empresa, moneda, impuestos, folios, términos y notificaciones WhatsApp."
+        description="Datos de la empresa, moneda, impuestos, folios y términos. El correo y WhatsApp están en la pestaña Notificaciones."
       />
 
       <Tabs items={CONFIG_TABS} />
 
       <Card>
         <CardBody>
-          <SettingsForm initialValues={settings} />
+          <SettingsForm initialValues={settings} section="company" />
         </CardBody>
       </Card>
     </div>

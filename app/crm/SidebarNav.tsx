@@ -22,7 +22,8 @@ const NAV_ITEMS: readonly {
   label: string;
   icon?: LucideIcon;
 }[] = [
-  { href: "/crm/dashboard", label: "Dashboard" },
+  { href: "/crm/dashboard", label: "Inicio" },
+  { href: "/crm/chats", label: "Chats", icon: MessageCircle },
   { href: "/crm/clientes", label: "Clientes", icon: Users },
   { href: "/crm/casos", label: "Casos", icon: Briefcase },
   { href: "/crm/rondas", label: "Rondas", icon: RefreshCcw },
@@ -31,7 +32,6 @@ const NAV_ITEMS: readonly {
   { href: "/crm/cotizaciones", label: "Cotizaciones", icon: FileText },
   { href: "/crm/pagos", label: "Pagos", icon: CreditCard },
   { href: "/crm/recibos", label: "Recibos", icon: Receipt },
-  { href: "/crm/chats", label: "Chats", icon: MessageCircle },
 ];
 
 export function SidebarNav() {

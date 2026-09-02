@@ -42,13 +42,27 @@ export async function listChats(
     take: Math.min(limit, 80),
     select: { id: true, title: true, updatedAt: true, createdAt: true, messages: true },
   });
-  return rows.map((row) => ({
-    id: row.id,
-    title: row.title,
-    updatedAt: row.updatedAt,
-    createdAt: row.createdAt,
-    preview: titleFromMessages(asMessages(row.messages)),
-  }));
+  const emptyIds = rows
+    .filter((row) => asMessages(row.messages).length === 0)
+    .map((row) => row.id);
+  if (emptyIds.length > 0) {
+    await prisma.aiChat.deleteMany({
+      where: {
+        id: { in: emptyIds },
+        organizationId: ctx.organizationId,
+        userId: ctx.userId,
+      },
+    });
+  }
+  return rows
+    .filter((row) => !emptyIds.includes(row.id))
+    .map((row) => ({
+      id: row.id,
+      title: row.title,
+      updatedAt: row.updatedAt,
+      createdAt: row.createdAt,
+      preview: titleFromMessages(asMessages(row.messages)),
+    }));
 }
 
 export async function getChat(ctx: OrganizationContext, chatId: string) {
@@ -59,7 +73,14 @@ export async function getChat(ctx: OrganizationContext, chatId: string) {
       userId: ctx.userId,
     },
   });
-  if (!chat) throw new DomainError("Chat no encontrado.");
+  if (!chat) {
+    return {
+      id: chatId,
+      title: "Nuevo chat",
+      messages: [] as UIMessage[],
+      updatedAt: new Date(),
+    };
+  }
   return {
     id: chat.id,
     title: chat.title,

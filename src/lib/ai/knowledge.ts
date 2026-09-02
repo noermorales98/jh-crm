@@ -4,7 +4,7 @@
  */
 
 export const CRM_ROUTES = [
-  { href: "/crm/dashboard", label: "Dashboard", how: "Resumen operativo: clientes activos, casos abiertos, tareas y pagos." },
+  { href: "/crm/dashboard", label: "Inicio", how: "Resumen operativo: clientes activos, casos abiertos, tareas y pagos." },
   { href: "/crm/clientes", label: "Clientes", how: "Lista y filtros de clientes. Alta en /crm/clientes/nuevo." },
   { href: "/crm/clientes/nuevo", label: "Nuevo cliente", how: "Formulario de alta: nombre, contacto, dirección, fuente y responsable. Los datos sensibles se capturan después en el expediente." },
   { href: "/crm/clientes/{id}", label: "Ficha de cliente", how: "Resumen del cliente. Pestañas: expediente, casos y actividad." },

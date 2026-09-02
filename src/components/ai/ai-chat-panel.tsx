@@ -18,9 +18,9 @@ import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
 import { chatBlobatarName } from "@/src/lib/ai/blobatar-name";
 
 const SUGGESTIONS = [
+  "Lista de mis clientes",
+  "¿Qué pagos hay pendientes?",
   "¿Cómo agrego un cliente?",
-  "Resumen del dashboard",
-  "¿Dónde registro un pago?",
 ];
 
 function messageText(message: UIMessage): string {
@@ -302,13 +302,13 @@ export function AiChatPanel({
         <form
           ref={formRef}
           onSubmit={onSubmit}
-          className="pointer-events-none absolute inset-x-0 bottom-0 px-6 pb-3 pt-8"
+          className="pointer-events-none absolute inset-x-0 bottom-0 pt-16"
         >
           <div
-            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-white/80 via-white/45 to-transparent"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-surface-app via-surface-app/80 to-transparent"
             aria-hidden
           />
-          <div className="pointer-events-auto relative mx-auto max-w-3xl">
+          <div className="pointer-events-auto relative mx-auto max-w-3xl px-6 pb-4">
             {composer}
           </div>
         </form>

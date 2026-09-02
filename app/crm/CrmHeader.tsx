@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -14,7 +15,7 @@ import {
 import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
 
 const SECTION_TITLES: Record<string, string> = {
-  dashboard: "Dashboard",
+  dashboard: "Inicio",
   clientes: "Clientes",
   casos: "Casos",
   rondas: "Rondas",
@@ -34,6 +35,7 @@ const NESTED_TITLES: Record<string, string> = {
   nueva: "Nueva",
   paquetes: "Paquetes",
   etapas: "Etapas",
+  notificaciones: "Notificaciones",
   expediente: "Expediente",
   actividad: "Actividad",
   documentos: "Documentos",
@@ -84,6 +86,78 @@ export function HeaderTitle({
   return null;
 }
 
+const NAV_STACK_KEY = "jh-crm-nav-stack";
+const NAV_STACK_MAX = 50;
+const LEGACY_PREV_KEY = "jh-crm-nav-prev";
+const LEGACY_CURR_KEY = "jh-crm-nav-curr";
+
+function isCrmHref(value: unknown): value is string {
+  return typeof value === "string" && value.startsWith("/crm");
+}
+
+function readNavStack(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = sessionStorage.getItem(NAV_STACK_KEY);
+    if (raw) {
+      const parsed: unknown = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed.filter(isCrmHref);
+    }
+    const prev = sessionStorage.getItem(LEGACY_PREV_KEY);
+    const curr = sessionStorage.getItem(LEGACY_CURR_KEY);
+    const seeded = [prev, curr].filter(isCrmHref);
+    return seeded.filter((href, i) => seeded.indexOf(href) === i);
+  } catch {
+    return [];
+  }
+}
+
+function writeNavStack(stack: string[]) {
+  try {
+    sessionStorage.setItem(
+      NAV_STACK_KEY,
+      JSON.stringify(stack.slice(-NAV_STACK_MAX)),
+    );
+    sessionStorage.removeItem(LEGACY_PREV_KEY);
+    sessionStorage.removeItem(LEGACY_CURR_KEY);
+  } catch {
+    // modo privado / cuota
+  }
+}
+
+/**
+ * Pila de rutas CRM (Chats → chat → cliente).
+ * Atrás recorre el historial; si no hay pila, usa el padre de la URL.
+ */
+function useCrmBackHref(pathname: string, fallback: string | null): string | null {
+  const searchParams = useSearchParams();
+  const full = searchParams.toString()
+    ? `${pathname}?${searchParams.toString()}`
+    : pathname;
+  const [href, setHref] = useState<string | null>(fallback);
+
+  useLayoutEffect(() => {
+    let stack = readNavStack();
+    const last = stack[stack.length - 1];
+    if (last !== full) {
+      const existing = stack.lastIndexOf(full);
+      stack =
+        existing >= 0 ? stack.slice(0, existing + 1) : [...stack, full];
+      writeNavStack(stack);
+    }
+
+    if (!fallback) {
+      setHref(null);
+      return;
+    }
+
+    const previous = stack[stack.length - 2];
+    setHref(previous && previous !== full ? previous : fallback);
+  }, [full, fallback]);
+
+  return fallback ? href : null;
+}
+
 export function headerForPath(pathname: string): {
   title: string;
   backHref: string | null;
@@ -114,7 +188,8 @@ export function headerForPath(pathname: string): {
 export function CrmHeader({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const override = useContext(HeaderOverrideContext);
-  const { title, backHref } = headerForPath(pathname);
+  const { title, backHref: structuralBack } = headerForPath(pathname);
+  const backHref = useCrmBackHref(pathname, structuralBack);
   const label = override.title ?? title;
 
   return (

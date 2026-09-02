@@ -1,9 +1,31 @@
+import type {
+  CaseState,
+  ClientStatus,
+  PaymentStatus,
+  Prisma,
+  QuoteStatus,
+  ReceiptStatus,
+  RoundStatus,
+  TaskStatus,
+} from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { formatMoney } from "@/src/lib/format";
 import { CRM_ROUTES, HOW_TO_GUIDE } from "@/src/lib/ai/knowledge";
 import { fullName, jsonSafe } from "@/src/lib/ai/serialize";
+import {
+  CASE_STATE_LABELS,
+  CLIENT_STATUS_LABELS,
+  PAYMENT_METHOD_LABELS,
+  PAYMENT_STATUS_LABELS,
+  QUOTE_STATUS_LABELS,
+  RECEIPT_STATUS_LABELS,
+  ROUND_STATUS_LABELS,
+  TASK_PRIORITY_LABELS,
+  TASK_STATUS_LABELS,
+  labelFor,
+} from "@/src/lib/labels";
 import type { OrganizationContext } from "@/src/server/auth/guards";
-import { can } from "@/src/server/auth/permissions";
+import { can, type PermissionAction } from "@/src/server/auth/permissions";
 import { getSettings } from "@/src/server/config";
 import { getDashboardSummary } from "@/src/server/dashboard";
 import { DomainError } from "@/src/server/errors";
@@ -12,6 +34,19 @@ import * as caseService from "@/src/server/cases";
 import * as serviceCatalog from "@/src/server/services";
 
 const SEARCH_LIMIT = 8;
+const LIST_LIMIT = 50;
+
+export const CRM_LIST_ENTITIES = [
+  "clients",
+  "cases",
+  "payments",
+  "tasks",
+  "quotes",
+  "rounds",
+  "receipts",
+] as const;
+
+export type CrmListEntity = (typeof CRM_LIST_ENTITIES)[number];
 
 function contains(q: string) {
   return { contains: q };
@@ -19,6 +54,165 @@ function contains(q: string) {
 
 function deny(action: string) {
   return { error: `No tienes permiso para ${action}.` };
+}
+
+function foldStatus(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+const STATUS_ALIASES: Record<CrmListEntity, Record<string, string>> = {
+  clients: {
+    lead: "LEAD",
+    prospecto: "LEAD",
+    prospectos: "LEAD",
+    active: "ACTIVE",
+    activo: "ACTIVE",
+    activos: "ACTIVE",
+    paused: "PAUSED",
+    pausado: "PAUSED",
+    pausados: "PAUSED",
+    completed: "COMPLETED",
+    completado: "COMPLETED",
+    completados: "COMPLETED",
+    cancelled: "CANCELLED",
+    cancelado: "CANCELLED",
+    cancelados: "CANCELLED",
+    archived: "ARCHIVED",
+    archivado: "ARCHIVED",
+    archivados: "ARCHIVED",
+  },
+  cases: {
+    open: "OPEN",
+    abierto: "OPEN",
+    abiertos: "OPEN",
+    paused: "PAUSED",
+    pausado: "PAUSED",
+    completed: "COMPLETED",
+    completado: "COMPLETED",
+    cancelled: "CANCELLED",
+    cancelado: "CANCELLED",
+  },
+  payments: {
+    pending: "PENDING",
+    pendiente: "PENDING",
+    pendientes: "PENDING",
+    received: "RECEIVED",
+    recibido: "RECEIVED",
+    recibidos: "RECEIVED",
+    cancelled: "CANCELLED",
+    cancelado: "CANCELLED",
+    refunded: "REFUNDED",
+    reembolsado: "REFUNDED",
+  },
+  tasks: {
+    pending: "PENDING",
+    pendiente: "PENDING",
+    pendientes: "PENDING",
+    in_progress: "IN_PROGRESS",
+    "en progreso": "IN_PROGRESS",
+    completed: "COMPLETED",
+    completada: "COMPLETED",
+    completadas: "COMPLETED",
+    cancelled: "CANCELLED",
+    cancelada: "CANCELLED",
+  },
+  quotes: {
+    draft: "DRAFT",
+    borrador: "DRAFT",
+    sent: "SENT",
+    enviada: "SENT",
+    enviadas: "SENT",
+    accepted: "ACCEPTED",
+    aceptada: "ACCEPTED",
+    rejected: "REJECTED",
+    rechazada: "REJECTED",
+    expired: "EXPIRED",
+    vencida: "EXPIRED",
+    partial: "PARTIAL",
+    pagada: "PAID",
+    paid: "PAID",
+    cancelled: "CANCELLED",
+    cancelada: "CANCELLED",
+  },
+  rounds: {
+    draft: "DRAFT",
+    borrador: "DRAFT",
+    preparing: "PREPARING",
+    sent: "SENT",
+    enviada: "SENT",
+    waiting_update: "WAITING_UPDATE",
+    reviewing: "REVIEWING",
+    completed: "COMPLETED",
+    completada: "COMPLETED",
+    cancelled: "CANCELLED",
+    cancelada: "CANCELLED",
+  },
+  receipts: {
+    issued: "ISSUED",
+    emitido: "ISSUED",
+    emitidos: "ISSUED",
+    void: "VOID",
+    anulado: "VOID",
+    anulados: "VOID",
+  },
+};
+
+function resolveListStatus(
+  entity: CrmListEntity,
+  raw?: string,
+): { ok: true; status?: string } | { ok: false; error: string } {
+  if (!raw?.trim()) return { ok: true };
+  const folded = foldStatus(raw);
+  if (folded === "all" || folded === "todos" || folded === "todas" || folded === "*") {
+    return { ok: true };
+  }
+  const aliases = STATUS_ALIASES[entity];
+  const allowed = new Set(Object.values(aliases));
+  const fromAlias = aliases[folded];
+  const fromCode = raw.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  const status = fromAlias ?? (allowed.has(fromCode) ? fromCode : undefined);
+  if (!status) {
+    return {
+      ok: false,
+      error: `Estado no válido para ${entity}. Usa uno de: ${[...allowed].join(", ")} o omite el filtro para todos.`,
+    };
+  }
+  return { ok: true, status };
+}
+
+function formatCounts(
+  rows: Array<{ key: string; count: number }>,
+  labels: Record<string, string>,
+) {
+  return rows.map((row) => ({
+    status: row.key,
+    statusLabel: labelFor(labels, row.key),
+    count: row.count,
+  }));
+}
+
+function listMeta(args: {
+  entity: CrmListEntity;
+  listHref: string;
+  items: unknown[];
+  total: number;
+  counts: Array<{ status: string; statusLabel: string; count: number }>;
+  note?: string;
+}) {
+  return {
+    entity: args.entity,
+    shown: args.items.length,
+    total: args.total,
+    hasMore: args.total > args.items.length,
+    listHref: args.listHref,
+    countsByStatus: args.counts,
+    note: args.note,
+    items: args.items,
+  };
 }
 
 export async function getCompanySnapshot(ctx: OrganizationContext) {
@@ -60,11 +254,26 @@ export async function getCompanySnapshot(ctx: OrganizationContext) {
 
 export async function getDashboardSnapshot(ctx: OrganizationContext) {
   if (!can(ctx.role, "dashboard.view")) return deny("ver el dashboard");
-  const summary = await getDashboardSummary(ctx);
+  const [summary, clientGroups] = await Promise.all([
+    getDashboardSummary(ctx),
+    can(ctx.role, "clients.view")
+      ? prisma.client.groupBy({
+          by: ["status"],
+          where: { organizationId: ctx.organizationId },
+          _count: { _all: true },
+        })
+      : Promise.resolve([]),
+  ]);
   const w = summary.widgets;
-  return jsonSafe({
+  return jsonSafe(
+    {
     generatedAt: summary.generatedAt,
     timezone: summary.timezone,
+    note: "counts.activeClients es solo status ACTIVE. Los prospectos (LEAD) están en clientCountsByStatus. Para listar nombres usa listCrm.",
+    clientCountsByStatus: formatCounts(
+      clientGroups.map((row) => ({ key: row.status, count: row._count._all })),
+      CLIENT_STATUS_LABELS,
+    ),
     counts: {
       activeClients: w.activeClients.count,
       openCases: w.openCases.count,
@@ -106,7 +315,473 @@ export async function getDashboardSnapshot(ctx: OrganizationContext) {
       quotes: w.pendingQuotes.link,
       rounds: w.activeRounds.link,
     },
-  });
+    },
+    summary.timezone,
+  );
+}
+
+const LIST_PERMISSION: Record<CrmListEntity, PermissionAction> = {
+  clients: "clients.view",
+  cases: "cases.view",
+  payments: "payments.view",
+  tasks: "tasks.view",
+  quotes: "quotes.view",
+  rounds: "rounds.view",
+  receipts: "receipts.view",
+};
+
+const LIST_HREF: Record<CrmListEntity, string> = {
+  clients: "/crm/clientes",
+  cases: "/crm/casos",
+  payments: "/crm/pagos",
+  tasks: "/crm/tareas",
+  quotes: "/crm/cotizaciones",
+  rounds: "/crm/rondas",
+  receipts: "/crm/recibos",
+};
+
+export async function listCrm(
+  ctx: OrganizationContext,
+  entity: CrmListEntity,
+  filters: { status?: string; q?: string } = {},
+) {
+  const permission = LIST_PERMISSION[entity];
+  if (!can(ctx.role, permission)) {
+    return deny(permission.replace(".", " "));
+  }
+
+  const resolved = resolveListStatus(entity, filters.status);
+  if (!resolved.ok) return { error: resolved.error };
+
+  const orgId = ctx.organizationId;
+  const q = filters.q?.trim() || undefined;
+  const status = resolved.status;
+  const listHref = LIST_HREF[entity];
+
+  if (entity === "clients") {
+    const where: Prisma.ClientWhereInput = {
+      organizationId: orgId,
+      ...(status ? { status: status as ClientStatus } : {}),
+      ...(q
+        ? {
+            OR: [
+              { firstName: contains(q) },
+              { lastName: contains(q) },
+              { email: contains(q) },
+              { phone: contains(q) },
+              { clientCode: contains(q) },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total, groups] = await Promise.all([
+      prisma.client.findMany({
+        where,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: LIST_LIMIT,
+      }),
+      prisma.client.count({ where }),
+      prisma.client.groupBy({
+        by: ["status"],
+        where: { organizationId: orgId },
+        _count: { _all: true },
+      }),
+    ]);
+    return jsonSafe(
+      listMeta({
+        entity,
+        listHref,
+        total,
+        counts: formatCounts(
+          groups.map((row) => ({ key: row.status, count: row._count._all })),
+          CLIENT_STATUS_LABELS,
+        ),
+        note: "Tabla mínima: Nombre, Estado (statusLabel) y [ver cliente](href). No muestres código, id, responsable ni la ruta como texto.",
+        items: rows.map((row) => ({
+          name: fullName(row),
+          statusLabel: labelFor(CLIENT_STATUS_LABELS, row.status),
+          href: `/crm/clientes/${row.id}`,
+          linkLabel: "ver cliente",
+        })),
+      }),
+    );
+  }
+
+  if (entity === "cases") {
+    const where: Prisma.CreditCaseWhereInput = {
+      organizationId: orgId,
+      ...(status ? { state: status as CaseState } : {}),
+      ...(q
+        ? {
+            OR: [
+              { caseCode: contains(q) },
+              { summary: contains(q) },
+              { client: { firstName: contains(q) } },
+              { client: { lastName: contains(q) } },
+              { client: { clientCode: contains(q) } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total, groups] = await Promise.all([
+      prisma.creditCase.findMany({
+        where,
+        select: {
+          id: true,
+          caseCode: true,
+          state: true,
+          nextReviewAt: true,
+          stage: { select: { name: true } },
+          client: {
+            select: { id: true, firstName: true, lastName: true, clientCode: true },
+          },
+        },
+        orderBy: [{ openedAt: "desc" }, { id: "desc" }],
+        take: LIST_LIMIT,
+      }),
+      prisma.creditCase.count({ where }),
+      prisma.creditCase.groupBy({
+        by: ["state"],
+        where: { organizationId: orgId },
+        _count: { _all: true },
+      }),
+    ]);
+    return jsonSafe(
+      listMeta({
+        entity,
+        listHref,
+        total,
+        counts: formatCounts(
+          groups.map((row) => ({ key: row.state, count: row._count._all })),
+          CASE_STATE_LABELS,
+        ),
+        items: rows.map((row) => ({
+          id: row.id,
+          caseCode: row.caseCode,
+          state: row.state,
+          statusLabel: labelFor(CASE_STATE_LABELS, row.state),
+          stage: row.stage.name,
+          nextReviewAt: row.nextReviewAt,
+          client: fullName(row.client),
+          href: `/crm/casos/${row.id}`,
+        })),
+      }),
+    );
+  }
+
+  if (entity === "payments") {
+    const where: Prisma.PaymentWhereInput = {
+      organizationId: orgId,
+      ...(status ? { status: status as PaymentStatus } : {}),
+      ...(q
+        ? {
+            OR: [
+              { reference: contains(q) },
+              { client: { firstName: contains(q) } },
+              { client: { lastName: contains(q) } },
+              { quote: { folio: contains(q) } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total, groups] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          status: true,
+          method: true,
+          dueAt: true,
+          receivedAt: true,
+          reference: true,
+          client: { select: { id: true, firstName: true, lastName: true } },
+          quote: { select: { folio: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: LIST_LIMIT,
+      }),
+      prisma.payment.count({ where }),
+      prisma.payment.groupBy({
+        by: ["status"],
+        where: { organizationId: orgId },
+        _count: { _all: true },
+      }),
+    ]);
+    return jsonSafe(
+      listMeta({
+        entity,
+        listHref,
+        total,
+        counts: formatCounts(
+          groups.map((row) => ({ key: row.status, count: row._count._all })),
+          PAYMENT_STATUS_LABELS,
+        ),
+        items: rows.map((row) => ({
+          id: row.id,
+          amount: formatMoney(row.amount, row.currency),
+          status: row.status,
+          statusLabel: labelFor(PAYMENT_STATUS_LABELS, row.status),
+          method: labelFor(PAYMENT_METHOD_LABELS, row.method),
+          dueAt: row.dueAt,
+          receivedAt: row.receivedAt,
+          reference: row.reference,
+          client: fullName(row.client),
+          quote: row.quote?.folio ?? null,
+          href: "/crm/pagos",
+        })),
+      }),
+    );
+  }
+
+  if (entity === "tasks") {
+    const where: Prisma.TaskWhereInput = {
+      organizationId: orgId,
+      ...(status ? { status: status as TaskStatus } : {}),
+      ...(q
+        ? {
+            OR: [
+              { title: contains(q) },
+              { description: contains(q) },
+              { client: { firstName: contains(q) } },
+              { client: { lastName: contains(q) } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total, groups] = await Promise.all([
+      prisma.task.findMany({
+        where,
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          dueAt: true,
+          client: { select: { firstName: true, lastName: true } },
+          case: { select: { id: true, caseCode: true } },
+        },
+        orderBy: [{ dueAt: "asc" }, { id: "desc" }],
+        take: LIST_LIMIT,
+      }),
+      prisma.task.count({ where }),
+      prisma.task.groupBy({
+        by: ["status"],
+        where: { organizationId: orgId },
+        _count: { _all: true },
+      }),
+    ]);
+    return jsonSafe(
+      listMeta({
+        entity,
+        listHref,
+        total,
+        counts: formatCounts(
+          groups.map((row) => ({ key: row.status, count: row._count._all })),
+          TASK_STATUS_LABELS,
+        ),
+        items: rows.map((row) => ({
+          id: row.id,
+          title: row.title,
+          status: row.status,
+          statusLabel: labelFor(TASK_STATUS_LABELS, row.status),
+          priority: labelFor(TASK_PRIORITY_LABELS, row.priority),
+          dueAt: row.dueAt,
+          client: row.client ? fullName(row.client) : null,
+          caseCode: row.case?.caseCode ?? null,
+          href: "/crm/tareas",
+        })),
+      }),
+    );
+  }
+
+  if (entity === "quotes") {
+    const where: Prisma.QuoteWhereInput = {
+      organizationId: orgId,
+      ...(status ? { status: status as QuoteStatus } : {}),
+      ...(q
+        ? {
+            OR: [
+              { folio: contains(q) },
+              { client: { firstName: contains(q) } },
+              { client: { lastName: contains(q) } },
+              { client: { clientCode: contains(q) } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total, groups] = await Promise.all([
+      prisma.quote.findMany({
+        where,
+        select: {
+          id: true,
+          folio: true,
+          status: true,
+          total: true,
+          currency: true,
+          issuedAt: true,
+          client: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { issuedAt: "desc" },
+        take: LIST_LIMIT,
+      }),
+      prisma.quote.count({ where }),
+      prisma.quote.groupBy({
+        by: ["status"],
+        where: { organizationId: orgId },
+        _count: { _all: true },
+      }),
+    ]);
+    return jsonSafe(
+      listMeta({
+        entity,
+        listHref,
+        total,
+        counts: formatCounts(
+          groups.map((row) => ({ key: row.status, count: row._count._all })),
+          QUOTE_STATUS_LABELS,
+        ),
+        items: rows.map((row) => ({
+          id: row.id,
+          folio: row.folio,
+          status: row.status,
+          statusLabel: labelFor(QUOTE_STATUS_LABELS, row.status),
+          total: formatMoney(row.total, row.currency),
+          issuedAt: row.issuedAt,
+          client: fullName(row.client),
+          href: `/crm/cotizaciones/${row.id}`,
+        })),
+      }),
+    );
+  }
+
+  if (entity === "rounds") {
+    const where: Prisma.CreditRoundWhereInput = {
+      organizationId: orgId,
+      ...(status ? { status: status as RoundStatus } : {}),
+      ...(q
+        ? {
+            OR: [
+              { notes: contains(q) },
+              { case: { caseCode: contains(q) } },
+              { case: { client: { firstName: contains(q) } } },
+              { case: { client: { lastName: contains(q) } } },
+            ],
+          }
+        : {}),
+    };
+    const [rows, total, groups] = await Promise.all([
+      prisma.creditRound.findMany({
+        where,
+        select: {
+          id: true,
+          roundNumber: true,
+          status: true,
+          expectedReviewAt: true,
+          case: {
+            select: {
+              id: true,
+              caseCode: true,
+              client: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+        orderBy: { expectedReviewAt: "asc" },
+        take: LIST_LIMIT,
+      }),
+      prisma.creditRound.count({ where }),
+      prisma.creditRound.groupBy({
+        by: ["status"],
+        where: { organizationId: orgId },
+        _count: { _all: true },
+      }),
+    ]);
+    return jsonSafe(
+      listMeta({
+        entity,
+        listHref,
+        total,
+        counts: formatCounts(
+          groups.map((row) => ({ key: row.status, count: row._count._all })),
+          ROUND_STATUS_LABELS,
+        ),
+        items: rows.map((row) => ({
+          id: row.id,
+          roundNumber: row.roundNumber,
+          status: row.status,
+          statusLabel: labelFor(ROUND_STATUS_LABELS, row.status),
+          expectedReviewAt: row.expectedReviewAt,
+          caseCode: row.case.caseCode,
+          client: fullName(row.case.client),
+          href: `/crm/casos/${row.case.id}/rondas`,
+        })),
+      }),
+    );
+  }
+
+  const where: Prisma.ReceiptWhereInput = {
+    organizationId: orgId,
+    ...(status ? { status: status as ReceiptStatus } : {}),
+    ...(q
+      ? {
+          OR: [
+            { folio: contains(q) },
+            { client: { firstName: contains(q) } },
+            { client: { lastName: contains(q) } },
+          ],
+        }
+      : {}),
+  };
+  const [rows, total, groups] = await Promise.all([
+    prisma.receipt.findMany({
+      where,
+      select: {
+        id: true,
+        folio: true,
+        status: true,
+        amount: true,
+        currency: true,
+        issuedAt: true,
+        client: { select: { firstName: true, lastName: true } },
+      },
+      orderBy: { issuedAt: "desc" },
+      take: LIST_LIMIT,
+    }),
+    prisma.receipt.count({ where }),
+    prisma.receipt.groupBy({
+      by: ["status"],
+      where: { organizationId: orgId },
+      _count: { _all: true },
+    }),
+  ]);
+  return jsonSafe(
+    listMeta({
+      entity,
+      listHref,
+      total,
+      counts: formatCounts(
+        groups.map((row) => ({ key: row.status, count: row._count._all })),
+        RECEIPT_STATUS_LABELS,
+      ),
+      items: rows.map((row) => ({
+        id: row.id,
+        folio: row.folio,
+        status: row.status,
+        statusLabel: labelFor(RECEIPT_STATUS_LABELS, row.status),
+        amount: formatMoney(row.amount, row.currency),
+        issuedAt: row.issuedAt,
+        client: fullName(row.client),
+        href: "/crm/recibos",
+      })),
+    }),
+  );
 }
 
 export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
@@ -298,6 +973,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
     clients: clients?.map((row) => ({
       ...row,
       name: fullName(row),
+      statusLabel: labelFor(CLIENT_STATUS_LABELS, row.status),
       href: `/crm/clientes/${row.id}`,
       expedienteHref: `/crm/clientes/${row.id}/expediente`,
     })),
@@ -305,6 +981,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       id: row.id,
       caseCode: row.caseCode,
       state: row.state,
+      statusLabel: labelFor(CASE_STATE_LABELS, row.state),
       stage: row.stage.name,
       nextReviewAt: row.nextReviewAt,
       client: fullName(row.client),
@@ -315,6 +992,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       id: row.id,
       folio: row.folio,
       status: row.status,
+      statusLabel: labelFor(QUOTE_STATUS_LABELS, row.status),
       total: formatMoney(row.total, row.currency),
       client: fullName(row.client),
       href: `/crm/cotizaciones/${row.id}`,
@@ -323,7 +1001,8 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       id: row.id,
       amount: formatMoney(row.amount, row.currency),
       status: row.status,
-      method: row.method,
+      statusLabel: labelFor(PAYMENT_STATUS_LABELS, row.status),
+      method: labelFor(PAYMENT_METHOD_LABELS, row.method),
       dueAt: row.dueAt,
       client: fullName(row.client),
       quote: row.quote?.folio ?? null,
@@ -333,7 +1012,8 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       id: row.id,
       title: row.title,
       status: row.status,
-      priority: row.priority,
+      statusLabel: labelFor(TASK_STATUS_LABELS, row.status),
+      priority: labelFor(TASK_PRIORITY_LABELS, row.priority),
       dueAt: row.dueAt,
       client: row.client ? fullName(row.client) : null,
       caseCode: row.case?.caseCode ?? null,
@@ -343,6 +1023,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       id: row.id,
       roundNumber: row.roundNumber,
       status: row.status,
+      statusLabel: labelFor(ROUND_STATUS_LABELS, row.status),
       expectedReviewAt: row.expectedReviewAt,
       caseCode: row.case.caseCode,
       client: fullName(row.case.client),
@@ -352,6 +1033,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       id: row.id,
       folio: row.folio,
       status: row.status,
+      statusLabel: labelFor(RECEIPT_STATUS_LABELS, row.status),
       amount: formatMoney(row.amount, row.currency),
       client: fullName(row.client),
       href: "/crm/recibos",
@@ -379,6 +1061,7 @@ export async function getClientBrief(ctx: OrganizationContext, clientId: string)
       client: {
         ...detail.client,
         name: fullName(detail.client),
+        statusLabel: labelFor(CLIENT_STATUS_LABELS, detail.client.status),
         href: `/crm/clientes/${detail.client.id}`,
         expedienteHref: `/crm/clientes/${detail.client.id}/expediente`,
         casosHref: `/crm/clientes/${detail.client.id}/casos`,

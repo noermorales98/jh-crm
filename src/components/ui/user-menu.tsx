@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { LogOut, ScrollText, Settings, UserCog, Volume2, VolumeX } from "lucide-react";
+import { Bell, LogOut, ScrollText, Settings, UserCog, Volume2, VolumeX } from "lucide-react";
 import { useCuelumeMute } from "@/src/components/cuelume/cuelume-provider";
 
 /**
@@ -164,6 +164,16 @@ export function UserMenu({
             </Link>
             {isManager ? (
               <>
+                <Link
+                  href="/crm/configuracion/notificaciones"
+                  role="menuitem"
+                  onClick={() => setOpen(false)}
+                  data-cuelume-hover="tick"
+                  className={MENU_ITEM_CLASSES}
+                >
+                  <Bell className={MENU_ICON_CLASSES} aria-hidden />
+                  Notificaciones
+                </Link>
                 <Link
                   href="/crm/usuarios"
                   role="menuitem"

@@ -8,6 +8,7 @@ import {
   getCompanySnapshot,
   getDashboardSnapshot,
   getRoutesAndHowTo,
+  listCrm,
   searchCrm,
 } from "./queries";
 
@@ -28,17 +29,39 @@ export function buildCrmTools(ctx: OrganizationContext) {
       }),
       execute: async () => getCompanySnapshot(ctx),
     }),
-    getDashboard: tool({
+    listCrm: tool({
       description:
-        "Resumen operativo actual: conteos de clientes, casos, tareas vencidas, cotizaciones pendientes y pagos. Incluye enlaces a cada lista.",
+        "Lista registros del CRM con nombres, códigos, estados y enlaces. Úsala cuando pidan la lista, inventario, todos los clientes, prospectos, pagos, casos, tareas, cotizaciones, rondas o recibos. Sin status incluye TODOS los estados (LEAD/Prospecto y ACTIVE/Activo). No uses searchCrm ni getDashboard para esto.",
       inputSchema: z.object({
-        reason: z.string().optional().describe("Por qué se pide el dashboard."),
+        entity: z
+          .enum([
+            "clients",
+            "cases",
+            "payments",
+            "tasks",
+            "quotes",
+            "rounds",
+            "receipts",
+          ])
+          .describe(
+            "Qué listar. clients = clientes y prospectos. payments = pagos. cases = casos.",
+          ),
+        status: z
+          .string()
+          .optional()
+          .describe(
+            "Filtro opcional. Clientes: LEAD (prospecto), ACTIVE, PAUSED, COMPLETED, CANCELLED, ARCHIVED. Omite el campo o usa all para incluir todos, incluidos prospectos.",
+          ),
+        q: z
+          .string()
+          .optional()
+          .describe("Filtro opcional por nombre, código, folio o correo."),
       }),
-      execute: async () => getDashboardSnapshot(ctx),
+      execute: async ({ entity, status, q }) => listCrm(ctx, entity, { status, q }),
     }),
     searchCrm: tool({
       description:
-        "Busca a la vez en clientes, casos, cotizaciones, pagos, tareas, rondas y recibos de la organización. Usa nombres, códigos (CL-0001, CASE-0001), folios, correo o teléfono.",
+        "Busca un registro concreto por nombre, código (CL-0001, CASE-0001), folio, correo o teléfono. No la uses para listar todos los clientes o pagos; para eso usa listCrm.",
       inputSchema: z.object({
         query: z
           .string()
@@ -48,6 +71,14 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .describe("Texto a buscar: nombre, código, folio, correo o teléfono."),
       }),
       execute: async ({ query }) => searchCrm(ctx, query),
+    }),
+    getDashboard: tool({
+      description:
+        "Solo conteos y pendientes del tablero. activeClients cuenta únicamente clientes ACTIVE (no prospectos LEAD). NO sirve para listar nombres: usa listCrm.",
+      inputSchema: z.object({
+        reason: z.string().optional().describe("Por qué se pide el dashboard."),
+      }),
+      execute: async () => getDashboardSnapshot(ctx),
     }),
     getClient: tool({
       description:

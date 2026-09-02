@@ -62,7 +62,7 @@ export async function ClientDetailPanel({ clientId }: { clientId: string }) {
     .join(" · ");
 
   return (
-    <div className="p-4">
+    <div>
       <ClientHeader
         client={client}
         actions={

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
+import { ClientDetailPanel } from "@/src/components/clients/client-detail-panel";
 
 export const metadata: Metadata = {
   title: "Cliente",
@@ -11,5 +11,5 @@ export default async function ClientSummaryPage({
   params: Promise<{ clientId: string }>;
 }) {
   const { clientId } = await params;
-  redirect(`/crm/clientes?id=${clientId}`);
+  return <ClientDetailPanel clientId={clientId} />;
 }

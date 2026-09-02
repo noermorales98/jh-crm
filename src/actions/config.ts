@@ -9,12 +9,12 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
-import { moneySchema } from "@/src/lib/validation/common";
-import { cuidSchema } from "@/src/lib/validation/common";
+import { cuidSchema, emailSchema, moneySchema } from "@/src/lib/validation/common";
 import * as configService from "@/src/server/config";
 
 function revalidateConfig() {
   revalidatePath("/crm/configuracion");
+  revalidatePath("/crm/configuracion/notificaciones");
   revalidatePath("/crm/configuracion/etapas");
   revalidatePath("/crm/dashboard");
 }
@@ -58,6 +58,7 @@ const settingsSchema = z.object({
   smtpPassword: z.string().max(200).optional(),
   smtpFrom: z.string().trim().max(200).nullish(),
   smtpSecure: z.boolean().optional(),
+  smtpTestTo: emailSchema.optional().or(z.literal("")).nullish(),
   digestEnabled: z.boolean().optional(),
   digestHour: z.coerce.number().int().min(0).max(23).optional(),
   notifyEmailTask: z.boolean().optional(),
@@ -105,10 +106,13 @@ export async function sendTestWhatsapp(
   }
 }
 
-export async function sendTestEmail(): Promise<ActionResult<{ message: string }>> {
+export async function sendTestEmail(
+  to: unknown,
+): Promise<ActionResult<{ message: string }>> {
   try {
     const ctx = await requireRole("OWNER", "ADMIN");
-    const result = await configService.sendTestEmail(ctx);
+    const recipient = emailSchema.parse(to);
+    const result = await configService.sendTestEmail(ctx, recipient);
     return actionOk(result);
   } catch (error) {
     if (isNextControlError(error)) throw error;

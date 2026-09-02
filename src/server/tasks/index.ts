@@ -252,6 +252,18 @@ export async function reassignTask(
   });
 }
 
+export async function getTask(ctx: OrganizationContext, taskId: string) {
+  const task = await prisma.task.findFirst({
+    where: { id: taskId, organizationId: ctx.organizationId },
+    select: {
+      ...TASK_LIST_SELECT,
+      description: true,
+    },
+  });
+  if (!task) throw new DomainError("Tarea no encontrada.");
+  return task;
+}
+
 export async function listTasks(ctx: OrganizationContext, filters: TaskListFilters = {}) {
   const limit = Math.min(filters.limit ?? 20, 100);
 

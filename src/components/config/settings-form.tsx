@@ -54,6 +54,7 @@ export interface SettingsFormValues {
   smtpUser: string;
   smtpFrom: string;
   smtpSecure: boolean;
+  smtpTestTo: string;
   smtpConfigured: boolean;
   digestEnabled: boolean;
   digestHour: number;
@@ -99,8 +100,10 @@ function draftsFromValues(values: SettingsFormValues): RecipientDraft[] {
 /** Formulario de OrganizationSettings (solo OWNER/ADMIN). */
 export function SettingsForm({
   initialValues,
+  section = "all",
 }: {
   initialValues: SettingsFormValues;
+  section?: "all" | "company" | "notifications";
 }) {
   const router = useRouter();
   const [values, setValues] = useState<SettingsFormValues>(initialValues);
@@ -163,6 +166,7 @@ export function SettingsForm({
         smtpPassword: smtpPassword.trim() || undefined,
         smtpFrom: values.smtpFrom.trim() || null,
         smtpSecure: values.smtpSecure,
+        smtpTestTo: values.smtpTestTo.trim() || null,
         digestEnabled: values.digestEnabled,
         digestHour: Number(values.digestHour),
         notifyEmailTask: values.notifyEmailTask,
@@ -217,6 +221,8 @@ export function SettingsForm({
         <Alert tone="success">Configuración guardada correctamente.</Alert>
       ) : null}
 
+      {section !== "notifications" ? (
+        <>
       <section className="space-y-4">
         <h3 className="text-sm font-semibold text-ink">Empresa</h3>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -415,8 +421,12 @@ export function SettingsForm({
           />
         </Field>
       </section>
+        </>
+      ) : null}
 
-      <section className="space-y-4 border-t border-border-subtle pt-4">
+      {section !== "company" ? (
+        <>
+      <section className={`space-y-4 ${section === "notifications" ? "" : "border-t border-border-subtle pt-4"}`}>
         <h3 className="text-sm font-semibold text-ink">Correo (SMTP)</h3>
         <Alert tone="info">
           Los avisos internos y el resumen diario salen por este servidor. La
@@ -490,6 +500,21 @@ export function SettingsForm({
             />
             TLS / conexión segura
           </label>
+          <Field
+            label="Enviar prueba a"
+            htmlFor="smtpTestTo"
+            hint="Correo que recibirá el mensaje de prueba. Se guarda con el resto de la configuración."
+            className="sm:col-span-2"
+          >
+            <Input
+              id="smtpTestTo"
+              type="email"
+              value={values.smtpTestTo}
+              onChange={(e) => set("smtpTestTo", e.target.value)}
+              placeholder="tu@correo.com"
+              autoComplete="email"
+            />
+          </Field>
         </div>
         <Button
           type="button"
@@ -499,7 +524,7 @@ export function SettingsForm({
             setError(null);
             setTestMessage(null);
             startTest(async () => {
-              const result = await sendTestEmail();
+              const result = await sendTestEmail(values.smtpTestTo);
               if (!result.ok) {
                 play("error");
                 setError(result.error);
@@ -823,6 +848,8 @@ export function SettingsForm({
           <p className="text-xs text-emerald-700">{testMessage}</p>
         ) : null}
       </section>
+        </>
+      ) : null}
 
       <div className="flex items-center gap-2 border-t border-border-subtle pt-4">
         <Button type="submit" disabled={pending}>

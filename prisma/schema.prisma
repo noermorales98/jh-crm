@@ -249,6 +249,7 @@ model OrganizationSettings {
   smtpPasswordEncrypted    String?  @db.Text
   smtpFrom                 String?
   smtpSecure               Boolean  @default(true)
+  smtpTestTo               String?
   digestEnabled            Boolean  @default(true)
   digestHour               Int      @default(8)
   notifyEmailTask          Boolean  @default(true)

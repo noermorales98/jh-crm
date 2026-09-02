@@ -426,8 +426,12 @@ export function hintLinksForText(text: string): { href: string; label: string }[
   if (lower.includes("configur") || lower.includes("empresa")) {
     add("/crm/configuracion", "Configuración");
   }
-  if (lower.includes("dashboard") || lower.includes("tablero")) {
-    add("/crm/dashboard", "Dashboard");
+  if (
+    lower.includes("dashboard") ||
+    lower.includes("tablero") ||
+    lower.includes("inicio")
+  ) {
+    add("/crm/dashboard", "Inicio");
   }
   if (lower.includes("chat")) add("/crm/chats", "Chats");
   return out.slice(0, 4);

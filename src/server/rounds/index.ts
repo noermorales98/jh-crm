@@ -311,6 +311,18 @@ export async function cancelRound(ctx: OrganizationContext, roundId: string) {
   });
 }
 
+export async function getRound(ctx: OrganizationContext, roundId: string) {
+  const round = await prisma.creditRound.findFirst({
+    where: { id: roundId, organizationId: ctx.organizationId },
+    select: {
+      ...ROUND_LIST_SELECT,
+      notes: true,
+    },
+  });
+  if (!round) throw new DomainError("Ronda no encontrada.");
+  return round;
+}
+
 /** Vista global de rondas (/rondas), con filtro de próximas revisiones. */
 export async function listRounds(ctx: OrganizationContext, filters: RoundListFilters = {}) {
   const limit = Math.min(filters.limit ?? 20, 100);

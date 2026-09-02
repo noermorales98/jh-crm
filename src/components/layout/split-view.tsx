@@ -33,7 +33,7 @@ export function SplitView({
       <div className="min-h-0 min-w-0 flex-1 overflow-y-auto md:max-w-[26rem] md:shrink-0 md:rounded-surface md:bg-surface-elevated">
         {list}
       </div>
-      <div className="hidden min-h-0 min-w-0 flex-1 overflow-y-auto md:block md:rounded-surface md:bg-surface-elevated">
+      <div className="hidden min-h-0 min-w-0 flex-1 overflow-y-auto md:flex md:flex-col md:rounded-surface md:bg-surface-elevated">
         {selectedId ? (
           detail
         ) : (

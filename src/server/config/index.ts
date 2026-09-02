@@ -48,6 +48,7 @@ export interface SettingsUpdateData {
   smtpPassword?: string | null;
   smtpFrom?: string | null;
   smtpSecure?: boolean;
+  smtpTestTo?: string | null;
   digestEnabled?: boolean;
   digestHour?: number;
   notifyEmailTask?: boolean;
@@ -112,6 +113,7 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
     smtpUser: settings.smtpUser ?? "",
     smtpFrom: settings.smtpFrom ?? "",
     smtpSecure: settings.smtpSecure,
+    smtpTestTo: settings.smtpTestTo ?? "",
     smtpConfigured: Boolean(settings.smtpPasswordEncrypted || settings.smtpHost),
     digestEnabled: settings.digestEnabled,
     digestHour: settings.digestHour,
@@ -226,6 +228,9 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
           ...(data.smtpUser !== undefined ? { smtpUser: data.smtpUser } : {}),
           ...(data.smtpFrom !== undefined ? { smtpFrom: data.smtpFrom } : {}),
           ...(data.smtpSecure !== undefined ? { smtpSecure: data.smtpSecure } : {}),
+          ...(data.smtpTestTo !== undefined
+            ? { smtpTestTo: data.smtpTestTo?.trim() ? data.smtpTestTo.trim().toLowerCase() : null }
+            : {}),
           ...(data.smtpPassword?.trim()
             ? { smtpPasswordEncrypted: encrypt(data.smtpPassword.trim()) }
             : {}),
@@ -403,24 +408,21 @@ export async function sendTestWhatsapp(
   return result;
 }
 
-export async function sendTestEmail(ctx: OrganizationContext) {
+export async function sendTestEmail(ctx: OrganizationContext, to: string) {
   const settings = await getSettings(ctx);
   if (!isSmtpConfigured(settings)) {
     throw new DomainError("Configura el servidor SMTP primero (host, puerto y remitente).");
   }
-  const user = await prisma.user.findUnique({
-    where: { id: ctx.userId },
-    select: { email: true },
-  });
-  if (!user?.email) {
-    throw new DomainError("Tu usuario no tiene un correo para enviar la prueba.");
+  const recipient = to.trim().toLowerCase();
+  if (!recipient) {
+    throw new DomainError("Indica el correo que recibirá la prueba.");
   }
   await sendSmtpMail(settings, {
-    to: user.email,
+    to: recipient,
     subject: "Prueba de correo — J&H CRM",
     text: "Si lees este mensaje, el servidor SMTP de J&H CRM está bien configurado.",
   });
-  return { message: `Correo de prueba enviado a ${user.email}.` };
+  return { message: `Correo de prueba enviado a ${recipient}.` };
 }
 
 // ---------------------------------------------------------------------------

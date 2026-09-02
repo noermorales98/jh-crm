@@ -34,7 +34,7 @@ Login con `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` definidos en
 
 - `DATABASE_URL` — MySQL remoto.
 - `AUTH_SECRET` — secreto de sesión NextAuth.
-- `CRON_SECRET` — Bearer token para `GET /api/cron/reminders`.
+- `CRON_SECRET` — Bearer token para `GET /api/cron/reminders` y `GET /api/cron/digest`.
 - `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` / `BOOTSTRAP_OWNER_NAME`.
 - `OPENROUTER_API_KEY` — chat de IA en el CRM (modelos gratuitos). Opcional: `OPENROUTER_API_KEY_SECONDARY`.
 
@@ -67,11 +67,26 @@ la configuración de la empresa y las rutas para guiar al usuario con enlaces
 
 `OPENROUTER_API_KEY_SECONDARY` se usa si la clave primaria responde 429/402/401.
 
-## Cron de recordatorios
+## Cron (cron-job.org)
 
-`GET /api/cron/reminders` con header `Authorization: Bearer $CRON_SECRET`.
-Idempotente: cada notificación lleva `dedupeKey` único (upsert), por lo que se
-puede ejecutar cada 15 minutos sin duplicar.
+Crea **dos** jobs en [cron-job.org](https://cron-job.org/en/) contra la URL de producción.
+Ambos usan el header `Authorization: Bearer $CRON_SECRET`.
+
+### Recordatorios (tareas, revisiones, pagos)
+
+- URL: `https://TU-DOMINIO/api/cron/reminders`
+- Método: `GET`
+- Cada **15 minutos**
+- Idempotente: cada aviso lleva `dedupeKey` único (upsert), no se duplica.
+
+### Resumen diario
+
+- URL: `https://TU-DOMINIO/api/cron/digest`
+- Método: `GET`
+- Cada **hora** (el CRM solo envía si `digestEnabled` y la hora local de la organización coincide con la configurada en Notificaciones; default 08:00).
+- Destinatarios: OWNER y ADMIN. El correo sale por el SMTP de Configuración → Notificaciones.
+
+SMTP, hora del resumen y toggles de correo/WhatsApp: menú de usuario → **Notificaciones** (`/crm/configuracion/notificaciones`).
 
 ## Pendiente: almacenamiento S3
 

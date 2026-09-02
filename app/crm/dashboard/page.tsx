@@ -19,7 +19,7 @@ import { formatDate, formatMoney, formatDateTime } from "@/src/lib/format";
 import { TASK_PRIORITY_LABELS, labelFor } from "@/src/lib/labels";
 
 export const metadata: Metadata = {
-  title: "Dashboard",
+  title: "Inicio",
 };
 
 function KpiCard({
@@ -75,7 +75,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Dashboard"
+        title="Inicio"
         description={`Resumen operativo · generado ${formatDateTime(summary.generatedAt, summary.timezone)} (${summary.timezone})`}
       />
 

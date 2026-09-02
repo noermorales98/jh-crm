@@ -81,6 +81,11 @@ export const PAYMENT_METHOD_LABELS: Record<string, string> = {
   OTHER: "Otro",
 };
 
+export const RECEIPT_STATUS_LABELS: Record<string, string> = {
+  ISSUED: "Emitido",
+  VOID: "Anulado",
+};
+
 export const DOCUMENT_CATEGORY_LABELS: Record<string, string> = {
   IDENTITY: "Identificación",
   PROOF_OF_ADDRESS: "Comprobante de domicilio",

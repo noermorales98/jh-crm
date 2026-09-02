@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { ShieldAlert } from "lucide-react";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
-import { listStages } from "@/src/server/config";
+import { getSettingsFormValues } from "@/src/server/config";
 import {
   Card,
   CardBody,
@@ -10,22 +10,22 @@ import {
   PageHeader,
   Tabs,
 } from "@/src/components/ui";
-import { StagesManager } from "@/src/components/config/stages-manager";
+import { SettingsForm } from "@/src/components/config/settings-form";
 import { CONFIG_TABS } from "../config-tabs";
 
 export const metadata: Metadata = {
-  title: "Etapas del proceso",
+  title: "Notificaciones",
 };
 
-export default async function StagesPage() {
+export default async function NotificationsSettingsPage() {
   const ctx = await requireOrganization();
 
   if (!can(ctx.role, "settings.manage")) {
     return (
       <div>
         <PageHeader
-          title="Etapas del proceso"
-          description="Flujo de trabajo de los casos de reparación de crédito."
+          title="Notificaciones"
+          description="Correo SMTP, resumen diario y avisos al equipo."
         />
         <Card>
           <EmptyState
@@ -38,29 +38,20 @@ export default async function StagesPage() {
     );
   }
 
-  const stages = await listStages(ctx, true);
+  const settings = await getSettingsFormValues(ctx);
 
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader
-        title="Etapas del proceso"
-        description="Orden y colores de las etapas por las que avanza un caso."
+        title="Notificaciones"
+        description="Configura el servidor de correo, el resumen diario, qué avisos salen por correo o WhatsApp, y los recordatorios a clientes."
       />
 
       <Tabs items={CONFIG_TABS} />
 
       <Card>
         <CardBody>
-          <StagesManager
-            stages={stages.map((s) => ({
-              id: s.id,
-              key: s.key,
-              name: s.name,
-              color: s.color,
-              isTerminal: s.isTerminal,
-              isActive: s.isActive,
-            }))}
-          />
+          <SettingsForm initialValues={settings} section="notifications" />
         </CardBody>
       </Card>
     </div>

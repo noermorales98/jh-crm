@@ -34,6 +34,8 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
     pendingPaymentsAgg,
     pendingPayments,
     recentReceivedPayments,
+    unreadInboxCount,
+    unreadInboxMails,
   ] = await Promise.all([
     prisma.client.count({
       where: { organizationId: orgId, status: "ACTIVE" },
@@ -154,6 +156,29 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       orderBy: { receivedAt: "desc" },
       take: 10,
     }),
+    prisma.mailMessage.count({
+      where: {
+        organizationId: orgId,
+        folder: "INBOX",
+        direction: "INBOUND",
+        isRead: false,
+      },
+    }),
+    prisma.mailMessage.findMany({
+      where: {
+        organizationId: orgId,
+        folder: "INBOX",
+        direction: "INBOUND",
+        isRead: false,
+      },
+      select: {
+        fromName: true,
+        fromAddress: true,
+        subject: true,
+      },
+      orderBy: { receivedAt: "desc" },
+      take: 5,
+    }),
   ]);
 
   return {
@@ -207,6 +232,14 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
         count: recentReceivedPayments.length,
         items: recentReceivedPayments,
         link: "/crm/pagos?status=RECEIVED",
+      },
+      unreadMails: {
+        count: unreadInboxCount,
+        items: unreadInboxMails.map((mail) => ({
+          from: mail.fromName || mail.fromAddress,
+          subject: mail.subject,
+        })),
+        link: "/crm/mails?folder=inbox",
       },
     },
   };

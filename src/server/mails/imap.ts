@@ -128,8 +128,12 @@ export async function fetchImapInbox(input: {
           const source = msg.source;
           let text: string | undefined;
           let html: string | undefined;
+          let messageId = envelope?.messageId?.trim() || null;
           if (source && source.length > 0) {
             const parsed = await simpleParser(source);
+            if (typeof parsed.messageId === "string" && parsed.messageId.trim()) {
+              messageId = parsed.messageId.trim();
+            }
             text = parsed.text?.trim() || undefined;
             const rawHtml =
               typeof parsed.html === "string" && parsed.html.trim()
@@ -159,7 +163,7 @@ export async function fetchImapInbox(input: {
             subject: envelope?.subject?.trim() || "(Sin asunto)",
             text,
             html,
-            messageId: envelope?.messageId ?? null,
+            messageId,
             receivedAt: envelope?.date ?? undefined,
           });
         }

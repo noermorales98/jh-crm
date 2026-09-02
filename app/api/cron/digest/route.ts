@@ -19,6 +19,16 @@ function formatDigest(summary: Awaited<ReturnType<typeof getDashboardSummary>>) 
     month: "2-digit",
     day: "2-digit",
   }).format(summary.generatedAt);
+  const unreadLines =
+    w.unreadMails.count === 0
+      ? ["Correos no leídos: 0"]
+      : [
+          `Correos no leídos: ${w.unreadMails.count}`,
+          ...w.unreadMails.items.map((mail) => `- ${mail.from}: ${mail.subject}`),
+          ...(w.unreadMails.count > w.unreadMails.items.length
+            ? [`- … y ${w.unreadMails.count - w.unreadMails.items.length} más en el CRM`]
+            : []),
+        ];
   return [
     `Resumen ${day}`,
     "",
@@ -28,6 +38,7 @@ function formatDigest(summary: Awaited<ReturnType<typeof getDashboardSummary>>) 
     `Tareas vencidas: ${w.overdueTasks.count}`,
     `Pagos pendientes: ${w.pendingPayments.count} (USD ${w.pendingPayments.totalAmount})`,
     `Revisiones próximas: ${w.upcomingReviews.count}`,
+    ...unreadLines,
   ].join("\n");
 }
 

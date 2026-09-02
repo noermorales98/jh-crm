@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { MailDirection, MailFolder, Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { DomainError } from "@/src/server/errors";
@@ -604,37 +605,58 @@ export async function recordInbound(
     input.text?.trim() ||
     (input.html ? htmlToText(input.html) : "") ||
     "(Sin contenido)";
-  const internetMessageId = input.messageId?.trim() || null;
+  const subject = input.subject?.trim() || "(Sin asunto)";
+  const internetMessageId =
+    input.messageId?.trim() ||
+    `local:${createHash("sha1")
+      .update(
+        `${from.address}\n${subject}\n${input.receivedAt?.toISOString().slice(0, 16) ?? ""}`,
+      )
+      .digest("hex")}`;
 
-  if (internetMessageId) {
-    const existing = await prisma.mailMessage.findFirst({
-      where: { organizationId, internetMessageId },
-      select: { id: true, bodyHtml: true, bodyText: true },
-    });
-    if (existing) {
-      const html = input.html?.trim()
-        ? decodeQuotedPrintable(input.html)
-        : null;
-      const nextText = input.text?.trim() || null;
-      const shouldFillHtml =
-        Boolean(html) &&
-        (!existing.bodyHtml || looksQuotedPrintable(existing.bodyHtml));
-      const shouldFillText =
-        nextText &&
-        (existing.bodyText === "(Sin contenido)" ||
-          existing.bodyText === input.subject?.trim() ||
-          existing.bodyText.length < nextText.length);
-      if (shouldFillHtml || shouldFillText) {
-        await prisma.mailMessage.update({
-          where: { id: existing.id },
-          data: {
-            ...(shouldFillHtml ? { bodyHtml: html } : {}),
-            ...(shouldFillText ? { bodyText: nextText } : {}),
-          },
-        });
+  const fingerprintMatch = input.receivedAt
+    ? {
+        direction: "INBOUND" as const,
+        fromAddress: from.address,
+        subject,
+        receivedAt: {
+          gte: new Date(input.receivedAt.getTime() - 90_000),
+          lte: new Date(input.receivedAt.getTime() + 90_000),
+        },
       }
-      return { id: existing.id, created: false };
+    : null;
+  const existing = await prisma.mailMessage.findFirst({
+    where: {
+      organizationId,
+      OR: fingerprintMatch
+        ? [{ internetMessageId }, fingerprintMatch]
+        : [{ internetMessageId }],
+    },
+    select: { id: true, bodyHtml: true, bodyText: true },
+  });
+  if (existing) {
+    const html = input.html?.trim()
+      ? decodeQuotedPrintable(input.html)
+      : null;
+    const nextText = input.text?.trim() || null;
+    const shouldFillHtml =
+      Boolean(html) &&
+      (!existing.bodyHtml || looksQuotedPrintable(existing.bodyHtml));
+    const shouldFillText =
+      nextText &&
+      (existing.bodyText === "(Sin contenido)" ||
+        existing.bodyText === subject ||
+        existing.bodyText.length < nextText.length);
+    if (shouldFillHtml || shouldFillText) {
+      await prisma.mailMessage.update({
+        where: { id: existing.id },
+        data: {
+          ...(shouldFillHtml ? { bodyHtml: html } : {}),
+          ...(shouldFillText ? { bodyText: nextText } : {}),
+        },
+      });
     }
+    return { id: existing.id, created: false };
   }
 
   const client = await prisma.client.findFirst({
@@ -655,7 +677,7 @@ export async function recordInbound(
         fromName: from.name,
         toAddresses: to,
         ccAddresses: cc,
-        subject: input.subject?.trim() || "(Sin asunto)",
+        subject,
         bodyText,
         bodyHtml: input.html?.trim()
           ? decodeQuotedPrintable(input.html)
@@ -681,7 +703,7 @@ export async function recordInbound(
     return mail;
   });
 
-  await notifyNewInboundMail(organizationId, created).catch((error) => {
+  await notifyNewInboundMail(organizationId, created, internetMessageId).catch((error) => {
     console.error(
       "[mails] no se pudo notificar correo nuevo:",
       error instanceof Error ? error.message : "error",
@@ -722,6 +744,8 @@ export async function smtpStatus(ctx: OrganizationContext) {
   };
 }
 
+const RECENT_INBOUND_MS = 30 * 60 * 1000;
+
 async function notifyNewInboundMail(
   organizationId: string,
   mail: {
@@ -729,8 +753,14 @@ async function notifyNewInboundMail(
     subject: string;
     fromName: string | null;
     fromAddress: string;
+    receivedAt: Date | null;
+    createdAt: Date;
   },
+  identity: string,
 ) {
+  const received = mail.receivedAt ?? mail.createdAt;
+  if (Date.now() - received.getTime() > RECENT_INBOUND_MS) return;
+
   const members = await prisma.organizationMember.findMany({
     where: {
       organizationId,
@@ -754,7 +784,7 @@ async function notifyNewInboundMail(
       title: "Nuevo correo",
       body,
       link: `/crm/mails/${mail.id}?folder=inbox`,
-      dedupeKey: `mail:${mail.id}:received:${member.userId}`,
+      dedupeKey: `mail:${organizationId}:${identity}:received:${member.userId}`,
       skipWhatsapp: !sendWhatsapp,
     });
     sendWhatsapp = false;

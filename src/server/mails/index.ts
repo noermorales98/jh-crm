@@ -729,7 +729,6 @@ async function notifyNewInboundMail(
     subject: string;
     fromName: string | null;
     fromAddress: string;
-    bodyText: string;
   },
 ) {
   const members = await prisma.organizationMember.findMany({
@@ -742,8 +741,10 @@ async function notifyNewInboundMail(
   });
   if (members.length === 0) return;
 
-  const from = mail.fromName || mail.fromAddress;
-  const body = `${from}: ${mail.subject}\n${previewBody(mail.bodyText, 140)}`;
+  const from = mail.fromName
+    ? `${mail.fromName} <${mail.fromAddress}>`
+    : mail.fromAddress;
+  const body = `De: ${from}\nAsunto: ${mail.subject}`;
   let sendWhatsapp = true;
   for (const member of members) {
     await createNotification({

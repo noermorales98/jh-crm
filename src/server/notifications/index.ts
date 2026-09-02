@@ -155,7 +155,12 @@ async function deliverWhatsapp(notification: {
 
   const text = formatWhatsappNotification({
     title: notification.title,
-    body: notification.body,
+    body:
+      notification.type === "MAIL_RECEIVED"
+        ? [notification.body?.trim(), "Para ver el correo completo, entra al CRM."]
+            .filter(Boolean)
+            .join("\n\n")
+        : notification.body,
     link: notification.link,
   });
 

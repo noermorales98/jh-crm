@@ -14,6 +14,7 @@ import {
   Select,
   Textarea,
 } from "@/src/components/ui";
+import { playActionResult } from "@/src/lib/cuelume";
 import {
   cancelPayment,
   refundPaymentRecord,
@@ -73,9 +74,11 @@ export function PaymentRowActions({ payment }: { payment: PaymentRowData }) {
         notes: values.notes.trim() ? values.notes.trim() : null,
       });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setEditOpen(false);
       router.refresh();
     });

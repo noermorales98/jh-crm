@@ -11,6 +11,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
 
 const SECTION_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
@@ -43,15 +44,22 @@ const NESTED_TITLES: Record<string, string> = {
   casos: "Casos",
 };
 
-const HeaderTitleContext = createContext<{
-  setTitle: (title: string | null) => void;
-}>({ setTitle: () => {} });
+type HeaderOverride = {
+  title: string | null;
+  blobatarName: string | null;
+};
 
-const HeaderOverrideContext = createContext<string | null>(null);
+const EMPTY_OVERRIDE: HeaderOverride = { title: null, blobatarName: null };
+
+const HeaderTitleContext = createContext<{
+  setOverride: (value: HeaderOverride) => void;
+}>({ setOverride: () => {} });
+
+const HeaderOverrideContext = createContext<HeaderOverride>(EMPTY_OVERRIDE);
 
 export function HeaderTitleProvider({ children }: { children: ReactNode }) {
-  const [override, setTitle] = useState<string | null>(null);
-  const value = useMemo(() => ({ setTitle }), []);
+  const [override, setOverride] = useState<HeaderOverride>(EMPTY_OVERRIDE);
+  const value = useMemo(() => ({ setOverride }), []);
   return (
     <HeaderTitleContext.Provider value={value}>
       <HeaderOverrideContext.Provider value={override}>
@@ -61,12 +69,18 @@ export function HeaderTitleProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function HeaderTitle({ title }: { title: string }) {
-  const { setTitle } = useContext(HeaderTitleContext);
+export function HeaderTitle({
+  title,
+  blobatarName,
+}: {
+  title: string;
+  blobatarName?: string;
+}) {
+  const { setOverride } = useContext(HeaderTitleContext);
   useEffect(() => {
-    setTitle(title);
-    return () => setTitle(null);
-  }, [setTitle, title]);
+    setOverride({ title, blobatarName: blobatarName ?? null });
+    return () => setOverride(EMPTY_OVERRIDE);
+  }, [setOverride, title, blobatarName]);
   return null;
 }
 
@@ -101,19 +115,28 @@ export function CrmHeader({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const override = useContext(HeaderOverrideContext);
   const { title, backHref } = headerForPath(pathname);
-  const label = override ?? title;
+  const label = override.title ?? title;
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-3 bg-surface-app px-6">
-      <div className="flex min-w-0 items-center gap-1">
+      <div className="flex min-w-0 items-center gap-2">
         {backHref ? (
           <Link
             href={backHref}
             aria-label="Volver"
+            data-cuelume-hover="tick"
             className="flex size-9 shrink-0 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink motion-reduce:transition-none"
           >
             <ChevronLeft className="size-5" aria-hidden />
           </Link>
+        ) : null}
+        {override.blobatarName ? (
+          <ChatBlobatar
+            name={override.blobatarName}
+            size={28}
+            className="shrink-0"
+            title={label}
+          />
         ) : null}
         <p className="truncate text-sm font-medium text-ink">{label}</p>
       </div>

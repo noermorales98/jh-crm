@@ -11,6 +11,7 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { createRound } from "@/src/actions/rounds";
+import { playActionResult } from "@/src/lib/cuelume";
 
 /**
  * Botón + modal para crear una ronda de disputa en un caso abierto.
@@ -38,9 +39,11 @@ export function CreateRoundButton({ caseId }: { caseId: string }) {
           : {}),
       });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setOpen(false);
       setNotes("");
       setLettersCount("");

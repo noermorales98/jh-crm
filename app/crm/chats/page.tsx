@@ -6,6 +6,8 @@ import { listChats } from "@/src/server/ai/chats";
 import { createAiChat } from "@/src/actions/ai-chats";
 import { Button, EmptyState, PageHeader } from "@/src/components/ui";
 import { formatRelative } from "@/src/lib/format";
+import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
+import { chatBlobatarName } from "@/src/lib/ai/blobatar-name";
 import { DeleteChatButton } from "@/src/components/ai/delete-chat-button";
 
 export const metadata: Metadata = {
@@ -48,12 +50,20 @@ export default async function ChatsPage() {
             <li key={chat.id} className="flex items-center gap-2 px-2">
               <Link
                 href={`/crm/chats/${chat.id}`}
-                className="min-w-0 flex-1 rounded-control px-3 py-3 transition-colors hover:bg-nav-hover"
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-control px-3 py-3 transition-colors hover:bg-nav-hover"
               >
-                <p className="truncate text-sm font-medium text-ink">{chat.title}</p>
-                <p className="mt-0.5 text-xs text-text-secondary">
-                  {formatRelative(chat.updatedAt)}
-                </p>
+                <ChatBlobatar
+                  name={chatBlobatarName(chat.id)}
+                  size={36}
+                  className="shrink-0"
+                  title={chat.title}
+                />
+                <span className="min-w-0">
+                  <p className="truncate text-sm font-medium text-ink">{chat.title}</p>
+                  <p className="mt-0.5 text-xs text-text-secondary">
+                    {formatRelative(chat.updatedAt)}
+                  </p>
+                </span>
               </Link>
               <DeleteChatButton chatId={chat.id} />
             </li>

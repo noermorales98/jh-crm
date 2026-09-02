@@ -17,6 +17,7 @@ import {
   TASK_TYPE_LABELS,
 } from "@/src/lib/labels";
 import { createTask } from "@/src/actions/tasks";
+import { playActionResult } from "@/src/lib/cuelume";
 
 /**
  * Botón + modal para crear una tarea.
@@ -80,9 +81,11 @@ export function CreateTaskButton({
         ...(fixedCaseId ? { caseId: fixedCaseId } : {}),
       });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setOpen(false);
       reset();
       router.refresh();

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CuelumeProvider } from "@/src/components/cuelume/cuelume-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -13,7 +14,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className="h-full antialiased">
-      <body className="min-h-full">{children}</body>
+      <body className="min-h-full">
+        <CuelumeProvider>{children}</CuelumeProvider>
+      </body>
     </html>
   );
 }

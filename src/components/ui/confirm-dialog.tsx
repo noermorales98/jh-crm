@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition, type ReactNode } from "react";
+import { play } from "cuelume";
 import { Modal } from "./modal";
 import { Button } from "./button";
 import { Alert } from "./alert";
@@ -48,11 +49,14 @@ export function ConfirmDialog({
       try {
         const failure = await onConfirm();
         if (failure) {
+          play("error");
           setError(failure);
         } else {
+          play("success");
           setOpen(false);
         }
       } catch {
+        play("error");
         setError("Ocurrió un error inesperado. Intenta de nuevo.");
       }
     });

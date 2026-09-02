@@ -11,6 +11,7 @@ import {
   Select,
 } from "@/src/components/ui";
 import { archiveClient, assignClient } from "@/src/actions/clients";
+import { playActionResult } from "@/src/lib/cuelume";
 
 /**
  * Acciones del expediente del cliente: asignar responsable (modal)
@@ -41,9 +42,11 @@ export function ClientActions({
         assignedToId: assigneeId || null,
       });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setAssignOpen(false);
       router.refresh();
     });

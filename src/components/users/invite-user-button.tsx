@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { play } from "cuelume";
 import { Plus } from "lucide-react";
 import {
   Alert,
@@ -57,9 +58,11 @@ export function InviteUserButton({ canInviteOwner }: { canInviteOwner: boolean }
     startTransition(async () => {
       const result = await inviteUser({ name, email, role });
       if (!result.ok) {
+        play("error");
         setError(result.error);
         return;
       }
+      play("success");
       setTemporaryPassword(result.data.temporaryPassword);
     });
   }

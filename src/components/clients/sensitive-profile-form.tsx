@@ -11,6 +11,7 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { updateSensitiveProfile } from "@/src/actions/clients";
+import { playActionResult } from "@/src/lib/cuelume";
 
 /**
  * Formulario del perfil sensible (SSN, fecha de nacimiento, licencia, notas).
@@ -50,9 +51,11 @@ export function SensitiveProfileForm({
         sensitiveNotes,
       });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setSuccess(
         `Perfil sensible guardado. SSN actual: ${result.data.ssnMasked ?? "no registrado"}.`,
       );

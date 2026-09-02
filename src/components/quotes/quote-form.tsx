@@ -16,6 +16,7 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { createQuote, updateQuote } from "@/src/actions/quotes";
+import { playActionResult } from "@/src/lib/cuelume";
 
 export interface QuoteClientOption {
   id: string;
@@ -241,9 +242,11 @@ export function QuoteForm({
             })
           : await updateQuote(quoteId as string, payload);
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       const id = mode === "create" ? result.data.id : (quoteId as string);
       router.push(`/crm/cotizaciones/${id}`);
     });

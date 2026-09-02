@@ -12,6 +12,7 @@ import {
   Modal,
   Pill,
 } from "@/src/components/ui";
+import { playActionResult } from "@/src/lib/cuelume";
 import {
   createStage,
   deactivateStage,
@@ -78,9 +79,11 @@ export function StagesManager({ stages }: { stages: StageRow[] }) {
         ? await updateStage(editing.id, payload)
         : await createStage(payload);
       if (!result.ok) {
+        playActionResult(false);
         setFormError(result.error);
         return;
       }
+      playActionResult(true);
       setModalOpen(false);
       router.refresh();
     });
@@ -96,9 +99,11 @@ export function StagesManager({ stages }: { stages: StageRow[] }) {
     startTransition(async () => {
       const result = await reorderStages({ orderedIds: ordered.map((s) => s.id) });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       router.refresh();
     });
   }

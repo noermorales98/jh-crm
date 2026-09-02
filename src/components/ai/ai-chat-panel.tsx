@@ -12,7 +12,10 @@ import {
   useState,
   type FormEvent,
 } from "react";
+import { play } from "cuelume";
 import { AssistantMessage } from "@/src/components/ai/markdown-text";
+import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
+import { chatBlobatarName } from "@/src/lib/ai/blobatar-name";
 
 const SUGGESTIONS = [
   "¿Cómo agrego un cliente?",
@@ -105,18 +108,24 @@ export function AiChatPanel({
     node.scrollTop = node.scrollHeight;
   }, [messages, status]);
 
+  useEffect(() => {
+    if (error) play("error");
+  }, [error]);
+
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     const text = input.trim();
     if (!text || busy || configured === false) return;
     setInput("");
     clearError();
+    play("loading");
     await sendMessage({ text });
   }
 
   async function ask(text: string) {
     if (busy || configured === false) return;
     clearError();
+    play("loading");
     await sendMessage({ text });
   }
 
@@ -141,6 +150,8 @@ export function AiChatPanel({
                 type="button"
                 onClick={() => ask(suggestion)}
                 disabled={busy}
+                data-cuelume-press="press"
+                data-cuelume-release="release"
                 className="rounded-control bg-surface-panel px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-nav-active disabled:opacity-60"
               >
                 {suggestion}
@@ -157,11 +168,20 @@ export function AiChatPanel({
         if (message.role !== "user" && message.role !== "assistant") return null;
         if (!text && !waitingOnTools) return null;
         const mine = message.role === "user";
+        const face = chatId ? chatBlobatarName(chatId) : "jh-asistente";
         return (
           <div
             key={message.id || `${message.role}-${index}`}
-            className={`flex ${mine ? "justify-end" : "justify-start"}`}
+            className={`flex items-end gap-2 ${mine ? "justify-end" : "justify-start"}`}
           >
+            {!mine ? (
+              <ChatBlobatar
+                name={face}
+                size={compact ? 28 : 32}
+                className="mb-0.5 shrink-0"
+                title="Asistente"
+              />
+            ) : null}
             <div
               className={`max-w-[min(40rem,90%)] rounded-control px-3 py-2 ${
                 mine ? "bg-action-primary text-action-primary-foreground" : "bg-surface-panel"
@@ -216,6 +236,8 @@ export function AiChatPanel({
         <button
           type="button"
           onClick={() => stop()}
+          data-cuelume-press="press"
+          data-cuelume-release="release"
           className={
             compact
               ? "flex size-11 shrink-0 items-center justify-center rounded-control bg-surface-panel text-ink hover:bg-nav-active"
@@ -229,6 +251,8 @@ export function AiChatPanel({
         <button
           type="submit"
           disabled={!input.trim() || configured === false}
+          data-cuelume-press="press"
+          data-cuelume-release="release"
           className={
             compact
               ? "flex size-11 shrink-0 items-center justify-center rounded-control bg-action-primary text-action-primary-foreground hover:bg-action-secondary disabled:opacity-60"

@@ -10,6 +10,7 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { updateCreditCase } from "@/src/actions/cases";
+import { playActionResult } from "@/src/lib/cuelume";
 
 /**
  * Resumen y responsable del caso (updateCreditCase).
@@ -42,9 +43,11 @@ export function CaseSummaryForm({
         assignedToId: assignedToId || null,
       });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setSuccess(true);
       router.refresh();
     });

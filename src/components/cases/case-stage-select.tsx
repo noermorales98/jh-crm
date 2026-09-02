@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/src/components/ui";
 import { moveCaseToStage } from "@/src/actions/cases";
+import { playActionResult } from "@/src/lib/cuelume";
 import type { StageOption } from "./create-case-button";
 
 /**
@@ -50,10 +51,12 @@ export function CaseStageSelect({
             startTransition(async () => {
               const result = await moveCaseToStage(caseId, next);
               if (!result.ok) {
+                playActionResult(false);
                 setValue(previous);
                 setError(result.error);
                 return;
               }
+              playActionResult(true);
               router.refresh();
             });
           }}

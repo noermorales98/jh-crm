@@ -1,10 +1,11 @@
 "use client";
 
-import { MessageCircle, Sparkles, X } from "lucide-react";
+import { MessageCircle, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AiChatPanel } from "@/src/components/ai/ai-chat-panel";
+import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
 
 export function CrmChat() {
   const pathname = usePathname();
@@ -31,7 +32,7 @@ export function CrmChat() {
         >
           <header className="flex items-center justify-between bg-surface-panel px-4 py-3">
             <div className="flex min-w-0 items-center gap-2">
-              <Sparkles className="size-4 text-action-primary" aria-hidden />
+              <ChatBlobatar name="jh-asistente" size={28} className="shrink-0" title="Asistente J&H" />
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-ink">Asistente J&H</p>
                 <p className="text-xs text-text-secondary">
@@ -59,6 +60,8 @@ export function CrmChat() {
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
+        data-cuelume-press="press"
+        data-cuelume-release="release"
         className="pointer-events-auto flex size-12 items-center justify-center rounded-full bg-action-primary text-action-primary-foreground jh-overlay-shadow transition-colors hover:bg-action-secondary"
         aria-expanded={open}
         aria-label={open ? "Cerrar asistente" : "Abrir asistente del CRM"}

@@ -10,6 +10,7 @@ import {
   Modal,
   Textarea,
 } from "@/src/components/ui";
+import { playActionResult } from "@/src/lib/cuelume";
 import { voidReceipt } from "@/src/actions/receipts";
 
 /**
@@ -41,9 +42,11 @@ export function VoidReceiptButton({
     startTransition(async () => {
       const result = await voidReceipt(receiptId, { voidReason: reason });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setOpen(false);
       router.refresh();
     });

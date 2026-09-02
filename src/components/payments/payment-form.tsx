@@ -12,6 +12,7 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { registerPayment } from "@/src/actions/payments";
+import { playActionResult } from "@/src/lib/cuelume";
 import { PAYMENT_METHOD_LABELS } from "@/src/lib/labels";
 
 export interface PaymentClientOption {
@@ -125,9 +126,11 @@ export function PaymentForm({
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       if (result.data.receiptFolio) {
         setSuccess(
           `Pago registrado. Se emitió automáticamente el recibo ${result.data.receiptFolio}.`,

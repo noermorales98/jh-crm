@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { play } from "cuelume";
 import { signIn } from "next-auth/react";
 import { Loader2, Lock, Mail } from "lucide-react";
 
@@ -45,6 +46,7 @@ export function LoginForm() {
     });
 
     if (!result || result.error) {
+      play("error");
       setError("Correo o contraseña incorrectos.");
       setPending(false);
       return;
@@ -115,6 +117,8 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
+        data-cuelume-press="press"
+        data-cuelume-release="release"
         className="flex min-h-11 w-full items-center justify-center gap-2 rounded-control bg-action-primary px-4 py-2.5 text-sm font-semibold text-action-primary-foreground transition-colors duration-200 hover:bg-action-secondary motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? (

@@ -49,6 +49,8 @@ export function Button({
     <button
       type={type}
       className={`${buttonClasses(variant, size)} ${className}`}
+      data-cuelume-press="press"
+      data-cuelume-release="release"
       {...props}
     />
   );
@@ -69,7 +71,12 @@ export function ButtonLink({
   children: React.ReactNode;
 }) {
   return (
-    <Link href={href} className={`${buttonClasses(variant, size)} ${className}`}>
+    <Link
+      href={href}
+      className={`${buttonClasses(variant, size)} ${className}`}
+      data-cuelume-press="press"
+      data-cuelume-release="release"
+    >
       {children}
     </Link>
   );

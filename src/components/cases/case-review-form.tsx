@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Alert, Button, DateInput } from "@/src/components/ui";
 import { setNextReviewDate } from "@/src/actions/cases";
+import { playActionResult } from "@/src/lib/cuelume";
 
 /**
  * Formulario inline para programar la próxima revisión del caso.
@@ -32,9 +33,11 @@ export function CaseReviewForm({
             nextReviewAt: value || null,
           });
           if (!result.ok) {
+            playActionResult(false);
             setError(result.error);
             return;
           }
+          playActionResult(true);
           router.refresh();
         });
       }}

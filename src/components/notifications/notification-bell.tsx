@@ -67,6 +67,7 @@ export function NotificationBell({
             : "Notificaciones"
         }
         onClick={() => setOpen((v) => !v)}
+        data-cuelume-toggle="toggle"
         className="relative flex size-9 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink motion-reduce:transition-none"
       >
         <Bell className="size-5" aria-hidden />

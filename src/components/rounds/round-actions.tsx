@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { playActionResult } from "@/src/lib/cuelume";
 import {
   Alert,
   Button,
@@ -56,9 +57,11 @@ export function RoundActions({
         ...(assignedToId ? { assignedToId } : {}),
       });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setSentOpen(false);
       setExpectedReviewAt("");
       router.refresh();

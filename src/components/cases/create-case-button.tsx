@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { play } from "cuelume";
 import {
   Alert,
   Button,
@@ -53,9 +54,11 @@ export function CreateCaseButton({
         ...(nextReviewAt ? { nextReviewAt } : {}),
       });
       if (!result.ok) {
+        play("error");
         setError(result.error);
         return;
       }
+      play("success");
       setOpen(false);
       router.push(`/crm/casos/${result.data.id}`);
     });

@@ -75,7 +75,7 @@ export function CursorPagination({
       <span className="text-xs text-text-secondary">Página {page}</span>
       <div className="flex items-center gap-2">
         {prevHref ? (
-          <Link href={prevHref} className={linkBase}>
+          <Link href={prevHref} className={linkBase} data-cuelume-press="page">
             <ChevronLeft className="size-4" aria-hidden />
             Anterior
           </Link>
@@ -86,7 +86,7 @@ export function CursorPagination({
           </span>
         )}
         {nextHref ? (
-          <Link href={nextHref} className={linkBase}>
+          <Link href={nextHref} className={linkBase} data-cuelume-press="page">
             Siguiente
             <ChevronRight className="size-4" aria-hidden />
           </Link>

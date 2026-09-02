@@ -8,6 +8,7 @@ import {
   ButtonLink,
   ConfirmDialog,
 } from "@/src/components/ui";
+import { playActionResult } from "@/src/lib/cuelume";
 import {
   cancelQuote,
   markQuoteAccepted,
@@ -40,9 +41,11 @@ export function QuoteActions({
     startTransition(async () => {
       const result = await action();
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error ?? "No se pudo completar la acción.");
         return;
       }
+      playActionResult(true);
       router.refresh();
     });
   }

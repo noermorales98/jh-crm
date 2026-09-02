@@ -12,6 +12,7 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { createService, updateService } from "@/src/actions/services";
+import { playActionResult } from "@/src/lib/cuelume";
 
 export interface ServiceFormValues {
   name: string;
@@ -63,9 +64,11 @@ export function ServiceFormButton({
           ? await createService(payload)
           : await updateService(serviceId as string, payload);
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setOpen(false);
       router.refresh();
     });

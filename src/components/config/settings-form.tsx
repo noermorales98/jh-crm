@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { play } from "cuelume";
 import {
   Alert,
   Button,
@@ -89,9 +90,11 @@ export function SettingsForm({
         callmebotApiKey: apiKey.trim() || undefined,
       });
       if (!result.ok) {
+        play("error");
         setError(result.error);
         return;
       }
+      play("success");
       const savedKey = Boolean(apiKey.trim());
       setSuccess(true);
       setApiKey("");
@@ -322,6 +325,7 @@ export function SettingsForm({
         <label className="flex items-center gap-2 text-sm text-text-secondary-strong">
           <input
             type="checkbox"
+            data-cuelume-toggle="toggle"
             checked={values.callmebotEnabled}
             onChange={(e) => {
               setValues((v) => ({ ...v, callmebotEnabled: e.target.checked }));
@@ -385,9 +389,11 @@ export function SettingsForm({
               startTest(async () => {
                 const result = await sendTestWhatsapp();
                 if (!result.ok) {
+                  play("error");
                   setError(result.error);
                   return;
                 }
+                play("success");
                 setTestMessage(
                   "Mensaje de prueba enviado. Revisa WhatsApp y la campana del header.",
                 );

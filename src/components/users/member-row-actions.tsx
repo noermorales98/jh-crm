@@ -9,6 +9,7 @@ import {
   Select,
 } from "@/src/components/ui";
 import { deactivateUser, updateMemberRole } from "@/src/actions/users";
+import { playActionResult } from "@/src/lib/cuelume";
 import { ROLE_LABELS } from "./invite-user-button";
 
 const ALL_ROLES = ["OWNER", "ADMIN", "SPECIALIST", "STAFF", "VIEWER"];
@@ -47,10 +48,12 @@ export function MemberRowActions({
     startTransition(async () => {
       const result = await updateMemberRole(userId, { role: selectedRole });
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         setSelectedRole(role);
         return;
       }
+      playActionResult(true);
       router.refresh();
     });
   }

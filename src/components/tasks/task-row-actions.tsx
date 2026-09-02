@@ -10,6 +10,7 @@ import {
   Modal,
   Select,
 } from "@/src/components/ui";
+import { playActionResult } from "@/src/lib/cuelume";
 import { cancelTask, completeTask, reassignTask } from "@/src/actions/tasks";
 
 /**
@@ -39,9 +40,11 @@ export function TaskRowActions({
     startTransition(async () => {
       const result = await action();
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       onDone?.();
       router.refresh();
     });

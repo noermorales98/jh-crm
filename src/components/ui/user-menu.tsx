@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { LogOut, ScrollText, Settings, UserCog } from "lucide-react";
+import { LogOut, ScrollText, Settings, UserCog, Volume2, VolumeX } from "lucide-react";
+import { useCuelumeMute } from "@/src/components/cuelume/cuelume-provider";
 
 /**
  * Menú de usuario del header: avatar circular que abre un dropdown
@@ -35,6 +36,7 @@ export function UserMenu({
   role: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const { muted, setMuted } = useCuelumeMute();
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -118,6 +120,7 @@ export function UserMenu({
         aria-label={`Menú de ${name}`}
         onClick={() => setOpen((v) => !v)}
         onKeyDown={onButtonKeyDown}
+        data-cuelume-toggle="toggle"
         className="relative size-9 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-90 motion-reduce:transition-none"
       >
         <Image
@@ -153,6 +156,7 @@ export function UserMenu({
               href="/crm/configuracion"
               role="menuitem"
               onClick={() => setOpen(false)}
+              data-cuelume-hover="tick"
               className={MENU_ITEM_CLASSES}
             >
               <Settings className={MENU_ICON_CLASSES} aria-hidden />
@@ -164,6 +168,7 @@ export function UserMenu({
                   href="/crm/usuarios"
                   role="menuitem"
                   onClick={() => setOpen(false)}
+                  data-cuelume-hover="tick"
                   className={MENU_ITEM_CLASSES}
                 >
                   <UserCog className={MENU_ICON_CLASSES} aria-hidden />
@@ -173,6 +178,7 @@ export function UserMenu({
                   href="/crm/auditoria"
                   role="menuitem"
                   onClick={() => setOpen(false)}
+                  data-cuelume-hover="tick"
                   className={MENU_ITEM_CLASSES}
                 >
                   <ScrollText className={MENU_ICON_CLASSES} aria-hidden />
@@ -185,6 +191,20 @@ export function UserMenu({
           <div className="mx-3 my-1 h-px bg-border-subtle" role="separator" />
 
           <div className="px-1.5">
+            <button
+              type="button"
+              role="menuitem"
+              data-cuelume-toggle="toggle"
+              onClick={() => setMuted(!muted)}
+              className={MENU_ITEM_CLASSES}
+            >
+              {muted ? (
+                <VolumeX className={MENU_ICON_CLASSES} aria-hidden />
+              ) : (
+                <Volume2 className={MENU_ICON_CLASSES} aria-hidden />
+              )}
+              {muted ? "Activar sonidos" : "Silenciar sonidos"}
+            </button>
             <form
               action={() => {
                 void signOut({ redirectTo: "/login" });
@@ -193,6 +213,7 @@ export function UserMenu({
               <button
                 type="submit"
                 role="menuitem"
+                data-cuelume-hover="tick"
                 className={MENU_ITEM_CLASSES}
               >
                 <LogOut className={MENU_ICON_CLASSES} aria-hidden />

@@ -13,6 +13,7 @@ import {
   Textarea,
 } from "@/src/components/ui";
 import { createPackage, updatePackage } from "@/src/actions/services";
+import { playActionResult } from "@/src/lib/cuelume";
 
 export interface PackageServiceOption {
   id: string;
@@ -116,9 +117,11 @@ export function PackageFormButton({
           ? await createPackage(payload)
           : await updatePackage(packageId as string, payload);
       if (!result.ok) {
+        playActionResult(false);
         setError(result.error);
         return;
       }
+      playActionResult(true);
       setOpen(false);
       router.refresh();
     });

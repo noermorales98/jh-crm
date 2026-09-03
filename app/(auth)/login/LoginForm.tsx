@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { play } from "cuelume";
 import { signIn } from "next-auth/react";
-import { Loader2, Lock, Mail } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { Alert, Button, Field, Input } from "@/src/components/ui";
 
 function safeRedirectPath(raw: string | null): string {
   if (!raw) return "/crm/dashboard";
@@ -47,7 +48,7 @@ export function LoginForm() {
 
     if (!result || result.error) {
       play("error");
-      setError("Correo o contraseña incorrectos.");
+      setError("El correo o la contraseña no coinciden. Revisa e inténtalo de nuevo.");
       setPending(false);
       return;
     }
@@ -57,70 +58,42 @@ export function LoginForm() {
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
+      {error ? <Alert tone="error">{error}</Alert> : null}
+
+      <Field label="Correo electrónico" htmlFor="email">
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          autoComplete="email"
+          autoFocus
+          required
+          placeholder="nombre@jhmultiservices.com"
+          invalid={Boolean(error)}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? "login-error" : undefined}
+        />
+      </Field>
+
+      <Field label="Contraseña" htmlFor="password">
+        <Input
+          id="password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          invalid={Boolean(error)}
+          aria-invalid={error ? true : undefined}
+        />
+      </Field>
+
       {error ? (
-        <div
-          role="alert"
-          className="rounded-control border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
-        >
+        <p id="login-error" className="sr-only">
           {error}
-        </div>
+        </p>
       ) : null}
 
-      <div>
-        <label
-          htmlFor="email"
-          className="mb-1.5 block text-xs font-semibold text-text-secondary-strong"
-        >
-          Correo electrónico
-        </label>
-        <div className="relative">
-          <Mail
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-placeholder"
-            aria-hidden
-          />
-          <input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            required
-            placeholder="tu@jhmultiservices.com"
-            className="block min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated py-2.5 pl-10 pr-3 text-sm text-ink placeholder:text-text-placeholder focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/15"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label
-          htmlFor="password"
-          className="mb-1.5 block text-xs font-semibold text-text-secondary-strong"
-        >
-          Contraseña
-        </label>
-        <div className="relative">
-          <Lock
-            className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-text-placeholder"
-            aria-hidden
-          />
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            placeholder="••••••••"
-            className="block min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated py-2.5 pl-10 pr-3 text-sm text-ink placeholder:text-text-placeholder focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/15"
-          />
-        </div>
-      </div>
-
-      <button
-        type="submit"
-        disabled={pending}
-        data-cuelume-press="press"
-        data-cuelume-release="release"
-        className="flex min-h-11 w-full items-center justify-center gap-2 rounded-control bg-action-primary px-4 py-2.5 text-sm font-semibold text-action-primary-foreground transition-colors duration-200 hover:bg-action-secondary motion-reduce:transition-none disabled:cursor-not-allowed disabled:opacity-60"
-      >
+      <Button type="submit" disabled={pending} className="w-full">
         {pending ? (
           <>
             <Loader2 className="size-4 animate-spin" aria-hidden />
@@ -129,7 +102,7 @@ export function LoginForm() {
         ) : (
           "Ingresar"
         )}
-      </button>
+      </Button>
     </form>
   );
 }

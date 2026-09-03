@@ -134,7 +134,7 @@ export function ContactForm() {
         <p>Gracias. Recibimos su consulta y le contactaremos pronto.</p>
         <button
           type="button"
-          className="btn btn-light"
+          className="btn btn-primary"
           onClick={() => {
             setStatus("idle");
             setError(null);
@@ -171,17 +171,17 @@ export function ContactForm() {
         </label>
         <label htmlFor="contact-message">
           Mensaje
-          <textarea id="contact-message" name="message" rows={4} required maxLength={2000} />
+          <textarea id="contact-message" name="message" rows={4} required maxLength={2000} aria-describedby={error ? "contact-error" : undefined} />
         </label>
 
         {error ? (
-          <p className="contact-form-error" role="alert">
+          <p className="contact-form-error" role="alert" id="contact-error">
             {error}
           </p>
         ) : null}
 
-        <button type="submit" className="btn btn-light" disabled={!challenge || status === "sending"}>
-          Enviar consulta
+        <button type="submit" className="btn btn-primary" disabled={!challenge || status === "sending"}>
+          {!challenge ? "Cargando formulario…" : "Enviar consulta"}
         </button>
       </form>
 

@@ -1,17 +1,18 @@
 @import "tailwindcss";
 
 /**
- * Design system J&H CRM
+ * Design system J&H CRM — Apple HIG
  * Paleta: Índigo (acción) · Jazmín (fondo app) · Lavanda (paneles) ·
  * Obsidiana (tinta) · Lima (énfasis excepcional).
- * Reglas: plano por defecto (sombras solo en overlays), radios 10/12px,
- * tipografía mínima 12px, acentos saturados ~10% de la pantalla.
+ * Apariencia: light-dark() + data-theme (light | dark | auto).
+ * Materiales: blur en toolbars/menús; opaco si Reduce Transparency.
  */
+
 @theme {
   --font-sans: "Open Sauce Two", system-ui, -apple-system, "Segoe UI",
     sans-serif;
 
-  /* Marca */
+  /* Marca (fijos: no invierten significado entre apariencias) */
   --color-brand-indigo: #3545d6;
   --color-brand-discord: #5363ee;
   --color-brand-memory: #7f96f9;
@@ -19,34 +20,69 @@
   --color-brand-obsidian: #0b0b18;
   --color-brand-jasmine: #f5f6fb;
   --color-brand-lavender: #ebedfa;
-  --color-brand-silver: #9ca3b7;
+  --color-brand-silver: light-dark(#6b7184, #a8adc0);
 
-  /* Roles semánticos */
-  --color-action-primary: #3545d6;
+  /* Roles semánticos — light-dark para Dark Mode del sistema */
+  --color-action-primary: light-dark(#3545d6, #6d7cf5);
   --color-action-primary-foreground: #ffffff;
-  --color-action-secondary: #5363ee;
-  --color-selection-soft: #7f96f9;
+  --color-action-secondary: light-dark(#5363ee, #8b97f8);
+  --color-selection-soft: light-dark(#7f96f9, #9aacfb);
   --color-highlight: #c8fe37;
-  --color-ink: #0b0b18;
-  --color-surface-app: #f5f6fb;
-  --color-surface-panel: #ebedfa;
-  --color-surface-elevated: #ffffff;
-  --color-text-primary: #0b0b18;
-  --color-text-secondary: #6b7184;
-  --color-text-secondary-strong: #555b6e;
-  --color-text-placeholder: #555b6e;
-  --color-border-subtle: #dcdfe6;
-  --color-nav-active: #dde3fe;
-  --color-nav-hover: #f0f2fe;
-  --color-focus: #3545d6;
+  --color-ink: light-dark(#0b0b18, #f4f5fa);
+  --color-surface-app: light-dark(#f5f6fb, #0c0c14);
+  --color-surface-panel: light-dark(#ebedfa, #161622);
+  --color-surface-elevated: light-dark(#ffffff, #1c1c2a);
+  --color-text-primary: light-dark(#0b0b18, #f4f5fa);
+  --color-text-secondary: light-dark(#3f4556, #c5c9d6);
+  --color-text-secondary-strong: light-dark(#2e3344, #d7dae4);
+  --color-text-placeholder: light-dark(#3f4556, #c5c9d6);
+  --color-border-subtle: light-dark(#d5d8e2, #2e2e42);
+  --color-nav-active: light-dark(#dde3fe, #252a52);
+  --color-nav-hover: light-dark(#f0f2fe, #222236);
+  --color-focus: light-dark(#3545d6, #8b97f8);
+
+  --color-danger: light-dark(#dc2626, #f87171);
+  --color-danger-hover: light-dark(#b91c1c, #ef4444);
+  --color-danger-soft: light-dark(#fef2f2, #3b1518);
+  --color-danger-ink: light-dark(#b91c1c, #fca5a5);
+
+  --color-success-soft: light-dark(#ecfdf5, #14291f);
+  --color-success-ink: light-dark(#047857, #6ee7b7);
+
+  --color-warning-soft: light-dark(#fffbeb, #3a2a10);
+  --color-warning-ink: light-dark(#b45309, #fbbf24);
+
+  --color-info-soft: light-dark(#eff6ff, #152033);
+  --color-info-ink: light-dark(#1d4ed8, #93c5fd);
+
+  --color-purple-soft: light-dark(#faf5ff, #2a1838);
+  --color-purple-ink: light-dark(#7e22ce, #d8b4fe);
 
   /* Compatibilidad con utilidades bg-background/text-foreground */
-  --color-background: #f5f6fb;
-  --color-foreground: #0b0b18;
+  --color-background: light-dark(#f5f6fb, #0c0c14);
+  --color-foreground: light-dark(#0b0b18, #f4f5fa);
 
   /* Radios: control 10px, superficie 12px, pill 9999px */
   --radius-control: 10px;
   --radius-surface: 12px;
+
+  --z-sticky: 30;
+  --z-overlay: 40;
+  --z-dropdown: 50;
+  --z-modal: 60;
+  --z-skip: 100;
+}
+
+html {
+  color-scheme: light dark;
+}
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 body {
@@ -62,7 +98,11 @@ body {
   opacity: 1;
 }
 
-/* Foco visible: anillo índigo 2px con offset 2px, sin desplazar layout */
+::selection {
+  background-color: color-mix(in srgb, var(--color-action-primary) 28%, transparent);
+}
+
+/* Foco visible: anillo 2px con offset 2px, sin desplazar layout */
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
@@ -75,9 +115,96 @@ body {
   border-color: var(--color-border-subtle);
 }
 
-/* Sombras solo en overlays/dropdowns/modales, nunca combinadas con borde */
+.jh-spotlight-field:focus,
+.jh-spotlight-field:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+  border-color: transparent;
+}
+
+/* Sombras solo en overlays/dropdowns/modales */
 .jh-overlay-shadow {
-  box-shadow: 0 8px 8px rgba(11, 11, 24, 0.1);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-ink) 8%, transparent),
+    0 10px 40px color-mix(in srgb, var(--color-ink) 14%, transparent);
+}
+
+.jh-material {
+  background: color-mix(in srgb, var(--color-surface-elevated) 42%, transparent);
+  -webkit-backdrop-filter: saturate(200%) blur(48px);
+  backdrop-filter: saturate(200%) blur(48px);
+  transform: translateZ(0);
+}
+
+.jh-toolbar {
+  background: color-mix(in srgb, var(--color-surface-app) 72%, transparent);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: none;
+}
+
+.jh-spotlight {
+  margin: auto;
+  border: none;
+  color: var(--color-ink);
+}
+
+.jh-spotlight::backdrop {
+  background: color-mix(in srgb, var(--color-ink) 28%, transparent);
+  -webkit-backdrop-filter: saturate(140%) blur(14px);
+  backdrop-filter: saturate(140%) blur(14px);
+}
+
+.jh-skip-link {
+  position: absolute;
+  left: 0.75rem;
+  top: 0.75rem;
+  z-index: var(--z-skip);
+  border-radius: var(--radius-control);
+  background: var(--color-action-primary);
+  color: var(--color-action-primary-foreground);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  transform: translateY(-220%);
+}
+
+.jh-skip-link:focus {
+  transform: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .jh-material,
+  .jh-toolbar,
+  .jh-spotlight {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+
+  .jh-material,
+  .jh-spotlight {
+    background: var(--color-surface-elevated);
+  }
+
+  .jh-toolbar {
+    background: var(--color-surface-app);
+  }
+
+  .jh-spotlight::backdrop {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: color-mix(in srgb, var(--color-ink) 45%, transparent);
+  }
+}
+
+@media (prefers-contrast: more) {
+  :root {
+    --color-text-secondary: light-dark(#1f2433, #eceef4);
+    --color-text-placeholder: light-dark(#1f2433, #eceef4);
+    --color-border-subtle: light-dark(#8b90a0, #6b7090);
+    --color-focus: light-dark(#1e2bb8, #c5ccff);
+  }
 }
 
 /*
@@ -87,6 +214,12 @@ body {
 @layer base {
   dialog:modal {
     margin: auto;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
   }
 }
 
@@ -105,35 +238,18 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: #0a1f44;
+  color: light-dark(#0a1f44, #f4f5fa);
 }
 
 .crm-brand .brand-mark span {
-  color: #1570ef;
+  color: light-dark(#1570ef, #7f96f9);
 }
 
 .crm-brand .brand-tag {
   font-family: var(--font-jh-mono), ui-monospace, monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: #4a5568;
-}
-
-/* Scrollbar discreto */
-::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: #9ca3b7;
-  border-radius: 4px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #6b7184;
+  font-size: 0.6875rem;
+  letter-spacing: 0.02em;
+  color: var(--color-text-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

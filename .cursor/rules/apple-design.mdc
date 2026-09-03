@@ -1,0 +1,9 @@
+---
+alwaysApply: true
+---
+---
+description: Apple HIG design review and improvement
+globs: ["**/*.dart", "**/*.tsx", "**/*.jsx", "**/*.vue", "**/*.svelte", "**/*.swift"]
+---
+
+@import https://raw.githubusercontent.com/dickwu/apple-design-skill/main/SKILL.md

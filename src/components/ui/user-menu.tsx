@@ -1,11 +1,27 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { signOut } from "next-auth/react";
-import { Bell, Globe, LogOut, ScrollText, Settings, UserCog, Volume2, VolumeX } from "lucide-react";
+import {
+  Bell,
+  Globe,
+  Laptop,
+  LogOut,
+  Moon,
+  ScrollText,
+  Settings,
+  Sun,
+  UserCog,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useCuelumeMute } from "@/src/components/cuelume/cuelume-provider";
+import { useTheme } from "@/src/components/theme/theme-provider";
+import { THEME_OPTIONS } from "@/src/components/theme/theme";
+import { useOverlayCoords } from "./use-overlay-coords";
 
 /**
  * Menú de usuario del header: avatar circular que abre un dropdown
@@ -25,6 +41,11 @@ const ROLE_LABELS: Record<string, string> = {
 const MENU_ITEM_CLASSES =
   "flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-left text-sm font-medium text-ink transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none";
 const MENU_ICON_CLASSES = "size-4 shrink-0 text-text-secondary-strong";
+const THEME_ICONS = {
+  light: Sun,
+  dark: Moon,
+  auto: Laptop,
+} as const;
 
 export function UserMenu({
   name,
@@ -37,16 +58,18 @@ export function UserMenu({
 }) {
   const [open, setOpen] = useState(false);
   const { muted, setMuted } = useCuelumeMute();
+  const { theme, setTheme } = useTheme();
   const rootRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const coords = useOverlayCoords(open, buttonRef);
 
   const isManager = role === "OWNER" || role === "ADMIN";
   const roleLabel = role ? (ROLE_LABELS[role] ?? role) : null;
 
   function focusItem(index: number) {
     const items = menuRef.current?.querySelectorAll<HTMLElement>(
-      '[role="menuitem"]',
+      '[role="menuitem"], [role="menuitemradio"]',
     );
     if (!items || items.length === 0) return;
     const clamped = (index + items.length) % items.length;
@@ -57,9 +80,14 @@ export function UserMenu({
   useEffect(() => {
     if (!open) return;
     function onPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
+      const target = event.target as Node;
+      if (
+        rootRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) {
+        return;
       }
+      setOpen(false);
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -78,7 +106,9 @@ export function UserMenu({
 
   function onMenuKeyDown(event: React.KeyboardEvent) {
     const items = Array.from(
-      menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [],
+      menuRef.current?.querySelectorAll<HTMLElement>(
+        '[role="menuitem"], [role="menuitemradio"]',
+      ) ?? [],
     );
     const current = items.indexOf(document.activeElement as HTMLElement);
 
@@ -121,7 +151,7 @@ export function UserMenu({
         onClick={() => setOpen((v) => !v)}
         onKeyDown={onButtonKeyDown}
         data-cuelume-toggle="toggle"
-        className="relative size-9 overflow-hidden rounded-full transition-opacity duration-200 hover:opacity-90 motion-reduce:transition-none"
+        className="relative size-9 overflow-hidden rounded-full ring-1 ring-border-subtle transition-opacity duration-200 hover:opacity-90 motion-reduce:transition-none"
       >
         <Image
           src="/avatar.png"
@@ -133,20 +163,59 @@ export function UserMenu({
         />
       </button>
 
-      {open ? (
-        <div
-          ref={menuRef}
-          role="menu"
-          aria-label="Cuenta"
-          onKeyDown={onMenuKeyDown}
-          className="jh-overlay-shadow absolute right-0 top-full z-20 mt-2 w-64 rounded-surface bg-surface-elevated py-1.5"
-        >
+      {open && coords
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              aria-label="Cuenta"
+              onKeyDown={onMenuKeyDown}
+              style={{ top: coords.top, right: coords.right }}
+              className="jh-material jh-overlay-shadow fixed z-dropdown w-72 overflow-hidden rounded-surface py-1.5"
+            >
           <div className="px-3.5 py-2.5">
             <p className="truncate text-sm font-semibold text-ink">{name}</p>
             <p className="truncate text-xs text-text-secondary">{email}</p>
             {roleLabel ? (
               <p className="mt-0.5 text-xs text-text-secondary">{roleLabel}</p>
             ) : null}
+          </div>
+
+          <div className="mx-3 my-1 h-px bg-border-subtle" role="separator" />
+
+          <div className="px-3 py-2">
+            <p id="theme-label" className="mb-1.5 text-[13px] font-semibold text-text-secondary">
+              Apariencia
+            </p>
+            <div
+              role="group"
+              aria-labelledby="theme-label"
+              className="grid grid-cols-3 gap-0.5 rounded-control bg-surface-panel/80 p-0.5"
+            >
+              {THEME_OPTIONS.map((option) => {
+                const Icon = THEME_ICONS[option.value];
+                const selected = theme === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={selected}
+                    aria-label={option.value === "auto" ? "Automático" : option.label}
+                    data-cuelume-toggle="toggle"
+                    onClick={() => setTheme(option.value)}
+                    className={`flex min-h-8 items-center justify-center gap-1 rounded-[8px] px-1.5 text-[13px] font-medium transition-colors duration-200 motion-reduce:transition-none ${
+                      selected
+                        ? "bg-surface-elevated text-ink shadow-sm"
+                        : "text-text-secondary hover:text-ink"
+                    }`}
+                  >
+                    <Icon className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="mx-3 my-1 h-px bg-border-subtle" role="separator" />
@@ -243,8 +312,10 @@ export function UserMenu({
               </button>
             </form>
           </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

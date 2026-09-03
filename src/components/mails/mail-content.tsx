@@ -100,7 +100,7 @@ export function MailTranslateButton() {
         </Button>
       )}
       {view.error ? (
-        <span className="text-xs text-red-600" role="alert">
+        <span className="text-xs text-danger-ink" role="alert">
           {view.error}
         </span>
       ) : null}

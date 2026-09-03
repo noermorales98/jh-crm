@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
@@ -10,6 +11,7 @@ import {
 } from "@/src/actions/notifications";
 import { formatRelative } from "@/src/lib/format";
 import { NOTIFICATION_TYPE_LABELS, labelFor } from "@/src/lib/labels";
+import { useOverlayCoords } from "@/src/components/ui/use-overlay-coords";
 
 export interface NotificationItem {
   id: string;
@@ -31,14 +33,22 @@ export function NotificationBell({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const coords = useOverlayCoords(open, buttonRef);
   const [, startTransition] = useTransition();
 
   useEffect(() => {
     if (!open) return;
     function onPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) {
-        setOpen(false);
+      const target = event.target as Node;
+      if (
+        rootRef.current?.contains(target) ||
+        menuRef.current?.contains(target)
+      ) {
+        return;
       }
+      setOpen(false);
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -58,6 +68,7 @@ export function NotificationBell({
   return (
     <div ref={rootRef} className="relative">
       <button
+        ref={buttonRef}
         type="button"
         aria-haspopup="menu"
         aria-expanded={open}
@@ -72,24 +83,27 @@ export function NotificationBell({
       >
         <Bell className="size-5" aria-hidden />
         {unreadCount > 0 ? (
-          <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-action-primary px-1 text-[10px] font-semibold text-action-primary-foreground">
+          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-action-primary px-1 text-[11px] font-semibold text-action-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         ) : null}
       </button>
 
-      {open ? (
-        <div
-          role="menu"
-          aria-label="Notificaciones"
-          className="jh-overlay-shadow absolute right-0 top-full z-20 mt-2 w-80 overflow-hidden rounded-surface bg-surface-elevated"
-        >
+      {open && coords
+        ? createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              aria-label="Notificaciones"
+              style={{ top: coords.top, right: coords.right }}
+              className="jh-material jh-overlay-shadow fixed z-dropdown w-80 overflow-hidden rounded-surface"
+            >
           <div className="flex items-center justify-between px-3.5 py-2.5">
             <p className="text-sm font-semibold text-ink">Notificaciones</p>
             {unreadCount > 0 ? (
               <button
                 type="button"
-                className="text-xs font-medium text-action-primary hover:text-action-secondary"
+                className="min-h-8 text-[13px] font-medium text-action-primary hover:text-action-secondary"
                 onClick={() => {
                   startTransition(async () => {
                     await markAllNotificationsRead();
@@ -140,8 +154,10 @@ export function NotificationBell({
               ))}
             </ul>
           )}
-        </div>
-      ) : null}
+        </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
@@ -149,7 +165,7 @@ export function NotificationBell({
 function NotificationRow({ item }: { item: NotificationItem }) {
   return (
     <>
-      <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
+      <p className="text-[13px] font-medium text-text-secondary">
         {labelFor(NOTIFICATION_TYPE_LABELS, item.type)}
       </p>
       <p className="mt-0.5 text-sm font-medium text-ink">{item.title}</p>

@@ -28,11 +28,11 @@ export type PillTone =
 const TONE_CLASSES: Record<PillTone, string> = {
   slate: "bg-surface-panel text-text-secondary-strong ring-border-subtle",
   indigo: "bg-nav-active text-action-primary ring-action-primary/20",
-  blue: "bg-blue-50 text-blue-700 ring-blue-600/20",
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-600/20",
-  amber: "bg-amber-50 text-amber-800 ring-amber-600/20",
-  red: "bg-red-50 text-red-700 ring-red-600/20",
-  purple: "bg-purple-50 text-purple-700 ring-purple-600/20",
+  blue: "bg-info-soft text-info-ink ring-info-ink/20",
+  green: "bg-success-soft text-success-ink ring-success-ink/20",
+  amber: "bg-warning-soft text-warning-ink ring-warning-ink/20",
+  red: "bg-danger-soft text-danger-ink ring-danger-ink/20",
+  purple: "bg-purple-soft text-purple-ink ring-purple-ink/20",
 };
 
 export function Pill({

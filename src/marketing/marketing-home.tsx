@@ -22,6 +22,20 @@ export function MarketingHome() {
   }, []);
 
   useEffect(() => {
+    if (!menuOpen) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setMenuOpen(false);
+    }
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
     const prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const nodes = document.querySelectorAll(".jh-landing .reveal");
     if (prefersReduced || !("IntersectionObserver" in window)) {
@@ -47,6 +61,14 @@ export function MarketingHome() {
     <>
 <a className="skip-link" href="#contenido">Saltar al contenido principal</a>
 <div className="page">
+{menuOpen ? (
+  <button
+    type="button"
+    className="nav-overlay"
+    aria-label="Cerrar menú"
+    onClick={closeMenu}
+  />
+) : null}
 
 {/*  ============ CABECERA ============  */}
 <header className={scrolled ? "scrolled" : undefined}>
@@ -56,7 +78,7 @@ export function MarketingHome() {
       <span className="brand-tag">MultiServices LLC</span>
     </a>
     <nav aria-label="Navegación principal">
-      <ul className={menuOpen ? "nav-links open" : "nav-links"}>
+      <ul id="menu-principal" className={menuOpen ? "nav-links open" : "nav-links"}>
         <li><a href="#nosotros" onClick={closeMenu}>Nosotros</a></li>
         <li><a href="#servicios" onClick={closeMenu}>Servicios</a></li>
         <li><a href="#clientes" onClick={closeMenu}>Clientes</a></li>
@@ -69,8 +91,8 @@ export function MarketingHome() {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1570EF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
         <span>(872) 202-0156</span>
       </a>
-      <button type="button" className={menuOpen ? "menu-btn open" : "menu-btn"} aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={menuOpen} onClick={() => setMenuOpen((v) => !v)}>
-        <span></span><span></span><span></span>
+      <button type="button" className={menuOpen ? "menu-btn open" : "menu-btn"} aria-label={menuOpen ? "Cerrar menú" : "Abrir menú"} aria-expanded={menuOpen} aria-controls="menu-principal" onClick={() => setMenuOpen((v) => !v)}>
+        <span aria-hidden="true"></span><span aria-hidden="true"></span><span aria-hidden="true"></span>
       </button>
     </div>
   </div>
@@ -78,7 +100,7 @@ export function MarketingHome() {
 
 <main id="contenido">
 {/*  ============ HÉROE ============  */}
-<section className="hero" id="inicio" style={{paddingTop: "9.5rem"}}>
+<section className="hero" id="inicio">
   <div className="hero-bg">
     <div className="hero-grid"></div>
     <div className="hero-glow"></div>
@@ -107,7 +129,7 @@ export function MarketingHome() {
         <div className="avatars" aria-hidden={true}>
           <span style={{background: "linear-gradient(140deg,#1570EF,#0B3D91)"}}>MG</span>
           <span style={{background: "linear-gradient(140deg,#3D8BFD,#1570EF)"}}>JR</span>
-          <span style={{background: "linear-gradient(140deg,#0B3D91,#0A1F44)"}}>AL</span>
+          <span style={{background: "linear-gradient(140deg,#6FA8FF,#1570EF)"}}>AL</span>
           <span style={{background: "linear-gradient(140deg,#6FA8FF,#1570EF)"}}>+</span>
         </div>
         <p>
@@ -142,7 +164,7 @@ export function MarketingHome() {
         <div className="hero-bars" aria-hidden={true}><i></i><i></i><i></i><i></i><i></i><i></i></div>
       </div>
       <div className="hero-chip">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7FB3F7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1570EF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
         Servicio confiable y seguro
       </div>
     </div>
@@ -203,7 +225,7 @@ export function MarketingHome() {
 <section className="services" id="servicios">
   <div className="wrap">
     <div className="sec-head reveal">
-      <div className="eyebrow on-dark">Nuestros servicios</div>
+      <div className="eyebrow">Nuestros servicios</div>
       <h2>Todo lo que su proyecto necesita, en un solo lugar</h2>
       <p>Cuatro áreas de especialización, un mismo nivel de dedicación.</p>
     </div>
@@ -380,7 +402,7 @@ export function MarketingHome() {
   <div className="wrap">
     <div className="foot-grid">
       <div className="foot-brand">
-        <span className="brand-mark">J<span style={{color: "#7FB3F7"}}>&</span>H</span>
+        <span className="brand-mark">J<span>&</span>H</span>
         <p>Consultoría y servicios profesionales con experiencia, compromiso y valor. Su confianza, nuestra prioridad.</p>
       </div>
       <div className="foot-col">

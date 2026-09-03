@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, Menu } from "lucide-react";
 import {
   createContext,
   useContext,
@@ -13,6 +13,9 @@ import {
   type ReactNode,
 } from "react";
 import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
+import { useCrmSidebar } from "@/src/components/layout/crm-shell";
+import { SpotlightSearch } from "@/src/components/search/spotlight-search";
+import type { Role } from "@prisma/client";
 
 const SECTION_TITLES: Record<string, string> = {
   dashboard: "Inicio",
@@ -189,16 +192,35 @@ export function headerForPath(pathname: string): {
   return { title, backHref: `/${parts.slice(0, -1).join("/")}` };
 }
 
-export function CrmHeader({ children }: { children: ReactNode }) {
+export function CrmHeader({
+  children,
+  role,
+}: {
+  children: ReactNode;
+  role: Role | null;
+}) {
   const pathname = usePathname();
   const override = useContext(HeaderOverrideContext);
   const { title, backHref: structuralBack } = headerForPath(pathname);
   const backHref = useCrmBackHref(pathname, structuralBack);
   const label = override.title ?? title;
 
+  const { open, toggle } = useCrmSidebar();
+  const showTitle = Boolean(backHref || override.blobatarName);
+
   return (
-    <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-3 bg-surface-app px-6">
-      <div className="flex min-w-0 items-center gap-2">
+    <header className="jh-toolbar sticky top-0 z-sticky flex h-14 items-center justify-between gap-3 px-4 lg:h-16 lg:px-6">
+      <div className="flex min-w-0 items-center gap-1.5">
+        <button
+          type="button"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink lg:hidden motion-reduce:transition-none"
+          aria-label="Abrir menú"
+          aria-expanded={open}
+          aria-controls="crm-sidebar"
+          onClick={toggle}
+        >
+          <Menu className="size-5" aria-hidden />
+        </button>
         {backHref ? (
           <Link
             href={backHref}
@@ -217,9 +239,16 @@ export function CrmHeader({ children }: { children: ReactNode }) {
             title={label}
           />
         ) : null}
-        <p className="truncate text-sm font-medium text-ink">{label}</p>
+        <p
+          className={`truncate text-[17px] font-semibold tracking-[-0.02em] text-ink ${
+            showTitle ? "" : "hidden"
+          }`}
+        >
+          {label}
+        </p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">{children}</div>
+      <SpotlightSearch role={role} />
+      <div className="flex shrink-0 items-center gap-1">{children}</div>
     </header>
   );
 }

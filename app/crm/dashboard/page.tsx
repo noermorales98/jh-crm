@@ -22,48 +22,60 @@ export const metadata: Metadata = {
   title: "Inicio",
 };
 
-function KpiCard({
-  href,
-  icon: Icon,
-  label,
-  value,
-  hint,
-  accent = "indigo",
+function KpiStrip({
+  items,
 }: {
-  href: string;
-  icon: LucideIcon;
-  label: string;
-  value: string | number;
-  hint?: string;
-  accent?: "indigo" | "red" | "amber" | "green";
+  items: {
+    href: string;
+    icon: LucideIcon;
+    label: string;
+    value: string | number;
+    hint?: string;
+    attention?: "danger" | "warning";
+  }[];
 }) {
-  const accents = {
-    indigo: "bg-nav-active text-action-primary",
-    red: "bg-red-50 text-red-600",
-    amber: "bg-amber-50 text-amber-600",
-    green: "bg-emerald-50 text-emerald-600",
-  }[accent];
-
   return (
-    <Link
-      href={href}
-      className="group rounded-surface bg-surface-elevated p-5 transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none"
-    >
-      <div className="flex items-center justify-between">
-        <span className={`flex size-9 items-center justify-center rounded-control ${accents}`}>
-          <Icon className="size-4.5" aria-hidden />
-        </span>
-        <ArrowRight
-          className="size-4 text-brand-silver transition-colors group-hover:text-action-primary"
-          aria-hidden
-        />
+    <div className="overflow-hidden rounded-surface bg-border-subtle">
+      <div className="grid grid-cols-2 gap-px lg:grid-cols-3 xl:grid-cols-6">
+        {items.map((item) => {
+          const Icon = item.icon;
+          const wellClass =
+            item.attention === "danger"
+              ? "bg-danger-soft text-danger-ink"
+              : item.attention === "warning"
+                ? "bg-warning-soft text-warning-ink"
+                : "bg-nav-active text-action-primary";
+          return (
+            <Link
+              key={item.href + item.label}
+              href={item.href}
+              className="group flex flex-col gap-3 bg-surface-elevated p-4 transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none sm:p-5"
+            >
+              <div className="flex items-center justify-between">
+                <span
+                  className={`flex size-8 items-center justify-center rounded-control ${wellClass}`}
+                >
+                  <Icon className="size-4" strokeWidth={1.75} aria-hidden />
+                </span>
+                <ArrowRight
+                  className="size-4 text-text-secondary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"
+                  aria-hidden
+                />
+              </div>
+              <div>
+                <p className="text-2xl font-semibold tabular-nums text-ink">
+                  {item.value}
+                </p>
+                <p className="mt-0.5 text-sm text-text-secondary">{item.label}</p>
+                {item.hint ? (
+                  <p className="mt-1 text-xs text-text-secondary">{item.hint}</p>
+                ) : null}
+              </div>
+            </Link>
+          );
+        })}
       </div>
-      <p className="mt-3 text-2xl font-semibold tabular-nums text-ink">
-        {value}
-      </p>
-      <p className="mt-0.5 text-sm text-text-secondary">{label}</p>
-      {hint ? <p className="mt-1 text-xs text-text-secondary">{hint}</p> : null}
-    </Link>
+    </div>
   );
 }
 
@@ -76,52 +88,53 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <PageHeader
         title="Inicio"
-        description={`Resumen operativo · generado ${formatDateTime(summary.generatedAt, summary.timezone)} (${summary.timezone})`}
+        description={`Lo que requiere atención hoy · actualizado ${formatDateTime(summary.generatedAt, summary.timezone)}`}
       />
 
-      {/* KPIs accionables: cada tarjeta enlaza a su lista filtrada */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-        <KpiCard
-          href={widgets.activeClients.link}
-          icon={Users}
-          label="Clientes activos"
-          value={widgets.activeClients.count}
-        />
-        <KpiCard
-          href={widgets.openCases.link}
-          icon={Briefcase}
-          label="Casos abiertos"
-          value={widgets.openCases.count}
-        />
-        <KpiCard
-          href={widgets.activeRounds.link}
-          icon={RefreshCcw}
-          label="Rondas en curso"
-          value={widgets.activeRounds.count}
-        />
-        <KpiCard
-          href={widgets.overdueTasks.link}
-          icon={AlertTriangle}
-          label="Tareas vencidas"
-          value={widgets.overdueTasks.count}
-          accent={widgets.overdueTasks.count > 0 ? "red" : "indigo"}
-        />
-        <KpiCard
-          href={widgets.tasksToday.link}
-          icon={ClipboardList}
-          label="Tareas de hoy"
-          value={widgets.tasksToday.count}
-          accent={widgets.tasksToday.count > 0 ? "amber" : "indigo"}
-        />
-        <KpiCard
-          href={widgets.pendingPayments.link}
-          icon={CreditCard}
-          label="Pagos pendientes"
-          value={widgets.pendingPayments.count}
-          hint={formatMoney(widgets.pendingPayments.totalAmount)}
-          accent={widgets.pendingPayments.count > 0 ? "amber" : "indigo"}
-        />
-      </div>
+      <KpiStrip
+        items={[
+          {
+            href: widgets.activeClients.link,
+            icon: Users,
+            label: "Clientes activos",
+            value: widgets.activeClients.count,
+          },
+          {
+            href: widgets.openCases.link,
+            icon: Briefcase,
+            label: "Casos abiertos",
+            value: widgets.openCases.count,
+          },
+          {
+            href: widgets.activeRounds.link,
+            icon: RefreshCcw,
+            label: "Rondas en curso",
+            value: widgets.activeRounds.count,
+          },
+          {
+            href: widgets.overdueTasks.link,
+            icon: AlertTriangle,
+            label: "Tareas vencidas",
+            value: widgets.overdueTasks.count,
+            attention: widgets.overdueTasks.count > 0 ? "danger" : undefined,
+          },
+          {
+            href: widgets.tasksToday.link,
+            icon: ClipboardList,
+            label: "Tareas de hoy",
+            value: widgets.tasksToday.count,
+            attention: widgets.tasksToday.count > 0 ? "warning" : undefined,
+          },
+          {
+            href: widgets.pendingPayments.link,
+            icon: CreditCard,
+            label: "Pagos pendientes",
+            value: widgets.pendingPayments.count,
+            hint: formatMoney(widgets.pendingPayments.totalAmount),
+            attention: widgets.pendingPayments.count > 0 ? "warning" : undefined,
+          },
+        ]}
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Revisiones próximas: casos y rondas con fecha */}
@@ -132,7 +145,7 @@ export default async function DashboardPage() {
             actions={
               <Link
                 href="/crm/rondas"
-                className="text-xs font-medium text-action-primary hover:text-action-secondary"
+                className="text-[13px] font-medium text-action-primary hover:text-action-secondary"
               >
                 Ver rondas →
               </Link>
@@ -229,7 +242,7 @@ export default async function DashboardPage() {
             actions={
               <Link
                 href="/crm/tareas"
-                className="text-xs font-medium text-action-primary hover:text-action-secondary"
+                className="text-[13px] font-medium text-action-primary hover:text-action-secondary"
               >
                 Ver tareas →
               </Link>
@@ -302,7 +315,7 @@ export default async function DashboardPage() {
             actions={
               <Link
                 href={widgets.pendingPayments.link}
-                className="text-xs font-medium text-action-primary hover:text-action-secondary"
+                className="text-[13px] font-medium text-action-primary hover:text-action-secondary"
               >
                 Ver pagos →
               </Link>
@@ -350,7 +363,7 @@ export default async function DashboardPage() {
             actions={
               <Link
                 href={widgets.pendingQuotes.link}
-                className="text-xs font-medium text-action-primary hover:text-action-secondary"
+                className="text-[13px] font-medium text-action-primary hover:text-action-secondary"
               >
                 Ver cotizaciones →
               </Link>

@@ -44,7 +44,7 @@ export function SyncInboxButton({ enabled }: { enabled: boolean }) {
         {pending ? "Sincronizando…" : "Sincronizar"}
       </Button>
       {error ? (
-        <p className="max-w-xs text-right text-xs text-red-600" role="alert">
+        <p className="max-w-xs text-right text-xs text-danger-ink" role="alert">
           {error}
         </p>
       ) : ok ? (

@@ -11,14 +11,14 @@ import type {
  */
 
 const BASE =
-  "block min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-ink placeholder:text-text-placeholder focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/15 disabled:cursor-not-allowed disabled:bg-surface-panel disabled:text-text-secondary";
+  "block min-h-11 w-full rounded-control border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-ink placeholder:text-text-placeholder focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/15 disabled:cursor-not-allowed disabled:bg-surface-panel disabled:text-text-secondary";
 
 export function inputClasses(invalid?: boolean): string {
   return invalid
     ? BASE.replace(
         "border-border-subtle",
-        "border-red-300",
-      ).replace("focus:border-focus", "focus:border-red-500")
+        "border-danger",
+      ).replace("focus:border-focus", "focus:border-danger")
     : BASE;
 }
 

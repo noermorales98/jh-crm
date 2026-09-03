@@ -72,7 +72,7 @@ export function CursorPagination({
       aria-label="Paginación"
       className="flex items-center justify-between border-t border-border-subtle px-4 py-3"
     >
-      <span className="text-xs text-text-secondary">Página {page}</span>
+      <span className="text-[13px] text-text-secondary">Página {page}</span>
       <div className="flex items-center gap-2">
         {prevHref ? (
           <Link href={prevHref} className={linkBase} data-cuelume-press="page">

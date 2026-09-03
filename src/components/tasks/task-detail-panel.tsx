@@ -48,7 +48,7 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Vencimiento</dt>
-              <dd className={overdue ? "font-medium text-red-600" : ""}>
+              <dd className={overdue ? "font-medium text-danger-ink" : ""}>
                 {task.dueAt ? formatDate(task.dueAt) : "—"}
                 {overdue ? " · vencida" : ""}
               </dd>

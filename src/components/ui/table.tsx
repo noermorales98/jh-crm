@@ -49,7 +49,7 @@ export function TH({
   return (
     <th
       scope="col"
-      className={`px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-text-secondary ${className}`}
+      className={`px-4 py-2.5 text-left text-[13px] font-semibold text-text-secondary ${className}`}
       {...props}
     >
       {children}

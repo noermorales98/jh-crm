@@ -17,24 +17,24 @@ export default async function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-surface-app px-4">
+    <main className="flex min-h-screen items-center justify-center bg-surface-app px-4 py-10">
       <div className="w-full max-w-sm">
-        <div className="rounded-surface border border-border-subtle bg-surface-elevated p-8">
+        <div className="rounded-surface bg-surface-elevated p-8 jh-overlay-shadow">
           <div className="mb-8 text-center">
             <div className="mx-auto mb-4 w-fit">
               <AppIcon size="lg" />
             </div>
-            <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink">
+            <h1 className="text-[1.375rem] font-semibold tracking-[-0.02em] text-ink">
               J&H CRM
             </h1>
             <p className="mt-1 text-sm text-text-secondary">
-              J&H Multiservices LLC — Acceso interno
+              Acceso interno de J&H Multiservices LLC
             </p>
           </div>
           <LoginForm />
         </div>
-        <p className="mt-6 text-center text-xs text-text-secondary">
-          Sistema interno. El acceso es solo por invitación.
+        <p className="mt-6 text-center text-sm text-text-secondary">
+          El acceso es solo por invitación.
         </p>
       </div>
     </main>

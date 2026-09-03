@@ -130,7 +130,7 @@ export function TaskTable({
                 )}
               </TD>
               <TD
-                className={`whitespace-nowrap ${overdue ? "font-medium text-red-600" : "text-text-secondary"}`}
+                className={`whitespace-nowrap ${overdue ? "font-medium text-danger-ink" : "text-text-secondary"}`}
               >
                 {task.dueAt ? formatDate(task.dueAt) : "—"}
                 {overdue ? " · vencida" : ""}

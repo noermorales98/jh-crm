@@ -24,7 +24,7 @@ export function CrmChat() {
   if (hidden) return null;
 
   return (
-    <div className="pointer-events-none fixed bottom-5 right-5 z-40 flex flex-col items-end gap-3">
+    <div className="pointer-events-none fixed right-5 bottom-[max(1.25rem,env(safe-area-inset-bottom))] z-sticky flex flex-col items-end gap-3">
       {open ? (
         <section
           className="pointer-events-auto flex h-[min(44rem,calc(100dvh-7rem))] w-[min(32rem,calc(100vw-1.5rem))] flex-col overflow-hidden rounded-surface bg-surface-elevated jh-overlay-shadow"
@@ -45,7 +45,7 @@ export function CrmChat() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="flex size-8 items-center justify-center rounded-full text-text-secondary-strong transition-colors hover:bg-nav-hover hover:text-ink"
+              className="flex size-9 items-center justify-center rounded-full text-text-secondary-strong transition-colors hover:bg-nav-hover hover:text-ink"
               aria-label="Cerrar chat"
             >
               <X className="size-4" aria-hidden />

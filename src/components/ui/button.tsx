@@ -12,13 +12,13 @@ export type ButtonSize = "sm" | "md";
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-action-primary font-semibold text-action-primary-foreground hover:bg-action-secondary disabled:opacity-60",
+    "bg-action-primary font-semibold text-action-primary-foreground hover:bg-action-secondary disabled:opacity-50",
   secondary:
-    "bg-surface-panel font-medium text-ink hover:bg-nav-active disabled:opacity-60",
+    "bg-surface-panel font-medium text-ink hover:bg-nav-active disabled:opacity-50",
   danger:
-    "bg-red-600 font-semibold text-white hover:bg-red-700 disabled:opacity-60",
+    "bg-danger font-semibold text-white hover:bg-danger-hover disabled:opacity-50",
   ghost:
-    "font-medium text-text-secondary-strong hover:bg-surface-panel hover:text-ink disabled:opacity-60",
+    "font-medium text-text-secondary-strong hover:bg-surface-panel hover:text-ink disabled:opacity-50",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {

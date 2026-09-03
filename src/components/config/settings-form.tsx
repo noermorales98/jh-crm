@@ -855,7 +855,7 @@ export function SettingsForm({
           </Button>
         ) : null}
         {testMessage ? (
-          <p className="text-xs text-emerald-700">{testMessage}</p>
+          <p className="text-xs text-success-ink">{testMessage}</p>
         ) : null}
       </section>
         </>

@@ -73,7 +73,7 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Revisión esperada</dt>
-              <dd className={overdue ? "font-medium text-red-600" : ""}>
+              <dd className={overdue ? "font-medium text-danger-ink" : ""}>
                 {round.expectedReviewAt ? formatDate(round.expectedReviewAt) : "—"}
                 {overdue ? " · vencida" : ""}
               </dd>

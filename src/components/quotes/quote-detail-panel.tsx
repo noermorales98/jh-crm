@@ -273,7 +273,7 @@ export async function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
                 </div>
                 <div className="flex justify-between">
                   <dt className="text-text-secondary">Recibido</dt>
-                  <dd className="tabular-nums text-emerald-700">
+                  <dd className="tabular-nums text-success-ink">
                     {formatMoney(balance.paid, balance.currency)}
                   </dd>
                 </div>

@@ -9,10 +9,12 @@ export function CrmMain({ children }: { children: ReactNode }) {
 
   return (
     <main
+      id="contenido-principal"
+      tabIndex={-1}
       className={
         chatDetail
-          ? "flex h-[calc(100dvh-4rem)] min-h-0 flex-col overflow-hidden"
-          : "flex-1 px-6 py-6 lg:px-8"
+          ? "flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden outline-none lg:h-[calc(100dvh-4rem)]"
+          : "flex-1 px-4 py-5 outline-none lg:px-8 lg:py-6"
       }
     >
       {children}

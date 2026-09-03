@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { Send, Square } from "lucide-react";
+import { Loader2, Send, Square } from "lucide-react";
 import Link from "next/link";
 import {
   useEffect,
@@ -13,6 +13,7 @@ import {
   type FormEvent,
 } from "react";
 import { play } from "cuelume";
+import { takeAskAiSeed } from "@/src/components/ai/ask-ai";
 import { AssistantMessage } from "@/src/components/ai/markdown-text";
 import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
 import { chatBlobatarName } from "@/src/lib/ai/blobatar-name";
@@ -30,9 +31,62 @@ function messageText(message: UIMessage): string {
     .join("");
 }
 
+function isToolPart(part: UIMessage["parts"][number]): boolean {
+  return part.type.startsWith("tool-") || part.type === "dynamic-tool";
+}
+
 function messageHasTools(message: UIMessage): boolean {
-  return message.parts.some(
-    (part) => part.type.startsWith("tool-") || part.type === "dynamic-tool",
+  return message.parts.some(isToolPart);
+}
+
+function toolsPending(message: UIMessage): boolean {
+  return message.parts.some((part) => {
+    if (!isToolPart(part)) return false;
+    const state = "state" in part && typeof part.state === "string" ? part.state : "";
+    return state !== "output-available" && state !== "output-error";
+  });
+}
+
+function waitingLabel(message: UIMessage | undefined, hasText: boolean): string {
+  if (message && toolsPending(message)) return "Consultando el CRM…";
+  if (hasText) return "Escribiendo…";
+  return "Pensando…";
+}
+
+function WaitingStatus({ label }: { label: string }) {
+  return (
+    <p
+      className="flex items-center gap-2 text-sm text-text-secondary"
+      role="status"
+      aria-live="polite"
+    >
+      <Loader2 className="size-4 shrink-0 animate-spin text-action-primary" aria-hidden />
+      <span>{label}</span>
+    </p>
+  );
+}
+
+function AssistantWaitingBubble({
+  compact,
+  chatId,
+  label,
+}: {
+  compact: boolean;
+  chatId?: string;
+  label: string;
+}) {
+  return (
+    <div className="flex items-end justify-start gap-2">
+      <ChatBlobatar
+        name={chatId ? chatBlobatarName(chatId) : "jh-asistente"}
+        size={compact ? 28 : 32}
+        className="mb-0.5 shrink-0"
+        title="Asistente"
+      />
+      <div className="max-w-[min(40rem,90%)] rounded-control bg-surface-panel px-3 py-2">
+        <WaitingStatus label={label} />
+      </div>
+    </div>
   );
 }
 
@@ -129,6 +183,16 @@ export function AiChatPanel({
     await sendMessage({ text });
   }
 
+  useEffect(() => {
+    if (!chatId || variant !== "page" || busy || configured !== true) return;
+    const prompt = takeAskAiSeed(chatId);
+    if (!prompt) return;
+    void ask(prompt);
+  }, [chatId, variant, busy, configured]);
+
+  const lastMessage = messages.at(-1);
+  const showLeadingWait = busy && (!lastMessage || lastMessage.role === "user");
+
   const thread = (
     <>
       {configured === false ? (
@@ -163,12 +227,16 @@ export function AiChatPanel({
 
       {messages.map((message, index) => {
         const text = messageText(message);
-        const waitingOnTools =
-          message.role === "assistant" && !text && messageHasTools(message);
+        const isLast = index === messages.length - 1;
+        const pendingAssistant =
+          message.role === "assistant" &&
+          !text &&
+          (messageHasTools(message) || (busy && isLast));
         if (message.role !== "user" && message.role !== "assistant") return null;
-        if (!text && !waitingOnTools) return null;
+        if (!text && !pendingAssistant) return null;
         const mine = message.role === "user";
         const face = chatId ? chatBlobatarName(chatId) : "jh-asistente";
+        const stillWorking = busy && isLast && !mine;
         return (
           <div
             key={message.id || `${message.role}-${index}`}
@@ -187,24 +255,35 @@ export function AiChatPanel({
                 mine ? "bg-action-primary text-action-primary-foreground" : "bg-surface-panel"
               }`}
             >
-              {waitingOnTools ? (
-                <p className="text-sm text-text-secondary">Consultando el CRM…</p>
+              {pendingAssistant ? (
+                <WaitingStatus label={waitingLabel(message, false)} />
               ) : mine ? (
                 <p className="whitespace-pre-wrap text-sm leading-5">{text}</p>
               ) : (
-                <AssistantMessage text={text} />
+                <>
+                  <AssistantMessage text={text} />
+                  {stillWorking ? (
+                    <div className="mt-2">
+                      <WaitingStatus label={waitingLabel(message, true)} />
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
           </div>
         );
       })}
 
-      {status === "submitted" ? (
-        <p className="text-xs text-text-secondary">Pensando…</p>
+      {showLeadingWait ? (
+        <AssistantWaitingBubble
+          compact={compact}
+          chatId={chatId}
+          label={waitingLabel(lastMessage, false)}
+        />
       ) : null}
 
       {error ? (
-        <p className="text-sm text-red-700">
+        <p className="text-sm text-danger-ink">
           {error.message || "No pude responder. Intenta de nuevo."}
         </p>
       ) : null}

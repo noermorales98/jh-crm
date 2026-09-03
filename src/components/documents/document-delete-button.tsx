@@ -25,7 +25,7 @@ export function DocumentDeleteButton({ documentId }: { documentId: string }) {
             type="button"
             title="Eliminar"
             aria-label="Eliminar documento"
-            className="inline-flex size-8 items-center justify-center rounded-control text-red-600 transition-colors hover:bg-red-50"
+            className="inline-flex size-8 items-center justify-center rounded-control text-danger-ink transition-colors hover:bg-danger-soft"
           >
             <Trash2 className="size-4" aria-hidden />
           </button>
@@ -48,7 +48,7 @@ export function DocumentDeleteButton({ documentId }: { documentId: string }) {
           }
         }}
       />
-      {error ? <span className="text-xs text-red-600">{error}</span> : null}
+      {error ? <span className="text-xs text-danger-ink">{error}</span> : null}
     </div>
   );
 }

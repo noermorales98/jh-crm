@@ -13,6 +13,7 @@ import {
   countUnreadNotifications,
   listNotificationsForUser,
 } from "@/src/server/notifications";
+import { CrmShell } from "@/src/components/layout/crm-shell";
 import { SidebarNav } from "./SidebarNav";
 import { CrmHeader, HeaderTitleProvider } from "./CrmHeader";
 import { CrmMain } from "./CrmMain";
@@ -55,49 +56,47 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
     : [[], 0];
 
   return (
-    <div className="flex min-h-screen bg-surface-app">
-      <aside
-        className={`crm-brand fixed inset-y-0 left-0 flex w-64 flex-col bg-surface-panel ${spaceGrotesk.variable} ${ibmPlexMono.variable}`}
-      >
-        <div className="flex h-16 items-center px-5">
-          <Link
-            href="/crm/dashboard"
-            className="brand"
-            aria-label="J&H MultiServices LLC — Inicio"
-          >
-            <span className="brand-mark">
-              J<span>&</span>H
-            </span>
-            <span className="brand-tag">MultiServices LLC</span>
-          </Link>
-        </div>
-        <SidebarNav />
-      </aside>
-
-      <div className="flex min-h-screen flex-1 flex-col pl-64">
-        <HeaderTitleProvider>
-          <CrmHeader>
-            <NotificationBell
-              unreadCount={unreadCount}
-              items={inbox.map((item) => ({
-                id: item.id,
-                type: item.type,
-                title: item.title,
-                body: item.body,
-                link: item.link,
-                isRead: item.isRead,
-                createdAt: item.createdAt.toISOString(),
-              }))}
-            />
-            <UserMenu
-              name={userName}
-              email={session.user.email ?? ""}
-              role={session.user.role ?? null}
-            />
-          </CrmHeader>
+    <div className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>
+      <HeaderTitleProvider>
+        <CrmShell
+          brand={
+            <Link
+              href="/crm/dashboard"
+              className="brand"
+              aria-label="J&H MultiServices LLC — Inicio"
+            >
+              <span className="brand-mark">
+                J<span>&</span>H
+              </span>
+              <span className="brand-tag">Multiservices LLC</span>
+            </Link>
+          }
+          sidebar={<SidebarNav />}
+          header={
+            <CrmHeader role={session.user.role ?? null}>
+              <NotificationBell
+                unreadCount={unreadCount}
+                items={inbox.map((item) => ({
+                  id: item.id,
+                  type: item.type,
+                  title: item.title,
+                  body: item.body,
+                  link: item.link,
+                  isRead: item.isRead,
+                  createdAt: item.createdAt.toISOString(),
+                }))}
+              />
+              <UserMenu
+                name={userName}
+                email={session.user.email ?? ""}
+                role={session.user.role ?? null}
+              />
+            </CrmHeader>
+          }
+        >
           <CrmMain>{children}</CrmMain>
-        </HeaderTitleProvider>
-      </div>
+        </CrmShell>
+      </HeaderTitleProvider>
       <CrmChat />
     </div>
   );

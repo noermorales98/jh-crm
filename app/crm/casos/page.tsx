@@ -152,7 +152,7 @@ export default async function CasesPage({
                       <StatusPill domain="case" value={c.state} />
                     </TD>
                     <TD
-                      className={`whitespace-nowrap ${overdue ? "font-medium text-red-600" : "text-text-secondary"}`}
+                      className={`whitespace-nowrap ${overdue ? "font-medium text-danger-ink" : "text-text-secondary"}`}
                     >
                       {c.nextReviewAt ? formatDate(c.nextReviewAt) : "—"}
                       {overdue ? " · vencida" : ""}

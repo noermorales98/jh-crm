@@ -107,7 +107,7 @@ export default async function CaseRoundsPage({
                       round.expectedReviewAt &&
                       new Date(round.expectedReviewAt) < new Date() &&
                       (round.status === "SENT" || round.status === "WAITING_UPDATE")
-                        ? "font-medium text-red-600"
+                        ? "font-medium text-danger-ink"
                         : "text-text-secondary"
                     }`}
                   >

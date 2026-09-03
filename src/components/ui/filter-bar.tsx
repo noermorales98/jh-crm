@@ -43,7 +43,7 @@ export function FilterSelect({
     <div>
       <label
         htmlFor={`filter-${name}`}
-        className="mb-1 block text-xs font-semibold text-text-secondary-strong"
+        className="mb-1 block text-[13px] font-semibold text-text-secondary-strong"
       >
         {label}
       </label>
@@ -62,7 +62,7 @@ export function FilterSelect({
           const qs = sp.toString();
           router.push(qs ? `${pathname}?${qs}` : pathname);
         }}
-        className="block min-h-11 rounded-control border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/15"
+        className="block min-h-11 rounded-control border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/15"
       >
         <option value="">{allLabel}</option>
         {options.map((opt) => (
@@ -92,7 +92,7 @@ export function FilterDate({
     <div>
       <label
         htmlFor={`filter-${name}`}
-        className="mb-1 block text-xs font-semibold text-text-secondary-strong"
+        className="mb-1 block text-[13px] font-semibold text-text-secondary-strong"
       >
         {label}
       </label>
@@ -112,7 +112,7 @@ export function FilterDate({
           const qs = sp.toString();
           router.push(qs ? `${pathname}?${qs}` : pathname);
         }}
-        className="block min-h-11 rounded-control border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/15"
+        className="block min-h-11 rounded-control border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/15"
       />
     </div>
   );

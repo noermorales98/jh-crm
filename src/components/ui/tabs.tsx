@@ -30,7 +30,7 @@ export function Tabs({
               href={item.href}
               aria-current={active ? "page" : undefined}
               data-cuelume-hover="tick"
-              className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-sm transition-colors duration-200 motion-reduce:transition-none ${
+              className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-sm min-h-11 inline-flex items-center transition-colors duration-200 motion-reduce:transition-none ${
                 active
                   ? "border-action-primary font-semibold text-action-primary"
                   : "border-transparent font-medium text-text-secondary hover:border-border-subtle hover:text-ink"

@@ -28,14 +28,21 @@ export function Field({
     <div className={className}>
       <label
         htmlFor={htmlFor}
-        className="mb-1.5 block text-xs font-semibold text-text-secondary-strong"
+        className="mb-1.5 block text-[13px] font-semibold text-text-secondary-strong"
       >
         {label}
-        {required ? <span className="ml-0.5 text-red-500">*</span> : null}
+        {required ? (
+          <>
+            <span className="ml-0.5 text-danger" aria-hidden>
+              *
+            </span>
+            <span className="sr-only"> (obligatorio)</span>
+          </>
+        ) : null}
       </label>
       {children}
       {error ? (
-        <p role="alert" className="mt-1 text-xs text-red-600">
+        <p role="alert" className="mt-1 text-xs text-danger-ink">
           {error}
         </p>
       ) : hint ? (

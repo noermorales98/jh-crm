@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { TriangleAlert } from "lucide-react";
+import { Button } from "@/src/components/ui";
 
 export default function GlobalError({
   error,
@@ -16,13 +17,13 @@ export default function GlobalError({
   }, [error]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-surface-panel px-4">
-      <div className="w-full max-w-md rounded-surface border border-border-subtle bg-surface-elevated p-8 text-center">
-        <TriangleAlert className="mx-auto mb-4 size-10 text-amber-500" aria-hidden />
-        <h1 className="text-lg font-semibold text-ink">
-          Algo salió mal
-        </h1>
-        <p className="mt-2 text-sm text-text-secondary">
+    <div className="flex min-h-screen items-center justify-center bg-surface-app px-4">
+      <div className="w-full max-w-md rounded-surface bg-surface-elevated p-8 text-center jh-overlay-shadow">
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-full bg-warning-soft text-warning-ink">
+          <TriangleAlert className="size-6" strokeWidth={1.75} aria-hidden />
+        </div>
+        <h1 className="text-lg font-semibold text-ink">Algo salió mal</h1>
+        <p className="mt-2 text-pretty text-sm text-text-secondary">
           Ocurrió un error inesperado. Puedes intentar de nuevo; si el problema
           persiste, contacta al administrador.
         </p>
@@ -31,12 +32,9 @@ export default function GlobalError({
             Referencia: {error.digest}
           </p>
         ) : null}
-        <button
-          onClick={reset}
-          className="mt-6 rounded-control bg-action-primary px-4 py-2 text-sm font-semibold text-white hover:bg-action-secondary"
-        >
+        <Button onClick={reset} className="mt-6">
           Intentar de nuevo
-        </button>
+        </Button>
       </div>
     </div>
   );

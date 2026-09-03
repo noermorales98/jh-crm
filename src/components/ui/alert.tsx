@@ -13,18 +13,18 @@ export function Alert({
   children: ReactNode;
 }) {
   const styles = {
-    info: "border-blue-200 bg-blue-50 text-blue-800",
-    error: "border-red-200 bg-red-50 text-red-700",
-    success: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    info: "bg-info-soft text-info-ink",
+    error: "bg-danger-soft text-danger-ink",
+    success: "bg-success-soft text-success-ink",
   }[tone];
   const Icon = tone === "error" ? AlertCircle : tone === "success" ? CheckCircle2 : Info;
 
   return (
     <div
       role={tone === "error" ? "alert" : "status"}
-      className={`flex items-start gap-2 rounded-control border px-4 py-3 text-sm ${styles}`}
+      className={`flex items-start gap-2 rounded-control px-4 py-3 text-sm ${styles}`}
     >
-      <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />
+      <Icon className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
       <div>{children}</div>
     </div>
   );

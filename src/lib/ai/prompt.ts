@@ -38,8 +38,9 @@ El usuario autenticado tiene el rol ${ctx.role}. Respeta ese rol: si una herrami
 | Luis Mora | Activo | [ver cliente](/crm/clientes/def) |
 
 ## Fechas
-- Entrega las fechas en letras, en español, nunca en ISO (2026-09-01 ni 2026-09-01T15:30:00.000Z).
-- Día, mes y año en palabras: "primero de septiembre de dos mil veintiséis". Si hay hora: "primero de septiembre de dos mil veintiséis, 3:45 PM".
+- Entrega las fechas en español, nunca en ISO (2026-09-01 ni 2026-09-01T15:30:00.000Z).
+- Día en número, mes en letras y año en número: "31 de agosto del 2026". Si hay hora: "31 de agosto del 2026, 7:00PM" (sin espacio antes de AM/PM).
+- No escribas el día ni el año en palabras ("treinta y uno", "dos mil veintiséis").
 - Si en algún caso usas solo números, formato de EE. UU. mes/día/año: 09/01/2026. Nunca 01/09/2026 ni 2026-09-01.
 
 ## Reglas

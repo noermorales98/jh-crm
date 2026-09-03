@@ -46,13 +46,13 @@ export function SplitView({
         )}
       </div>
       {selectedId ? (
-        <div className="fixed inset-0 z-30 bg-ink/40 md:hidden" role="presentation">
+        <div className="fixed inset-0 z-40 bg-ink/40 md:hidden" role="presentation">
           <div
             role="dialog"
             aria-modal="true"
-            className="absolute inset-x-0 bottom-0 top-10 overflow-y-auto rounded-t-surface bg-surface-elevated"
+            className="absolute inset-x-0 bottom-0 top-10 overflow-y-auto rounded-t-surface bg-surface-elevated jh-overlay-shadow"
           >
-            <div className="sticky top-0 z-10 flex justify-end bg-surface-elevated px-3 py-2">
+            <div className="jh-toolbar sticky top-0 z-10 flex justify-end px-3 py-2">
               <button
                 type="button"
                 onClick={closeSheet}

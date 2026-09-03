@@ -113,7 +113,7 @@ export default async function RoundsPage({
                         <StatusPill domain="round" value={round.status} />
                       </TD>
                       <TD
-                        className={`whitespace-nowrap ${overdue ? "font-medium text-red-600" : "text-text-secondary"}`}
+                        className={`whitespace-nowrap ${overdue ? "font-medium text-danger-ink" : "text-text-secondary"}`}
                       >
                         {round.expectedReviewAt
                           ? formatDate(round.expectedReviewAt)

@@ -60,7 +60,7 @@ export function TaskRowActions({
           type="button"
           disabled={pending}
           onClick={() => run(() => completeTask(taskId))}
-          className={`${iconBtn} text-emerald-700 hover:bg-emerald-50`}
+          className={`${iconBtn} text-success-ink hover:bg-success-soft`}
         >
           <CheckCircle2 className="size-3.5" aria-hidden />
           Completar
@@ -84,7 +84,7 @@ export function TaskRowActions({
           Cancelar
         </button>
       </div>
-      {error ? <span className="text-xs text-red-600">{error}</span> : null}
+      {error ? <span className="text-xs text-danger-ink">{error}</span> : null}
 
       <Modal
         open={reassignOpen}

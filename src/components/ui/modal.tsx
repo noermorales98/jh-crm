@@ -44,7 +44,7 @@ export function Modal({
         // Clic en el backdrop cierra.
         if (e.target === ref.current) onClose();
       }}
-      className="fixed inset-0 z-50 m-0 hidden h-dvh max-h-dvh w-full max-w-none items-center justify-center bg-transparent p-4 backdrop:bg-ink/40 open:flex"
+      className="fixed inset-0 z-modal m-0 hidden h-dvh max-h-dvh w-full max-w-none items-center justify-center bg-transparent p-4 backdrop:bg-ink/40 backdrop:backdrop-blur-[2px] open:flex"
     >
       <div className="jh-overlay-shadow flex max-h-full w-full max-w-lg flex-col overflow-y-auto rounded-surface bg-surface-elevated">
         <div className="flex items-start justify-between gap-4 border-b border-border-subtle px-5 py-4">
@@ -54,7 +54,7 @@ export function Modal({
               <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
             ) : null}
           </div>
-          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar">
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar" className="size-9 shrink-0 px-0">
             <X className="size-4" aria-hidden />
           </Button>
         </div>

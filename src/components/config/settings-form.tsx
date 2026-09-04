@@ -218,7 +218,7 @@ export function SettingsForm({
         notifyEmailDigest: values.notifyEmailDigest,
         notifyWhatsappDigest: values.notifyWhatsappDigest,
         notifyEmailMail: values.notifyEmailMail,
-        notifyWhatsappMail: values.notifyWhatsappMail,
+        notifyWhatsappMail: false,
         notifyEmailContact: values.notifyEmailContact,
         notifyWhatsappContact: values.notifyWhatsappContact,
         notifyEmailIntake: values.notifyEmailIntake,
@@ -637,7 +637,7 @@ export function SettingsForm({
                   ["Tareas (recordatorio / vencida)", "notifyEmailTask", "notifyWhatsappTask"],
                   ["Revisión de caso / ronda", "notifyEmailCase", "notifyWhatsappCase"],
                   ["Pago por cobrar", "notifyEmailPayment", "notifyWhatsappPayment"],
-                  ["Correo nuevo", "notifyEmailMail", "notifyWhatsappMail"],
+                  ["Correo nuevo", "notifyEmailMail", null],
                   ["Formulario de contacto", "notifyEmailContact", "notifyWhatsappContact"],
                   ["Registro de intake", "notifyEmailIntake", "notifyWhatsappIntake"],
                   ["Resumen diario", "notifyEmailDigest", "notifyWhatsappDigest"],
@@ -655,13 +655,17 @@ export function SettingsForm({
                     />
                   </td>
                   <td className="px-3 py-2">
-                    <input
-                      type="checkbox"
-                      data-cuelume-toggle="toggle"
-                      checked={values[waKey]}
-                      onChange={(e) => set(waKey, e.target.checked)}
-                      className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
-                    />
+                    {waKey ? (
+                      <input
+                        type="checkbox"
+                        data-cuelume-toggle="toggle"
+                        checked={values[waKey]}
+                        onChange={(e) => set(waKey, e.target.checked)}
+                        className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+                      />
+                    ) : (
+                      <span className="text-xs text-text-secondary">No aplica</span>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -43,7 +43,8 @@ export function whatsappEnabledFor(
   }
   if (type === "PAYMENT_DUE") return p.notifyWhatsappPayment;
   if (type === "DAILY_DIGEST") return p.notifyWhatsappDigest;
-  if (type === "MAIL_RECEIVED") return p.notifyWhatsappMail;
+  // Correo recibido: solo campana/SMTP; nunca WhatsApp.
+  if (type === "MAIL_RECEIVED") return false;
   if (type === "CONTACT_FORM") return p.notifyWhatsappContact;
   if (type === "INTAKE_SUBMITTED") return p.notifyWhatsappIntake;
   return false;

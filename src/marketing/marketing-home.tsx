@@ -82,7 +82,6 @@ export function MarketingHome() {
         <li><a href="#nosotros" onClick={closeMenu}>Nosotros</a></li>
         <li><a href="#servicios" onClick={closeMenu}>Servicios</a></li>
         <li><a href="#clientes" onClick={closeMenu}>Clientes</a></li>
-        <li><a href="#fundador" onClick={closeMenu}>Fundador</a></li>
         <li><a href="#contacto" onClick={closeMenu}>Contacto</a></li>
       </ul>
     </nav>
@@ -311,36 +310,6 @@ export function MarketingHome() {
   </div>
 </section>
 
-{/*  ============ FUNDADOR ============  */}
-<section className="founder" id="fundador">
-  <div className="wrap founder-grid">
-    <div className="founder-figure reveal" role="img" aria-label="Monograma de Hugo Montenegro, fundador de J&H MultiServices LLC">
-      <span className="founder-initials">H<span>M</span></span>
-      <span className="founder-badge">Fundador</span>
-    </div>
-    <div className="founder-txt reveal d1">
-      <div className="eyebrow">Nuestro fundador</div>
-      <h2>Detrás de cada resultado, una persona comprometida</h2>
-      <p>
-        Hugo Montenegro fundó J&H MultiServices LLC con una convicción sencilla: cada cliente
-        merece orientación honesta, clara y adaptada a su realidad. Esa filosofía guía cada
-        proyecto que emprendemos.
-      </p>
-      <p>
-        Bajo su dirección, la empresa ha construido una reputación basada en la experiencia,
-        el compromiso y el valor — los tres pilares que sostienen cada servicio que ofrecemos.
-      </p>
-      <div className="founder-sign">
-        <span className="line" aria-hidden={true}></span>
-        <div>
-          <b>Hugo Montenegro</b>
-          <small>Fundador — J&H MultiServices LLC</small>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 {/*  ============ CONTACTO ============  */}
 <section id="contacto">
   <div className="wrap">
@@ -363,15 +332,6 @@ export function MarketingHome() {
             <div>
               <b>Correo electrónico</b>
               <a href="mailto:jhmultiservices10@gmail.com">jhmultiservices10@gmail.com</a>
-            </div>
-          </div>
-          <div className="contact-item">
-            <div className="ci" aria-hidden={true}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-            </div>
-            <div>
-              <b>Página web</b>
-              <a href="https://jh-multiservices.com/" target="_blank" rel="noopener">jh-multiservices.com</a>
             </div>
           </div>
           <div className="contact-item">
@@ -410,7 +370,7 @@ export function MarketingHome() {
         <a href="#nosotros">Nosotros</a>
         <a href="#servicios">Servicios</a>
         <a href="#clientes">Clientes</a>
-        <a href="#fundador">Fundador</a>
+        <a href="#contacto">Contacto</a>
       </div>
       <div className="foot-col">
         <b>Contacto</b>

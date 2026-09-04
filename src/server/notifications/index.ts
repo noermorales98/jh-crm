@@ -35,6 +35,8 @@ export interface CreateNotificationInput {
   link?: string | null;
   dedupeKey?: string | null;
   skipWhatsapp?: boolean;
+  /** Si true, no envía SMTP al User.email (p. ej. intake usa lista configurable). */
+  skipEmail?: boolean;
 }
 
 export async function createNotification(
@@ -42,7 +44,7 @@ export async function createNotification(
   tx?: Prisma.TransactionClient,
 ) {
   const client = tx ?? prisma;
-  const { dedupeKey, skipWhatsapp, ...data } = input;
+  const { dedupeKey, skipWhatsapp, skipEmail, ...data } = input;
 
   if (dedupeKey) {
     const existing = await client.notification.findUnique({
@@ -73,12 +75,14 @@ export async function createNotification(
         );
       });
     }
-    await deliverEmail(created).catch((error) => {
-      console.error(
-        "[notifications] correo no enviado:",
-        error instanceof Error ? error.message : "error",
-      );
-    });
+    if (!skipEmail) {
+      await deliverEmail(created).catch((error) => {
+        console.error(
+          "[notifications] correo no enviado:",
+          error instanceof Error ? error.message : "error",
+        );
+      });
+    }
   }
 
   return created;
@@ -157,7 +161,9 @@ async function deliverWhatsapp(notification: {
     title: notification.title,
     body: notification.body,
     link:
-      notification.type === "MAIL_RECEIVED" || notification.type === "CONTACT_FORM"
+      notification.type === "MAIL_RECEIVED" ||
+      notification.type === "CONTACT_FORM" ||
+      notification.type === "INTAKE_SUBMITTED"
         ? null
         : notification.link,
   });

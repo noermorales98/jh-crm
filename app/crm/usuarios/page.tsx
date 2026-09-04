@@ -115,6 +115,7 @@ export default async function UsersPage() {
                     <MemberRowActions
                       userId={member.user.id}
                       name={member.user.name ?? member.user.email}
+                      email={member.user.email}
                       role={member.role}
                       isActive={member.user.isActive}
                       isSelf={member.user.id === ctx.userId}

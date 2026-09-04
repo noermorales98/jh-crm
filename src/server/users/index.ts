@@ -207,3 +207,98 @@ export async function resolveAssigneeForOrg(
 ): Promise<string | null> {
   return resolveAssigneeId(explicit, await findSoleActiveUserId(organizationId));
 }
+
+/** El usuario cambia su propio correo de login (requiere contraseña actual). */
+export async function updateOwnEmail(
+  ctx: OrganizationContext,
+  data: { email: string; currentPassword: string },
+) {
+  const email = data.email.trim().toLowerCase();
+  const user = await prisma.user.findUnique({
+    where: { id: ctx.userId },
+    select: { id: true, email: true, passwordHash: true },
+  });
+  if (!user) throw new DomainError("Usuario no encontrado.");
+
+  const ok = await bcrypt.compare(data.currentPassword, user.passwordHash);
+  if (!ok) throw new DomainError("La contraseña actual no es correcta.");
+
+  if (email === user.email) {
+    throw new DomainError("Ese ya es tu correo actual.");
+  }
+
+  const taken = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (taken) throw new DomainError("Ese correo ya está registrado.");
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id: user.id },
+      data: { email, sessionVersion: { increment: 1 } },
+      select: { id: true, email: true },
+    });
+    await writeAuditLog(
+      toAuditContext(ctx),
+      {
+        action: "MEMBER_EMAIL_CHANGED",
+        entityType: "User",
+        entityId: user.id,
+        metadata: { from: user.email, to: email, self: true },
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
+/** OWNER/ADMIN cambia el correo de login de un miembro. */
+export async function updateMemberEmail(
+  ctx: OrganizationContext,
+  userId: string,
+  data: { email: string },
+) {
+  if (ctx.role !== "OWNER" && ctx.role !== "ADMIN") {
+    throw new DomainError("No tienes permiso para cambiar el correo de otro usuario.");
+  }
+  const member = await getMemberOrThrow(ctx, userId);
+  if (!member.user.isActive) {
+    throw new DomainError("El usuario está desactivado.");
+  }
+
+  const email = data.email.trim().toLowerCase();
+  if (email === member.user.email) {
+    throw new DomainError("Ese ya es el correo actual del miembro.");
+  }
+
+  const taken = await prisma.user.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (taken) throw new DomainError("Ese correo ya está registrado.");
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: { email, sessionVersion: { increment: 1 } },
+      select: { id: true, email: true },
+    });
+    await writeAuditLog(
+      toAuditContext(ctx),
+      {
+        action: "MEMBER_EMAIL_CHANGED",
+        entityType: "User",
+        entityId: userId,
+        metadata: {
+          from: member.user.email,
+          to: email,
+          self: false,
+          targetUserId: userId,
+        },
+      },
+      tx,
+    );
+    return updated;
+  });
+}

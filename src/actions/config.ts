@@ -73,12 +73,25 @@ const settingsSchema = z.object({
   notifyWhatsappMail: z.boolean().optional(),
   notifyEmailContact: z.boolean().optional(),
   notifyWhatsappContact: z.boolean().optional(),
+  notifyEmailIntake: z.boolean().optional(),
+  notifyWhatsappIntake: z.boolean().optional(),
   emailClientPaymentDue: z.boolean().optional(),
   emailClientDocsPending: z.boolean().optional(),
   emailClientQuoteSent: z.boolean().optional(),
   emailClientQuoteExpiring: z.boolean().optional(),
   emailClientCaseReview: z.boolean().optional(),
   emailClientRoundReview: z.boolean().optional(),
+  emailRecipients: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(40).nullish(),
+        label: z.string().trim().max(80),
+        email: z.string().trim().email("Correo inválido.").or(z.literal("")),
+        enabled: z.boolean(),
+      }),
+    )
+    .max(10)
+    .optional(),
 });
 
 export async function updateSettings(input: unknown): Promise<ActionResult<{ id: string }>> {

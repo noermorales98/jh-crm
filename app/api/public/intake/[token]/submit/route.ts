@@ -114,6 +114,24 @@ export async function POST(
       meta,
     );
 
+    try {
+      const { notifyIntakeSubmitted } = await import("@/src/server/intake/notify");
+      await notifyIntakeSubmitted(link.organizationId, {
+        clientId: result.clientId,
+        submissionId: result.submissionId,
+        firstName: body.firstName,
+        lastName: emptyToNull(body.lastName),
+        email: emptyToNull(body.email),
+        phone: emptyToNull(body.phone),
+        documentCount: body.documents?.length ?? 0,
+      });
+    } catch (error) {
+      console.error(
+        "[intake] no se pudo notificar el registro:",
+        error instanceof Error ? error.message : "error",
+      );
+    }
+
     return NextResponse.json(
       { ok: true, data: { submissionId: result.submissionId } },
       { headers: { "Cache-Control": "no-store" } },

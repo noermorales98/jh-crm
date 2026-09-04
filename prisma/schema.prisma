@@ -174,6 +174,7 @@ enum NotificationType {
   DAILY_DIGEST
   MAIL_RECEIVED
   CONTACT_FORM
+  INTAKE_SUBMITTED
 }
 
 model User {
@@ -233,6 +234,7 @@ model Organization {
   consents           ConsentRecord[]
   externalReferences ExternalReference[]
   whatsappRecipients WhatsappRecipient[]
+  emailRecipients    EmailNotificationRecipient[]
   mailMessages       MailMessage[]
 }
 
@@ -284,6 +286,8 @@ model OrganizationSettings {
   notifyWhatsappMail       Boolean  @default(true)
   notifyEmailContact       Boolean  @default(true)
   notifyWhatsappContact    Boolean  @default(true)
+  notifyEmailIntake        Boolean  @default(true)
+  notifyWhatsappIntake     Boolean  @default(true)
   emailClientPaymentDue    Boolean  @default(false)
   emailClientDocsPending   Boolean  @default(false)
   emailClientQuoteSent     Boolean  @default(false)
@@ -310,6 +314,23 @@ model WhatsappRecipient {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
   @@unique([organizationId, phone])
+  @@index([organizationId, enabled])
+}
+
+/** Destinatarios de correo de avisos (p. ej. intake); no tienen que ser usuarios del CRM. */
+model EmailNotificationRecipient {
+  id             String   @id @default(cuid())
+  organizationId String
+  label          String
+  email          String
+  enabled        Boolean  @default(true)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, email])
   @@index([organizationId, enabled])
 }
 

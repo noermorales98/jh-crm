@@ -19,12 +19,20 @@ import {
 } from "@/src/actions/config";
 
 const MAX_WHATSAPP_RECIPIENTS = 4;
+const MAX_EMAIL_RECIPIENTS = 10;
 
 export type WhatsappRecipientFormValue = {
   id: string;
   label: string;
   phone: string;
   apiKeyConfigured: boolean;
+  enabled: boolean;
+};
+
+export type EmailRecipientFormValue = {
+  id: string;
+  label: string;
+  email: string;
   enabled: boolean;
 };
 
@@ -70,6 +78,8 @@ export interface SettingsFormValues {
   notifyWhatsappMail: boolean;
   notifyEmailContact: boolean;
   notifyWhatsappContact: boolean;
+  notifyEmailIntake: boolean;
+  notifyWhatsappIntake: boolean;
   emailClientPaymentDue: boolean;
   emailClientDocsPending: boolean;
   emailClientQuoteSent: boolean;
@@ -77,6 +87,7 @@ export interface SettingsFormValues {
   emailClientCaseReview: boolean;
   emailClientRoundReview: boolean;
   whatsappRecipients: WhatsappRecipientFormValue[];
+  emailRecipients: EmailRecipientFormValue[];
 }
 
 type RecipientDraft = {
@@ -89,6 +100,14 @@ type RecipientDraft = {
   enabled: boolean;
 };
 
+type EmailDraft = {
+  key: string;
+  id: string | null;
+  label: string;
+  email: string;
+  enabled: boolean;
+};
+
 function draftsFromValues(values: SettingsFormValues): RecipientDraft[] {
   return values.whatsappRecipients.map((row) => ({
     key: row.id,
@@ -97,6 +116,16 @@ function draftsFromValues(values: SettingsFormValues): RecipientDraft[] {
     phone: row.phone,
     apiKey: "",
     apiKeyConfigured: row.apiKeyConfigured,
+    enabled: row.enabled,
+  }));
+}
+
+function emailDraftsFromValues(values: SettingsFormValues): EmailDraft[] {
+  return (values.emailRecipients ?? []).map((row) => ({
+    key: row.id,
+    id: row.id,
+    label: row.label,
+    email: row.email,
     enabled: row.enabled,
   }));
 }
@@ -114,6 +143,9 @@ export function SettingsForm({
   const [recipients, setRecipients] = useState<RecipientDraft[]>(() =>
     draftsFromValues(initialValues),
   );
+  const [emailRecipients, setEmailRecipients] = useState<EmailDraft[]>(() =>
+    emailDraftsFromValues(initialValues),
+  );
   const [smtpPassword, setSmtpPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -125,11 +157,15 @@ export function SettingsForm({
   const recipientsStamp = initialValues.whatsappRecipients
     .map((row) => `${row.id}:${row.phone}:${row.label}:${row.enabled}:${row.apiKeyConfigured}`)
     .join("|");
+  const emailStamp = (initialValues.emailRecipients ?? [])
+    .map((row) => `${row.id}:${row.email}:${row.label}:${row.enabled}`)
+    .join("|");
 
   useEffect(() => {
     setValues(initialValues);
     setRecipients(draftsFromValues(initialValues));
-  }, [initialValues, recipientsStamp]);
+    setEmailRecipients(emailDraftsFromValues(initialValues));
+  }, [initialValues, recipientsStamp, emailStamp]);
 
   function set<K extends keyof SettingsFormValues>(
     key: K,
@@ -185,6 +221,8 @@ export function SettingsForm({
         notifyWhatsappMail: values.notifyWhatsappMail,
         notifyEmailContact: values.notifyEmailContact,
         notifyWhatsappContact: values.notifyWhatsappContact,
+        notifyEmailIntake: values.notifyEmailIntake,
+        notifyWhatsappIntake: values.notifyWhatsappIntake,
         emailClientPaymentDue: values.emailClientPaymentDue,
         emailClientDocsPending: values.emailClientDocsPending,
         emailClientQuoteSent: values.emailClientQuoteSent,
@@ -197,6 +235,12 @@ export function SettingsForm({
           label: row.label,
           phone: row.phone,
           apiKey: row.apiKey.trim() || undefined,
+          enabled: row.enabled,
+        })),
+        emailRecipients: emailRecipients.map((row) => ({
+          id: row.id,
+          label: row.label,
+          email: row.email,
           enabled: row.enabled,
         })),
       });
@@ -595,6 +639,7 @@ export function SettingsForm({
                   ["Pago por cobrar", "notifyEmailPayment", "notifyWhatsappPayment"],
                   ["Correo nuevo", "notifyEmailMail", "notifyWhatsappMail"],
                   ["Formulario de contacto", "notifyEmailContact", "notifyWhatsappContact"],
+                  ["Registro de intake", "notifyEmailIntake", "notifyWhatsappIntake"],
                   ["Resumen diario", "notifyEmailDigest", "notifyWhatsappDigest"],
                 ] as const
               ).map(([label, emailKey, waKey]) => (
@@ -650,6 +695,124 @@ export function SettingsForm({
             {label}
           </label>
         ))}
+      </section>
+
+      <section className="space-y-4 border-t border-border-subtle pt-4">
+        <h3 className="text-sm font-semibold text-ink">
+          Correos para avisos de intake
+        </h3>
+        <p className="text-sm text-text-secondary">
+          Destinatarios del correo cuando un cliente completa el intake. No
+          tienen que ser usuarios del CRM. Hasta {MAX_EMAIL_RECIPIENTS} correos.
+        </p>
+        <div className="space-y-3">
+          {emailRecipients.map((row, index) => (
+            <div
+              key={row.key}
+              className="space-y-3 rounded-control border border-border-subtle p-4"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-ink">
+                  Correo {index + 1}
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={pending}
+                  onClick={() => {
+                    setEmailRecipients((rows) =>
+                      rows.filter((item) => item.key !== row.key),
+                    );
+                    setSuccess(false);
+                  }}
+                >
+                  <Trash2 className="size-4" aria-hidden />
+                  Quitar
+                </Button>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="Nombre" htmlFor={`email-label-${row.key}`}>
+                  <Input
+                    id={`email-label-${row.key}`}
+                    value={row.label}
+                    onChange={(e) => {
+                      const label = e.target.value;
+                      setEmailRecipients((rows) =>
+                        rows.map((item) =>
+                          item.key === row.key ? { ...item, label } : item,
+                        ),
+                      );
+                      setSuccess(false);
+                    }}
+                    placeholder="Operaciones"
+                    maxLength={80}
+                  />
+                </Field>
+                <Field label="Correo" htmlFor={`email-addr-${row.key}`}>
+                  <Input
+                    id={`email-addr-${row.key}`}
+                    type="email"
+                    value={row.email}
+                    onChange={(e) => {
+                      const email = e.target.value;
+                      setEmailRecipients((rows) =>
+                        rows.map((item) =>
+                          item.key === row.key ? { ...item, email } : item,
+                        ),
+                      );
+                      setSuccess(false);
+                    }}
+                    placeholder="avisos@empresa.com"
+                    autoComplete="off"
+                  />
+                </Field>
+              </div>
+              <label className="flex items-center gap-2 text-sm text-text-secondary-strong">
+                <input
+                  type="checkbox"
+                  data-cuelume-toggle="toggle"
+                  checked={row.enabled}
+                  onChange={(e) => {
+                    const enabled = e.target.checked;
+                    setEmailRecipients((rows) =>
+                      rows.map((item) =>
+                        item.key === row.key ? { ...item, enabled } : item,
+                      ),
+                    );
+                    setSuccess(false);
+                  }}
+                  className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+                />
+                Activo
+              </label>
+            </div>
+          ))}
+        </div>
+        {emailRecipients.length < MAX_EMAIL_RECIPIENTS ? (
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={pending}
+            onClick={() => {
+              setEmailRecipients((rows) => [
+                ...rows,
+                {
+                  key: `new-${Date.now()}`,
+                  id: null,
+                  label: "",
+                  email: "",
+                  enabled: true,
+                },
+              ]);
+              setSuccess(false);
+            }}
+          >
+            <Plus className="size-4" aria-hidden />
+            Añadir correo
+          </Button>
+        ) : null}
       </section>
 
       <section className="space-y-4 border-t border-border-subtle pt-4">

@@ -13,6 +13,10 @@ import {
   MAX_WHATSAPP_RECIPIENTS,
   assertRecipientCount,
 } from "@/src/server/notifications/whatsapp-recipients";
+import {
+  MAX_EMAIL_RECIPIENTS,
+  assertEmailRecipientCount,
+} from "@/src/server/notifications/email-recipients";
 import { isSmtpConfigured, sendSmtpMail } from "@/src/server/notifications/smtp";
 
 /**
@@ -63,12 +67,15 @@ export interface SettingsUpdateData {
   notifyWhatsappMail?: boolean;
   notifyEmailContact?: boolean;
   notifyWhatsappContact?: boolean;
+  notifyEmailIntake?: boolean;
+  notifyWhatsappIntake?: boolean;
   emailClientPaymentDue?: boolean;
   emailClientDocsPending?: boolean;
   emailClientQuoteSent?: boolean;
   emailClientQuoteExpiring?: boolean;
   emailClientCaseReview?: boolean;
   emailClientRoundReview?: boolean;
+  emailRecipients?: EmailRecipientInput[];
 }
 
 export type WhatsappRecipientInput = {
@@ -76,6 +83,13 @@ export type WhatsappRecipientInput = {
   label: string;
   phone: string;
   apiKey?: string | null;
+  enabled: boolean;
+};
+
+export type EmailRecipientInput = {
+  id?: string | null;
+  label: string;
+  email: string;
   enabled: boolean;
 };
 
@@ -133,6 +147,8 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
     notifyWhatsappMail: settings.notifyWhatsappMail,
     notifyEmailContact: settings.notifyEmailContact,
     notifyWhatsappContact: settings.notifyWhatsappContact,
+    notifyEmailIntake: settings.notifyEmailIntake,
+    notifyWhatsappIntake: settings.notifyWhatsappIntake,
     emailClientPaymentDue: settings.emailClientPaymentDue,
     emailClientDocsPending: settings.emailClientDocsPending,
     emailClientQuoteSent: settings.emailClientQuoteSent,
@@ -157,6 +173,19 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
       label: row.label,
       phone: row.phone,
       apiKeyConfigured: Boolean(row.apiKeyEncrypted),
+      enabled: row.enabled,
+    })),
+    emailRecipients: (
+      await prisma.emailNotificationRecipient.findMany({
+        where: { organizationId: ctx.organizationId },
+        orderBy: { sortOrder: "asc" },
+        take: MAX_EMAIL_RECIPIENTS,
+        select: { id: true, label: true, email: true, enabled: true },
+      })
+    ).map((row) => ({
+      id: row.id,
+      label: row.label,
+      email: row.email,
       enabled: row.enabled,
     })),
   };
@@ -282,6 +311,12 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
           ...(data.notifyWhatsappContact !== undefined
             ? { notifyWhatsappContact: data.notifyWhatsappContact }
             : {}),
+          ...(data.notifyEmailIntake !== undefined
+            ? { notifyEmailIntake: data.notifyEmailIntake }
+            : {}),
+          ...(data.notifyWhatsappIntake !== undefined
+            ? { notifyWhatsappIntake: data.notifyWhatsappIntake }
+            : {}),
           ...(data.emailClientPaymentDue !== undefined
             ? { emailClientPaymentDue: data.emailClientPaymentDue }
             : {}),
@@ -306,6 +341,9 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
       if (data.whatsappRecipients) {
         await replaceWhatsappRecipients(tx, ctx.organizationId, data.whatsappRecipients);
       }
+      if (data.emailRecipients) {
+        await replaceEmailRecipients(tx, ctx.organizationId, data.emailRecipients);
+      }
 
       return settings;
     });
@@ -314,7 +352,9 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
       error instanceof Prisma.PrismaClientKnownRequestError &&
       error.code === "P2002"
     ) {
-      throw new DomainError("Ese número de WhatsApp ya está en la lista.");
+      throw new DomainError(
+        "Ese número de WhatsApp o correo ya está en la lista.",
+      );
     }
     throw error;
   }
@@ -383,6 +423,75 @@ async function replaceWhatsappRecipients(
           enabled: row.enabled,
           sortOrder: index,
           apiKeyEncrypted: encrypt(row.apiKey.trim()),
+        },
+      });
+    }
+  }
+}
+
+async function replaceEmailRecipients(
+  tx: Prisma.TransactionClient,
+  organizationId: string,
+  rows: EmailRecipientInput[],
+) {
+  const incoming = rows
+    .map((row) => ({
+      ...row,
+      email: row.email.trim().toLowerCase(),
+      label: row.label.trim(),
+    }))
+    .filter((row) => row.email);
+  assertEmailRecipientCount(incoming.length);
+
+  const emails = incoming.map((row) => row.email);
+  if (new Set(emails).size !== emails.length) {
+    throw new DomainError("No puedes repetir el mismo correo en la lista.");
+  }
+  for (const email of emails) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      throw new DomainError(`Correo inválido: ${email}`);
+    }
+  }
+
+  const existing = await tx.emailNotificationRecipient.findMany({
+    where: { organizationId },
+  });
+  const existingById = new Map(existing.map((row) => [row.id, row]));
+  const keepIds = new Set(
+    incoming.map((row) => row.id).filter((id): id is string => Boolean(id)),
+  );
+
+  const toDelete = existing.filter((row) => !keepIds.has(row.id));
+  if (toDelete.length > 0) {
+    await tx.emailNotificationRecipient.deleteMany({
+      where: { id: { in: toDelete.map((row) => row.id) } },
+    });
+  }
+
+  for (const [index, row] of incoming.entries()) {
+    const label = row.label || (index === 0 ? "Principal" : `Correo ${index + 1}`);
+    if (row.id) {
+      const current = existingById.get(row.id);
+      if (!current || current.organizationId !== organizationId) {
+        throw new DomainError("Destinatario de correo no encontrado.");
+      }
+      await tx.emailNotificationRecipient.update({
+        where: { id: current.id },
+        data: {
+          label,
+          email: row.email,
+          enabled: row.enabled,
+          sortOrder: index,
+        },
+      });
+    } else {
+      await tx.emailNotificationRecipient.create({
+        data: {
+          organizationId,
+          label,
+          email: row.email,
+          enabled: row.enabled,
+          sortOrder: index,
         },
       });
     }

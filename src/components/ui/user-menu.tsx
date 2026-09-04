@@ -21,6 +21,7 @@ import {
 import { useCuelumeMute } from "@/src/components/cuelume/cuelume-provider";
 import { useTheme } from "@/src/components/theme/theme-provider";
 import { THEME_OPTIONS } from "@/src/components/theme/theme";
+import { ChangeEmailDialog } from "@/src/components/users/change-email-dialog";
 import { useOverlayCoords } from "./use-overlay-coords";
 
 /**
@@ -179,6 +180,14 @@ export function UserMenu({
             {roleLabel ? (
               <p className="mt-0.5 text-xs text-text-secondary">{roleLabel}</p>
             ) : null}
+            <div className="mt-2">
+              <ChangeEmailDialog
+                mode="own"
+                currentEmail={email}
+                triggerClassName="text-xs font-medium text-action-primary hover:underline"
+                triggerLabel="Cambiar correo de acceso"
+              />
+            </div>
           </div>
 
           <div className="mx-3 my-1 h-px bg-border-subtle" role="separator" />

@@ -11,6 +11,7 @@ import {
 import { deactivateUser, updateMemberRole } from "@/src/actions/users";
 import { playActionResult } from "@/src/lib/cuelume";
 import { ROLE_LABELS } from "./invite-user-button";
+import { ChangeEmailDialog } from "./change-email-dialog";
 
 const ALL_ROLES = ["OWNER", "ADMIN", "SPECIALIST", "STAFF", "VIEWER"];
 
@@ -21,6 +22,7 @@ const ALL_ROLES = ["OWNER", "ADMIN", "SPECIALIST", "STAFF", "VIEWER"];
 export function MemberRowActions({
   userId,
   name,
+  email,
   role,
   isActive,
   isSelf,
@@ -28,6 +30,7 @@ export function MemberRowActions({
 }: {
   userId: string;
   name: string;
+  email: string;
   role: string;
   isActive: boolean;
   isSelf: boolean;
@@ -78,6 +81,22 @@ export function MemberRowActions({
           <Button size="sm" onClick={saveRole} disabled={pending}>
             {pending ? "Guardando…" : "Guardar"}
           </Button>
+        ) : null}
+        {isActive ? (
+          isSelf ? (
+            <ChangeEmailDialog
+              mode="own"
+              currentEmail={email}
+              triggerClassName="inline-flex h-8 items-center rounded-control px-2 text-sm font-medium text-action-primary hover:bg-nav-hover"
+            />
+          ) : (
+            <ChangeEmailDialog
+              mode="member"
+              userId={userId}
+              currentEmail={email}
+              triggerClassName="inline-flex h-8 items-center rounded-control px-2 text-sm font-medium text-action-primary hover:bg-nav-hover"
+            />
+          )
         ) : null}
         {isActive && !isSelf ? (
           <ConfirmDialog

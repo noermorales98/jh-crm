@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireRole } from "@/src/server/auth/guards";
+import { requireOrganization, requireRole } from "@/src/server/auth/guards";
 import {
   actionFail,
   actionOk,
@@ -70,6 +70,50 @@ export async function deactivateUser(userId: string): Promise<ActionResult<{ id:
     const user = await userService.deactivateUser(ctx, id);
     revalidatePath("/crm/usuarios");
     return actionOk({ id: user.id });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+const changeOwnEmailSchema = z.object({
+  email: emailSchema,
+  currentPassword: z.string().min(1, "La contraseña actual es obligatoria."),
+});
+
+/** Cualquier miembro activo cambia su propio correo de login. */
+export async function changeOwnEmail(
+  input: unknown,
+): Promise<ActionResult<{ email: string }>> {
+  try {
+    const ctx = await requireOrganization();
+    const data = changeOwnEmailSchema.parse(input);
+    const user = await userService.updateOwnEmail(ctx, data);
+    revalidatePath("/crm", "layout");
+    revalidatePath("/crm/usuarios");
+    return actionOk({ email: user.email });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+const changeMemberEmailSchema = z.object({
+  email: emailSchema,
+});
+
+/** OWNER/ADMIN cambia el correo de login de un miembro. */
+export async function changeMemberEmail(
+  userId: string,
+  input: unknown,
+): Promise<ActionResult<{ email: string }>> {
+  try {
+    const ctx = await requireRole("OWNER", "ADMIN");
+    const id = cuidSchema.parse(userId);
+    const data = changeMemberEmailSchema.parse(input);
+    const user = await userService.updateMemberEmail(ctx, id, data);
+    revalidatePath("/crm/usuarios");
+    return actionOk({ email: user.email });
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

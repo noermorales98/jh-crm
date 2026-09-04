@@ -134,6 +134,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   DAILY_DIGEST: "Resumen diario",
   MAIL_RECEIVED: "Correo nuevo",
   CONTACT_FORM: "Formulario de contacto",
+  INTAKE_SUBMITTED: "Registro de intake",
 };
 
 export const MAIL_FOLDER_LABELS: Record<string, string> = {

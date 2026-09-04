@@ -40,6 +40,15 @@ function serverActionOrigins(): string[] {
 const actionOrigins = serverActionOrigins();
 
 const nextConfig: NextConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+        pathname: "/**",
+      },
+    ],
+  },
   ...(actionOrigins.length > 0
     ? {
         experimental: {

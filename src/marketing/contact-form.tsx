@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ContactSlideConfirm } from "./contact-slide-confirm";
 
 type Challenge = { token: string };
@@ -13,6 +13,13 @@ type Draft = {
   website: string;
 };
 
+type ContactFormProps = {
+  variant?: "hero" | "full";
+};
+
+const HERO_MESSAGE =
+  "Consulta inicial ($1 USD). Me gustaría recibir un plan de acción conciso para mi situación.";
+
 function answerFromToken(token: string): string | null {
   const [aRaw, bRaw] = token.split("|");
   const a = Number(aRaw);
@@ -21,37 +28,40 @@ function answerFromToken(token: string): string | null {
   return String(a + b);
 }
 
-function readDraft(form: HTMLFormElement): Draft {
+function readDraft(form: HTMLFormElement, variant: "hero" | "full"): Draft {
   const fields = new FormData(form);
+  const rawMessage = String(fields.get("message") ?? "").trim();
   return {
     name: String(fields.get("name") ?? "").trim(),
     email: String(fields.get("email") ?? "").trim(),
     phone: String(fields.get("phone") ?? "").trim(),
-    message: String(fields.get("message") ?? "").trim(),
+    message: variant === "hero" ? (rawMessage.length >= 10 ? rawMessage : HERO_MESSAGE) : rawMessage,
     website: String(fields.get("website") ?? ""),
   };
 }
 
-function validateDraft(draft: Draft): string | null {
+function validateDraft(draft: Draft, variant: "hero" | "full"): string | null {
   if (draft.name.length < 2) return "El nombre es obligatorio.";
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email)) {
     return "Ingresa un correo electrónico válido.";
   }
   if (!/^[\d\s()+.-]{7,20}$/.test(draft.phone)) return "Teléfono inválido.";
-  if (draft.message.length < 10) {
+  if (variant === "full" && draft.message.length < 10) {
     return "Cuéntanos un poco más (mínimo 10 caracteres).";
   }
   return null;
 }
 
-export function ContactForm() {
+export function ContactForm({ variant = "full" }: ContactFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const sendingRef = useRef(false);
+  const uid = useId();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [status, setStatus] = useState<"idle" | "confirm" | "sending" | "ok" | "error">(
     "idle",
   );
   const [error, setError] = useState<string | null>(null);
+  const [fieldInvalid, setFieldInvalid] = useState(false);
 
   const loadChallenge = useCallback(async () => {
     const res = await fetch("/api/public/contact", { cache: "no-store" });
@@ -67,22 +77,34 @@ export function ContactForm() {
   }, []);
 
   useEffect(() => {
-    loadChallenge().catch((err: unknown) => {
-      setError(err instanceof Error ? err.message : "No se pudo cargar el formulario.");
-    });
-  }, [loadChallenge]);
+    let cancelled = false;
+    const delay = variant === "full" ? 900 : 0;
+    const timer = window.setTimeout(() => {
+      loadChallenge().catch((err: unknown) => {
+        if (cancelled) return;
+        setFieldInvalid(false);
+        setError(err instanceof Error ? err.message : "No se pudo cargar el formulario.");
+      });
+    }, delay);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [loadChallenge, variant]);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!challenge || status === "sending" || status === "confirm") return;
-    const draft = readDraft(event.currentTarget);
-    const invalid = validateDraft(draft);
+    const draft = readDraft(event.currentTarget, variant);
+    const invalid = validateDraft(draft, variant);
     if (invalid) {
       setStatus("error");
+      setFieldInvalid(true);
       setError(invalid);
       return;
     }
     setError(null);
+    setFieldInvalid(false);
     setStatus("confirm");
   }
 
@@ -90,8 +112,8 @@ export function ContactForm() {
     const form = formRef.current;
     if (!form || !challenge || sendingRef.current) return;
     sendingRef.current = true;
-    const draft = readDraft(form);
-    const invalid = validateDraft(draft);
+    const draft = readDraft(form, variant);
+    const invalid = validateDraft(draft, variant);
     const answer = answerFromToken(challenge.token);
     if (invalid || !answer) {
       setStatus("error");
@@ -127,17 +149,31 @@ export function ContactForm() {
     }
   }
 
+  const isHero = variant === "hero";
+  const formClass = isHero ? "contact-form contact-form--hero" : "contact-form";
+  const errorId = `${uid}-error`;
+
   if (status === "ok") {
     return (
-      <div className="contact-form-ok" role="status">
+      <div className={isHero ? "contact-form-ok contact-form-ok--hero" : "contact-form-ok"} role="status">
+        <div className="form-ok-icon" aria-hidden="true">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20 6L9 17l-5-5" />
+          </svg>
+        </div>
         <h3>Mensaje enviado</h3>
-        <p>Gracias. Recibimos su consulta y le contactaremos pronto.</p>
+        <p>
+          {isHero
+            ? "Gracias. Recibimos su solicitud de consulta por $1 y le contactaremos pronto."
+            : "Gracias. Recibimos su consulta y le contactaremos pronto."}
+        </p>
         <button
           type="button"
           className="btn btn-primary"
           onClick={() => {
             setStatus("idle");
             setError(null);
+            setFieldInvalid(false);
           }}
         >
           Enviar otra consulta
@@ -148,40 +184,101 @@ export function ContactForm() {
 
   return (
     <>
-      <form ref={formRef} className="contact-form" onSubmit={onSubmit} noValidate>
-        <h3>Escríbanos</h3>
-        <p>Cuéntenos su situación. Respondemos personalmente a cada mensaje.</p>
+      <form ref={formRef} className={formClass} onSubmit={onSubmit} noValidate>
+        {isHero ? (
+          <>
+            <p className="form-price">Consulta inicial · $1 USD</p>
+            <h3>Solicite una consulta por $1</h3>
+            <p>Permita que nuestro equipo elabore un plan de acción conciso para usted.</p>
+          </>
+        ) : (
+          <>
+            <h3>Escríbanos</h3>
+            <p>Cuéntenos su situación. Respondemos personalmente a cada mensaje.</p>
+          </>
+        )}
 
-        <label className="hp" htmlFor="contact-website">
+        <label className="hp" htmlFor={`${uid}-website`}>
           Sitio web
-          <input id="contact-website" name="website" type="text" tabIndex={-1} autoComplete="off" />
+          <input id={`${uid}-website`} name="website" type="text" tabIndex={-1} autoComplete="off" />
         </label>
 
-        <label htmlFor="contact-name">
-          Nombre completo
-          <input id="contact-name" name="name" type="text" autoComplete="name" required maxLength={120} />
-        </label>
-        <label htmlFor="contact-email">
-          Correo electrónico
-          <input id="contact-email" name="email" type="email" autoComplete="email" required maxLength={200} />
-        </label>
-        <label htmlFor="contact-phone">
-          Teléfono
-          <input id="contact-phone" name="phone" type="tel" autoComplete="tel" required maxLength={20} />
-        </label>
-        <label htmlFor="contact-message">
-          Mensaje
-          <textarea id="contact-message" name="message" rows={4} required maxLength={2000} aria-describedby={error ? "contact-error" : undefined} />
-        </label>
+        <div className="form-fields">
+          <label htmlFor={`${uid}-name`}>
+            <span className="field-label">Nombre completo</span>
+            <input
+              id={`${uid}-name`}
+              name="name"
+              type="text"
+              autoComplete="name"
+              required
+              maxLength={120}
+              placeholder="María González"
+              aria-invalid={fieldInvalid}
+              aria-describedby={error ? errorId : undefined}
+            />
+          </label>
+          <label htmlFor={`${uid}-email`}>
+            <span className="field-label">Correo electrónico</span>
+            <input
+              id={`${uid}-email`}
+              name="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              required
+              maxLength={200}
+              placeholder="nombre@correo.com"
+              aria-invalid={fieldInvalid}
+              aria-describedby={error ? errorId : undefined}
+            />
+          </label>
+          <label htmlFor={`${uid}-phone`}>
+            <span className="field-label">Teléfono</span>
+            <input
+              id={`${uid}-phone`}
+              name="phone"
+              type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              required
+              maxLength={20}
+              placeholder="(872) 555-0123"
+              aria-invalid={fieldInvalid}
+              aria-describedby={error ? errorId : undefined}
+            />
+          </label>
+
+          {isHero ? null : (
+            <label htmlFor={`${uid}-message`}>
+              <span className="field-label">Mensaje</span>
+              <textarea
+                id={`${uid}-message`}
+                name="message"
+                rows={4}
+                required
+                maxLength={2000}
+                placeholder="Cuéntenos qué necesita…"
+                aria-invalid={fieldInvalid}
+                aria-describedby={error ? errorId : undefined}
+              />
+            </label>
+          )}
+        </div>
 
         {error ? (
-          <p className="contact-form-error" role="alert" id="contact-error">
+          <p className="contact-form-error" role="alert" id={errorId}>
             {error}
           </p>
         ) : null}
 
-        <button type="submit" className="btn btn-primary" disabled={!challenge || status === "sending"}>
-          {!challenge ? "Cargando formulario…" : "Enviar consulta"}
+        <button
+          type="submit"
+          className="btn btn-primary"
+          disabled={!challenge || status === "sending"}
+          aria-busy={!challenge || status === "sending"}
+        >
+          {!challenge ? "Preparando…" : isHero ? "Comenzar" : "Enviar consulta"}
         </button>
       </form>
 

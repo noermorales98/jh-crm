@@ -7,8 +7,23 @@ import { writeAuditLog } from "@/src/server/audit";
 import { toAuditContext } from "@/src/server/context";
 
 function appBaseUrl(): string {
-  const raw = process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
-  return raw.replace(/\/$/, "");
+  const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  const looksLocal =
+    !configured || /^(https?:\/\/)?(localhost|127\.0\.0\.1)(:\d+)?\/?$/i.test(configured);
+
+  // En Vercel no usar localhost aunque NEXT_PUBLIC_APP_URL venga mal.
+  if (looksLocal) {
+    const productionHost = process.env.VERCEL_PROJECT_PRODUCTION_URL?.trim();
+    if (productionHost) {
+      return `https://${productionHost.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
+    }
+    const deploymentHost = process.env.VERCEL_URL?.trim();
+    if (deploymentHost) {
+      return `https://${deploymentHost.replace(/^https?:\/\//, "").replace(/\/$/, "")}`;
+    }
+  }
+
+  return (configured || "http://localhost:3000").replace(/\/$/, "");
 }
 
 /**

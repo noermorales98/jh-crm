@@ -49,6 +49,7 @@ Login con `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` definidos en
 | `npm run db:migrate` | Migraciones en desarrollo |
 | `npm run db:deploy` | Aplicar migraciones (producción) |
 | `npm run db:studio` | Prisma Studio |
+| `npm run smoke:credit-reports` | Smoke de reportes de crédito (SPRINT 1) |
 
 Scripts auxiliares en `scripts/`:
 
@@ -66,6 +67,24 @@ la configuración de la empresa y las rutas para guiar al usuario con enlaces
 `/crm/...`. Requiere sesión; no expone SSN descifrado ni secretos.
 
 `OPENROUTER_API_KEY_SECONDARY` se usa si la clave primaria responde 429/402/401.
+
+## Reportes de crédito (SPRINT 1)
+
+Dominio operativo normalizado (sin parseo automático de PDF):
+
+- `CreditReport` — metadata del reporte (tipo INITIAL/UPDATE/MANUAL, fecha, proveedor, documento opcional).
+- `CreditBureauSnapshot` — scores y contadores por buró (Experian / Equifax / TransUnion).
+- `CreditItem` — cuentas/elementos con número **enmascarado** (nunca SSN ni cuenta completa).
+
+UI en el caso: `/crm/casos/[caseId]/credito` (evolución de scores + listado) y
+`/crm/casos/[caseId]/credito/reportes/[reportId]` (detalle e ítems).
+
+Migración: `prisma/migrations/20260904190000_credit_reports_sprint1`.
+
+Smoke: `npx tsx --env-file=.env.local scripts/smoke/credit-reports-smoke.ts`.
+
+Los contadores `CreditRound.disputedItemsCount` / `lettersCount` siguen siendo
+manuales hasta el sprint de DisputeItem.
 
 ## Cron (cron-job.org)
 

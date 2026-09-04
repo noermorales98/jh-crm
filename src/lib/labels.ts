@@ -121,7 +121,41 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   RECEIPT_CREATED: "Recibo emitido",
   MAIL_SENT: "Correo enviado",
   MAIL_RECEIVED: "Correo recibido",
+  CREDIT_REPORT_CREATED: "Reporte de crédito",
+  CREDIT_REPORT_UPDATED: "Reporte actualizado",
   OTHER: "Otro",
+};
+
+export const CREDIT_REPORT_TYPE_LABELS: Record<string, string> = {
+  INITIAL: "Inicial",
+  UPDATE: "Actualización",
+  MANUAL: "Manual",
+};
+
+export const CREDIT_BUREAU_LABELS: Record<string, string> = {
+  EXPERIAN: "Experian",
+  EQUIFAX: "Equifax",
+  TRANSUNION: "TransUnion",
+};
+
+export const CREDIT_NEGATIVE_TYPE_LABELS: Record<string, string> = {
+  COLLECTION: "Colección",
+  CHARGE_OFF: "Charge-off",
+  LATE_PAYMENT: "Pago atrasado",
+  REPOSSESSION: "Reposesión",
+  BANKRUPTCY: "Bancarrota",
+  HARD_INQUIRY: "Consulta dura",
+  FORECLOSURE: "Foreclosure",
+  OTHER: "Otro",
+};
+
+export const CREDIT_ITEM_LIFECYCLE_LABELS: Record<string, string> = {
+  IDENTIFIED: "Identificado",
+  UNDER_REVIEW: "En revisión",
+  SELECTED: "Seleccionado",
+  DISPUTED: "En disputa",
+  RESOLVED: "Resuelto",
+  EXCLUDED: "Excluido",
 };
 
 export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {

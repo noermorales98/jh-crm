@@ -49,6 +49,7 @@ export function CaseHeader({
       <Tabs
         items={[
           { href: base, label: "Resumen" },
+          { href: `${base}/credito`, label: "Crédito" },
           { href: `${base}/rondas`, label: "Rondas" },
           { href: `${base}/documentos`, label: "Documentos" },
           { href: `${base}/tareas`, label: "Tareas" },

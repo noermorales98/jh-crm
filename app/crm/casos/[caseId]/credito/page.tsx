@@ -1,0 +1,229 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import { LineChart } from "lucide-react";
+import { requireOrganization } from "@/src/server/auth/guards";
+import { can } from "@/src/server/auth/permissions";
+import * as caseService from "@/src/server/cases";
+import * as creditReports from "@/src/server/credit-reports";
+import { DomainError } from "@/src/server/errors";
+import {
+  Card,
+  CardHeader,
+  EmptyState,
+  Pill,
+  Table,
+  TBody,
+  TD,
+  TH,
+  THead,
+  TR,
+} from "@/src/components/ui";
+import { formatDate } from "@/src/lib/format";
+import {
+  CREDIT_BUREAU_LABELS,
+  CREDIT_REPORT_TYPE_LABELS,
+  labelFor,
+} from "@/src/lib/labels";
+import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
+import { ScoreEvolutionChart } from "@/src/components/credit-reports/score-evolution-chart";
+import { CaseHeader } from "../case-header";
+
+export const metadata: Metadata = {
+  title: "Crédito del caso",
+};
+
+function Delta({ value }: { value: number | null }) {
+  if (value == null) return <span className="text-text-placeholder">—</span>;
+  const tone = value > 0 ? "text-success-ink" : value < 0 ? "text-danger-ink" : "text-text-secondary";
+  const sign = value > 0 ? "+" : "";
+  return (
+    <span className={`font-medium tabular-nums ${tone}`}>
+      {sign}
+      {value}
+    </span>
+  );
+}
+
+export default async function CaseCreditPage({
+  params,
+}: {
+  params: Promise<{ caseId: string }>;
+}) {
+  const { caseId } = await params;
+  const ctx = await requireOrganization();
+
+  let detail: Awaited<ReturnType<typeof caseService.getCaseDetail>>;
+  try {
+    detail = await caseService.getCaseDetail(ctx, caseId);
+  } catch (error) {
+    if (error instanceof DomainError) notFound();
+    throw error;
+  }
+
+  if (!can(ctx.role, "creditReports.view")) {
+    notFound();
+  }
+
+  const overview = await creditReports.getCaseCreditOverview(ctx, caseId);
+  const canManage = can(ctx.role, "creditReports.manage");
+  const { case: creditCase } = detail;
+
+  const chartHistory = overview.history.map((row) => ({
+    label: row.label,
+    reportDate: row.reportDate.toISOString().slice(0, 10),
+    scores: row.scores,
+  }));
+
+  return (
+    <div className="space-y-6">
+      <CaseHeader
+        creditCase={creditCase}
+        actions={canManage ? <CreateCreditReportButton caseId={creditCase.id} /> : null}
+      />
+
+      <Card>
+        <CardHeader
+          title="Evolución del crédito"
+          description="Puntajes actuales, diferencia respecto al reporte anterior e historial cronológico."
+        />
+        {overview.history.length === 0 ? (
+          <EmptyState
+            icon={LineChart}
+            title="Sin reportes registrados"
+            description="Registra el reporte inicial para comenzar a seguir la evolución de puntajes."
+            action={
+              canManage ? <CreateCreditReportButton caseId={creditCase.id} /> : null
+            }
+          />
+        ) : (
+          <div className="space-y-6 px-1 pb-2">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {overview.current.map((row) => (
+                <div
+                  key={row.bureau}
+                  className="rounded-control border border-border-subtle bg-surface-panel/60 px-4 py-3"
+                >
+                  <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+                    {CREDIT_BUREAU_LABELS[row.bureau]}
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">
+                    {row.score ?? "—"}
+                  </p>
+                  <p className="mt-1 text-sm text-text-secondary">
+                    Anterior:{" "}
+                    <span className="tabular-nums">{row.previousScore ?? "—"}</span>
+                    {" · "}
+                    <Delta value={row.delta} />
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {overview.history.some((h) =>
+              Object.values(h.scores).some((s) => s != null),
+            ) ? (
+              <ScoreEvolutionChart history={chartHistory} />
+            ) : null}
+
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Periodo</TH>
+                  <TH>Fecha</TH>
+                  <TH>Experian</TH>
+                  <TH>Equifax</TH>
+                  <TH>TransUnion</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {overview.history.map((row) => (
+                  <TR key={row.reportId}>
+                    <TD>
+                      <Link
+                        href={`/crm/casos/${caseId}/credito/reportes/${row.reportId}`}
+                        className="font-medium text-action-primary hover:text-action-secondary"
+                      >
+                        {row.label}
+                      </Link>
+                    </TD>
+                    <TD className="tabular-nums text-text-secondary">
+                      {formatDate(row.reportDate)}
+                    </TD>
+                    <TD className="tabular-nums">{row.scores.EXPERIAN ?? "—"}</TD>
+                    <TD className="tabular-nums">{row.scores.EQUIFAX ?? "—"}</TD>
+                    <TD className="tabular-nums">{row.scores.TRANSUNION ?? "—"}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          </div>
+        )}
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Reportes"
+          description={
+            overview.negativeItemCount > 0
+              ? `${overview.reports.length} reporte(s) · ${overview.negativeItemCount} elemento(s) negativo(s)`
+              : `${overview.reports.length} reporte(s)`
+          }
+        />
+        {overview.reports.length === 0 ? (
+          <EmptyState
+            icon={LineChart}
+            title="Sin reportes"
+            description="Los reportes estructurados aparecen aquí junto a sus puntajes e ítems."
+          />
+        ) : (
+          <Table>
+            <THead>
+              <TR>
+                <TH>Fecha</TH>
+                <TH>Tipo</TH>
+                <TH>Proveedor</TH>
+                <TH>Scores</TH>
+                <TH>Elementos</TH>
+              </TR>
+            </THead>
+            <TBody>
+              {[...overview.reports].reverse().map((report) => {
+                const scoreBits = report.snapshots
+                  .filter((s) => s.score != null)
+                  .map(
+                    (s) =>
+                      `${CREDIT_BUREAU_LABELS[s.bureau].slice(0, 3)} ${s.score}`,
+                  );
+                return (
+                  <TR key={report.id}>
+                    <TD>
+                      <Link
+                        href={`/crm/casos/${caseId}/credito/reportes/${report.id}`}
+                        className="font-medium text-action-primary hover:text-action-secondary"
+                      >
+                        {formatDate(report.reportDate)}
+                      </Link>
+                    </TD>
+                    <TD>
+                      <Pill tone="slate">
+                        {labelFor(CREDIT_REPORT_TYPE_LABELS, report.type)}
+                      </Pill>
+                    </TD>
+                    <TD className="text-text-secondary">
+                      {report.provider ?? "—"}
+                    </TD>
+                    <TD className="text-sm tabular-nums text-text-secondary">
+                      {scoreBits.length ? scoreBits.join(" · ") : "—"}
+                    </TD>
+                    <TD className="tabular-nums">{report._count.items}</TD>
+                  </TR>
+                );
+              })}
+            </TBody>
+          </Table>
+        )}
+      </Card>
+    </div>
+  );
+}

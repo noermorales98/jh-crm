@@ -5,7 +5,8 @@ import { usePathname } from "next/navigation";
 
 /**
  * Tabs de navegación por rutas (subpáginas de cliente/caso).
- * La pestaña activa se detecta por pathname exacto.
+ * Activa la pestaña cuyo href coincide exactamente o es el prefijo más
+ * largo de la ruta actual (p. ej. /credito activa también /credito/reportes/…).
  *
  * <Tabs items={[
  *   { href: `/crm/clientes/${id}`, label: "Resumen" },
@@ -19,11 +20,22 @@ export function Tabs({
 }) {
   const pathname = usePathname();
 
+  let activeHref: string | null = null;
+  let bestLen = -1;
+  for (const item of items) {
+    const match =
+      pathname === item.href || pathname.startsWith(`${item.href}/`);
+    if (match && item.href.length > bestLen) {
+      activeHref = item.href;
+      bestLen = item.href.length;
+    }
+  }
+
   return (
     <nav aria-label="Secciones" className="mb-6 border-b border-border-subtle">
       <div className="-mb-px flex gap-1 overflow-x-auto">
         {items.map((item) => {
-          const active = pathname === item.href;
+          const active = item.href === activeHref;
           return (
             <Link
               key={item.href}

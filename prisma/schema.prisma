@@ -102,7 +102,41 @@ enum ActivityType {
   RECEIPT_CREATED
   MAIL_SENT
   MAIL_RECEIVED
+  CREDIT_REPORT_CREATED
+  CREDIT_REPORT_UPDATED
   OTHER
+}
+
+enum CreditReportType {
+  INITIAL
+  UPDATE
+  MANUAL
+}
+
+enum CreditBureau {
+  EXPERIAN
+  EQUIFAX
+  TRANSUNION
+}
+
+enum CreditNegativeType {
+  COLLECTION
+  CHARGE_OFF
+  LATE_PAYMENT
+  REPOSSESSION
+  BANKRUPTCY
+  HARD_INQUIRY
+  FORECLOSURE
+  OTHER
+}
+
+enum CreditItemLifecycleStatus {
+  IDENTIFIED
+  UNDER_REVIEW
+  SELECTED
+  DISPUTED
+  RESOLVED
+  EXCLUDED
 }
 
 enum MailFolder {
@@ -236,6 +270,8 @@ model Organization {
   whatsappRecipients WhatsappRecipient[]
   emailRecipients    EmailNotificationRecipient[]
   mailMessages       MailMessage[]
+  creditReports      CreditReport[]
+  creditItems        CreditItem[]
 }
 
 model OrganizationSettings {
@@ -405,6 +441,8 @@ model Client {
   consents        ConsentRecord[]
   externalRefs    ExternalReference[]
   mailMessages    MailMessage[]
+  creditReports   CreditReport[]
+  creditItems     CreditItem[]
 
   @@unique([organizationId, clientCode])
   @@index([organizationId, status])
@@ -464,6 +502,8 @@ model CreditCase {
   intakeSubmits IntakeSubmission[]
   consents      ConsentRecord[]
   externalRefs  ExternalReference[]
+  creditReports CreditReport[]
+  creditItems   CreditItem[]
 
   @@unique([organizationId, caseCode])
   @@index([organizationId, stageId])
@@ -519,12 +559,13 @@ model Document {
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
-  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  case         CreditCase?  @relation(fields: [caseId], references: [id], onDelete: SetNull)
-  round        CreditRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
-  payment      Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
-  uploadedBy   User?        @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  organization  Organization   @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client        Client         @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  case          CreditCase?    @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  round         CreditRound?   @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  payment       Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  uploadedBy    User?          @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+  creditReports CreditReport[]
 
   @@index([organizationId, clientId, category])
   @@index([caseId, category])
@@ -903,6 +944,98 @@ model ExternalReference {
   @@index([organizationId, provider])
   @@index([clientId, provider])
   @@index([caseId, provider])
+}
+
+/** Reporte de crédito estructurado (metadata; el PDF sigue en Document). */
+model CreditReport {
+  id               String           @id @default(cuid())
+  organizationId   String
+  clientId         String
+  caseId           String
+  documentId       String?
+  provider         String?
+  externalReportId String?
+  reportDate       DateTime         @db.Date
+  importedAt       DateTime         @default(now())
+  type             CreditReportType @default(MANUAL)
+  notes            String?          @db.Text
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  organization Organization            @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  case         CreditCase              @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  document     Document?               @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  snapshots    CreditBureauSnapshot[]
+  items        CreditItem[]
+
+  @@index([organizationId, caseId])
+  @@index([organizationId, clientId])
+  @@index([caseId, reportDate])
+  @@index([organizationId, type])
+  @@index([documentId])
+}
+
+/** Snapshot de scores y contadores por buró dentro de un CreditReport. */
+model CreditBureauSnapshot {
+  id                String       @id @default(cuid())
+  reportId          String
+  bureau            CreditBureau
+  score             Int?
+  totalAccounts     Int?
+  openAccounts      Int?
+  closedAccounts    Int?
+  negativeAccounts  Int?
+  collections       Int?
+  inquiries         Int?
+  totalBalance      Decimal?     @db.Decimal(12, 2)
+  utilization       Decimal?     @db.Decimal(5, 2)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  report CreditReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@unique([reportId, bureau])
+  @@index([reportId])
+}
+
+/** Elemento/cuenta de un reporte de crédito (número solo enmascarado). */
+model CreditItem {
+  id                   String                     @id @default(cuid())
+  organizationId       String
+  clientId             String
+  caseId               String
+  reportId             String
+  creditorName         String
+  accountNumberMasked  String?
+  accountType          String?
+  bureau               CreditBureau
+  balance              Decimal?                   @db.Decimal(12, 2)
+  creditLimit          Decimal?                   @db.Decimal(12, 2)
+  monthlyPayment       Decimal?                   @db.Decimal(12, 2)
+  dateOpened           DateTime?                  @db.Date
+  dateReported         DateTime?                  @db.Date
+  accountStatus        String?
+  paymentStatus        String?
+  negativeType         CreditNegativeType?
+  remarks              String?                    @db.Text
+  isNegative           Boolean                    @default(false)
+  disputeEligible      Boolean                    @default(true)
+  lifecycleStatus      CreditItemLifecycleStatus  @default(IDENTIFIED)
+  createdAt            DateTime                   @default(now())
+  updatedAt            DateTime                   @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  case         CreditCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  report       CreditReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, caseId])
+  @@index([organizationId, clientId])
+  @@index([reportId])
+  @@index([caseId, isNegative])
+  @@index([organizationId, lifecycleStatus])
+  @@index([caseId, bureau])
 }
 
 model AiChat {

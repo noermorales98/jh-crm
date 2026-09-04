@@ -25,6 +25,8 @@ export const PERMISSION_ACTIONS = [
   "catalog.view",
   "dashboard.view",
   "mails.view",
+  "creditReports.view",
+  "creditItems.view",
   // Escritura operativa
   "clients.create",
   "clients.edit",
@@ -35,6 +37,8 @@ export const PERMISSION_ACTIONS = [
   "quotes.manage",
   "payments.register",
   "mails.manage",
+  "creditReports.manage",
+  "creditItems.manage",
   // Datos sensibles
   "sensitive.view",
   "sensitive.edit",
@@ -61,6 +65,8 @@ const ALL_READ: PermissionAction[] = [
   "catalog.view",
   "dashboard.view",
   "mails.view",
+  "creditReports.view",
+  "creditItems.view",
 ];
 
 const STAFF_WRITE: PermissionAction[] = [
@@ -73,6 +79,8 @@ const STAFF_WRITE: PermissionAction[] = [
   "quotes.manage",
   "payments.register",
   "mails.manage",
+  "creditReports.manage",
+  "creditItems.manage",
 ];
 
 const SENSITIVE: PermissionAction[] = [

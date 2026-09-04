@@ -1,11 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { apiErrorResponse } from "@/src/server/http";
+import { apiErrorResponse, clientIpFromRequest } from "@/src/server/http";
 import {
   isIntakeEnabled,
   submitIntake,
   validateIntakeToken,
 } from "@/src/server/intake";
+import { assertValidIntakeConsent } from "@/src/server/intake/consent";
+import {
+  assertRateLimit,
+  sweepOldRateLimitBuckets,
+} from "@/src/server/security/rate-limit";
 import {
   emailSchema,
   postalCodeSchema,
@@ -23,14 +28,12 @@ const submitSchema = z.object({
   city: z.string().trim().max(100).optional().or(z.literal("")),
   state: usStateSchema,
   postalCode: postalCodeSchema,
-  consent: z
-    .object({
-      consentType: z.string().trim().min(1).max(100),
-      version: z.string().trim().min(1).max(50),
-      textHash: z.string().trim().regex(/^[a-f0-9]{64}$/i, "Hash del texto inválido."),
-      signerName: z.string().trim().max(100).nullish(),
-    })
-    .nullish(),
+  consent: z.object({
+    consentType: z.string().trim().min(1).max(100),
+    version: z.string().trim().min(1).max(50),
+    textHash: z.string().trim().regex(/^[a-f0-9]{64}$/i, "Hash del texto inválido."),
+    signerName: z.string().trim().max(100).nullish(),
+  }),
   documents: z
     .array(
       z.object({
@@ -60,8 +63,6 @@ const submitSchema = z.object({
 /**
  * POST /api/public/intake/[token]/submit
  * Crea/actualiza cliente + IntakeSubmission + ConsentRecord + useCount.
- * TODO(rate-limit): añadir limitador por IP/token cuando haya store
- * compartido (Redis/Upstash); la estructura del handler ya lo contempla.
  */
 export async function POST(
   request: Request,
@@ -71,31 +72,52 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "No encontrado." }, { status: 404 });
   }
   try {
+    const ip = clientIpFromRequest(request);
     const { token } = await params;
+    await assertRateLimit({
+      key: `intake:submit:ip:${ip}`,
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
+    await assertRateLimit({
+      key: `intake:submit:token:${token.slice(0, 80)}`,
+      limit: 5,
+      windowSeconds: 60 * 60,
+    });
+    sweepOldRateLimitBuckets();
+
     const link = await validateIntakeToken(token);
     const body = submitSchema.parse(await request.json());
+    assertValidIntakeConsent(body.consent);
 
     const meta = {
-      ipAddress: request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      ipAddress: ip === "unknown" ? null : ip,
       userAgent: request.headers.get("user-agent"),
     };
 
     const emptyToNull = (v?: string | null) => (v?.trim() ? v.trim() : null);
-    const result = await submitIntake(link, {
-      firstName: body.firstName,
-      lastName: emptyToNull(body.lastName),
-      email: emptyToNull(body.email),
-      phone: emptyToNull(body.phone),
-      addressLine1: emptyToNull(body.addressLine1),
-      addressLine2: emptyToNull(body.addressLine2),
-      city: emptyToNull(body.city),
-      state: emptyToNull(body.state),
-      postalCode: emptyToNull(body.postalCode),
-      consent: body.consent ?? null,
-      documents: body.documents ?? [],
-    }, meta);
+    const result = await submitIntake(
+      link,
+      {
+        firstName: body.firstName,
+        lastName: emptyToNull(body.lastName),
+        email: emptyToNull(body.email),
+        phone: emptyToNull(body.phone),
+        addressLine1: emptyToNull(body.addressLine1),
+        addressLine2: emptyToNull(body.addressLine2),
+        city: emptyToNull(body.city),
+        state: emptyToNull(body.state),
+        postalCode: emptyToNull(body.postalCode),
+        consent: body.consent,
+        documents: body.documents ?? [],
+      },
+      meta,
+    );
 
-    return NextResponse.json({ ok: true, data: { submissionId: result.submissionId } });
+    return NextResponse.json(
+      { ok: true, data: { submissionId: result.submissionId } },
+      { headers: { "Cache-Control": "no-store" } },
+    );
   } catch (error) {
     return apiErrorResponse(error);
   }

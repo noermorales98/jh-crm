@@ -899,6 +899,18 @@ model AiChat {
   @@index([organizationId, userId, updatedAt])
 }
 
+/** Contadores de rate limit para APIs públicas (intake, contacto). */
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  bucketKey   String   @db.VarChar(191)
+  windowStart DateTime
+  count       Int      @default(0)
+  updatedAt   DateTime @updatedAt
+
+  @@unique([bucketKey, windowStart])
+  @@index([windowStart])
+}
+
 model MailMessage {
   id                 String        @id @default(cuid())
   organizationId     String

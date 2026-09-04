@@ -7,6 +7,7 @@ import { can } from "@/src/server/auth/permissions";
 import * as clientService from "@/src/server/clients";
 import { listMemberOptions } from "@/src/server/page-helpers";
 import {
+  Alert,
   Card,
   CardBody,
   CardHeader,
@@ -18,6 +19,9 @@ import { formatDate, formatMoney } from "@/src/lib/format";
 import { DomainError } from "@/src/server/errors";
 import { ClientActions } from "@/src/components/clients/client-actions";
 import { ClientHeader } from "@/app/crm/clientes/[clientId]/client-header";
+import { CreateIntakeLinkCard } from "@/src/components/intake/create-intake-link-card";
+import { isIntakeEnabled } from "@/src/server/intake";
+import { listClientIntakeLinks } from "@/src/server/intake/links";
 
 function DataItem({ label, value }: { label: string; value?: ReactNode }) {
   return (
@@ -44,6 +48,10 @@ export async function ClientDetailPanel({ clientId }: { clientId: string }) {
   const { client, cases, openTasks, recentPayments } = detail;
   const canEdit = can(ctx.role, "clients.edit");
   const members = canEdit ? await listMemberOptions(ctx) : [];
+  const intakeEnabled = isIntakeEnabled();
+  const intakeLinks = intakeEnabled
+    ? await listClientIntakeLinks(ctx, client.id)
+    : [];
 
   const openCases = cases.filter((c) => c.state === "OPEN");
   const pendingPayments = recentPayments.filter((p) => p.status === "PENDING");
@@ -161,6 +169,30 @@ export async function ClientDetailPanel({ clientId }: { clientId: string }) {
           </dl>
         </CardBody>
       </Card>
+
+      {canEdit ? (
+        <Card className="mt-4">
+          <CardHeader
+            title="Enlace de intake"
+            description="Comparte un link para que el cliente cargue sus datos y documentos."
+          />
+          <CardBody>
+            {intakeEnabled ? (
+              <CreateIntakeLinkCard
+                clientId={client.id}
+                cases={cases.map((c) => ({ id: c.id, caseCode: c.caseCode }))}
+                existingLinks={intakeLinks}
+              />
+            ) : (
+              <Alert tone="info">
+                El intake público está desactivado. Activa{" "}
+                <span className="font-medium">FEATURE_PUBLIC_INTAKE=true</span> en
+                el entorno y reinicia el servidor para generar enlaces.
+              </Alert>
+            )}
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Card className="mt-4">
         <CardHeader

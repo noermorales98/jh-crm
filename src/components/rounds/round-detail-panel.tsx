@@ -3,11 +3,15 @@ import Link from "next/link";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import * as roundService from "@/src/server/rounds";
+import * as documentService from "@/src/server/documents";
 import { listMemberOptions, clientFullName } from "@/src/server/page-helpers";
 import { DomainError } from "@/src/server/errors";
-import { Card, CardBody, CardHeader, StatusPill } from "@/src/components/ui";
+import { isStorageConfigured } from "@/src/lib/storage/s3";
+import { Alert, Card, CardBody, CardHeader, StatusPill } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
 import { RoundActions } from "@/src/components/rounds/round-actions";
+import { DocumentUploader } from "@/src/components/documents/document-uploader";
+import { DocumentTable } from "@/src/components/documents/document-table";
 
 export async function RoundDetailPanel({ roundId }: { roundId: string }) {
   const ctx = await requireOrganization();
@@ -20,11 +24,20 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
   }
 
   const canManage = can(ctx.role, "rounds.manage");
+  const canUpload = can(ctx.role, "documents.upload");
+  const storageReady = isStorageConfigured();
   const members = canManage ? await listMemberOptions(ctx) : [];
   const overdue =
     round.expectedReviewAt &&
     new Date(round.expectedReviewAt) < new Date() &&
     ["SENT", "WAITING_UPDATE", "REVIEWING"].includes(round.status);
+
+  const documents = await documentService.listDocuments(ctx, {
+    clientId: round.case.client.id,
+    caseId: round.case.id,
+    roundId: round.id,
+    limit: 50,
+  });
 
   return (
     <div className="space-y-4 p-4">
@@ -93,6 +106,42 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
             </p>
           ) : null}
         </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader
+          title="Documentos de la ronda"
+          description="Cartas, reportes y adjuntos de esta ronda."
+          compact
+        />
+        <CardBody className="space-y-3 px-4 py-3">
+          {storageReady ? (
+            canUpload ? (
+              <DocumentUploader
+                clientId={round.case.client.id}
+                caseId={round.case.id}
+                roundId={round.id}
+              />
+            ) : (
+              <Alert tone="info">
+                Tu rol es de solo lectura: no puedes subir documentos.
+              </Alert>
+            )
+          ) : (
+            <Alert tone="info">
+              El almacenamiento de archivos no está configurado en este entorno
+              (faltan variables S3). La lista sigue disponible, pero la subida
+              está deshabilitada.
+            </Alert>
+          )}
+        </CardBody>
+        {documents.items.length > 0 ? (
+          <DocumentTable documents={documents.items} canDelete={canUpload} />
+        ) : (
+          <p className="border-t border-border-subtle px-4 py-3 text-sm text-text-secondary">
+            Aún no hay documentos en esta ronda.
+          </p>
+        )}
       </Card>
 
       {canManage ? (

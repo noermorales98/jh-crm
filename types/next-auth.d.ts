@@ -13,6 +13,7 @@ declare module "next-auth" {
   interface User {
     currentOrganizationId?: string | null;
     role?: Role | null;
+    sessionVersion?: number;
   }
 }
 
@@ -23,5 +24,6 @@ declare module "@auth/core/jwt" {
     userId?: string;
     currentOrganizationId?: string | null;
     role?: Role | null;
+    sessionVersion?: number;
   }
 }

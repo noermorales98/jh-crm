@@ -83,12 +83,12 @@ export interface IntakeSubmitData {
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
-  consent?: {
+  consent: {
     consentType: string;
     version: string;
     textHash: string;
     signerName?: string | null;
-  } | null;
+  };
   documents?: Array<{
     storageKey: string;
     originalName: string;
@@ -186,21 +186,19 @@ export async function submitIntake(
       },
     });
 
-    if (data.consent) {
-      await tx.consentRecord.create({
-        data: {
-          organizationId: orgId,
-          clientId,
-          caseId: link.caseId,
-          consentType: data.consent.consentType,
-          version: data.consent.version,
-          textHash: data.consent.textHash,
-          signerName: data.consent.signerName ?? null,
-          ipAddress: meta.ipAddress ?? null,
-          userAgent: meta.userAgent?.slice(0, 500) ?? null,
-        },
-      });
-    }
+    await tx.consentRecord.create({
+      data: {
+        organizationId: orgId,
+        clientId,
+        caseId: link.caseId,
+        consentType: data.consent.consentType,
+        version: data.consent.version,
+        textHash: data.consent.textHash,
+        signerName: data.consent.signerName ?? null,
+        ipAddress: meta.ipAddress ?? null,
+        userAgent: meta.userAgent?.slice(0, 500) ?? null,
+      },
+    });
 
     // Documentos subidos vía upload-url del intake (storageKey de la org).
     const expectedPrefix = `org/${orgId}/documents/`;

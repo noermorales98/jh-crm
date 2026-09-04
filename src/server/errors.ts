@@ -11,8 +11,21 @@ export class DomainError extends Error {
   }
 }
 
+/** Demasiadas peticiones (APIs públicas). */
+export class RateLimitError extends Error {
+  readonly status = 429;
+  constructor(message = "Demasiadas solicitudes. Espera un momento e inténtalo de nuevo.") {
+    super(message);
+    this.name = "RateLimitError";
+  }
+}
+
 export function isDomainError(error: unknown): error is DomainError {
   return error instanceof DomainError;
+}
+
+export function isRateLimitError(error: unknown): error is RateLimitError {
+  return error instanceof RateLimitError;
 }
 
 /**

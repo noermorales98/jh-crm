@@ -1,10 +1,16 @@
 import type { NextAuthConfig } from "next-auth";
-
-const PUBLIC_INTAKE_ENABLED = process.env.FEATURE_PUBLIC_INTAKE === "true";
+import { SESSION_MAX_AGE_SECONDS } from "@/src/server/auth/session-constants";
 
 /**
  * Config compartida de NextAuth usada por proxy.ts (borde de navegación)
  * y por auth.ts (Node, con Prisma). No importar Prisma aquí.
+ *
+ * session.maxAge largo: la sesión no caduca sola; auth.ts invalida JWT
+ * cuando isActive=false o sessionVersion cambia.
+ *
+ * El proxy solo tiene este config: mapear token.userId → session.user.id
+ * aquí (sin Prisma). authorized() no debe exigir id si el user existe pero
+ * el mapeo aún no corrió; solo rechaza id vacío tras invalidar el JWT.
  */
 export const authConfig = {
   pages: {
@@ -14,8 +20,32 @@ export const authConfig = {
   // host; sin esto, cualquier login fuera de `next dev` falla con
   // UntrustedHost. Seguro aquí: CRM interno con NEXT_PUBLIC_APP_URL fija.
   trustHost: true,
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_SECONDS },
+  jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
   callbacks: {
+    jwt({ token, user }) {
+      if (user) {
+        token.userId = user.id;
+        token.currentOrganizationId = user.currentOrganizationId ?? null;
+        token.role = user.role ?? null;
+        token.sessionVersion = user.sessionVersion;
+      }
+      if (token.userId && !token.sub) {
+        token.sub = String(token.userId);
+      }
+      return token;
+    },
+    session({ session, token }) {
+      const id =
+        (typeof token.userId === "string" && token.userId) ||
+        (typeof token.sub === "string" && token.sub) ||
+        "";
+      session.user.id = id;
+      session.user.currentOrganizationId =
+        (token.currentOrganizationId as string | null | undefined) ?? null;
+      session.user.role = (token.role as typeof session.user.role) ?? null;
+      return session;
+    },
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
 
@@ -33,16 +63,23 @@ export const authConfig = {
         return true;
       }
 
+      // Intake: la ruta es pública; la página/APIs responden 404 si el flag está off.
+      if (pathname.startsWith("/intake")) {
+        return true;
+      }
+
       if (pathname === "/" || pathname === "/login" || pathname.startsWith("/login/")) {
         return true;
       }
 
-      if (PUBLIC_INTAKE_ENABLED && pathname.startsWith("/intake")) {
-        return true;
-      }
-
       // Todo lo demás requiere sesión. `false` redirige a pages.signIn.
-      return Boolean(auth?.user);
+      // El proxy a veces expone `user` sin `id`. Solo rechazar si no hay user,
+      // o si id está explícitamente vacío tras invalidar el JWT.
+      if (!auth?.user) return false;
+      if (typeof auth.user.id === "string" && auth.user.id.length === 0) {
+        return false;
+      }
+      return true;
     },
   },
   providers: [], // se completan en auth.ts

@@ -95,37 +95,32 @@ export function IntakeForm({ token }: { token: string }) {
 
     setUploading(true);
     try {
+      const form = new FormData();
+      form.append("file", file);
       const res = await fetch(
-        `/api/public/intake/${encodeURIComponent(token)}/upload-url`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            originalName: file.name,
-            mimeType: file.type,
-            sizeBytes: file.size,
-          }),
-        },
+        `/api/public/intake/${encodeURIComponent(token)}/upload`,
+        { method: "POST", body: form },
       );
       const json = (await res.json()) as
-        | { ok: true; data: { url: string; storageKey: string } }
+        | {
+            ok: true;
+            data: {
+              storageKey: string;
+              originalName: string;
+              mimeType: string;
+              sizeBytes: number;
+            };
+          }
         | { ok: false; error: string };
       if (!json.ok) throw new Error(json.error);
-
-      const put = await fetch(json.data.url, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!put.ok) throw new Error("No se pudo subir el archivo.");
 
       setDocs((prev) => [
         ...prev,
         {
           storageKey: json.data.storageKey,
-          originalName: file.name,
-          mimeType: file.type,
-          sizeBytes: file.size,
+          originalName: json.data.originalName || file.name,
+          mimeType: json.data.mimeType || file.type,
+          sizeBytes: json.data.sizeBytes || file.size,
           category: "OTHER",
         },
       ]);

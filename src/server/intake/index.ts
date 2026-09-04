@@ -1,7 +1,14 @@
 import crypto from "node:crypto";
 import { prisma } from "@/src/lib/db";
-import { createPresignedUploadUrl, isStorageConfigured } from "@/src/lib/storage/s3";
+import {
+  createPresignedUploadUrl,
+  isStorageConfigured,
+  putObjectBytes,
+} from "@/src/lib/storage/s3";
 import { assertAllowedFile, buildStorageKey } from "@/src/lib/storage/policy";
+import { DomainError } from "@/src/server/errors";
+import { nextClientCode } from "@/src/server/folios";
+import { writeAuditLog } from "@/src/server/audit";
 
 function assertFileAllowed(mimeType: string, sizeBytes: number) {
   try {
@@ -10,9 +17,6 @@ function assertFileAllowed(mimeType: string, sizeBytes: number) {
     throw new DomainError(error instanceof Error ? error.message : "Archivo no permitido.");
   }
 }
-import { DomainError } from "@/src/server/errors";
-import { nextClientCode } from "@/src/server/folios";
-import { writeAuditLog } from "@/src/server/audit";
 
 /**
  * Intake público (feature flag FEATURE_PUBLIC_INTAKE).
@@ -262,4 +266,30 @@ export async function requestIntakeUploadUrl(
     sizeBytes: file.sizeBytes,
   });
   return { url: upload.url, storageKey, expiresInSeconds: upload.expiresInSeconds };
+}
+
+/**
+ * Subida vía servidor (browser → API → R2).
+ * Evita CORS del bucket; misma whitelist MIME/tamaño.
+ */
+export async function uploadIntakeFile(
+  link: IntakeLinkInfo,
+  file: { originalName: string; mimeType: string; body: Uint8Array },
+) {
+  if (!isStorageConfigured()) {
+    throw new DomainError("La carga de archivos no está disponible por ahora.");
+  }
+  assertFileAllowed(file.mimeType, file.body.byteLength);
+  const storageKey = buildStorageKey(link.organizationId, crypto.randomUUID());
+  await putObjectBytes({
+    storageKey,
+    mimeType: file.mimeType,
+    body: file.body,
+  });
+  return {
+    storageKey,
+    originalName: file.originalName,
+    mimeType: file.mimeType,
+    sizeBytes: file.body.byteLength,
+  };
 }

@@ -32,10 +32,25 @@ function getClient(): S3Client {
         "S3_ACCESS_KEY_ID y S3_SECRET_ACCESS_KEY para habilitar documentos.",
     );
   }
+  const endpoint = process.env.S3_ENDPOINT as string;
+  const isR2 = /r2\.cloudflarestorage\.com$/i.test(
+    (() => {
+      try {
+        return new URL(endpoint).hostname;
+      } catch {
+        return "";
+      }
+    })(),
+  );
+  // R2: path-style evita bucket duplicado en host+path y mejora CORS del PUT.
+  const forcePathStyle =
+    process.env.S3_FORCE_PATH_STYLE === "true" ||
+    (process.env.S3_FORCE_PATH_STYLE !== "false" && isR2);
+
   return new S3Client({
-    endpoint: process.env.S3_ENDPOINT,
+    endpoint,
     region: process.env.S3_REGION || "auto",
-    forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
+    forcePathStyle,
     credentials: {
       accessKeyId: process.env.S3_ACCESS_KEY_ID as string,
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY as string,
@@ -65,7 +80,8 @@ export async function createPresignedUploadUrl(input: {
     Bucket: getBucket(),
     Key: input.storageKey,
     ContentType: input.mimeType,
-    ContentLength: input.sizeBytes,
+    // No firmar ContentLength: el browser PUT falla por CORS/firma si no
+    // coincide exactamente; el tamaño ya se validó en assertAllowedFile.
   });
   const url = await getSignedUrl(getClient(), command, {
     expiresIn: PRESIGN_EXPIRES_SECONDS,
@@ -92,4 +108,22 @@ export async function createPresignedDownloadUrl(input: {
   return getSignedUrl(getClient(), command, {
     expiresIn: PRESIGN_EXPIRES_SECONDS,
   });
+}
+
+/** Subida server-side (evita CORS del browser → R2). */
+export async function putObjectBytes(input: {
+  storageKey: string;
+  mimeType: string;
+  body: Buffer | Uint8Array;
+}): Promise<void> {
+  assertAllowedFile(input.mimeType, input.body.byteLength);
+  await getClient().send(
+    new PutObjectCommand({
+      Bucket: getBucket(),
+      Key: input.storageKey,
+      ContentType: input.mimeType,
+      Body: input.body,
+      ContentLength: input.body.byteLength,
+    }),
+  );
 }

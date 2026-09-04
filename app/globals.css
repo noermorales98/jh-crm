@@ -223,8 +223,9 @@ body {
   }
 }
 
-/* Marca J&H del home: solo el nombre en el sidebar del CRM */
-.crm-brand .brand {
+/* Marca J&H: sidebar CRM + wordmark público (intake) */
+.crm-brand .brand,
+.jh-brand .brand {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -232,7 +233,12 @@ body {
   gap: 0.12rem;
 }
 
-.crm-brand .brand-mark {
+.jh-brand .brand {
+  align-items: center;
+}
+
+.crm-brand .brand-mark,
+.jh-brand .brand-mark {
   font-family: var(--font-jh-display), ui-sans-serif, system-ui, sans-serif;
   font-size: 1.4rem;
   font-weight: 700;
@@ -241,11 +247,17 @@ body {
   color: light-dark(#0a1f44, #f4f5fa);
 }
 
-.crm-brand .brand-mark span {
+.jh-brand .brand-mark {
+  font-size: 1.75rem;
+}
+
+.crm-brand .brand-mark span,
+.jh-brand .brand-mark span {
   color: light-dark(#1570ef, #7f96f9);
 }
 
-.crm-brand .brand-tag {
+.crm-brand .brand-tag,
+.jh-brand .brand-tag {
   font-family: var(--font-jh-mono), ui-monospace, monospace;
   font-size: 0.6875rem;
   letter-spacing: 0.02em;

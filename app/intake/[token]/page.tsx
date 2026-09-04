@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { AppIcon } from "@/src/components/icons/app-icon";
 import { IntakeForm } from "@/src/components/intake/intake-form";
 import { isIntakeEnabled } from "@/src/server/intake";
 
@@ -25,9 +24,15 @@ export default async function IntakePage({
     <main className="flex min-h-screen items-center justify-center bg-surface-app px-4 py-10">
       <div className="w-full max-w-lg">
         <div className="rounded-surface bg-surface-elevated p-8 jh-overlay-shadow">
-          <div className="mb-8 text-center">
-            <div className="mx-auto mb-4 w-fit">
-              <AppIcon size="lg" />
+          <div className="jh-brand mb-8 text-center">
+            <div
+              className="brand mx-auto mb-5 w-fit"
+              aria-label="J&H MultiServices LLC"
+            >
+              <span className="brand-mark">
+                J<span>&</span>H
+              </span>
+              <span className="brand-tag">Multiservices LLC</span>
             </div>
             <h1 className="text-[1.375rem] font-semibold tracking-[-0.02em] text-ink">
               Información del cliente

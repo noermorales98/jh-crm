@@ -6,9 +6,12 @@ import {
   getCatalogSnapshot,
   getClientBrief,
   getCompanySnapshot,
+  getCreditCaseDetail,
   getDashboardSnapshot,
   getRoutesAndHowTo,
+  listCreditAttention,
   listCrm,
+  searchCreditProgress,
   searchCrm,
 } from "./queries";
 
@@ -74,7 +77,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
     }),
     getDashboard: tool({
       description:
-        "Solo conteos y pendientes del tablero. activeClients cuenta únicamente clientes ACTIVE (no prospectos LEAD). NO sirve para listar nombres: usa listCrm.",
+        "Solo conteos y pendientes del tablero. activeClients cuenta únicamente clientes ACTIVE (no prospectos LEAD). Incluye widgets de atención crédito. NO sirve para listar nombres: usa listCrm o listCreditAttention.",
       inputSchema: z.object({
         reason: z.string().optional().describe("Por qué se pide el dashboard."),
       }),
@@ -96,6 +99,35 @@ export function buildCrmTools(ctx: OrganizationContext) {
       }),
       execute: async ({ caseId }) => getCaseBrief(ctx, caseId),
     }),
+    getCreditCaseDetail: tool({
+      description:
+        "Detalle crediticio de un caso: último CreditReport con scores por buró, resumen de DisputeItems de la ronda activa y última comparación de reportes. Nunca incluye SSN.",
+      inputSchema: z.object({
+        caseId: z.string().min(1).describe("Id interno del caso de crédito."),
+      }),
+      execute: async ({ caseId }) => getCreditCaseDetail(ctx, caseId),
+    }),
+    listCreditAttention: tool({
+      description:
+        "Lista atención crediticia: rondas WAITING_UPDATE vencidas, revisiones de esta semana (nextReviewAt), casos en documentos pendientes y rondas por preparar.",
+      inputSchema: z.object({
+        reason: z.string().optional().describe("Por qué se pide la lista."),
+      }),
+      execute: async () => listCreditAttention(ctx),
+    }),
+    searchCreditProgress: tool({
+      description:
+        "Progreso crediticio por nombre de cliente: outcomes reales (DELETED/UPDATED/etc.), disputas activas y última comparación. Nunca inventa eliminaciones.",
+      inputSchema: z.object({
+        clientName: z
+          .string()
+          .trim()
+          .min(2)
+          .max(120)
+          .describe("Nombre o código del cliente."),
+      }),
+      execute: async ({ clientName }) => searchCreditProgress(ctx, clientName),
+    }),
     getCatalog: tool({
       description:
         "Catálogo de servicios y paquetes con precios. Útil para explicar cómo armar una cotización.",
@@ -112,7 +144,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .string()
           .optional()
           .describe(
-            "Tema: cliente, caso, ronda, tarea, cotización, pago, recibo, documento, usuario, etapa, configuración.",
+            "Tema: cliente, caso, ronda, tarea, cotización, pago, recibo, documento, usuario, etapa, configuración, crédito, oportunidades, portal, contratos.",
           ),
       }),
       execute: async ({ topic }) => getRoutesAndHowTo(topic),

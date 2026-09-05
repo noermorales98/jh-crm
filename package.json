@@ -12,6 +12,14 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "smoke:credit-reports": "tsx --env-file=.env.local scripts/smoke/credit-reports-smoke.ts",
+    "smoke:disputes-comparisons": "tsx --env-file=.env.local scripts/smoke/disputes-comparisons-smoke.ts",
+    "smoke:letters": "tsx --env-file=.env.local scripts/smoke/letters-smoke.ts",
+    "smoke:sprint4": "tsx --env-file=.env.local scripts/smoke/sprint4-smoke.ts",
+    "smoke:sprint5": "tsx --env-file=.env.local scripts/smoke/sprint5-smoke.ts",
+    "smoke:sprint6": "tsx --env-file=.env.local scripts/smoke/sprint6-smoke.ts",
+    "smoke:sprint7": "tsx --env-file=.env.local scripts/smoke/sprint7-smoke.ts",
+    "smoke:sprint8": "tsx --env-file=.env.local scripts/smoke/sprint8-smoke.ts",
+    "seed:demo-credit": "tsx --env-file=.env.local scripts/seed-demo-credit-case.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {
@@ -37,6 +45,7 @@
     "next": "16.3.4",
     "next-auth": "^5.0.0-beta.32",
     "nodemailer": "^8.0.11",
+    "otpauth": "^9.5.2",
     "prisma": "^6.19.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",

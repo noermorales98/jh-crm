@@ -1,0 +1,62 @@
+/* Páginas legales — reutiliza tokens de .jh-landing */
+.jh-landing.jh-legal > header.legal-header {
+  position: sticky;
+  background: rgba(255, 255, 255, 0.92);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+
+.jh-landing.jh-legal .legal-main {
+  padding-top: calc(var(--space-10, 4rem) + 3rem);
+  padding-bottom: var(--space-10, 4rem);
+  max-width: 44rem;
+}
+
+.jh-landing.jh-legal .legal-draft-banner {
+  margin: 0 0 var(--space-6, 1.5rem);
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: #fff8e6;
+  border: 1px solid rgba(180, 130, 20, 0.35);
+  color: #5c4a12;
+  font-size: 0.9375rem;
+  line-height: 1.45;
+}
+
+.jh-landing.jh-legal .legal-prose {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6, 1.5rem);
+  color: var(--ink-soft, #6e6e73);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.jh-landing.jh-legal .legal-prose h2 {
+  margin: var(--space-4, 1rem) 0 0;
+  color: var(--ink, #1d1d1f);
+  font-family: var(--font-jh-display), Georgia, serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.jh-landing.jh-legal .legal-prose p,
+.jh-landing.jh-legal .legal-prose ul {
+  margin: 0;
+}
+
+.jh-landing.jh-legal .legal-prose ul {
+  padding-left: 1.25rem;
+}
+
+.jh-landing.jh-legal .legal-prose li + li {
+  margin-top: 0.35rem;
+}
+
+.jh-landing.jh-legal .legal-prose a {
+  color: var(--blue, #0071e3);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

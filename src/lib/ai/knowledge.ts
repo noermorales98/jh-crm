@@ -13,12 +13,19 @@ export const CRM_ROUTES = [
   { href: "/crm/clientes/{id}/actividad", label: "Actividad del cliente", how: "Bitácora de notas y eventos del cliente." },
   { href: "/crm/casos", label: "Casos", how: "Pipeline de casos de crédito. Un caso se crea desde la ficha del cliente (Casos)." },
   { href: "/crm/casos/{id}", label: "Detalle de caso", how: "Resumen, etapa, responsable y próxima revisión." },
+  { href: "/crm/casos/{id}/credito", label: "Crédito del caso", how: "Reportes, ítems, burós y scores del caso." },
   { href: "/crm/casos/{id}/rondas", label: "Rondas del caso", how: "Rondas de disputa de ese caso." },
+  { href: "/crm/casos/{id}/comparaciones/{comparisonId}", label: "Comparación de reportes", how: "Resultados DELETED/UPDATED/VERIFIED entre dos reportes." },
   { href: "/crm/casos/{id}/tareas", label: "Tareas del caso", how: "Tareas ligadas al caso." },
   { href: "/crm/casos/{id}/documentos", label: "Documentos del caso", how: "Archivos asociados al caso." },
   { href: "/crm/casos/{id}/cotizaciones", label: "Cotizaciones del caso", how: "Cotizaciones ligadas al caso." },
   { href: "/crm/casos/{id}/pagos", label: "Pagos del caso", how: "Pagos ligados al caso." },
   { href: "/crm/rondas", label: "Rondas", how: "Rondas de disputa ligadas a un caso. Crear desde /crm/casos/{id}/rondas." },
+  { href: "/crm/oportunidades", label: "Oportunidades", how: "Pipeline comercial (Kanban). WON crea caso y activa cliente." },
+  { href: "/crm/consultas", label: "Consultas", how: "Consultas de $1 desde el sitio (REQUESTED). No marcar PAID sin pasarela." },
+  { href: "/crm/contratos", label: "Contratos", how: "Plantillas y contratos de cliente; firma desde el portal." },
+  { href: "/crm/atribucion", label: "Atribución", how: "Canales y campañas de leads (UTM, Meta, etc.)." },
+  { href: "/portal", label: "Portal del cliente", how: "Acceso del cliente (FEATURE_CLIENT_PORTAL). Progreso, documentos, pagos." },
   { href: "/crm/tareas", label: "Tareas", how: "Tareas con vencimiento y asignación. También se crean desde el caso o el cliente." },
   { href: "/crm/servicios", label: "Servicios", how: "Catálogo de servicios. Paquetes en /crm/servicios/paquetes." },
   { href: "/crm/servicios/paquetes", label: "Paquetes", how: "Paquetes armados a partir de servicios del catálogo." },
@@ -58,6 +65,18 @@ export const HOW_TO_GUIDE = `
 ### Crear una ronda de disputa
 1. Abrir el caso → pestaña Rondas, o [Rondas](/crm/rondas).
 2. Crear ronda, marcar enviada cuando salga la carta, luego revisar resultado.
+
+### Ver progreso crediticio
+1. Abrir el caso → [Crédito](/crm/casos) (pestaña crédito del caso).
+2. Comparar reportes desde Comparaciones. Solo contar eliminaciones con outcome DELETED o resultado de comparación.
+
+### Oportunidades y consultas
+1. [Oportunidades](/crm/oportunidades) — Kanban comercial.
+2. [Consultas](/crm/consultas) — solicitudes de consulta del sitio.
+
+### Portal y contratos
+1. Invitar al portal desde la ficha del cliente (si FEATURE_CLIENT_PORTAL).
+2. [Contratos](/crm/contratos) — enviar y firmar desde el portal.
 
 ### Crear una tarea
 1. [Tareas](/crm/tareas) o desde el caso/cliente.

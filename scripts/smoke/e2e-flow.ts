@@ -77,7 +77,6 @@ async function main() {
     caseId: creditCase.id,
     notes: "E2E-Ronda de verificación.",
     lettersCount: 3,
-    disputedItemsCount: 5,
   });
   const expectedReviewAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
   const sent = await rounds.markRoundSent(ctx, round.id, {

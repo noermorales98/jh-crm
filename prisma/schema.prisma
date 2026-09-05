@@ -104,6 +104,25 @@ enum ActivityType {
   MAIL_RECEIVED
   CREDIT_REPORT_CREATED
   CREDIT_REPORT_UPDATED
+  DISPUTE_ITEM_ADDED
+  DISPUTE_ITEM_UPDATED
+  COMPARISON_CREATED
+  COMPARISON_UPDATED
+  LETTER_CREATED
+  LETTER_UPDATED
+  LETTER_FINALIZED
+  PROGRESS_REPORT_GENERATED
+  OPPORTUNITY_CREATED
+  OPPORTUNITY_STAGE_CHANGED
+  OPPORTUNITY_WON
+  PROCESSOR_LINKED
+  PAYMENT_PLAN_CREATED
+  CONSULTATION_REQUESTED
+  PORTAL_ACCESS_INVITED
+  PORTAL_ACCESS_REVOKED
+  CONTRACT_CREATED
+  CONTRACT_SIGNED
+  DOCUMENT_HARD_DELETED
   OTHER
 }
 
@@ -117,6 +136,35 @@ enum CreditBureau {
   EXPERIAN
   EQUIFAX
   TRANSUNION
+}
+
+enum LeadChannel {
+  FACEBOOK
+  INSTAGRAM
+  GOOGLE
+  WEBSITE
+  REFERRAL
+  MANUAL
+  OTHER
+}
+
+enum OpportunityStage {
+  NEW_LEAD
+  CONTACTED
+  CONSULTATION
+  INTAKE_SENT
+  INTAKE_COMPLETED
+  PROPOSAL
+  WAITING_PAYMENT
+  WON
+  LOST
+}
+
+enum ProcessorAccountStatus {
+  PLANNED
+  ACTIVE
+  EXPIRED
+  CANCELLED
 }
 
 enum CreditNegativeType {
@@ -137,6 +185,43 @@ enum CreditItemLifecycleStatus {
   DISPUTED
   RESOLVED
   EXCLUDED
+}
+
+enum DisputeItemStatus {
+  DRAFT
+  SELECTED
+  LETTER_GENERATED
+  SENT
+  WAITING
+  RESPONDED
+  COMPLETED
+  CANCELLED
+}
+
+enum DisputeOutcome {
+  DELETED
+  UPDATED
+  VERIFIED
+  NO_CHANGE
+  NOT_RESPONDED
+  NEW_INFORMATION
+  OTHER
+}
+
+enum ComparisonResultKind {
+  DELETED
+  UPDATED
+  VERIFIED
+  UNCHANGED
+  NEW
+}
+
+enum DisputeLetterStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  FINAL
+  SENT
+  CANCELLED
 }
 
 enum MailFolder {
@@ -198,6 +283,44 @@ enum ReceiptStatus {
   VOID
 }
 
+enum PaymentPlanFrequency {
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  CUSTOM
+}
+
+enum PaymentPlanStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  PAUSED
+}
+
+enum PaymentInstallmentStatus {
+  PENDING
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+enum ConsultationStatus {
+  REQUESTED
+  PAYMENT_PENDING
+  PAID
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+}
+
+enum ContractStatus {
+  DRAFT
+  SENT
+  SIGNED
+  CANCELLED
+  EXPIRED
+}
+
 enum NotificationType {
   TASK_DUE
   TASK_OVERDUE
@@ -209,6 +332,10 @@ enum NotificationType {
   MAIL_RECEIVED
   CONTACT_FORM
   INTAKE_SUBMITTED
+  CONSULTATION_REQUESTED
+  PORTAL_MESSAGE
+  CONTRACT_READY
+  META_LEAD
 }
 
 model User {
@@ -219,6 +346,13 @@ model User {
   isActive       Boolean  @default(true)
   sessionVersion Int      @default(1)
   lastLoginAt    DateTime?
+  /** MFA/TOTP (OWNER/ADMIN/SPECIALIST). Secret y recovery codes cifrados. */
+  mfaEnabled                 Boolean   @default(false)
+  mfaSecretEncrypted         String?   @db.Text
+  mfaRecoveryCodesEncrypted  String?   @db.Text
+  mfaVerifiedAt              DateTime?
+  mfaFailedAttempts          Int       @default(0)
+  mfaLockedUntil             DateTime?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -230,12 +364,18 @@ model User {
   uploadedDocs     Document[]      @relation("DocumentUploader")
   createdQuotes    Quote[]         @relation("QuoteCreator")
   createdPayments  Payment[]       @relation("PaymentCreator")
+  createdPaymentPlans PaymentPlan[] @relation("PaymentPlanCreator")
   activities       ActivityLog[]   @relation("ActivityActor")
   auditLogs        AuditLog[]      @relation("AuditActor")
   notifications    Notification[]
   intakeLinks      IntakeLink[]    @relation("IntakeLinkCreator")
   aiChats          AiChat[]
   createdMails     MailMessage[] @relation("MailCreator")
+  reportComparisons ReportComparison[] @relation("ComparisonCreator")
+  progressReports   ClientProgressReport[] @relation("ProgressReportCreator")
+  ownedOpportunities Opportunity[] @relation("OpportunityOwner")
+  portalInvites      ClientPortalAccess[] @relation("PortalInviter")
+  contractsCreated   ClientContract[]     @relation("ContractCreator")
 }
 
 model Organization {
@@ -272,6 +412,20 @@ model Organization {
   mailMessages       MailMessage[]
   creditReports      CreditReport[]
   creditItems        CreditItem[]
+  disputeItems       DisputeItem[]
+  reportComparisons  ReportComparison[]
+  letterTemplates    DisputeLetterTemplate[]
+  disputeLetters     DisputeLetter[]
+  progressReports    ClientProgressReport[]
+  creditProcessors   CreditProcessor[]
+  processorAccounts  ClientProcessorAccount[]
+  opportunities      Opportunity[]
+  paymentPlans       PaymentPlan[]
+  consultations      Consultation[]
+  portalAccesses     ClientPortalAccess[]
+  contractTemplates  ContractTemplate[]
+  clientContracts    ClientContract[]
+  metaLeadEvents     MetaLeadEvent[]
 }
 
 model OrganizationSettings {
@@ -330,6 +484,10 @@ model OrganizationSettings {
   emailClientQuoteExpiring Boolean  @default(false)
   emailClientCaseReview    Boolean  @default(false)
   emailClientRoundReview   Boolean  @default(false)
+  /** Días tras soft-delete antes de hard-delete S3 (null = no auto-purge). */
+  documentSoftDeleteRetentionDays Int?
+  /** Retención máxima desde createdAt (null = sin límite). */
+  documentMaxRetentionDays        Int?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -420,6 +578,11 @@ model Client {
   postalCode     String?
   country        String       @default("US")
   source         String?
+  leadChannel    LeadChannel?
+  serviceRequested String?
+  preferredContactMethod String?
+  preferredContactTime String?
+  attribution    Json?
   status         ClientStatus @default(LEAD)
   assignedToId   String?
   archivedAt     DateTime?
@@ -443,6 +606,12 @@ model Client {
   mailMessages    MailMessage[]
   creditReports   CreditReport[]
   creditItems     CreditItem[]
+  processorAccounts ClientProcessorAccount[]
+  opportunities   Opportunity[]
+  paymentPlans    PaymentPlan[]
+  consultations   Consultation[]
+  portalAccess    ClientPortalAccess?
+  contracts       ClientContract[]
 
   @@unique([organizationId, clientCode])
   @@index([organizationId, status])
@@ -451,6 +620,7 @@ model Client {
   @@index([organizationId, createdAt])
   @@index([organizationId, email])
   @@index([organizationId, phone])
+  @@index([organizationId, leadChannel])
 }
 
 model ClientSensitiveProfile {
@@ -504,6 +674,12 @@ model CreditCase {
   externalRefs  ExternalReference[]
   creditReports CreditReport[]
   creditItems   CreditItem[]
+  reportComparisons ReportComparison[]
+  progressReports ClientProgressReport[]
+  processorAccounts ClientProcessorAccount[]
+  opportunities Opportunity[]
+  paymentPlans  PaymentPlan[]
+  contracts     ClientContract[]
 
   @@unique([organizationId, caseCode])
   @@index([organizationId, stageId])
@@ -533,6 +709,9 @@ model CreditRound {
   documents    Document[]
   tasks        Task[]
   activities   ActivityLog[]
+  disputeItems DisputeItem[]
+  disputeLetters DisputeLetter[]
+  progressReports ClientProgressReport[]
 
   @@unique([caseId, roundNumber])
   @@index([organizationId, status, expectedReviewAt])
@@ -556,6 +735,9 @@ model Document {
   checksumSha256 String?
   uploadedById   String?
   deletedAt      DateTime?
+  /** Fecha programada de hard-delete (S3 + metadata). */
+  purgeAfter     DateTime?
+  hardDeletedAt  DateTime?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
 
@@ -566,12 +748,16 @@ model Document {
   payment       Payment?       @relation(fields: [paymentId], references: [id], onDelete: SetNull)
   uploadedBy    User?          @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
   creditReports CreditReport[]
+  disputeLetters DisputeLetter[]
+  clientContracts ClientContract[]
 
   @@index([organizationId, clientId, category])
   @@index([caseId, category])
   @@index([roundId, category])
   @@index([paymentId])
   @@index([organizationId, deletedAt])
+  @@index([organizationId, purgeAfter])
+  @@index([organizationId, hardDeletedAt])
 }
 
 model Task {
@@ -691,6 +877,7 @@ model Quote {
   items        QuoteItem[]
   events       QuoteEvent[]
   payments     Payment[]
+  paymentPlans PaymentPlan[]
 
   @@unique([organizationId, folio])
   @@index([organizationId, status, issuedAt])
@@ -760,6 +947,8 @@ model Payment {
   createdBy    User?        @relation("PaymentCreator", fields: [createdById], references: [id], onDelete: SetNull)
   documents    Document[]
   receipt      Receipt?
+  installment  PaymentInstallment?
+  consultation Consultation?
 
   @@index([organizationId, status, dueAt])
   @@index([clientId, receivedAt])
@@ -792,6 +981,163 @@ model Receipt {
   @@unique([organizationId, folio])
   @@index([organizationId, status, issuedAt])
   @@index([clientId, issuedAt])
+}
+
+/** Plan de pagos a plazos (genera cuotas + Payment PENDING). */
+model PaymentPlan {
+  id                   String              @id @default(cuid())
+  organizationId       String
+  clientId             String
+  caseId               String?
+  quoteId              String?
+  totalAmount          Decimal             @db.Decimal(12, 2)
+  installmentAmount    Decimal             @db.Decimal(12, 2)
+  frequency            PaymentPlanFrequency
+  numberOfInstallments Int
+  startDate            DateTime
+  status               PaymentPlanStatus   @default(ACTIVE)
+  currency             String              @default("USD")
+  notes                String?             @db.Text
+  createdById          String?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  organization Organization         @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client               @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  case         CreditCase?          @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  quote        Quote?               @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  createdBy    User?                @relation("PaymentPlanCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  installments PaymentInstallment[]
+
+  @@index([organizationId, status, startDate])
+  @@index([clientId, status])
+  @@index([caseId, status])
+  @@index([quoteId])
+}
+
+model PaymentInstallment {
+  id             String                   @id @default(cuid())
+  organizationId String
+  planId         String
+  sequence       Int
+  amount         Decimal                  @db.Decimal(12, 2)
+  dueAt          DateTime
+  status         PaymentInstallmentStatus @default(PENDING)
+  paymentId      String?                  @unique
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+
+  plan    PaymentPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  payment Payment?    @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@unique([planId, sequence])
+  @@index([organizationId, status, dueAt])
+  @@index([planId, status])
+}
+
+/**
+ * Solicitud de consulta ($1 u otro monto). Cobro desacoplado del formulario.
+ * Sin procesador configurado permanece REQUESTED (nunca se finge PAID).
+ */
+model Consultation {
+  id             String             @id @default(cuid())
+  organizationId String
+  clientId       String
+  amount         Decimal            @default(1) @db.Decimal(12, 2)
+  currency       String             @default("USD")
+  status         ConsultationStatus @default(REQUESTED)
+  paymentId      String?            @unique
+  notes          String?            @db.Text
+  scheduledAt    DateTime?
+  requestedAt    DateTime           @default(now())
+  completedAt    DateTime?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  payment      Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, requestedAt])
+  @@index([clientId, status])
+}
+
+/** Acceso al portal del cliente (separado del staff CRM). */
+model ClientPortalAccess {
+  id             String    @id @default(cuid())
+  organizationId String
+  clientId       String    @unique
+  email          String
+  passwordHash   String
+  isActive       Boolean   @default(true)
+  sessionVersion Int       @default(1)
+  lastLoginAt    DateTime?
+  invitedAt      DateTime  @default(now())
+  invitedById    String?
+  revokedAt      DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  invitedBy    User?        @relation("PortalInviter", fields: [invitedById], references: [id], onDelete: SetNull)
+
+  @@unique([organizationId, email])
+  @@index([organizationId, isActive])
+}
+
+/** Plantilla de contrato de servicio (org). */
+model ContractTemplate {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  version        String   @default("1.0")
+  contentHtml    String   @db.LongText
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contracts    ClientContract[]
+
+  @@index([organizationId, active])
+  @@index([organizationId, name])
+}
+
+/** Contrato emitido a un cliente (snapshot + firma). */
+model ClientContract {
+  id                   String         @id @default(cuid())
+  organizationId       String
+  clientId             String
+  caseId               String?
+  templateId           String?
+  title                String
+  version              String
+  contentSnapshot      String         @db.LongText
+  status               ContractStatus @default(DRAFT)
+  signerName           String?
+  signerIp             String?
+  userAgent            String?        @db.Text
+  signatureData        String?        @db.LongText
+  signedAt             DateTime?
+  cancellationDeadline DateTime?
+  documentId           String?
+  createdById          String?
+  createdAt            DateTime       @default(now())
+  updatedAt            DateTime       @updatedAt
+
+  organization Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  case         CreditCase?      @relation(fields: [caseId], references: [id], onDelete: SetNull)
+  template     ContractTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  document     Document?        @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  createdBy    User?            @relation("ContractCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, createdAt])
+  @@index([clientId, status])
+  @@index([caseId, status])
+  @@index([templateId])
+  @@index([documentId])
 }
 
 model ActivityLog {
@@ -888,6 +1234,7 @@ model IntakeSubmission {
   intakeLinkId   String
   clientId       String
   caseId         String?
+  payloadJson    Json?
   ipAddress      String?
   userAgent      String?  @db.Text
   submittedAt    DateTime @default(now())
@@ -946,6 +1293,104 @@ model ExternalReference {
   @@index([caseId, provider])
 }
 
+/** Catálogo de procesadores externos (SmartCredit, etc.). */
+model CreditProcessor {
+  id             String   @id @default(cuid())
+  organizationId String
+  name           String
+  type           String   @default("CREDIT_MONITOR")
+  websiteUrl     String?
+  affiliateUrl   String?  @db.Text
+  monthlyPrice   Decimal? @db.Decimal(10, 2)
+  commission     Decimal? @db.Decimal(10, 2)
+  instructions   String?  @db.Text
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  accounts     ClientProcessorAccount[]
+
+  @@index([organizationId, active])
+  @@index([organizationId, name])
+}
+
+/** Cuenta del cliente en un procesador externo (sin passwords en claro). */
+model ClientProcessorAccount {
+  id               String                  @id @default(cuid())
+  organizationId   String
+  processorId      String
+  clientId         String
+  caseId           String?
+  externalMemberId String?
+  externalUrl      String?                 @db.Text
+  status           ProcessorAccountStatus  @default(PLANNED)
+  startedAt        DateTime?
+  expiresAt        DateTime?
+  notes            String?                 @db.Text
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  processor    CreditProcessor @relation(fields: [processorId], references: [id], onDelete: Cascade)
+  client       Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  case         CreditCase?     @relation(fields: [caseId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, clientId])
+  @@index([processorId, status])
+  @@index([caseId])
+}
+
+/** Pipeline comercial separado del WorkflowStage de CreditCase. */
+model Opportunity {
+  id              String           @id @default(cuid())
+  organizationId  String
+  clientId        String
+  ownerId         String?
+  stage           OpportunityStage @default(NEW_LEAD)
+  estimatedValue  Decimal?         @db.Decimal(12, 2)
+  source          String?
+  campaign        String?
+  lostReason      String?          @db.Text
+  nextFollowUpAt  DateTime?
+  wonCaseId       String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  owner        User?        @relation("OpportunityOwner", fields: [ownerId], references: [id], onDelete: SetNull)
+  wonCase      CreditCase?  @relation(fields: [wonCaseId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, stage, updatedAt])
+  @@index([organizationId, ownerId])
+  @@index([clientId, stage])
+  @@index([organizationId, nextFollowUpAt])
+}
+
+/** Idempotencia de leads Meta (Facebook/Instagram Lead Ads). */
+model MetaLeadEvent {
+  id             String   @id @default(cuid())
+  organizationId String
+  externalLeadId String
+  pageId         String?
+  formId         String?
+  adId           String?
+  adsetId        String?
+  campaignId     String?
+  clientId       String?
+  opportunityId  String?
+  payloadJson    Json?
+  processedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, externalLeadId])
+  @@index([organizationId, processedAt])
+  @@index([clientId])
+}
+
 /** Reporte de crédito estructurado (metadata; el PDF sigue en Document). */
 model CreditReport {
   id               String           @id @default(cuid())
@@ -968,6 +1413,8 @@ model CreditReport {
   document     Document?               @relation(fields: [documentId], references: [id], onDelete: SetNull)
   snapshots    CreditBureauSnapshot[]
   items        CreditItem[]
+  comparisonsAsBase    ReportComparison[] @relation("ComparisonBaseReport")
+  comparisonsAsCompare ReportComparison[] @relation("ComparisonCompareReport")
 
   @@index([organizationId, caseId])
   @@index([organizationId, clientId])
@@ -1029,6 +1476,9 @@ model CreditItem {
   client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   case         CreditCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
   report       CreditReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  disputeItems DisputeItem[]
+  comparisonBaseItems    ReportComparisonItem[] @relation("ComparisonBaseItem")
+  comparisonCompareItems ReportComparisonItem[] @relation("ComparisonCompareItem")
 
   @@index([organizationId, caseId])
   @@index([organizationId, clientId])
@@ -1036,6 +1486,175 @@ model CreditItem {
   @@index([caseId, isNegative])
   @@index([organizationId, lifecycleStatus])
   @@index([caseId, bureau])
+}
+
+/** Elemento incluido en una ronda de disputa. */
+model DisputeItem {
+  id              String            @id @default(cuid())
+  organizationId  String
+  roundId         String
+  creditItemId    String
+  bureau          CreditBureau
+  disputeReason   String
+  disputeDetails  String?           @db.Text
+  status          DisputeItemStatus @default(SELECTED)
+  outcome         DisputeOutcome?
+  notes           String?           @db.Text
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  round        CreditRound  @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  creditItem   CreditItem   @relation(fields: [creditItemId], references: [id], onDelete: Cascade)
+  letterLinks  DisputeLetterItem[]
+
+  @@unique([roundId, creditItemId])
+  @@index([organizationId, roundId])
+  @@index([creditItemId])
+  @@index([roundId, status])
+  @@index([roundId, outcome])
+}
+
+/** Comparación entre dos reportes de un caso. */
+model ReportComparison {
+  id              String   @id @default(cuid())
+  organizationId  String
+  caseId          String
+  baseReportId    String
+  compareReportId String
+  createdById     String?
+  notes           String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization  Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case          CreditCase            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  baseReport    CreditReport          @relation("ComparisonBaseReport", fields: [baseReportId], references: [id], onDelete: Cascade)
+  compareReport CreditReport          @relation("ComparisonCompareReport", fields: [compareReportId], references: [id], onDelete: Cascade)
+  createdBy     User?                 @relation("ComparisonCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  items         ReportComparisonItem[]
+
+  @@unique([baseReportId, compareReportId])
+  @@index([organizationId, caseId])
+  @@index([caseId, createdAt])
+}
+
+/** Resultado por cuenta dentro de una comparación (auto + override manual). */
+model ReportComparisonItem {
+  id                   String               @id @default(cuid())
+  comparisonId         String
+  baseItemId           String?
+  compareItemId        String?
+  autoResult           ComparisonResultKind
+  manualResult         ComparisonResultKind?
+  matchKey             String
+  creditorName         String
+  bureau               CreditBureau
+  accountNumberMasked  String?
+  notes                String?              @db.Text
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+
+  comparison  ReportComparison @relation(fields: [comparisonId], references: [id], onDelete: Cascade)
+  baseItem    CreditItem?      @relation("ComparisonBaseItem", fields: [baseItemId], references: [id], onDelete: SetNull)
+  compareItem CreditItem?      @relation("ComparisonCompareItem", fields: [compareItemId], references: [id], onDelete: SetNull)
+
+  @@index([comparisonId])
+  @@index([comparisonId, autoResult])
+  @@index([matchKey])
+}
+
+/** Plantilla de carta de disputa (variables {{client.fullName}}, etc.). */
+model DisputeLetterTemplate {
+  id             String         @id @default(cuid())
+  organizationId String
+  name           String
+  bureau         CreditBureau?
+  subject        String
+  content        String         @db.LongText
+  version        Int            @default(1)
+  active         Boolean        @default(true)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  letters      DisputeLetter[]
+
+  @@index([organizationId, active])
+  @@index([organizationId, bureau])
+}
+
+/** Carta generada para una ronda (revisión humana obligatoria antes de FINAL/SENT). */
+model DisputeLetter {
+  id               String              @id @default(cuid())
+  organizationId   String
+  roundId          String
+  bureau           CreditBureau
+  templateId       String?
+  recipient        String
+  subjectSnapshot  String
+  contentSnapshot  String              @db.LongText
+  status           DisputeLetterStatus @default(DRAFT)
+  generatedAt      DateTime            @default(now())
+  finalizedAt      DateTime?
+  sentAt           DateTime?
+  trackingNumber   String?
+  documentId       String?
+  notes            String?             @db.Text
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  organization Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  round        CreditRound           @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  template     DisputeLetterTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  document     Document?             @relation(fields: [documentId], references: [id], onDelete: SetNull)
+  items        DisputeLetterItem[]
+
+  @@index([organizationId, roundId])
+  @@index([roundId, bureau])
+  @@index([roundId, status])
+  @@index([documentId])
+}
+
+model DisputeLetterItem {
+  id            String @id @default(cuid())
+  letterId      String
+  disputeItemId String
+
+  letter      DisputeLetter @relation(fields: [letterId], references: [id], onDelete: Cascade)
+  disputeItem DisputeItem   @relation(fields: [disputeItemId], references: [id], onDelete: Cascade)
+
+  @@unique([letterId, disputeItemId])
+  @@index([disputeItemId])
+}
+
+/** Snapshot de reporte visual al cliente (HTML en CRM; PDF solo on-demand). */
+model ClientProgressReport {
+  id             String    @id @default(cuid())
+  organizationId String
+  caseId         String
+  roundId        String?
+  createdById    String?
+  clientName     String
+  caseCode       String
+  periodLabel    String
+  roundLabel     String
+  reportDate     DateTime  @default(now())
+  scoresJson     Json
+  resultsJson    Json
+  resultLinesJson Json
+  nextSteps      String    @db.Text
+  nextReviewAt   DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case         CreditCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  round        CreditRound? @relation(fields: [roundId], references: [id], onDelete: SetNull)
+  createdBy    User?        @relation("ProgressReportCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, caseId, createdAt])
+  @@index([roundId, createdAt])
 }
 
 model AiChat {

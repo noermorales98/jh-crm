@@ -27,6 +27,14 @@ export const PERMISSION_ACTIONS = [
   "mails.view",
   "creditReports.view",
   "creditItems.view",
+  "disputes.view",
+  "comparisons.view",
+  "letters.view",
+  "opportunities.view",
+  "processors.view",
+  "attribution.view",
+  "consultations.view",
+  "contracts.view",
   // Escritura operativa
   "clients.create",
   "clients.edit",
@@ -39,6 +47,13 @@ export const PERMISSION_ACTIONS = [
   "mails.manage",
   "creditReports.manage",
   "creditItems.manage",
+  "disputes.manage",
+  "comparisons.manage",
+  "letters.manage",
+  "opportunities.manage",
+  "processors.manage",
+  "consultations.manage",
+  "contracts.manage",
   // Datos sensibles
   "sensitive.view",
   "sensitive.edit",
@@ -49,6 +64,7 @@ export const PERMISSION_ACTIONS = [
   "audit.view",
   "catalog.manage",
   "settings.manage",
+  "portal.manage",
 ] as const;
 
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
@@ -67,7 +83,17 @@ const ALL_READ: PermissionAction[] = [
   "mails.view",
   "creditReports.view",
   "creditItems.view",
+  "disputes.view",
+  "comparisons.view",
+  "letters.view",
+  "opportunities.view",
+  "processors.view",
+  "consultations.view",
+  "contracts.view",
 ];
+
+/** STAFF+ (no VIEWER): atribución / marketing. */
+const STAFF_PLUS_READ: PermissionAction[] = ["attribution.view"];
 
 const STAFF_WRITE: PermissionAction[] = [
   "clients.create",
@@ -81,6 +107,12 @@ const STAFF_WRITE: PermissionAction[] = [
   "mails.manage",
   "creditReports.manage",
   "creditItems.manage",
+  "disputes.manage",
+  "comparisons.manage",
+  "letters.manage",
+  "opportunities.manage",
+  "consultations.manage",
+  "contracts.manage",
 ];
 
 const SENSITIVE: PermissionAction[] = [
@@ -89,19 +121,40 @@ const SENSITIVE: PermissionAction[] = [
   "documents.downloadSensitive",
 ];
 
+/** Catálogo + procesadores + portal: ADMIN/OWNER; SPECIALIST también gestiona procesadores. */
 const ADMIN_ONLY: PermissionAction[] = [
   "receipts.void",
   "users.manage",
   "audit.view",
   "catalog.manage",
   "settings.manage",
+  "processors.manage",
+  "portal.manage",
 ];
 
 const MATRIX: Record<Role, ReadonlySet<PermissionAction>> = {
-  OWNER: new Set([...ALL_READ, ...STAFF_WRITE, ...SENSITIVE, ...ADMIN_ONLY]),
-  ADMIN: new Set([...ALL_READ, ...STAFF_WRITE, ...SENSITIVE, ...ADMIN_ONLY]),
-  SPECIALIST: new Set([...ALL_READ, ...STAFF_WRITE, ...SENSITIVE]),
-  STAFF: new Set([...ALL_READ, ...STAFF_WRITE]),
+  OWNER: new Set([
+    ...ALL_READ,
+    ...STAFF_PLUS_READ,
+    ...STAFF_WRITE,
+    ...SENSITIVE,
+    ...ADMIN_ONLY,
+  ]),
+  ADMIN: new Set([
+    ...ALL_READ,
+    ...STAFF_PLUS_READ,
+    ...STAFF_WRITE,
+    ...SENSITIVE,
+    ...ADMIN_ONLY,
+  ]),
+  SPECIALIST: new Set([
+    ...ALL_READ,
+    ...STAFF_PLUS_READ,
+    ...STAFF_WRITE,
+    ...SENSITIVE,
+    "processors.manage",
+  ]),
+  STAFF: new Set([...ALL_READ, ...STAFF_PLUS_READ, ...STAFF_WRITE]),
   VIEWER: new Set(ALL_READ),
 };
 

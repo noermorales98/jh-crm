@@ -22,9 +22,9 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "J&H MultiServices LLC — Consultoría por $1 USD",
+  title: "J&H MultiServices LLC — Análisis y reparación de crédito",
   description:
-    "J&H MultiServices LLC: consulta inicial por $1 USD. Formación de LLC, páginas web, consultoría personalizada y proyectos de negocio.",
+    "Análisis crediticio, reparación de crédito y educación. Consulta inicial por $1 USD. Sin promesas de puntaje. J&H MultiServices LLC.",
 };
 
 export default function HomePage() {

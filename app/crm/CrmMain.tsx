@@ -14,7 +14,7 @@ export function CrmMain({ children }: { children: ReactNode }) {
       className={
         chatDetail
           ? "flex h-[calc(100dvh-3.5rem)] min-h-0 flex-col overflow-hidden outline-none lg:h-[calc(100dvh-4rem)]"
-          : "flex-1 px-4 py-5 outline-none lg:px-8 lg:py-6"
+          : "mx-auto w-full max-w-[1600px] flex-1 px-4 py-5 outline-none sm:px-5 lg:px-8 lg:py-7"
       }
     >
       {children}

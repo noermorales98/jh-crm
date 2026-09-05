@@ -7,6 +7,10 @@ declare module "next-auth" {
       id: string;
       currentOrganizationId: string | null;
       role: Role | null;
+      /** Presente solo en sesiones del portal de clientes. */
+      portalAudience?: "portal";
+      portalAccessId?: string | null;
+      clientId?: string | null;
     } & DefaultSession["user"];
   }
 
@@ -14,6 +18,9 @@ declare module "next-auth" {
     currentOrganizationId?: string | null;
     role?: Role | null;
     sessionVersion?: number;
+    portalAudience?: "portal";
+    portalAccessId?: string | null;
+    clientId?: string | null;
   }
 }
 
@@ -25,5 +32,8 @@ declare module "@auth/core/jwt" {
     currentOrganizationId?: string | null;
     role?: Role | null;
     sessionVersion?: number;
+    portalAudience?: "portal";
+    portalAccessId?: string | null;
+    clientId?: string | null;
   }
 }

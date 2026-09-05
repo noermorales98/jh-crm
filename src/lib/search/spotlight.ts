@@ -260,6 +260,14 @@ const CATALOG: CatalogEntry[] = [
     aliases: ["notificaciones", "whatsapp", "smtp", "callmebot"],
     permission: "settings.manage",
   },
+  {
+    id: "set-seguridad",
+    kind: "setting",
+    title: "Seguridad",
+    subtitle: "MFA / autenticación en dos pasos",
+    href: "/crm/configuracion/seguridad",
+    aliases: ["seguridad", "mfa", "2fa", "totp", "autenticacion"],
+  },
 ];
 
 export function normalizeQuery(value: string): string {

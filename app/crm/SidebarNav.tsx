@@ -5,16 +5,22 @@ import { usePathname, useSearchParams } from "next/navigation";
 import {
   Archive,
   Briefcase,
+  CalendarClock,
   ChevronDown,
   ClipboardList,
   CreditCard,
+  Cpu,
   FileText,
+  Headphones,
   Home,
   Inbox,
+  Kanban,
+  Megaphone,
   MessageCircle,
   Package,
   Receipt,
   RefreshCcw,
+  Scale,
   Send,
   Settings,
   ShieldAlert,
@@ -47,6 +53,15 @@ const NAV_SECTIONS: readonly NavSection[] = [
     ],
   },
   {
+    label: "Comercial",
+    items: [
+      { href: "/crm/oportunidades", label: "Oportunidades", icon: Kanban },
+      { href: "/crm/consultas", label: "Consultas", icon: Headphones },
+      { href: "/crm/procesadores", label: "Procesadores", icon: Cpu },
+      { href: "/crm/atribucion", label: "Atribución", icon: Megaphone },
+    ],
+  },
+  {
     label: "Operación",
     items: [
       { href: "/crm/clientes", label: "Clientes", icon: Users },
@@ -66,8 +81,13 @@ const NAV_SECTIONS: readonly NavSection[] = [
     label: "Finanzas",
     items: [
       { href: "/crm/pagos", label: "Pagos", icon: CreditCard },
+      { href: "/crm/planes-pago", label: "Planes de pago", icon: CalendarClock },
       { href: "/crm/recibos", label: "Recibos", icon: Receipt },
     ],
+  },
+  {
+    label: "Legal",
+    items: [{ href: "/crm/contratos", label: "Contratos", icon: Scale }],
   },
 ];
 
@@ -88,7 +108,7 @@ const MAIL_FOLDERS: readonly {
 const MAIL_HREF = "/crm/mails?folder=inbox";
 
 const linkClass = (active: boolean, extra = "") =>
-  `flex min-h-10 items-center gap-2.5 rounded-control px-3 py-2 text-sm transition-colors duration-200 motion-reduce:transition-none ${
+  `flex min-h-11 items-center gap-2.5 rounded-control px-3 py-2.5 text-sm transition-colors duration-200 motion-reduce:transition-none ${
     active
       ? "bg-nav-active font-semibold text-action-primary"
       : "font-medium text-ink hover:bg-nav-hover"

@@ -6,6 +6,8 @@ import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import * as caseService from "@/src/server/cases";
 import * as creditReports from "@/src/server/credit-reports";
+import * as comparisons from "@/src/server/comparisons";
+import * as progressService from "@/src/server/progress-reports";
 import { DomainError } from "@/src/server/errors";
 import {
   Card,
@@ -26,6 +28,8 @@ import {
   labelFor,
 } from "@/src/lib/labels";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
+import { CreateComparisonButton } from "@/src/components/comparisons/create-comparison-button";
+import { GenerateProgressReportButton } from "@/src/components/letters/generate-progress-report-button";
 import { ScoreEvolutionChart } from "@/src/components/credit-reports/score-evolution-chart";
 import { CaseHeader } from "../case-header";
 
@@ -66,7 +70,16 @@ export default async function CaseCreditPage({
   }
 
   const overview = await creditReports.getCaseCreditOverview(ctx, caseId);
+  const comparisonList = can(ctx.role, "comparisons.view")
+    ? await comparisons.listComparisonsForCase(ctx, caseId)
+    : [];
   const canManage = can(ctx.role, "creditReports.manage");
+  const canCompare = can(ctx.role, "comparisons.manage");
+  const canLetters = can(ctx.role, "letters.manage");
+  const canViewLetters = can(ctx.role, "letters.view");
+  const progressReports = canViewLetters
+    ? await progressService.listProgressReportsForCase(ctx, caseId)
+    : [];
   const { case: creditCase } = detail;
 
   const chartHistory = overview.history.map((row) => ({
@@ -79,7 +92,26 @@ export default async function CaseCreditPage({
     <div className="space-y-6">
       <CaseHeader
         creditCase={creditCase}
-        actions={canManage ? <CreateCreditReportButton caseId={creditCase.id} /> : null}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canLetters ? (
+              <GenerateProgressReportButton caseId={creditCase.id} />
+            ) : null}
+            {canCompare ? (
+              <CreateComparisonButton
+                caseId={creditCase.id}
+                reports={overview.reports.map((r) => ({
+                  id: r.id,
+                  reportDate: r.reportDate,
+                  type: r.type,
+                }))}
+              />
+            ) : null}
+            {canManage ? (
+              <CreateCreditReportButton caseId={creditCase.id} />
+            ) : null}
+          </div>
+        }
       />
 
       <Card>
@@ -224,6 +256,134 @@ export default async function CaseCreditPage({
           </Table>
         )}
       </Card>
+
+      {canViewLetters ? (
+        <Card>
+          <CardHeader
+            title="Reportes de progreso"
+            description="Historial de snapshots para el cliente (HTML; PDF bajo demanda)."
+          />
+          {progressReports.length === 0 ? (
+            <EmptyState
+              icon={LineChart}
+              title="Sin reportes de progreso"
+              description="Genera un resumen visual con puntajes y resultados."
+              action={
+                canLetters ? (
+                  <GenerateProgressReportButton caseId={creditCase.id} />
+                ) : null
+              }
+            />
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Fecha</TH>
+                  <TH>Periodo</TH>
+                  <TH>Ronda</TH>
+                  <TH className="text-right">Acciones</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {progressReports.map((report) => (
+                  <TR key={report.id}>
+                    <TD className="tabular-nums text-sm">
+                      {formatDate(report.reportDate)}
+                    </TD>
+                    <TD className="text-sm text-text-secondary">
+                      {report.periodLabel}
+                    </TD>
+                    <TD className="text-sm text-text-secondary">
+                      {report.roundLabel}
+                    </TD>
+                    <TD className="text-right">
+                      <div className="flex flex-wrap items-center justify-end gap-3">
+                        <Link
+                          href={`/crm/casos/${caseId}/reportes/${report.id}`}
+                          className="text-sm font-medium text-action-primary"
+                        >
+                          Ver
+                        </Link>
+                        <a
+                          href={`/api/progress-reports/${report.id}/pdf`}
+                          className="text-sm font-medium text-action-primary"
+                        >
+                          PDF
+                        </a>
+                      </div>
+                    </TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </Card>
+      ) : null}
+
+      {can(ctx.role, "comparisons.view") ? (
+        <Card>
+          <CardHeader
+            title="Comparaciones"
+            description="Resultados entre reportes (base vs actualizado)."
+          />
+          {comparisonList.length === 0 ? (
+            <EmptyState
+              icon={LineChart}
+              title="Sin comparaciones"
+              description="Necesitas al menos dos reportes para comparar."
+              action={
+                canCompare ? (
+                  <CreateComparisonButton
+                    caseId={creditCase.id}
+                    reports={overview.reports.map((r) => ({
+                      id: r.id,
+                      reportDate: r.reportDate,
+                      type: r.type,
+                    }))}
+                  />
+                ) : null
+              }
+            />
+          ) : (
+            <Table>
+              <THead>
+                <TR>
+                  <TH>Fecha</TH>
+                  <TH>Base</TH>
+                  <TH>Actualizado</TH>
+                  <TH>Ítems</TH>
+                </TR>
+              </THead>
+              <TBody>
+                {comparisonList.map((cmp) => (
+                  <TR key={cmp.id}>
+                    <TD>
+                      <Link
+                        href={`/crm/casos/${caseId}/comparaciones/${cmp.id}`}
+                        className="font-medium text-action-primary hover:text-action-secondary"
+                      >
+                        {formatDate(cmp.createdAt)}
+                      </Link>
+                    </TD>
+                    <TD className="text-text-secondary">
+                      {formatDate(cmp.baseReport.reportDate)} ·{" "}
+                      {labelFor(CREDIT_REPORT_TYPE_LABELS, cmp.baseReport.type)}
+                    </TD>
+                    <TD className="text-text-secondary">
+                      {formatDate(cmp.compareReport.reportDate)} ·{" "}
+                      {labelFor(
+                        CREDIT_REPORT_TYPE_LABELS,
+                        cmp.compareReport.type,
+                      )}
+                    </TD>
+                    <TD className="tabular-nums">{cmp._count.items}</TD>
+                  </TR>
+                ))}
+              </TBody>
+            </Table>
+          )}
+        </Card>
+      ) : null}
     </div>
   );
 }

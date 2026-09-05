@@ -2,11 +2,17 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Loader2 } from "lucide-react";
-import { Alert, Button, Field, Input } from "@/src/components/ui";
+import { Alert, Button, Field, Input, Select, Textarea } from "@/src/components/ui";
 import {
   INTAKE_CONSENT,
   hashIntakeConsentText,
 } from "@/src/lib/intake/consent";
+import {
+  DOCUMENT_CATEGORY_LABELS,
+  INTAKE_PRIMARY_GOAL_LABELS,
+  labelFor,
+} from "@/src/lib/labels";
+import { INTAKE_PRIMARY_GOALS } from "@/src/lib/validation/intake-payload";
 
 type FormDataPayload = {
   organizationName: string;
@@ -14,13 +20,37 @@ type FormDataPayload = {
   hasCase: boolean;
 };
 
+type DocCategory =
+  | "IDENTITY"
+  | "PROOF_OF_ADDRESS"
+  | "SSN_DOCUMENT"
+  | "CREDIT_REPORT"
+  | "OTHER";
+
 type PendingDoc = {
   storageKey: string;
   originalName: string;
   mimeType: string;
   sizeBytes: number;
-  category: "IDENTITY" | "PROOF_OF_ADDRESS" | "SSN_DOCUMENT" | "OTHER";
+  category: DocCategory;
 };
+
+const DOC_CATEGORIES: DocCategory[] = [
+  "IDENTITY",
+  "PROOF_OF_ADDRESS",
+  "SSN_DOCUMENT",
+  "CREDIT_REPORT",
+  "OTHER",
+];
+
+const FLAG_FIELDS = [
+  { key: "hasCollection", label: "Colecciones" },
+  { key: "hasChargeOff", label: "Charge-offs" },
+  { key: "hasLatePayments", label: "Pagos atrasados" },
+  { key: "hasRepossession", label: "Reposesión" },
+  { key: "hasBankruptcy", label: "Bancarrota" },
+  { key: "hasHardInquiries", label: "Consultas duras" },
+] as const;
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png"];
 const MAX_BYTES = 15 * 1024 * 1024;
@@ -37,6 +67,11 @@ export function IntakeForm({ token }: { token: string }) {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [postalCode, setPostalCode] = useState("");
+  const [primaryGoal, setPrimaryGoal] = useState<string>("");
+  const [consultationReason, setConsultationReason] = useState("");
+  const [flags, setFlags] = useState<Record<string, boolean>>({});
+  const [reportProvider, setReportProvider] = useState("");
+  const [hasRecentReportAccess, setHasRecentReportAccess] = useState(false);
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [docs, setDocs] = useState<PendingDoc[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -121,7 +156,7 @@ export function IntakeForm({ token }: { token: string }) {
           originalName: json.data.originalName || file.name,
           mimeType: json.data.mimeType || file.type,
           sizeBytes: json.data.sizeBytes || file.size,
-          category: "OTHER",
+          category: "IDENTITY",
         },
       ]);
     } catch (err) {
@@ -142,6 +177,19 @@ export function IntakeForm({ token }: { token: string }) {
     setPending(true);
     try {
       const textHash = await hashIntakeConsentText(INTAKE_CONSENT.text);
+      const payload = {
+        ...(primaryGoal ? { primaryGoal } : {}),
+        ...(consultationReason.trim()
+          ? { consultationReason: consultationReason.trim() }
+          : {}),
+        ...Object.fromEntries(
+          FLAG_FIELDS.map(({ key }) => [key, Boolean(flags[key])]),
+        ),
+        ...(reportProvider.trim()
+          ? { reportProvider: reportProvider.trim() }
+          : {}),
+        hasRecentReportAccess,
+      };
       const res = await fetch(
         `/api/public/intake/${encodeURIComponent(token)}/submit`,
         {
@@ -156,6 +204,7 @@ export function IntakeForm({ token }: { token: string }) {
             city,
             state,
             postalCode,
+            payload,
             consent: {
               consentType: INTAKE_CONSENT.consentType,
               version: INTAKE_CONSENT.version,
@@ -283,10 +332,82 @@ export function IntakeForm({ token }: { token: string }) {
         </Field>
       </div>
 
+      <Field label="Meta principal" htmlFor="primaryGoal">
+        <Select
+          id="primaryGoal"
+          value={primaryGoal}
+          onChange={(e) => setPrimaryGoal(e.target.value)}
+        >
+          <option value="">Seleccionar…</option>
+          {INTAKE_PRIMARY_GOALS.map((goal) => (
+            <option key={goal} value={goal}>
+              {labelFor(INTAKE_PRIMARY_GOAL_LABELS, goal)}
+            </option>
+          ))}
+        </Select>
+      </Field>
+
+      <Field label="Motivo de la consulta" htmlFor="consultationReason">
+        <Textarea
+          id="consultationReason"
+          value={consultationReason}
+          onChange={(e) => setConsultationReason(e.target.value)}
+          rows={3}
+          maxLength={2000}
+          placeholder="Cuéntanos tu situación crediticia…"
+        />
+      </Field>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-ink">
+          ¿Tienes alguno de estos problemas?
+        </legend>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {FLAG_FIELDS.map(({ key, label }) => (
+            <label
+              key={key}
+              className="flex items-center gap-2 text-sm text-ink"
+            >
+              <input
+                type="checkbox"
+                className="size-4 rounded border-border-subtle"
+                checked={Boolean(flags[key])}
+                onChange={(e) =>
+                  setFlags((prev) => ({ ...prev, [key]: e.target.checked }))
+                }
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Proveedor del reporte" htmlFor="reportProvider">
+          <Input
+            id="reportProvider"
+            value={reportProvider}
+            onChange={(e) => setReportProvider(e.target.value)}
+            placeholder="SmartCredit, AnnualCreditReport…"
+            maxLength={100}
+          />
+        </Field>
+        <label className="flex items-end gap-2 pb-2 text-sm text-ink">
+          <input
+            type="checkbox"
+            className="size-4 rounded border-border-subtle"
+            checked={hasRecentReportAccess}
+            onChange={(e) => setHasRecentReportAccess(e.target.checked)}
+          />
+          Tengo acceso reciente al reporte
+        </label>
+      </div>
+
       <div className="space-y-2">
         <p className="text-sm font-medium text-ink">Documentos (opcional)</p>
         <p className="text-xs text-text-secondary">
-          PDF, JPG o PNG · máximo 15 MB cada uno.
+          PDF, JPG o PNG · máximo 15 MB cada uno. Elige la categoría de cada
+          archivo.
         </p>
         <input
           ref={fileRef}
@@ -306,10 +427,35 @@ export function IntakeForm({ token }: { token: string }) {
           </p>
         ) : null}
         {docs.length > 0 ? (
-          <ul className="space-y-1 text-sm text-text-secondary-strong">
+          <ul className="space-y-2">
             {docs.map((doc) => (
-              <li key={doc.storageKey} className="truncate">
-                {doc.originalName}
+              <li
+                key={doc.storageKey}
+                className="flex flex-col gap-1 rounded-control bg-surface-panel px-3 py-2 sm:flex-row sm:items-center sm:gap-3"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm text-text-secondary-strong">
+                  {doc.originalName}
+                </span>
+                <Select
+                  className="sm:w-48"
+                  value={doc.category}
+                  onChange={(e) => {
+                    const category = e.target.value as DocCategory;
+                    setDocs((prev) =>
+                      prev.map((d) =>
+                        d.storageKey === doc.storageKey
+                          ? { ...d, category }
+                          : d,
+                      ),
+                    );
+                  }}
+                >
+                  {DOC_CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>
+                      {labelFor(DOCUMENT_CATEGORY_LABELS, cat)}
+                    </option>
+                  ))}
+                </Select>
               </li>
             ))}
           </ul>

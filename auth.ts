@@ -9,13 +9,20 @@ import {
   isTokenSessionCurrent,
   loadAuthTokenState,
 } from "@/src/server/auth/session";
+import {
+  authenticatePortal,
+  loadPortalTokenState,
+} from "@/src/server/portal";
+import { clientFullName } from "@/src/server/page-helpers";
 
 /**
- * NextAuth v5 — Credentials contra User.passwordHash (bcryptjs).
- * La sesión JWT carga user.id, currentOrganizationId, role y sessionVersion.
- * organizationId siempre proviene de la sesión, nunca del cliente.
- * La cookie no caduca en la práctica (10 años); la expulsión real es
- * isActive=false o sessionVersion distinto (desactivar / cambiar rol).
+ * NextAuth v5 — dual Credentials:
+ * - id "credentials": staff (User.passwordHash)
+ * - id "portal": clientes (ClientPortalAccess)
+ *
+ * La sesión JWT carga user.id, currentOrganizationId, role/sessionVersion
+ * (staff) o portalAudience/clientId (portal). organizationId siempre
+ * proviene de la sesión, nunca del cliente.
  */
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -23,6 +30,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   jwt: { maxAge: SESSION_MAX_AGE_SECONDS },
   providers: [
     Credentials({
+      id: "credentials",
       name: "Credenciales",
       credentials: {
         email: { label: "Correo electrónico", type: "email" },
@@ -66,6 +74,46 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         };
       },
     }),
+    Credentials({
+      id: "portal",
+      name: "Portal",
+      credentials: {
+        email: { label: "Correo electrónico", type: "email" },
+        password: { label: "Contraseña", type: "password" },
+        audience: { label: "Audiencia", type: "text" },
+      },
+      async authorize(credentials) {
+        const audience =
+          typeof credentials?.audience === "string"
+            ? credentials.audience
+            : "";
+        if (audience !== "portal") return null;
+
+        const parsed = loginSchema.safeParse({
+          email: credentials?.email,
+          password: credentials?.password,
+        });
+        if (!parsed.success) return null;
+
+        const access = await authenticatePortal(
+          parsed.data.email,
+          parsed.data.password,
+        );
+        if (!access) return null;
+
+        return {
+          id: access.id,
+          email: access.email,
+          name: clientFullName(access.client),
+          currentOrganizationId: access.organizationId,
+          role: null,
+          sessionVersion: access.sessionVersion,
+          portalAudience: "portal" as const,
+          portalAccessId: access.id,
+          clientId: access.clientId,
+        };
+      },
+    }),
   ],
   callbacks: {
     ...authConfig.callbacks,
@@ -75,11 +123,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.currentOrganizationId = user.currentOrganizationId ?? null;
         token.role = user.role ?? null;
         token.sessionVersion = user.sessionVersion;
+        if (user.portalAudience === "portal") {
+          token.portalAudience = "portal";
+          token.portalAccessId = user.portalAccessId ?? user.id;
+          token.clientId = user.clientId ?? null;
+        } else {
+          delete token.portalAudience;
+          delete token.portalAccessId;
+          delete token.clientId;
+        }
         if (token.userId && !token.sub) token.sub = String(token.userId);
         return token;
       }
 
       if (!token.userId) return token;
+
+      // Portal: validar ClientPortalAccess, no User.
+      if (token.portalAudience === "portal") {
+        const accessId =
+          (typeof token.portalAccessId === "string" && token.portalAccessId) ||
+          token.userId;
+        const state = await loadPortalTokenState(accessId);
+        const valid =
+          state !== null &&
+          isTokenSessionCurrent(token.sessionVersion, state.sessionVersion);
+        if (!valid) return {};
+        token.currentOrganizationId = state.organizationId;
+        token.clientId = state.clientId;
+        token.portalAccessId = state.accessId;
+        token.role = null;
+        if (token.userId && !token.sub) token.sub = String(token.userId);
+        return token;
+      }
 
       const state = await loadAuthTokenState(token.userId);
       const valid =
@@ -102,6 +177,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       session.user.id = token.userId;
       session.user.currentOrganizationId = token.currentOrganizationId ?? null;
       session.user.role = token.role ?? null;
+      if (token.portalAudience === "portal") {
+        session.user.portalAudience = "portal";
+        session.user.portalAccessId = token.portalAccessId ?? token.userId;
+        session.user.clientId = token.clientId ?? null;
+      } else {
+        delete session.user.portalAudience;
+        delete session.user.portalAccessId;
+        delete session.user.clientId;
+      }
       return session;
     },
   },

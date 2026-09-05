@@ -17,6 +17,7 @@ import {
   usPhoneSchema,
   usStateSchema,
 } from "@/src/lib/validation/common";
+import { intakePayloadSchema } from "@/src/lib/validation/intake-payload";
 
 const submitSchema = z.object({
   firstName: z.string().trim().min(1, "El nombre es obligatorio.").max(100),
@@ -28,6 +29,7 @@ const submitSchema = z.object({
   city: z.string().trim().max(100).optional().or(z.literal("")),
   state: usStateSchema,
   postalCode: postalCodeSchema,
+  payload: intakePayloadSchema.optional(),
   consent: z.object({
     consentType: z.string().trim().min(1).max(100),
     version: z.string().trim().min(1).max(50),
@@ -108,6 +110,7 @@ export async function POST(
         city: emptyToNull(body.city),
         state: emptyToNull(body.state),
         postalCode: emptyToNull(body.postalCode),
+        payload: body.payload,
         consent: body.consent,
         documents: body.documents ?? [],
       },

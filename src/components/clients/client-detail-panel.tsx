@@ -12,6 +12,7 @@ import {
   CardBody,
   CardHeader,
   EmptyState,
+  Pill,
   StagePill,
   StatusPill,
 } from "@/src/components/ui";
@@ -22,6 +23,14 @@ import { ClientHeader } from "@/app/crm/clientes/[clientId]/client-header";
 import { CreateIntakeLinkCard } from "@/src/components/intake/create-intake-link-card";
 import { isIntakeEnabled } from "@/src/server/intake";
 import { listClientIntakeLinks } from "@/src/server/intake/links";
+import * as processors from "@/src/server/processors";
+import { LinkProcessorButton } from "@/src/components/processors/link-processor-button";
+import { InvitePortalButton } from "@/src/components/portal/invite-portal-button";
+import { isPortalEnabled, getPortalAccess } from "@/src/server/portal";
+import {
+  labelFor,
+  PROCESSOR_ACCOUNT_STATUS_LABELS,
+} from "@/src/lib/labels";
 
 function DataItem({ label, value }: { label: string; value?: ReactNode }) {
   return (
@@ -52,6 +61,20 @@ export async function ClientDetailPanel({ clientId }: { clientId: string }) {
   const intakeLinks = intakeEnabled
     ? await listClientIntakeLinks(ctx, client.id)
     : [];
+  const canViewProcessors = can(ctx.role, "processors.view");
+  const canManageProcessors = can(ctx.role, "processors.manage");
+  const processorAccounts = canViewProcessors
+    ? await processors.listAccountsForClient(ctx, client.id)
+    : [];
+  const activeProcessors = canManageProcessors
+    ? await processors.listProcessors(ctx, false)
+    : [];
+  const canManagePortal = can(ctx.role, "portal.manage");
+  const portalEnabled = isPortalEnabled();
+  const portalAccess =
+    canManagePortal && portalEnabled
+      ? await getPortalAccess(ctx, client.id)
+      : null;
 
   const openCases = cases.filter((c) => c.state === "OPEN");
   const pendingPayments = recentPayments.filter((p) => p.status === "PENDING");
@@ -189,6 +212,91 @@ export async function ClientDetailPanel({ clientId }: { clientId: string }) {
                 <span className="font-medium">FEATURE_PUBLIC_INTAKE=true</span> en
                 el entorno y reinicia el servidor para generar enlaces.
               </Alert>
+            )}
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {canManagePortal ? (
+        <Card className="mt-4">
+          <CardHeader
+            title="Portal del cliente"
+            description="Invita al cliente a consultar progreso, documentos y pagos."
+          />
+          <CardBody>
+            {portalEnabled ? (
+              <InvitePortalButton
+                clientId={client.id}
+                defaultEmail={client.email}
+                access={portalAccess}
+              />
+            ) : (
+              <Alert tone="info">
+                El portal está desactivado. Activa{" "}
+                <span className="font-medium">FEATURE_CLIENT_PORTAL=true</span> en
+                el entorno y reinicia el servidor.
+              </Alert>
+            )}
+          </CardBody>
+        </Card>
+      ) : null}
+
+      {canViewProcessors ? (
+        <Card className="mt-4">
+          <CardHeader
+            title="Procesadores"
+            description="Cuentas externas vinculadas (sin contraseñas)."
+            actions={
+              canManageProcessors ? (
+                <LinkProcessorButton
+                  clientId={client.id}
+                  processors={activeProcessors.map((p) => ({
+                    id: p.id,
+                    name: p.name,
+                  }))}
+                />
+              ) : null
+            }
+          />
+          <CardBody>
+            {processorAccounts.length === 0 ? (
+              <p className="text-sm text-text-secondary">
+                Ningún procesador vinculado todavía.
+              </p>
+            ) : (
+              <ul className="divide-y divide-border-subtle">
+                {processorAccounts.map((account) => (
+                  <li
+                    key={account.id}
+                    className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
+                  >
+                    <div>
+                      <p className="text-sm font-medium text-ink">
+                        {account.processor.name}
+                      </p>
+                      <p className="text-xs text-text-secondary">
+                        {account.externalMemberId
+                          ? `ID: ${account.externalMemberId}`
+                          : "Sin ID externo"}
+                      </p>
+                    </div>
+                    <Pill
+                      tone={
+                        account.status === "ACTIVE"
+                          ? "green"
+                          : account.status === "PLANNED"
+                            ? "blue"
+                            : "slate"
+                      }
+                    >
+                      {labelFor(
+                        PROCESSOR_ACCOUNT_STATUS_LABELS,
+                        account.status,
+                      )}
+                    </Pill>
+                  </li>
+                ))}
+              </ul>
             )}
           </CardBody>
         </Card>

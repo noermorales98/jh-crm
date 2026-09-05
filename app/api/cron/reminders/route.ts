@@ -16,6 +16,9 @@ import { createNotification } from "@/src/server/notifications";
  *   - CreditCase.nextReviewAt hoy/vencida     → case:<id>:review:<YYYY-MM-DD>
  *   - CreditRound.expectedReviewAt hoy/vencida → round:<id>:review:<YYYY-MM-DD>
  *   - pagos PENDING con dueAt <= hoy          → payment:<id>:due
+ *   - cuotas PENDING vencidas                 → status OVERDUE
+ *   - intake activos sin uso >48 h            → tarea FOLLOW_UP
+ *   - casos DOCUMENTS_PENDING                 → tarea REQUEST_DOCUMENT
  */
 
 function ymd(date: Date, timezone: string): string {
@@ -188,6 +191,45 @@ export async function GET(request: Request) {
     }
   }
 
+  // 6. Cuotas de plan vencidas → OVERDUE
+  let overdueInstallments = 0;
+  try {
+    const { markOverdueInstallments } = await import("@/src/server/payment-plans");
+    overdueInstallments = await markOverdueInstallments(now);
+  } catch (error) {
+    errors.push(
+      error instanceof Error
+        ? `overdueInstallments: ${error.message}`
+        : "overdueInstallments: error",
+    );
+  }
+
+  // 7. Intake sin completar (>48 h) → tareas FOLLOW_UP
+  let intakeFollowUps = { scanned: 0, created: 0 };
+  try {
+    const { scanIncompleteIntakeFollowUps } = await import("@/src/server/automations");
+    intakeFollowUps = await scanIncompleteIntakeFollowUps(now);
+  } catch (error) {
+    errors.push(
+      error instanceof Error
+        ? `intakeFollowUps: ${error.message}`
+        : "intakeFollowUps: error",
+    );
+  }
+
+  // 8. Casos DOCUMENTS_PENDING sin tarea REQUEST_DOCUMENT
+  let docsPending = { scanned: 0, created: 0 };
+  try {
+    const { ensureDocsPendingTask } = await import("@/src/server/automations");
+    docsPending = await ensureDocsPendingTask();
+  } catch (error) {
+    errors.push(
+      error instanceof Error
+        ? `docsPending: ${error.message}`
+        : "docsPending: error",
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     data: {
@@ -197,6 +239,9 @@ export async function GET(request: Request) {
         casesToReview: casesToReview.length,
         roundsToReview: roundsToReview.length,
         duePayments: duePayments.length,
+        overdueInstallments,
+        intakeFollowUps,
+        docsPending,
       },
       notificationsWritten: created,
       errors,

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { RefreshCcw } from "lucide-react";
 import { requireOrganization } from "@/src/server/auth/guards";
@@ -61,7 +62,7 @@ export default async function CaseRoundsPage({
       <Card>
         <CardHeader
           title="Rondas de disputa"
-          description="Cada ronda se numera automáticamente dentro del caso. Al marcarla enviada puedes crear la tarea de revisión."
+          description="Cada ronda se numera automáticamente. Abre una ronda para seleccionar elementos y registrar resultados."
         />
         {rounds.length === 0 ? (
           <EmptyState
@@ -91,7 +92,12 @@ export default async function CaseRoundsPage({
               {rounds.map((round) => (
                 <TR key={round.id}>
                   <TD className="font-medium text-ink">
-                    Ronda {round.roundNumber}
+                    <Link
+                      href={`/crm/casos/${caseId}/rondas/${round.id}`}
+                      className="text-action-primary hover:text-action-secondary"
+                    >
+                      Ronda {round.roundNumber}
+                    </Link>
                   </TD>
                   <TD>
                     <StatusPill domain="round" value={round.status} />
@@ -106,7 +112,8 @@ export default async function CaseRoundsPage({
                     className={`whitespace-nowrap ${
                       round.expectedReviewAt &&
                       new Date(round.expectedReviewAt) < new Date() &&
-                      (round.status === "SENT" || round.status === "WAITING_UPDATE")
+                      (round.status === "SENT" ||
+                        round.status === "WAITING_UPDATE")
                         ? "font-medium text-danger-ink"
                         : "text-text-secondary"
                     }`}

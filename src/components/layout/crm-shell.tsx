@@ -91,7 +91,7 @@ export function CrmShell({
           id="crm-sidebar"
           aria-label="Navegación"
           inert={!drawerOpen ? true : undefined}
-          className={`crm-brand fixed inset-y-0 left-0 z-dropdown flex w-72 max-w-[85vw] flex-col bg-surface-panel transition-transform duration-200 ease-out motion-reduce:transition-none lg:z-auto lg:w-64 lg:max-w-none lg:translate-x-0 ${
+          className={`crm-brand fixed inset-y-0 left-0 z-dropdown flex w-72 max-w-[85vw] flex-col border-r border-border-subtle/70 bg-surface-panel transition-transform duration-200 ease-out motion-reduce:transition-none lg:z-auto lg:w-64 lg:max-w-none lg:translate-x-0 ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
         >

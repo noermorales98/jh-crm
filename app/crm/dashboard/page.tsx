@@ -7,7 +7,10 @@ import {
   CalendarClock,
   ClipboardList,
   CreditCard,
+  FileText,
   RefreshCcw,
+  Scale,
+  TrendingUp,
   Users,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -135,6 +138,132 @@ export default async function DashboardPage() {
           },
         ]}
       />
+
+      <section className="space-y-3" aria-labelledby="credit-attention-heading">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h2
+              id="credit-attention-heading"
+              className="text-base font-semibold text-ink"
+            >
+              Atención crédito
+            </h2>
+            <p className="text-sm text-text-secondary">
+              Prioridades operativas del pipeline crediticio.
+            </p>
+          </div>
+          <Link
+            href="/crm/casos"
+            className="shrink-0 text-[13px] font-medium text-action-primary hover:text-action-secondary"
+          >
+            Ver casos →
+          </Link>
+        </div>
+        <KpiStrip
+          items={[
+            {
+              href: widgets.documentsPendingCases.link,
+              icon: FileText,
+              label: "Docs pendientes",
+              value: widgets.documentsPendingCases.count,
+              attention:
+                widgets.documentsPendingCases.count > 0 ? "warning" : undefined,
+            },
+            {
+              href: widgets.reportsToReview.link,
+              icon: ClipboardList,
+              label: "Reportes a revisar",
+              value: widgets.reportsToReview.count,
+              hint: "UPDATE · 14 días",
+              attention:
+                widgets.reportsToReview.count > 0 ? "warning" : undefined,
+            },
+            {
+              href: widgets.roundsToPrepare.link,
+              icon: RefreshCcw,
+              label: "Rondas por preparar",
+              value: widgets.roundsToPrepare.count,
+            },
+            {
+              href: widgets.roundsWaitingUpdate.link,
+              icon: CalendarClock,
+              label: "Esperando update",
+              value: widgets.roundsWaitingUpdate.count,
+            },
+            {
+              href: widgets.overdueUpdates.link,
+              icon: AlertTriangle,
+              label: "Revisiones vencidas",
+              value: widgets.overdueUpdates.count,
+              attention:
+                widgets.overdueUpdates.count > 0 ? "danger" : undefined,
+            },
+            {
+              href: widgets.overduePayments.link,
+              icon: CreditCard,
+              label: "Pagos vencidos",
+              value: widgets.overduePayments.count,
+              attention:
+                widgets.overduePayments.count > 0 ? "danger" : undefined,
+            },
+          ]}
+        />
+        <div className="grid grid-cols-2 gap-px overflow-hidden rounded-surface bg-border-subtle sm:grid-cols-3 lg:grid-cols-5">
+          {[
+            {
+              href: widgets.newLeads.link,
+              icon: Users,
+              label: "Leads 7d",
+              value: widgets.newLeads.count,
+            },
+            {
+              href: widgets.conversions.link,
+              icon: TrendingUp,
+              label: "Ganadas 30d",
+              value: widgets.conversions.count,
+            },
+            {
+              href: widgets.disputedItems.link,
+              icon: Scale,
+              label: "Ítems en disputa",
+              value: widgets.disputedItems.count,
+            },
+            {
+              href: widgets.deletedItems.link,
+              icon: Scale,
+              label: "Eliminados",
+              value: widgets.deletedItems.count,
+            },
+            {
+              href: widgets.updatedItems.link,
+              icon: Scale,
+              label: "Actualizados",
+              value: widgets.updatedItems.count,
+            },
+          ].map((item) => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.label}
+                href={item.href}
+                className="flex items-center gap-3 bg-surface-elevated px-4 py-3 transition-colors hover:bg-nav-hover"
+              >
+                <span className="flex size-7 items-center justify-center rounded-control bg-nav-active text-action-primary">
+                  <Icon className="size-3.5" strokeWidth={1.75} aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-lg font-semibold tabular-nums text-ink">
+                    {item.value}
+                  </p>
+                  <p className="truncate text-xs text-text-secondary">
+                    {item.label}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Revisiones próximas: casos y rondas con fecha */}

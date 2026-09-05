@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { auth } from "@/auth";
 import type { Role } from "@prisma/client";
 import { can, type PermissionAction } from "./permissions";
+import type { PortalContext } from "@/src/server/portal";
+import { isPortalEnabled } from "@/src/server/portal";
 
 /**
  * Guards de servidor. Usar dentro de Server Actions, Route Handlers
@@ -94,4 +96,49 @@ export async function requireApiPermission(
     throw new ForbiddenError();
   }
   return ctx;
+}
+
+/** Sesión del portal de clientes (audience=portal). */
+export async function requirePortalSession(): Promise<PortalContext> {
+  if (!isPortalEnabled()) {
+    redirect("/portal/login");
+  }
+  const session = await auth();
+  const user = session?.user;
+  if (
+    !user?.id ||
+    user.portalAudience !== "portal" ||
+    !user.clientId ||
+    !user.currentOrganizationId
+  ) {
+    redirect("/portal/login");
+  }
+  return {
+    accessId: user.portalAccessId ?? user.id,
+    clientId: user.clientId,
+    organizationId: user.currentOrganizationId,
+    email: user.email ?? "",
+  };
+}
+
+export async function requireApiPortalSession(): Promise<PortalContext> {
+  if (!isPortalEnabled()) {
+    throw new ForbiddenError("El portal de clientes está desactivado.");
+  }
+  const session = await auth();
+  const user = session?.user;
+  if (
+    !user?.id ||
+    user.portalAudience !== "portal" ||
+    !user.clientId ||
+    !user.currentOrganizationId
+  ) {
+    throw new UnauthorizedError();
+  }
+  return {
+    accessId: user.portalAccessId ?? user.id,
+    clientId: user.clientId,
+    organizationId: user.currentOrganizationId,
+    email: user.email ?? "",
+  };
 }

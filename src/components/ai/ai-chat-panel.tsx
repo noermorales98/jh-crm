@@ -21,6 +21,8 @@ import { chatBlobatarName } from "@/src/lib/ai/blobatar-name";
 const SUGGESTIONS = [
   "Lista de mis clientes",
   "¿Qué pagos hay pendientes?",
+  "¿Qué requiere atención en crédito?",
+  "Progreso crediticio de un cliente",
   "¿Cómo agrego un cliente?",
 ];
 

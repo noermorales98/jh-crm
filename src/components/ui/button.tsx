@@ -12,13 +12,13 @@ export type ButtonSize = "sm" | "md";
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
-    "bg-action-primary font-semibold text-action-primary-foreground hover:bg-action-secondary disabled:opacity-50",
+    "bg-action-primary font-semibold text-action-primary-foreground hover:bg-action-secondary active:brightness-95 disabled:opacity-50",
   secondary:
-    "bg-surface-panel font-medium text-ink hover:bg-nav-active disabled:opacity-50",
+    "bg-surface-panel font-medium text-ink hover:bg-nav-active active:brightness-95 disabled:opacity-50",
   danger:
-    "bg-danger font-semibold text-white hover:bg-danger-hover disabled:opacity-50",
+    "bg-danger font-semibold text-white hover:bg-danger-hover active:brightness-95 disabled:opacity-50",
   ghost:
-    "font-medium text-text-secondary-strong hover:bg-surface-panel hover:text-ink disabled:opacity-50",
+    "font-medium text-text-secondary-strong hover:bg-surface-panel hover:text-ink active:bg-nav-hover disabled:opacity-50",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
@@ -30,7 +30,7 @@ export function buttonClasses(
   variant: ButtonVariant = "primary",
   size: ButtonSize = "md",
 ): string {
-  return `inline-flex items-center justify-center gap-1.5 rounded-control transition-colors duration-200 motion-reduce:transition-none disabled:cursor-not-allowed ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]}`;
+  return `inline-flex items-center justify-center gap-1.5 rounded-control transition-[colors,transform,filter] duration-200 ease-out motion-reduce:transition-none active:scale-[0.98] motion-reduce:active:scale-100 disabled:cursor-not-allowed disabled:active:scale-100 ${VARIANT_CLASSES[variant]} ${SIZE_CLASSES[size]}`;
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {

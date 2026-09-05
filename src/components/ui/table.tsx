@@ -49,7 +49,7 @@ export function TH({
   return (
     <th
       scope="col"
-      className={`px-4 py-2.5 text-left text-[13px] font-semibold text-text-secondary ${className}`}
+      className={`px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-[0.04em] text-text-secondary ${className}`}
       {...props}
     >
       {children}
@@ -63,7 +63,7 @@ export function TD({
   ...props
 }: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={`px-4 py-3 align-middle text-text-secondary-strong ${className}`} {...props}>
+    <td className={`px-4 py-3.5 align-middle text-sm text-ink ${className}`} {...props}>
       {children}
     </td>
   );

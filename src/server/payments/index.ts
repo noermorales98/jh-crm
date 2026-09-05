@@ -6,6 +6,7 @@ import { writeActivityLog } from "@/src/server/activity";
 import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
+import { syncInstallmentOnPaymentReceived } from "@/src/server/payment-plans";
 
 /**
  * Pagos y recibos. Flujo de pago RECIBIDO (una sola transacción):
@@ -312,6 +313,110 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
       },
       tx,
     );
+
+    // Si el pago está ligado a una cuota de plan, márcala PAID / completa el plan.
+    await syncInstallmentOnPaymentReceived(payment.id, tx);
+
+    return { payment, receipt, quoteStatus };
+  });
+}
+
+/**
+ * Convierte un pago PENDING existente a RECEIVED (recibo + sync de cuota).
+ * Usado para cobrar cuotas de un plan de pago.
+ */
+export async function receivePendingPayment(
+  ctx: OrganizationContext,
+  paymentId: string,
+  opts?: { receivedAt?: Date | null; reference?: string | null; notes?: string | null },
+) {
+  const existing = await getPaymentOrThrow(ctx, paymentId);
+  if (existing.status !== "PENDING") {
+    throw new DomainError("Solo se pueden recibir pagos pendientes.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const payment = await tx.payment.update({
+      where: { id: existing.id },
+      data: {
+        status: "RECEIVED",
+        receivedAt: opts?.receivedAt ?? new Date(),
+        ...(opts?.reference !== undefined ? { reference: opts.reference } : {}),
+        ...(opts?.notes !== undefined ? { notes: opts.notes } : {}),
+      },
+    });
+
+    if (payment.quoteId) {
+      await tx.quoteEvent.create({
+        data: {
+          organizationId: ctx.organizationId,
+          quoteId: payment.quoteId,
+          type: "PAYMENT_RECORDED",
+          description: `Pago recibido: ${payment.amount.toString()} (${payment.method}).`,
+          metadata: { paymentId: payment.id },
+        },
+      });
+    }
+
+    const { folio, folioNumber } = await nextReceiptFolio(tx, ctx.organizationId);
+    const receipt = await tx.receipt.create({
+      data: {
+        organizationId: ctx.organizationId,
+        paymentId: payment.id,
+        clientId: payment.clientId,
+        folioNumber,
+        folio,
+        amount: payment.amount,
+        currency: payment.currency,
+        paymentMethod: payment.method,
+        issuedAt: payment.receivedAt ?? new Date(),
+        notes: opts?.notes ?? payment.notes,
+      },
+    });
+
+    const quoteStatus = payment.quoteId
+      ? await syncQuotePaymentStatus(tx, ctx, payment.quoteId)
+      : null;
+
+    await writeActivityLog(
+      toActivityContext(ctx),
+      {
+        type: "PAYMENT_RECORDED",
+        description: `Pago recibido por ${payment.amount.toString()} ${payment.currency} (${payment.method}).`,
+        clientId: payment.clientId,
+        caseId: payment.caseId,
+        metadata: { paymentId: payment.id, amount: payment.amount.toString(), method: payment.method },
+      },
+      tx,
+    );
+    await writeActivityLog(
+      toActivityContext(ctx),
+      {
+        type: "RECEIPT_CREATED",
+        description: `Recibo ${folio} emitido.`,
+        clientId: payment.clientId,
+        caseId: payment.caseId,
+        metadata: { receiptId: receipt.id, folio, paymentId: payment.id },
+      },
+      tx,
+    );
+    await writeAuditLog(
+      toAuditContext(ctx),
+      {
+        action: "PAYMENT_RECEIVED",
+        entityType: "Payment",
+        entityId: payment.id,
+        metadata: {
+          amount: payment.amount.toString(),
+          method: payment.method,
+          quoteId: payment.quoteId,
+          fromPending: true,
+        },
+      },
+      tx,
+    );
+
+    await syncInstallmentOnPaymentReceived(payment.id, tx);
 
     return { payment, receipt, quoteStatus };
   });

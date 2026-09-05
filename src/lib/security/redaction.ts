@@ -38,6 +38,12 @@ const SENSITIVE_KEYS = new Set([
   "callmebotApiKey",
   "callmebotApiKeyEncrypted",
   "apiKeyEncrypted",
+  "mfaSecret",
+  "mfaSecretEncrypted",
+  "mfaRecoveryCodes",
+  "mfaRecoveryCodesEncrypted",
+  "otpauthUri",
+  "recoveryCodes",
 ]);
 
 export function redactForLog<T>(value: T): T {

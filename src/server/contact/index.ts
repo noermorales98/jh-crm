@@ -1,9 +1,17 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { DomainError } from "@/src/server/errors";
 import { nextClientCode } from "@/src/server/folios";
 import { writeActivityLog } from "@/src/server/activity";
 import { createNotification } from "@/src/server/notifications";
 import { resolveAssigneeForOrg } from "@/src/server/users";
+import { requestConsultation } from "@/src/server/consultations";
+import { onNewLead } from "@/src/server/automations";
+import {
+  inferLeadChannel,
+  normalizeAttribution,
+  type AttributionPayload,
+} from "@/src/lib/attribution";
 
 const CONTACT_SOURCE = "Sitio web";
 
@@ -12,6 +20,21 @@ export type ContactLeadInput = {
   email: string;
   phone: string;
   message: string;
+  serviceRequested?: string | null;
+  state?: string | null;
+  preferredContactMethod?: string | null;
+  preferredContactTime?: string | null;
+  /** Consentimiento SMS opcional (se guarda en attribution.sms_consent). */
+  smsConsent?: boolean;
+  attribution?: AttributionPayload | Record<string, unknown> | null;
+};
+
+export type ContactLeadResult = {
+  created: boolean;
+  clientId: string;
+  consultationId: string | null;
+  /** Mensaje seguro para la UI pública — nunca implica PAID. */
+  message: string;
 };
 
 function splitName(fullName: string): { firstName: string; lastName: string | null } {
@@ -19,6 +42,12 @@ function splitName(fullName: string): { firstName: string; lastName: string | nu
   const firstName = parts[0] ?? fullName.trim();
   const lastName = parts.slice(1).join(" ").trim() || null;
   return { firstName, lastName };
+}
+
+function emptyToNull(v?: string | null) {
+  if (v === undefined || v === null) return null;
+  const t = v.trim();
+  return t.length ? t : null;
 }
 
 async function resolvePublicOrganizationId(): Promise<string> {
@@ -71,16 +100,54 @@ async function notifyNewLead(
   }
 }
 
+async function createConsultationForLead(
+  organizationId: string,
+  clientId: string,
+  message: string,
+): Promise<string | null> {
+  try {
+    const consultation = await requestConsultation(
+      { organizationId, userId: null },
+      {
+        clientId,
+        amount: 1,
+        notes: message.slice(0, 2000),
+      },
+    );
+    return consultation.id;
+  } catch (error) {
+    console.error(
+      "[contact] no se pudo crear la consulta:",
+      error instanceof Error ? error.message : "error",
+    );
+    return null;
+  }
+}
+
 /**
  * Alta pública desde el formulario de `/`.
  * Crea un cliente LEAD; si el correo o teléfono ya existen, anota el
- * mensaje en el expediente y no vuelve a notificar.
+ * mensaje en el expediente. Siempre crea Consultation REQUESTED ($1)
+ * y responde "Solicitud recibida" (nunca PAID).
  */
-export async function submitContactLead(data: ContactLeadInput): Promise<{ created: boolean }> {
+export async function submitContactLead(
+  data: ContactLeadInput,
+): Promise<ContactLeadResult> {
   const organizationId = await resolvePublicOrganizationId();
   const { firstName, lastName } = splitName(data.name);
   const email = data.email.toLowerCase();
   const phone = data.phone.trim();
+  const attribution = normalizeAttribution({
+    ...(data.attribution ?? {}),
+    sms_consent: data.smsConsent === true,
+  });
+  const leadChannel = inferLeadChannel(attribution, CONTACT_SOURCE);
+  const sourceDerived =
+    attribution.utm_source?.trim() ||
+    attribution.utm_campaign?.trim() ||
+    CONTACT_SOURCE;
+  const publicMessage =
+    "Solicitud recibida. No se ha cobrado ningún pago. Te contactaremos pronto.";
 
   const existing = await prisma.client.findFirst({
     where: {
@@ -104,10 +171,47 @@ export async function submitContactLead(data: ContactLeadInput): Promise<{ creat
         type: "NOTE",
         description: `Nueva consulta desde el sitio web:\n${data.message}`,
         clientId: existing.id,
-        metadata: { source: CONTACT_SOURCE, email, phone },
+        metadata: {
+          source: CONTACT_SOURCE,
+          email,
+          phone,
+          attribution,
+          leadChannel,
+        },
       },
     );
-    return { created: false };
+    if (Object.keys(attribution).length > 0) {
+      const current = await prisma.client.findUnique({
+        where: { id: existing.id },
+        select: { attribution: true },
+      });
+      const prev =
+        current?.attribution &&
+        typeof current.attribution === "object" &&
+        !Array.isArray(current.attribution)
+          ? (current.attribution as Record<string, unknown>)
+          : {};
+      await prisma.client.update({
+        where: { id: existing.id },
+        data: {
+          attribution: {
+            ...prev,
+            ...attribution,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+    const consultationId = await createConsultationForLead(
+      organizationId,
+      existing.id,
+      data.message,
+    );
+    return {
+      created: false,
+      clientId: existing.id,
+      consultationId,
+      message: publicMessage,
+    };
   }
 
   const assigneeId = await resolveAssigneeForOrg(organizationId, null);
@@ -121,7 +225,16 @@ export async function submitContactLead(data: ContactLeadInput): Promise<{ creat
         lastName,
         email,
         phone,
-        source: CONTACT_SOURCE,
+        state: emptyToNull(data.state),
+        source: sourceDerived,
+        leadChannel,
+        serviceRequested: emptyToNull(data.serviceRequested),
+        preferredContactMethod: emptyToNull(data.preferredContactMethod),
+        preferredContactTime: emptyToNull(data.preferredContactTime),
+        attribution:
+          Object.keys(attribution).length > 0
+            ? (attribution as Prisma.InputJsonValue)
+            : undefined,
         status: "LEAD",
         assignedToId: assigneeId,
       },
@@ -132,7 +245,12 @@ export async function submitContactLead(data: ContactLeadInput): Promise<{ creat
         type: "CREATED",
         description: `Prospecto ${created.clientCode} desde el sitio web: ${firstName} ${lastName ?? ""}`.trim(),
         clientId: created.id,
-        metadata: { source: CONTACT_SOURCE, message: data.message },
+        metadata: {
+          source: sourceDerived,
+          message: data.message,
+          leadChannel,
+          attribution,
+        },
       },
       tx,
     );
@@ -142,7 +260,7 @@ export async function submitContactLead(data: ContactLeadInput): Promise<{ creat
         type: "NOTE",
         description: `Consulta desde el sitio web:\n${data.message}`,
         clientId: created.id,
-        metadata: { source: CONTACT_SOURCE },
+        metadata: { source: CONTACT_SOURCE, leadChannel },
       },
       tx,
     );
@@ -157,5 +275,26 @@ export async function submitContactLead(data: ContactLeadInput): Promise<{ creat
       error instanceof Error ? error.message : "error",
     );
   }
-  return { created: true };
+
+  try {
+    await onNewLead(organizationId, client.id);
+  } catch (error) {
+    console.error(
+      "[contact] automatización onNewLead:",
+      error instanceof Error ? error.message : "error",
+    );
+  }
+
+  const consultationId = await createConsultationForLead(
+    organizationId,
+    client.id,
+    data.message,
+  );
+
+  return {
+    created: true,
+    clientId: client.id,
+    consultationId,
+    message: publicMessage,
+  };
 }

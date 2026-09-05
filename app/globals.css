@@ -221,6 +221,17 @@ body {
   h3 {
     text-wrap: balance;
   }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  /* HIG: cifras alineadas en tablas y KPIs */
+  .tabular-nums,
+  td.tabular-nums,
+  .font-tabular {
+    font-variant-numeric: tabular-nums;
+  }
 }
 
 /* Marca J&H: sidebar CRM + wordmark público (intake) */

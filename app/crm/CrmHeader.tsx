@@ -32,6 +32,12 @@ const SECTION_TITLES: Record<string, string> = {
   usuarios: "Usuarios",
   auditoria: "Auditoría",
   configuracion: "Configuración",
+  oportunidades: "Oportunidades",
+  consultas: "Consultas",
+  procesadores: "Procesadores",
+  atribucion: "Atribución",
+  contratos: "Contratos",
+  "planes-pago": "Planes de pago",
 };
 
 const NESTED_TITLES: Record<string, string> = {

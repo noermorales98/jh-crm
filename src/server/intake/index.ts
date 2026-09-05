@@ -1,4 +1,5 @@
 import crypto from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import {
   createPresignedUploadUrl,
@@ -9,6 +10,7 @@ import { assertAllowedFile, buildStorageKey } from "@/src/lib/storage/policy";
 import { DomainError } from "@/src/server/errors";
 import { nextClientCode } from "@/src/server/folios";
 import { writeAuditLog } from "@/src/server/audit";
+import type { IntakePayloadInput } from "@/src/lib/validation/intake-payload";
 
 function assertFileAllowed(mimeType: string, sizeBytes: number) {
   try {
@@ -87,6 +89,7 @@ export interface IntakeSubmitData {
   city?: string | null;
   state?: string | null;
   postalCode?: string | null;
+  payload?: IntakePayloadInput | null;
   consent: {
     consentType: string;
     version: string;
@@ -179,12 +182,18 @@ export async function submitIntake(
       clientId = client.id;
     }
 
+    const payloadJson =
+      data.payload && Object.keys(data.payload).length > 0
+        ? (data.payload as Prisma.InputJsonValue)
+        : undefined;
+
     const submission = await tx.intakeSubmission.create({
       data: {
         organizationId: orgId,
         intakeLinkId: link.id,
         clientId,
         caseId: link.caseId,
+        payloadJson,
         ipAddress: meta.ipAddress ?? null,
         userAgent: meta.userAgent?.slice(0, 500) ?? null,
       },

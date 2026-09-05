@@ -40,10 +40,13 @@ const ibmPlexMono = IBM_Plex_Mono({
 });
 
 export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
-  // Barrera de servidor: el layout nunca renderiza sin sesión.
+  // Barrera de servidor: el layout nunca renderiza sin sesión de staff.
   const session = await auth();
   if (!session?.user?.id) {
     redirect("/login");
+  }
+  if (session.user.portalAudience === "portal" || !session.user.role) {
+    redirect(session.user.portalAudience === "portal" ? "/portal" : "/login");
   }
 
   const userName = session.user.name ?? session.user.email ?? "Usuario";

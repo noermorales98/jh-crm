@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ContactSlideConfirm } from "./contact-slide-confirm";
+import {
+  invalidateContactChallenge,
+  loadContactChallenge,
+} from "./contact-challenge";
 
 type Challenge = { token: string };
 
@@ -11,6 +15,20 @@ type Draft = {
   phone: string;
   message: string;
   website: string;
+  privacyAccepted: boolean;
+  smsConsent: boolean;
+};
+
+type AttributionFields = {
+  utm_source: string;
+  utm_medium: string;
+  utm_campaign: string;
+  utm_content: string;
+  utm_term: string;
+  fbclid: string;
+  gclid: string;
+  landingPage: string;
+  referrer: string;
 };
 
 type ContactFormProps = {
@@ -18,7 +36,44 @@ type ContactFormProps = {
 };
 
 const HERO_MESSAGE =
-  "Consulta inicial ($1 USD). Me gustaría recibir un plan de acción conciso para mi situación.";
+  "Consulta de crédito ($1 USD). Quiero un análisis de mi reporte y orientación sobre reparación crediticia.";
+
+const ATTR_PARAM_KEYS = [
+  "utm_source",
+  "utm_medium",
+  "utm_campaign",
+  "utm_content",
+  "utm_term",
+  "fbclid",
+  "gclid",
+] as const;
+
+function emptyAttribution(): AttributionFields {
+  return {
+    utm_source: "",
+    utm_medium: "",
+    utm_campaign: "",
+    utm_content: "",
+    utm_term: "",
+    fbclid: "",
+    gclid: "",
+    landingPage: "",
+    referrer: "",
+  };
+}
+
+function readAttributionFromUrl(): AttributionFields {
+  if (typeof window === "undefined") return emptyAttribution();
+  const params = new URLSearchParams(window.location.search);
+  const out = emptyAttribution();
+  for (const key of ATTR_PARAM_KEYS) {
+    const value = params.get(key)?.trim();
+    if (value) out[key] = value.slice(0, 500);
+  }
+  out.landingPage = window.location.href.slice(0, 500);
+  out.referrer = (document.referrer || "").slice(0, 500);
+  return out;
+}
 
 function answerFromToken(token: string): string | null {
   const [aRaw, bRaw] = token.split("|");
@@ -35,8 +90,15 @@ function readDraft(form: HTMLFormElement, variant: "hero" | "full"): Draft {
     name: String(fields.get("name") ?? "").trim(),
     email: String(fields.get("email") ?? "").trim(),
     phone: String(fields.get("phone") ?? "").trim(),
-    message: variant === "hero" ? (rawMessage.length >= 10 ? rawMessage : HERO_MESSAGE) : rawMessage,
+    message:
+      variant === "hero"
+        ? rawMessage.length >= 10
+          ? rawMessage
+          : HERO_MESSAGE
+        : rawMessage,
     website: String(fields.get("website") ?? ""),
+    privacyAccepted: fields.get("privacyAccepted") === "on",
+    smsConsent: fields.get("smsConsent") === "on",
   };
 }
 
@@ -49,48 +111,52 @@ function validateDraft(draft: Draft, variant: "hero" | "full"): string | null {
   if (variant === "full" && draft.message.length < 10) {
     return "Cuéntanos un poco más (mínimo 10 caracteres).";
   }
+  if (!draft.privacyAccepted) {
+    return "Debes aceptar la política de privacidad para continuar.";
+  }
   return null;
 }
+
+const SUCCESS_NO_CHARGE =
+  "Solicitud recibida. No se ha cobrado ningún pago. Le contactaremos pronto.";
 
 export function ContactForm({ variant = "full" }: ContactFormProps) {
   const formRef = useRef<HTMLFormElement>(null);
   const sendingRef = useRef(false);
   const uid = useId();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
-  const [status, setStatus] = useState<"idle" | "confirm" | "sending" | "ok" | "error">(
-    "idle",
-  );
+  const [status, setStatus] = useState<
+    "idle" | "confirm" | "sending" | "ok" | "error"
+  >("idle");
   const [error, setError] = useState<string | null>(null);
   const [fieldInvalid, setFieldInvalid] = useState(false);
+  const [attribution, setAttribution] =
+    useState<AttributionFields>(emptyAttribution);
 
-  const loadChallenge = useCallback(async () => {
-    const res = await fetch("/api/public/contact", { cache: "no-store" });
-    const data = (await res.json()) as {
-      ok?: boolean;
-      token?: string;
-      error?: string;
-    };
-    if (!res.ok || !data.token) {
-      throw new Error(data.error ?? "No se pudo cargar la verificación.");
-    }
-    setChallenge({ token: data.token });
+  const loadChallenge = useCallback(async (opts?: { fresh?: boolean }) => {
+    if (opts?.fresh) invalidateContactChallenge();
+    const next = await loadContactChallenge();
+    setChallenge(next);
+  }, []);
+
+  useEffect(() => {
+    setAttribution(readAttributionFromUrl());
   }, []);
 
   useEffect(() => {
     let cancelled = false;
-    const delay = variant === "full" ? 900 : 0;
-    const timer = window.setTimeout(() => {
-      loadChallenge().catch((err: unknown) => {
-        if (cancelled) return;
-        setFieldInvalid(false);
-        setError(err instanceof Error ? err.message : "No se pudo cargar el formulario.");
-      });
-    }, delay);
+    // Un solo GET compartido: hero y full esperan la misma promesa.
+    loadChallenge().catch((err: unknown) => {
+      if (cancelled) return;
+      setFieldInvalid(false);
+      setError(
+        err instanceof Error ? err.message : "No se pudo cargar el formulario.",
+      );
+    });
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
-  }, [loadChallenge, variant]);
+  }, [loadChallenge]);
 
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -129,6 +195,9 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...draft,
+          ...attribution,
+          privacyAccepted: draft.privacyAccepted,
+          smsConsent: draft.smsConsent,
           challengeToken: challenge.token,
           challengeAnswer: answer,
         }),
@@ -139,11 +208,13 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
       }
       setStatus("ok");
       form.reset();
-      await loadChallenge();
+      await loadChallenge({ fresh: true });
     } catch (err) {
       setStatus("error");
-      setError(err instanceof Error ? err.message : "No se pudo enviar. Inténtalo de nuevo.");
-      await loadChallenge().catch(() => undefined);
+      setError(
+        err instanceof Error ? err.message : "No se pudo enviar. Inténtalo de nuevo.",
+      );
+      await loadChallenge({ fresh: true }).catch(() => undefined);
     } finally {
       sendingRef.current = false;
     }
@@ -155,18 +226,28 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
 
   if (status === "ok") {
     return (
-      <div className={isHero ? "contact-form-ok contact-form-ok--hero" : "contact-form-ok"} role="status">
+      <div
+        className={
+          isHero ? "contact-form-ok contact-form-ok--hero" : "contact-form-ok"
+        }
+        role="status"
+      >
         <div className="form-ok-icon" aria-hidden="true">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="28"
+            height="28"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M20 6L9 17l-5-5" />
           </svg>
         </div>
-        <h3>Mensaje enviado</h3>
-        <p>
-          {isHero
-            ? "Gracias. Recibimos su solicitud de consulta por $1 y le contactaremos pronto."
-            : "Gracias. Recibimos su consulta y le contactaremos pronto."}
-        </p>
+        <h3>Solicitud recibida</h3>
+        <p>{SUCCESS_NO_CHARGE}</p>
         <button
           type="button"
           className="btn btn-primary"
@@ -187,21 +268,54 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
       <form ref={formRef} className={formClass} onSubmit={onSubmit} noValidate>
         {isHero ? (
           <>
-            <p className="form-price">Consulta inicial · $1 USD</p>
-            <h3>Solicite una consulta por $1</h3>
-            <p>Permita que nuestro equipo elabore un plan de acción conciso para usted.</p>
+            <p className="form-price">Consulta de crédito · $1 USD</p>
+            <h3>Análisis y reparación de crédito</h3>
+            <p>
+              Solicite una revisión inicial: analizamos su situación crediticia y le orientamos sobre
+              el siguiente paso.
+            </p>
           </>
         ) : (
           <>
-            <h3>Escríbanos</h3>
-            <p>Cuéntenos su situación. Respondemos personalmente a cada mensaje.</p>
+            <h3>Escríbanos sobre su crédito</h3>
+            <p>
+              Cuéntenos su situación crediticia. Respondemos personalmente a cada mensaje.
+            </p>
           </>
         )}
 
         <label className="hp" htmlFor={`${uid}-website`}>
           Sitio web
-          <input id={`${uid}-website`} name="website" type="text" tabIndex={-1} autoComplete="off" />
+          <input
+            id={`${uid}-website`}
+            name="website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+          />
         </label>
+
+        {ATTR_PARAM_KEYS.map((key) => (
+          <input
+            key={key}
+            type="hidden"
+            name={key}
+            value={attribution[key]}
+            readOnly
+          />
+        ))}
+        <input
+          type="hidden"
+          name="landingPage"
+          value={attribution.landingPage}
+          readOnly
+        />
+        <input
+          type="hidden"
+          name="referrer"
+          value={attribution.referrer}
+          readOnly
+        />
 
         <div className="form-fields">
           <label htmlFor={`${uid}-name`}>
@@ -264,6 +378,34 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
               />
             </label>
           )}
+        </div>
+
+        <div className="form-consents">
+          <label className="form-consent" htmlFor={`${uid}-privacy`}>
+            <input
+              id={`${uid}-privacy`}
+              name="privacyAccepted"
+              type="checkbox"
+              required
+              aria-invalid={fieldInvalid}
+            />
+            <span>
+              Acepto la{" "}
+              <a href="/privacy" target="_blank" rel="noopener noreferrer">
+                privacidad
+              </a>
+            </span>
+          </label>
+          <label className="form-consent" htmlFor={`${uid}-sms`}>
+            <input id={`${uid}-sms`} name="smsConsent" type="checkbox" />
+            <span>
+              Acepto SMS (
+              <a href="/sms-terms" target="_blank" rel="noopener noreferrer">
+                términos
+              </a>
+              )
+            </span>
+          </label>
         </div>
 
         {error ? (

@@ -15,6 +15,7 @@ import * as configService from "@/src/server/config";
 function revalidateConfig() {
   revalidatePath("/crm/configuracion");
   revalidatePath("/crm/configuracion/notificaciones");
+  revalidatePath("/crm/configuracion/seguridad");
   revalidatePath("/crm/configuracion/etapas");
   revalidatePath("/crm/dashboard");
 }
@@ -81,6 +82,12 @@ const settingsSchema = z.object({
   emailClientQuoteExpiring: z.boolean().optional(),
   emailClientCaseReview: z.boolean().optional(),
   emailClientRoundReview: z.boolean().optional(),
+  documentSoftDeleteRetentionDays: z
+    .union([z.coerce.number().int().min(1).max(3650), z.null()])
+    .optional(),
+  documentMaxRetentionDays: z
+    .union([z.coerce.number().int().min(1).max(3650), z.null()])
+    .optional(),
   emailRecipients: z
     .array(
       z.object({

@@ -16,13 +16,11 @@ export interface RoundCreateData {
   caseId: string;
   notes?: string | null;
   lettersCount?: number;
-  disputedItemsCount?: number;
 }
 
 export interface RoundUpdateData {
   notes?: string | null;
   lettersCount?: number;
-  disputedItemsCount?: number;
 }
 
 export interface MarkRoundSentData {
@@ -110,7 +108,7 @@ export async function createRound(ctx: OrganizationContext, data: RoundCreateDat
         roundNumber,
         notes: data.notes ?? null,
         lettersCount: data.lettersCount ?? 0,
-        disputedItemsCount: data.disputedItemsCount ?? 0,
+        disputedItemsCount: 0,
       },
     });
 
@@ -147,9 +145,6 @@ export async function updateRound(
     data: {
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
       ...(data.lettersCount !== undefined ? { lettersCount: data.lettersCount } : {}),
-      ...(data.disputedItemsCount !== undefined
-        ? { disputedItemsCount: data.disputedItemsCount }
-        : {}),
     },
   });
 }
@@ -230,6 +225,24 @@ export async function markRoundSent(
     );
 
     return { round: updated, reviewTask };
+  }).then(async (result) => {
+    try {
+      const { onRoundSent } = await import("@/src/server/automations");
+      await onRoundSent(ctx, {
+        ...result.round,
+        case: {
+          clientId: round.case.clientId,
+          assignedToId: round.case.assignedToId,
+          caseCode: round.case.caseCode,
+        },
+      });
+    } catch (error) {
+      console.error(
+        "[rounds] onRoundSent:",
+        error instanceof Error ? error.message : "error",
+      );
+    }
+    return result;
   });
 }
 

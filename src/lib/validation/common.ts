@@ -11,6 +11,13 @@ export const emailSchema = z
 export const loginSchema = z.object({
   email: emailSchema,
   password: z.string().min(1, "Ingresa tu contraseña."),
+  /** Código TOTP o de recuperación (paso 2 si MFA está activo). */
+  mfaCode: z
+    .string()
+    .trim()
+    .max(64)
+    .optional()
+    .transform((v) => (v && v.length > 0 ? v : undefined)),
 });
 
 export const usPhoneSchema = z

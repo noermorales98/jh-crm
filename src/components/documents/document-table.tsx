@@ -1,4 +1,4 @@
-import { Download, FileText, Image as ImageIcon } from "lucide-react";
+import { Download, Eye, FileText, Image as ImageIcon } from "lucide-react";
 import { Pill } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
 import {
@@ -32,8 +32,9 @@ function sensitivityLabel(value: string) {
 }
 
 /**
- * Lista compacta de documentos. La descarga usa /api/files/[id]/download.
- * canDelete decide si mostrar el botón de borrado (documents.upload).
+ * Lista compacta de documentos.
+ * Vista previa: /api/files/[id]/download?inline=1
+ * Descarga: /api/files/[id]/download
  */
 export function DocumentTable({
   documents,
@@ -51,6 +52,8 @@ export function DocumentTable({
       {documents.map((doc) => {
         const name = doc.displayName ?? doc.originalName;
         const isImage = doc.mimeType.startsWith("image/");
+        const canPreview =
+          doc.mimeType === "application/pdf" || isImage;
         const Icon = isImage ? ImageIcon : FileText;
         return (
           <li key={doc.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -73,6 +76,18 @@ export function DocumentTable({
               {sensitivityLabel(doc.sensitivity)}
             </Pill>
             <div className="flex shrink-0 items-center">
+              {canPreview ? (
+                <a
+                  href={`/api/files/${doc.id}/download?inline=1`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Previsualizar"
+                  aria-label={`Previsualizar ${name}`}
+                  className="inline-flex size-8 items-center justify-center rounded-control text-action-primary transition-colors hover:bg-nav-hover"
+                >
+                  <Eye className="size-4" aria-hidden />
+                </a>
+              ) : null}
               <a
                 href={`/api/files/${doc.id}/download`}
                 title="Descargar"

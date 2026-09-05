@@ -86,6 +86,8 @@ export interface SettingsFormValues {
   emailClientQuoteExpiring: boolean;
   emailClientCaseReview: boolean;
   emailClientRoundReview: boolean;
+  documentSoftDeleteRetentionDays: string;
+  documentMaxRetentionDays: string;
   whatsappRecipients: WhatsappRecipientFormValue[];
   emailRecipients: EmailRecipientFormValue[];
 }
@@ -200,6 +202,12 @@ export function SettingsForm({
         clientPrefix: values.clientPrefix.trim().toUpperCase(),
         casePrefix: values.casePrefix.trim().toUpperCase(),
         defaultTerms: values.defaultTerms.trim() || null,
+        documentSoftDeleteRetentionDays: values.documentSoftDeleteRetentionDays.trim()
+          ? Number(values.documentSoftDeleteRetentionDays)
+          : null,
+        documentMaxRetentionDays: values.documentMaxRetentionDays.trim()
+          ? Number(values.documentMaxRetentionDays)
+          : null,
         smtpHost: values.smtpHost.trim() || null,
         smtpPort: values.smtpPort ? Number(values.smtpPort) : null,
         smtpUser: values.smtpUser.trim() || null,
@@ -472,6 +480,40 @@ export function SettingsForm({
             maxLength={10000}
           />
         </Field>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field
+            label="Días tras soft-delete (purge)"
+            htmlFor="documentSoftDeleteRetentionDays"
+            hint="Vacío = sin auto-borrado S3. Tras eliminar un documento, se programa hard-delete."
+          >
+            <Input
+              id="documentSoftDeleteRetentionDays"
+              type="number"
+              min={1}
+              max={3650}
+              inputMode="numeric"
+              value={values.documentSoftDeleteRetentionDays}
+              onChange={(e) => set("documentSoftDeleteRetentionDays", e.target.value)}
+              placeholder="p. ej. 30"
+            />
+          </Field>
+          <Field
+            label="Retención máxima (días desde creación)"
+            htmlFor="documentMaxRetentionDays"
+            hint="Vacío = sin límite. El cron de retención purga documentos más antiguos."
+          >
+            <Input
+              id="documentMaxRetentionDays"
+              type="number"
+              min={1}
+              max={3650}
+              inputMode="numeric"
+              value={values.documentMaxRetentionDays}
+              onChange={(e) => set("documentMaxRetentionDays", e.target.value)}
+              placeholder="p. ej. 365"
+            />
+          </Field>
+        </div>
       </section>
         </>
       ) : null}

@@ -237,6 +237,19 @@ export async function createCreditReport(ctx: OrganizationContext, data: CreateC
     );
 
     return report;
+  }).then(async (report) => {
+    if (report.type === "UPDATE") {
+      try {
+        const { onCreditReportCreated } = await import("@/src/server/automations");
+        await onCreditReportCreated(ctx, report);
+      } catch (error) {
+        console.error(
+          "[credit-reports] onCreditReportCreated:",
+          error instanceof Error ? error.message : "error",
+        );
+      }
+    }
+    return report;
   });
 }
 

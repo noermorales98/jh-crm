@@ -20,6 +20,8 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
   const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
   const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
   const [
     activeClients,
@@ -36,6 +38,20 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
     recentReceivedPayments,
     unreadInboxCount,
     unreadInboxMails,
+    documentsPendingCases,
+    documentsPendingList,
+    reportsToReview,
+    roundsToPrepare,
+    roundsWaitingUpdate,
+    overdueUpdates,
+    overdueUpdatesList,
+    overduePayments,
+    overduePaymentsList,
+    newLeads,
+    conversions,
+    disputedItems,
+    deletedItems,
+    updatedItems,
   ] = await Promise.all([
     prisma.client.count({
       where: { organizationId: orgId, status: "ACTIVE" },
@@ -179,6 +195,124 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       orderBy: { receivedAt: "desc" },
       take: 5,
     }),
+    // —— Atención crédito ——
+    prisma.creditCase.count({
+      where: {
+        organizationId: orgId,
+        state: "OPEN",
+        stage: { key: "DOCUMENTS_PENDING" },
+      },
+    }),
+    prisma.creditCase.findMany({
+      where: {
+        organizationId: orgId,
+        state: "OPEN",
+        stage: { key: "DOCUMENTS_PENDING" },
+      },
+      select: {
+        id: true,
+        caseCode: true,
+        client: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 5,
+    }),
+    prisma.creditReport.count({
+      where: {
+        organizationId: orgId,
+        type: "UPDATE",
+        createdAt: { gte: fourteenDaysAgo },
+      },
+    }),
+    prisma.creditRound.count({
+      where: {
+        organizationId: orgId,
+        status: { in: ["DRAFT", "PREPARING"] },
+      },
+    }),
+    prisma.creditRound.count({
+      where: {
+        organizationId: orgId,
+        status: "WAITING_UPDATE",
+      },
+    }),
+    prisma.creditCase.count({
+      where: {
+        organizationId: orgId,
+        state: "OPEN",
+        nextReviewAt: { lt: now },
+      },
+    }),
+    prisma.creditCase.findMany({
+      where: {
+        organizationId: orgId,
+        state: "OPEN",
+        nextReviewAt: { lt: now },
+      },
+      select: {
+        id: true,
+        caseCode: true,
+        nextReviewAt: true,
+        client: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { nextReviewAt: "asc" },
+      take: 5,
+    }),
+    prisma.payment.count({
+      where: {
+        organizationId: orgId,
+        status: "PENDING",
+        dueAt: { lt: now },
+      },
+    }),
+    prisma.payment.findMany({
+      where: {
+        organizationId: orgId,
+        status: "PENDING",
+        dueAt: { lt: now },
+      },
+      select: {
+        id: true,
+        amount: true,
+        currency: true,
+        dueAt: true,
+        client: { select: { id: true, firstName: true, lastName: true } },
+      },
+      orderBy: { dueAt: "asc" },
+      take: 5,
+    }),
+    prisma.client.count({
+      where: {
+        organizationId: orgId,
+        status: "LEAD",
+        createdAt: { gte: sevenDaysAgo },
+      },
+    }),
+    prisma.opportunity.count({
+      where: {
+        organizationId: orgId,
+        stage: "WON",
+        updatedAt: { gte: thirtyDaysAgo },
+      },
+    }),
+    prisma.disputeItem.count({
+      where: {
+        organizationId: orgId,
+        status: { in: ["SENT", "WAITING", "RESPONDED"] },
+      },
+    }),
+    prisma.disputeItem.count({
+      where: {
+        organizationId: orgId,
+        outcome: "DELETED",
+      },
+    }),
+    prisma.disputeItem.count({
+      where: {
+        organizationId: orgId,
+        outcome: "UPDATED",
+      },
+    }),
   ]);
 
   return {
@@ -240,6 +374,54 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
           subject: mail.subject,
         })),
         link: "/crm/mails?folder=inbox",
+      },
+      /** Atención crédito / operación */
+      documentsPendingCases: {
+        count: documentsPendingCases,
+        items: documentsPendingList,
+        link: "/crm/casos?state=OPEN",
+      },
+      reportsToReview: {
+        count: reportsToReview,
+        link: "/crm/casos",
+      },
+      roundsToPrepare: {
+        count: roundsToPrepare,
+        link: "/crm/rondas",
+      },
+      roundsWaitingUpdate: {
+        count: roundsWaitingUpdate,
+        link: "/crm/rondas",
+      },
+      overdueUpdates: {
+        count: overdueUpdates,
+        items: overdueUpdatesList,
+        link: "/crm/casos?state=OPEN",
+      },
+      overduePayments: {
+        count: overduePayments,
+        items: overduePaymentsList,
+        link: "/crm/pagos?status=PENDING",
+      },
+      newLeads: {
+        count: newLeads,
+        link: "/crm/clientes?status=LEAD",
+      },
+      conversions: {
+        count: conversions,
+        link: "/crm/oportunidades",
+      },
+      disputedItems: {
+        count: disputedItems,
+        link: "/crm/rondas",
+      },
+      deletedItems: {
+        count: deletedItems,
+        link: "/crm/rondas",
+      },
+      updatedItems: {
+        count: updatedItems,
+        link: "/crm/rondas",
       },
     },
   };

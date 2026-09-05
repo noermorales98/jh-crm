@@ -75,6 +75,8 @@ export interface SettingsUpdateData {
   emailClientQuoteExpiring?: boolean;
   emailClientCaseReview?: boolean;
   emailClientRoundReview?: boolean;
+  documentSoftDeleteRetentionDays?: number | null;
+  documentMaxRetentionDays?: number | null;
   emailRecipients?: EmailRecipientInput[];
 }
 
@@ -155,6 +157,9 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
     emailClientQuoteExpiring: settings.emailClientQuoteExpiring,
     emailClientCaseReview: settings.emailClientCaseReview,
     emailClientRoundReview: settings.emailClientRoundReview,
+    documentSoftDeleteRetentionDays:
+      settings.documentSoftDeleteRetentionDays?.toString() ?? "",
+    documentMaxRetentionDays: settings.documentMaxRetentionDays?.toString() ?? "",
     whatsappRecipients: (
       await prisma.whatsappRecipient.findMany({
         where: { organizationId: ctx.organizationId },
@@ -334,6 +339,15 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
             : {}),
           ...(data.emailClientRoundReview !== undefined
             ? { emailClientRoundReview: data.emailClientRoundReview }
+            : {}),
+          ...(data.documentSoftDeleteRetentionDays !== undefined
+            ? {
+                documentSoftDeleteRetentionDays:
+                  data.documentSoftDeleteRetentionDays,
+              }
+            : {}),
+          ...(data.documentMaxRetentionDays !== undefined
+            ? { documentMaxRetentionDays: data.documentMaxRetentionDays }
             : {}),
         },
       });

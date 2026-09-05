@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { NextResponse } from "next/server";
 import { SESSION_MAX_AGE_SECONDS } from "@/src/server/auth/session-constants";
 
 /**
@@ -12,6 +13,10 @@ import { SESSION_MAX_AGE_SECONDS } from "@/src/server/auth/session-constants";
  * aquí (sin Prisma). authorized() no debe exigir id si el user existe pero
  * el mapeo aún no corrió; solo rechaza id vacío tras invalidar el JWT.
  */
+function isPortalFeatureOn() {
+  return process.env.FEATURE_CLIENT_PORTAL === "true";
+}
+
 export const authConfig = {
   pages: {
     signIn: "/login",
@@ -29,6 +34,11 @@ export const authConfig = {
         token.currentOrganizationId = user.currentOrganizationId ?? null;
         token.role = user.role ?? null;
         token.sessionVersion = user.sessionVersion;
+        if (user.portalAudience === "portal") {
+          token.portalAudience = "portal";
+          token.portalAccessId = user.portalAccessId ?? user.id;
+          token.clientId = user.clientId ?? null;
+        }
       }
       if (token.userId && !token.sub) {
         token.sub = String(token.userId);
@@ -44,6 +54,13 @@ export const authConfig = {
       session.user.currentOrganizationId =
         (token.currentOrganizationId as string | null | undefined) ?? null;
       session.user.role = (token.role as typeof session.user.role) ?? null;
+      if (token.portalAudience === "portal") {
+        session.user.portalAudience = "portal";
+        session.user.portalAccessId =
+          (token.portalAccessId as string | undefined) ?? id;
+        session.user.clientId =
+          (token.clientId as string | null | undefined) ?? null;
+      }
       return session;
     },
     authorized({ auth, request }) {
@@ -69,6 +86,53 @@ export const authConfig = {
       }
 
       if (pathname === "/" || pathname === "/login" || pathname.startsWith("/login/")) {
+        return true;
+      }
+
+      // Páginas legales públicas (SPRINT 8).
+      if (
+        pathname === "/privacy" ||
+        pathname === "/terms" ||
+        pathname === "/cancellation" ||
+        pathname === "/refunds" ||
+        pathname === "/disclosures" ||
+        pathname === "/sms-terms"
+      ) {
+        return true;
+      }
+
+      // Portal de clientes (feature flag + audiencia distinta del staff).
+      if (pathname === "/portal/login" || pathname.startsWith("/portal/login/")) {
+        return true;
+      }
+      if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
+        if (!isPortalFeatureOn()) {
+          return NextResponse.redirect(new URL("/portal/login", request.nextUrl));
+        }
+        const portalOk =
+          auth?.user?.portalAudience === "portal" &&
+          typeof auth.user.clientId === "string" &&
+          auth.user.clientId.length > 0 &&
+          !(typeof auth.user.id === "string" && auth.user.id.length === 0);
+        if (!portalOk) {
+          return NextResponse.redirect(new URL("/portal/login", request.nextUrl));
+        }
+        return true;
+      }
+
+      // CRM y APIs internas: solo staff (rol presente). Rechazar sesiones portal.
+      if (
+        pathname.startsWith("/crm") ||
+        pathname.startsWith("/api/files") ||
+        pathname.startsWith("/api/")
+      ) {
+        if (!auth?.user) return false;
+        if (typeof auth.user.id === "string" && auth.user.id.length === 0) {
+          return false;
+        }
+        if (auth.user.portalAudience === "portal" || !auth.user.role) {
+          return NextResponse.redirect(new URL("/portal", request.nextUrl));
+        }
         return true;
       }
 

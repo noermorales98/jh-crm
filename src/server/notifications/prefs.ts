@@ -29,6 +29,8 @@ export function emailEnabledFor(
   if (type === "DAILY_DIGEST") return p.notifyEmailDigest;
   if (type === "MAIL_RECEIVED") return p.notifyEmailMail;
   if (type === "CONTACT_FORM") return p.notifyEmailContact;
+  if (type === "CONSULTATION_REQUESTED") return p.notifyEmailContact;
+  if (type === "META_LEAD") return p.notifyEmailContact;
   if (type === "INTAKE_SUBMITTED") return p.notifyEmailIntake;
   return false;
 }
@@ -46,6 +48,8 @@ export function whatsappEnabledFor(
   // Correo recibido: solo campana/SMTP; nunca WhatsApp.
   if (type === "MAIL_RECEIVED") return false;
   if (type === "CONTACT_FORM") return p.notifyWhatsappContact;
+  if (type === "CONSULTATION_REQUESTED") return p.notifyWhatsappContact;
+  if (type === "META_LEAD") return p.notifyWhatsappContact;
   if (type === "INTAKE_SUBMITTED") return p.notifyWhatsappIntake;
   return false;
 }

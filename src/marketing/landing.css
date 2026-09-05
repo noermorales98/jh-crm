@@ -12,7 +12,43 @@ html:has(.jh-landing)[data-theme="dark"],
 body:has(.jh-landing) {
   background: #f5f5f7 !important;
   color: #1d1d1f;
-  /* No overflow-x aquí: rompe backdrop-filter del header fixed */
+}
+
+/*
+  Blur del navbar FUERA de @scope (LightningCSS/@scope + ::before z-index:-1 lo anulaban).
+  Se aplica en el propio header: es el patrón que Chrome/Safari respetan de forma fiable.
+*/
+.jh-landing > header {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  background: transparent;
+  border-bottom: 1px solid transparent;
+  transition:
+    background 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
+    border-color 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
+    -webkit-backdrop-filter 0.35s cubic-bezier(0.25, 0.1, 0.25, 1),
+    backdrop-filter 0.35s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+.jh-landing > header.scrolled {
+  background: rgba(255, 255, 255, 0.72);
+  border-bottom-color: rgba(0, 0, 0, 0.08);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+.jh-landing > header > .header-frost {
+  display: none;
+}
+.jh-landing > header > .nav {
+  position: relative;
+  z-index: 1;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .jh-landing > header.scrolled {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: #f5f5f7;
+  }
 }
 
 @scope (.jh-landing) {
@@ -101,25 +137,10 @@ ol{list-style:none}
   padding-right:max(var(--space-5),env(safe-area-inset-right));
 }
 
-/* ---------- cabecera (material / vibrancy) ---------- */
+/* ---------- cabecera (colores / tipografía; el frost vive fuera de @scope) ---------- */
 header{
-  position:fixed;inset:0 0 auto 0;z-index:var(--z-sticky);
-  background:transparent;
-  transition:border-color .35s var(--ease),color .35s var(--ease);
-}
-header::before{
-  content:"";
-  position:absolute;inset:0;z-index:-1;
-  background:transparent;
-  border-bottom:1px solid transparent;
-  opacity:0;
-  pointer-events:none;
-  transition:
-    opacity .35s var(--ease),
-    background .35s var(--ease),
-    border-color .35s var(--ease),
-    backdrop-filter .35s var(--ease),
-    -webkit-backdrop-filter .35s var(--ease);
+  /* position/z-index definidos fuera de @scope para el blur */
+  transition:color .35s var(--ease);
 }
 header.on-hero{color:#fff}
 header.on-hero .brand-mark{color:#fff}
@@ -132,24 +153,11 @@ header.on-hero .nav-phone svg{color:rgba(255,255,255,.9)}
 header.on-hero .menu-btn span{background:#fff}
 header.on-hero .nav-consult{
   background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.35);
-  backdrop-filter:saturate(180%) blur(20px);
-  -webkit-backdrop-filter:saturate(180%) blur(20px);
 }
 header.on-hero .nav-consult:hover{background:rgba(255,255,255,.28)}
 
 header.scrolled{color:var(--ink)}
-header.scrolled::before{
-  opacity:1;
-  background:rgba(245,245,247,.58);
-  border-bottom-color:rgba(0,0,0,.08);
-  backdrop-filter:saturate(180%) blur(28px);
-  -webkit-backdrop-filter:saturate(180%) blur(28px);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  header.scrolled::before{background:rgba(245,245,247,.94)}
-}
 .nav{
-  position:relative;z-index:1;
   display:flex;align-items:center;justify-content:space-between;
   height:64px;
   margin-top:env(safe-area-inset-top);
@@ -206,10 +214,10 @@ header.scrolled::before{
   transition:background .2s var(--ease),transform .15s var(--ease),opacity .2s var(--ease),box-shadow .2s var(--ease);
 }
 .btn:active{transform:scale(.97)}
-.btn-sm{font-size:12px;padding:8px 14px;min-height:32px;letter-spacing:-.01em}
+.btn-sm{font-size:13px;padding:8px 16px;min-height:36px;letter-spacing:-.01em}
 .btn-primary{background:var(--blue);color:#fff}
-.btn-primary:hover{background:var(--blue-deep)}
-.btn-primary:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none}
+.btn-primary:hover{background:var(--blue-deep);box-shadow:0 4px 14px rgba(0,113,227,.28)}
+.btn-primary:disabled,.btn[disabled]{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .btn-ghost-light{
   background:rgba(255,255,255,.14);color:#fff;
   border:1px solid rgba(255,255,255,.28);
@@ -268,18 +276,23 @@ header.scrolled::before{
   gap:clamp(var(--space-6),5vw,var(--space-8));align-items:center;width:100%;
 }
 .hero-form-panel{
-  background:rgba(255,255,255,.92);
-  backdrop-filter:saturate(180%) blur(24px);-webkit-backdrop-filter:saturate(180%) blur(24px);
+  background:rgba(255,255,255,.94);
+  backdrop-filter:saturate(180%) blur(28px);-webkit-backdrop-filter:saturate(180%) blur(28px);
   color:var(--ink);
   border-radius:var(--radius-xl);
-  padding:clamp(1.5rem,3vw,2rem);
+  padding:clamp(1.35rem,2.8vw,1.85rem);
   box-shadow:var(--shadow-float);
-  border:1px solid rgba(255,255,255,.55);
+  border:1px solid rgba(255,255,255,.65);
 }
 .hero-copy{max-width:36rem}
 .hero-welcome{
-  font-size:17px;font-weight:600;letter-spacing:-.022em;
-  color:rgba(255,255,255,.72);margin-bottom:var(--space-4);
+  display:inline-flex;align-items:center;gap:.4rem;
+  font-size:13px;font-weight:600;letter-spacing:-.01em;
+  color:#fff;margin-bottom:var(--space-5);
+  padding:6px 12px;border-radius:980px;
+  background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.22);
+  backdrop-filter:saturate(160%) blur(12px);-webkit-backdrop-filter:saturate(160%) blur(12px);
 }
 .hero-brand{
   display:block;font-family:var(--font-display);font-weight:600;
@@ -288,29 +301,29 @@ header.scrolled::before{
 }
 .hero-headline{
   display:block;font-family:var(--font-display);font-weight:500;
-  font-size:clamp(1.6rem,3.4vw,2.5rem);line-height:1.15;letter-spacing:-.022em;
-  color:rgba(255,255,255,.92);text-wrap:balance;
+  font-size:clamp(1.55rem,3.2vw,2.35rem);line-height:1.18;letter-spacing:-.022em;
+  color:rgba(255,255,255,.94);text-wrap:balance;
 }
 .hero-sub{
   margin-top:var(--space-5);margin-bottom:var(--space-6);
   font-size:19px;line-height:1.4211;letter-spacing:.011em;
-  font-weight:400;color:rgba(255,255,255,.78);max-width:30rem;
+  font-weight:400;color:rgba(255,255,255,.8);max-width:30rem;
   text-wrap:pretty;
 }
 
 /* ---------- formularios ---------- */
-.contact-form,.contact-form-ok{display:flex;flex-direction:column;gap:var(--space-4);position:relative}
+.contact-form,.contact-form-ok{display:flex;flex-direction:column;gap:var(--space-3);position:relative}
 .contact-form h3,.contact-form-ok h3{
   font-family:var(--font-display);font-weight:600;
-  font-size:24px;letter-spacing:-.019em;line-height:1.1667;
-  margin-bottom:0;color:var(--ink);
+  font-size:22px;letter-spacing:-.019em;line-height:1.2;
+  margin-bottom:0;color:var(--ink);text-wrap:balance;
 }
 .contact-form > p,.contact-form-ok > p{
-  color:var(--ink-soft);font-size:14px;line-height:1.4286;letter-spacing:-.016em;
-  margin:0;
+  color:var(--ink-soft);font-size:13px;line-height:1.4;letter-spacing:-.016em;
+  margin:0;text-wrap:pretty;
 }
 .contact-form--hero .form-price{
-  font-size:12px;font-weight:600;letter-spacing:-.01em;
+  font-size:11px;font-weight:600;letter-spacing:.02em;text-transform:uppercase;
   color:var(--blue);margin:0 !important;
 }
 .form-fields{display:flex;flex-direction:column;gap:var(--space-3)}
@@ -320,7 +333,7 @@ header.scrolled::before{
 .field-label{
   font-size:12px;font-weight:600;letter-spacing:-.01em;color:var(--ink-soft);
 }
-.contact-form input,.contact-form textarea{
+.contact-form input:not([type="checkbox"]),.contact-form textarea{
   width:100%;
   border:1px solid var(--line-strong);
   border-radius:var(--radius);
@@ -329,24 +342,24 @@ header.scrolled::before{
   font-family:var(--font-body);
   font-size:16px; /* evita zoom iOS */
   letter-spacing:-.011em;
-  padding:12px 14px;
+  padding:11px 14px;
   min-height:var(--touch);
   color-scheme:light;
   transition:border-color .2s var(--ease),background .2s var(--ease),box-shadow .2s var(--ease);
 }
-.contact-form input::placeholder,.contact-form textarea::placeholder{
+.contact-form input:not([type="checkbox"])::placeholder,.contact-form textarea::placeholder{
   color:var(--ink-tertiary);opacity:1;
 }
-.contact-form input:hover,.contact-form textarea:hover{
+.contact-form input:not([type="checkbox"]):hover,.contact-form textarea:hover{
   border-color:rgba(0,0,0,.22);
 }
-.contact-form input:focus,.contact-form textarea:focus{
+.contact-form input:not([type="checkbox"]):focus,.contact-form textarea:focus{
   outline:none;
   border-color:var(--blue);
   background:var(--white);
   box-shadow:0 0 0 4px rgba(0,113,227,.18);
 }
-.contact-form input[aria-invalid="true"],
+.contact-form input:not([type="checkbox"])[aria-invalid="true"],
 .contact-form textarea[aria-invalid="true"]{
   border-color:#ff3b30;
   box-shadow:0 0 0 4px rgba(255,59,48,.12);
@@ -361,6 +374,25 @@ header.scrolled::before{
 }
 .contact-form .btn{width:100%;margin-top:var(--space-1)}
 .contact-form--hero .btn{border-radius:980px}
+.form-consents{
+  display:flex;flex-direction:column;gap:.35rem;margin-top:var(--space-1);
+}
+/* Más específico que `.contact-form label` (column) para checkbox + texto en una línea. */
+.contact-form label.form-consent{
+  display:flex;flex-direction:row;align-items:center;gap:.45rem;
+  font-size:11px;line-height:1.25;letter-spacing:-.01em;
+  color:var(--ink-soft);cursor:pointer;
+}
+.contact-form label.form-consent input[type="checkbox"]{
+  width:.875rem;height:.875rem;margin:0;flex-shrink:0;
+  accent-color:var(--blue);border-radius:3px;
+  /* Anula el padding/min-height de los inputs del formulario. */
+  min-height:0;padding:0;border:none;background:transparent;box-shadow:none;
+}
+.contact-form label.form-consent span{
+  flex:1;min-width:0;
+}
+.form-consent a{color:var(--blue);text-decoration:underline;text-underline-offset:2px}
 .form-ok-icon{
   width:48px;height:48px;border-radius:50%;
   background:rgba(52,199,89,.14);color:#248a3d;
@@ -373,7 +405,9 @@ header.scrolled::before{
 .benefit{
   padding:var(--space-8) var(--space-5);
   border-left:1px solid rgba(255,255,255,.12);
+  transition:background .25s var(--ease);
 }
+.benefit:hover{background:rgba(255,255,255,.04)}
 .benefit:first-child{border-left:none;padding-left:0}
 .benefit:last-child{padding-right:0}
 .benefit-num{
@@ -472,7 +506,7 @@ section{padding:var(--space-9) 0}
 
 /* ---------- proceso ---------- */
 .process{background:var(--bg)}
-.process-steps{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--space-6)}
+.process-steps{display:grid;grid-template-columns:repeat(4,1fr);gap:var(--space-6)}
 .process-steps li{padding-top:var(--space-5);border-top:1px solid var(--line)}
 .step-num{
   display:block;font-size:12px;font-weight:600;letter-spacing:-.01em;
@@ -634,6 +668,9 @@ footer{
 }
 
 /* ---------- responsive ---------- */
+@media (max-width:1200px){
+  .process-steps{grid-template-columns:repeat(2,1fr)}
+}
 @media (max-width:1020px){
   .hero-inner{grid-template-columns:1fr;gap:var(--space-6)}
   .hero-form-panel{max-width:26rem}
@@ -697,17 +734,17 @@ footer{
 }
 
 @media (prefers-reduced-transparency:reduce){
-  header.scrolled::before,.nav-links,.jh-confirm,.jh-confirm-card,.hero-form-panel,.btn-ghost-light,header.on-hero .nav-consult{
+  .nav-links,.jh-confirm,.jh-confirm-card,.hero-form-panel,.btn-ghost-light,.hero-welcome{
     backdrop-filter:none;-webkit-backdrop-filter:none;
   }
-  header.scrolled::before{background:#f5f5f7;opacity:1}
   .hero-form-panel,.jh-confirm-card{background:#fff}
+  .hero-welcome{background:rgba(0,0,0,.45)}
+  .btn-ghost-light{background:rgba(255,255,255,.2)}
   .jh-confirm{background:rgba(0,0,0,.5)}
 }
 @media (prefers-contrast:more){
   :scope{--ink-soft:#3a3a3c;--line:rgba(0,0,0,.28);--ink:#000}
-  header.scrolled::before{background:#fff;opacity:1}
-  .contact-form input,.contact-form textarea{border-width:2px}
+  .contact-form input:not([type="checkbox"]),.contact-form textarea{border-width:2px}
 }
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{

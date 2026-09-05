@@ -4,6 +4,7 @@ import { prisma } from "@/src/lib/db";
 import {
   createPresignedDownloadUrl,
   createPresignedUploadUrl,
+  deleteObject,
   isStorageConfigured,
 } from "@/src/lib/storage/s3";
 import { assertAllowedFile, buildStorageKey } from "@/src/lib/storage/policy";
@@ -20,13 +21,16 @@ function assertFileAllowed(mimeType: string, sizeBytes: number) {
 import { writeActivityLog } from "@/src/server/activity";
 import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
+import { can } from "@/src/server/auth/permissions";
+import { ForbiddenError } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 
 /**
  * Documentos: metadata en MySQL, binario en bucket privado S3.
  * Flujo upload: requestUpload → browser PUT directo → confirmUpload.
  * Descarga: requestDownload (audita si sensibilidad != INTERNAL).
- * Eliminación: soft delete (deletedAt) con auditoría.
+ * Eliminación: soft delete (deletedAt) con auditoría; hard delete vía
+ * retención / ADMIN (settings.manage).
  */
 
 export interface RequestUploadData {
@@ -158,14 +162,23 @@ export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploa
 
 async function getDocumentOrThrow(ctx: OrganizationContext, documentId: string) {
   const document = await prisma.document.findFirst({
-    where: { id: documentId, organizationId: ctx.organizationId, deletedAt: null },
+    where: {
+      id: documentId,
+      organizationId: ctx.organizationId,
+      deletedAt: null,
+      hardDeletedAt: null,
+    },
   });
   if (!document) throw new DomainError("Documento no encontrado.");
   return document;
 }
 
-/** URL firmada de descarga. Audita si la sensibilidad no es INTERNAL. */
-export async function requestDownload(ctx: OrganizationContext, documentId: string) {
+/** URL firmada de descarga/vista. Audita si la sensibilidad no es INTERNAL. */
+export async function requestDownload(
+  ctx: OrganizationContext,
+  documentId: string,
+  options?: { disposition?: "attachment" | "inline" },
+) {
   assertStorage();
   const document = await getDocumentOrThrow(ctx, documentId);
 
@@ -174,25 +187,52 @@ export async function requestDownload(ctx: OrganizationContext, documentId: stri
       action: "DOCUMENT_DOWNLOADED",
       entityType: "Document",
       entityId: document.id,
-      metadata: { category: document.category, sensitivity: document.sensitivity },
+      metadata: {
+        category: document.category,
+        sensitivity: document.sensitivity,
+        disposition: options?.disposition ?? "attachment",
+      },
     });
   }
 
+  // Preferir originalName si ya trae extensión; si no, displayName (se fuerza .pdf vía mime).
+  const hasExt = (n: string) => /\.\w{2,5}$/i.test(n);
+  const downloadName =
+    (hasExt(document.originalName) ? document.originalName : null) ??
+    (document.displayName && hasExt(document.displayName)
+      ? document.displayName
+      : null) ??
+    document.displayName ??
+    document.originalName;
+
   const url = await createPresignedDownloadUrl({
     storageKey: document.storageKey,
-    downloadName: document.displayName ?? document.originalName,
+    downloadName,
+    mimeType: document.mimeType,
+    disposition: options?.disposition ?? "attachment",
   });
   return { url, document };
 }
 
-/** Soft delete: deletedAt + auditoría. El binario permanece en el bucket. */
+/** Soft delete: deletedAt + auditoría. El binario permanece hasta purgeAfter. */
 export async function softDeleteDocument(ctx: OrganizationContext, documentId: string) {
   const document = await getDocumentOrThrow(ctx, documentId);
+
+  const settings = await prisma.organizationSettings.findUnique({
+    where: { organizationId: ctx.organizationId },
+    select: { documentSoftDeleteRetentionDays: true },
+  });
+  const days = settings?.documentSoftDeleteRetentionDays;
+  const now = new Date();
+  const purgeAfter =
+    typeof days === "number" && days > 0
+      ? new Date(now.getTime() + days * 24 * 60 * 60 * 1000)
+      : null;
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.document.update({
       where: { id: document.id },
-      data: { deletedAt: new Date() },
+      data: { deletedAt: now, purgeAfter },
     });
     await writeAuditLog(
       toAuditContext(ctx),
@@ -200,7 +240,11 @@ export async function softDeleteDocument(ctx: OrganizationContext, documentId: s
         action: "DOCUMENT_DELETED",
         entityType: "Document",
         entityId: document.id,
-        metadata: { category: document.category, sensitivity: document.sensitivity },
+        metadata: {
+          category: document.category,
+          sensitivity: document.sensitivity,
+          purgeAfter: purgeAfter?.toISOString() ?? null,
+        },
       },
       tx,
     );
@@ -220,6 +264,110 @@ export async function softDeleteDocument(ctx: OrganizationContext, documentId: s
   });
 }
 
+/**
+ * Hard delete: borra el objeto S3, marca hardDeletedAt.
+ * Solo ADMIN/OWNER (settings.manage). Idempotente si ya está hard-deleted.
+ */
+export async function hardDeleteDocument(
+  ctx: OrganizationContext,
+  documentId: string,
+): Promise<{ id: string }> {
+  if (!can(ctx.role, "settings.manage")) {
+    throw new ForbiddenError();
+  }
+
+  const document = await prisma.document.findFirst({
+    where: {
+      id: documentId,
+      organizationId: ctx.organizationId,
+      hardDeletedAt: null,
+    },
+  });
+  if (!document) throw new DomainError("Documento no encontrado.");
+
+  await purgeDocumentRecord(document, {
+    organizationId: ctx.organizationId,
+    actorUserId: ctx.userId,
+  });
+  return { id: document.id };
+}
+
+/** Núcleo de hard-delete usado por CRM y por el cron de retención. */
+export async function purgeDocumentRecord(
+  document: {
+    id: string;
+    organizationId: string;
+    clientId: string;
+    caseId: string | null;
+    roundId: string | null;
+    storageKey: string;
+    displayName: string | null;
+    originalName: string;
+    category: DocumentCategory;
+    sensitivity: DocumentSensitivity;
+    deletedAt?: Date | null;
+  },
+  actor: { organizationId: string; actorUserId?: string | null },
+): Promise<void> {
+  if (isStorageConfigured() && document.storageKey && !document.storageKey.startsWith("purged/")) {
+    try {
+      await deleteObject(document.storageKey);
+    } catch (error) {
+      // Si el objeto ya no existe, seguimos marcando el registro.
+      console.error("[documents] deleteObject falló:", error);
+    }
+  }
+
+  const now = new Date();
+  // Conservamos clave única sustituyendo por marcador de auditoría.
+  const purgedKey = `purged/${document.organizationId}/${document.id}`;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.document.update({
+      where: { id: document.id },
+      data: {
+        hardDeletedAt: now,
+        deletedAt: document.deletedAt ?? now,
+        purgeAfter: null,
+        storageKey: purgedKey,
+        sizeBytes: 0,
+        checksumSha256: null,
+      },
+    });
+    await writeAuditLog(
+      {
+        organizationId: actor.organizationId,
+        actorUserId: actor.actorUserId ?? null,
+      },
+      {
+        action: "DOCUMENT_HARD_DELETED",
+        entityType: "Document",
+        entityId: document.id,
+        metadata: {
+          category: document.category,
+          sensitivity: document.sensitivity,
+        },
+      },
+      tx,
+    );
+    await writeActivityLog(
+      {
+        organizationId: actor.organizationId,
+        actorUserId: actor.actorUserId ?? null,
+      },
+      {
+        type: "DOCUMENT_HARD_DELETED",
+        description: `Documento eliminado permanentemente: ${document.displayName ?? document.originalName}.`,
+        clientId: document.clientId,
+        caseId: document.caseId,
+        roundId: document.roundId,
+        metadata: { documentId: document.id },
+      },
+      tx,
+    );
+  });
+}
+
 export interface DocumentListFilters {
   clientId: string;
   caseId?: string;
@@ -236,6 +384,7 @@ export async function listDocuments(ctx: OrganizationContext, filters: DocumentL
     organizationId: ctx.organizationId,
     clientId: filters.clientId,
     deletedAt: null,
+    hardDeletedAt: null,
     ...(filters.caseId ? { caseId: filters.caseId } : {}),
     ...(filters.roundId ? { roundId: filters.roundId } : {}),
     ...(filters.paymentId ? { paymentId: filters.paymentId } : {}),

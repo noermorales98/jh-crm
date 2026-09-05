@@ -15,6 +15,10 @@ import { fullName, jsonSafe } from "@/src/lib/ai/serialize";
 import {
   CASE_STATE_LABELS,
   CLIENT_STATUS_LABELS,
+  COMPARISON_RESULT_LABELS,
+  CREDIT_BUREAU_LABELS,
+  DISPUTE_ITEM_STATUS_LABELS,
+  DISPUTE_OUTCOME_LABELS,
   PAYMENT_METHOD_LABELS,
   PAYMENT_STATUS_LABELS,
   QUOTE_STATUS_LABELS,
@@ -286,6 +290,17 @@ export async function getDashboardSnapshot(ctx: OrganizationContext) {
       pendingPayments: w.pendingPayments.count,
       pendingPaymentsTotal: w.pendingPayments.totalAmount,
       recentReceivedPayments: w.recentReceivedPayments.count,
+      documentsPendingCases: w.documentsPendingCases.count,
+      reportsToReview: w.reportsToReview.count,
+      roundsToPrepare: w.roundsToPrepare.count,
+      roundsWaitingUpdate: w.roundsWaitingUpdate.count,
+      overdueUpdates: w.overdueUpdates.count,
+      overduePayments: w.overduePayments.count,
+      newLeads: w.newLeads.count,
+      conversions: w.conversions.count,
+      disputedItems: w.disputedItems.count,
+      deletedItems: w.deletedItems.count,
+      updatedItems: w.updatedItems.count,
     },
     overdueTasks: w.overdueTasks.items.map((task) => ({
       title: task.title,
@@ -1153,6 +1168,518 @@ export async function getCaseBrief(ctx: OrganizationContext, caseId: string) {
     if (error instanceof DomainError) return { error: error.message };
     throw error;
   }
+}
+
+/**
+ * Detalle crediticio de un caso: último reporte + scores, ítems de disputa
+ * de la ronda activa y última comparación. Nunca incluye SSN ni cifrados.
+ */
+export async function getCreditCaseDetail(
+  ctx: OrganizationContext,
+  caseId: string,
+) {
+  if (!can(ctx.role, "cases.view")) return deny("ver casos");
+
+  const creditCase = await prisma.creditCase.findFirst({
+    where: { id: caseId, organizationId: ctx.organizationId },
+    select: {
+      id: true,
+      caseCode: true,
+      state: true,
+      nextReviewAt: true,
+      stage: { select: { key: true, name: true } },
+      client: {
+        select: {
+          id: true,
+          clientCode: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+          email: true,
+          phone: true,
+        },
+      },
+    },
+  });
+  if (!creditCase) return { error: "Caso no encontrado." };
+
+  const [latestReport, activeRound, latestComparison] = await Promise.all([
+    prisma.creditReport.findFirst({
+      where: { caseId, organizationId: ctx.organizationId },
+      orderBy: [{ reportDate: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        type: true,
+        reportDate: true,
+        provider: true,
+        notes: true,
+        snapshots: {
+          select: {
+            bureau: true,
+            score: true,
+            totalAccounts: true,
+            openAccounts: true,
+            closedAccounts: true,
+            negativeAccounts: true,
+            collections: true,
+            inquiries: true,
+            totalBalance: true,
+            utilization: true,
+          },
+          orderBy: { bureau: "asc" },
+        },
+      },
+    }),
+    prisma.creditRound.findFirst({
+      where: {
+        caseId,
+        organizationId: ctx.organizationId,
+        status: {
+          in: ["DRAFT", "PREPARING", "SENT", "WAITING_UPDATE", "REVIEWING"],
+        },
+      },
+      orderBy: { roundNumber: "desc" },
+      select: {
+        id: true,
+        roundNumber: true,
+        status: true,
+        expectedReviewAt: true,
+        disputeItems: {
+          select: {
+            id: true,
+            bureau: true,
+            disputeReason: true,
+            status: true,
+            outcome: true,
+            creditItem: {
+              select: {
+                creditorName: true,
+                accountNumberMasked: true,
+                balance: true,
+              },
+            },
+          },
+          take: 40,
+        },
+      },
+    }),
+    prisma.reportComparison.findFirst({
+      where: { caseId, organizationId: ctx.organizationId },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        createdAt: true,
+        notes: true,
+        items: {
+          select: {
+            autoResult: true,
+            manualResult: true,
+          },
+        },
+      },
+    }),
+  ]);
+
+  const comparisonSummary = latestComparison
+    ? (() => {
+        const summary = {
+          deleted: 0,
+          updated: 0,
+          verified: 0,
+          unchanged: 0,
+          new: 0,
+        };
+        for (const item of latestComparison.items) {
+          const result = item.manualResult ?? item.autoResult;
+          switch (result) {
+            case "DELETED":
+              summary.deleted += 1;
+              break;
+            case "UPDATED":
+              summary.updated += 1;
+              break;
+            case "VERIFIED":
+              summary.verified += 1;
+              break;
+            case "UNCHANGED":
+              summary.unchanged += 1;
+              break;
+            case "NEW":
+              summary.new += 1;
+              break;
+          }
+        }
+        return summary;
+      })()
+    : null;
+
+  const disputeSummary = {
+    total: activeRound?.disputeItems.length ?? 0,
+    byStatus: {} as Record<string, number>,
+    byOutcome: {} as Record<string, number>,
+  };
+  for (const item of activeRound?.disputeItems ?? []) {
+    disputeSummary.byStatus[item.status] =
+      (disputeSummary.byStatus[item.status] ?? 0) + 1;
+    if (item.outcome) {
+      disputeSummary.byOutcome[item.outcome] =
+        (disputeSummary.byOutcome[item.outcome] ?? 0) + 1;
+    }
+  }
+
+  return jsonSafe({
+    note: "Sin SSN ni campos cifrados. No inventes eliminaciones: usa solo outcome/comparación reales.",
+    case: {
+      id: creditCase.id,
+      caseCode: creditCase.caseCode,
+      state: creditCase.state,
+      statusLabel: labelFor(CASE_STATE_LABELS, creditCase.state),
+      stage: creditCase.stage.name,
+      stageKey: creditCase.stage.key,
+      nextReviewAt: creditCase.nextReviewAt,
+      href: `/crm/casos/${creditCase.id}`,
+      creditoHref: `/crm/casos/${creditCase.id}/credito`,
+      rondasHref: `/crm/casos/${creditCase.id}/rondas`,
+      client: {
+        id: creditCase.client.id,
+        name: fullName(creditCase.client),
+        statusLabel: labelFor(CLIENT_STATUS_LABELS, creditCase.client.status),
+        email: creditCase.client.email,
+        phone: creditCase.client.phone,
+        href: `/crm/clientes/${creditCase.client.id}`,
+      },
+    },
+    latestReport: latestReport
+      ? {
+          id: latestReport.id,
+          type: latestReport.type,
+          reportDate: latestReport.reportDate,
+          provider: latestReport.provider,
+          notes: latestReport.notes,
+          scores: latestReport.snapshots.map((s) => ({
+            bureau: s.bureau,
+            bureauLabel: labelFor(CREDIT_BUREAU_LABELS, s.bureau),
+            score: s.score,
+            totalAccounts: s.totalAccounts,
+            openAccounts: s.openAccounts,
+            closedAccounts: s.closedAccounts,
+            negativeAccounts: s.negativeAccounts,
+            collections: s.collections,
+            inquiries: s.inquiries,
+            totalBalance: s.totalBalance?.toString() ?? null,
+            utilization: s.utilization?.toString() ?? null,
+          })),
+        }
+      : null,
+    activeRound: activeRound
+      ? {
+          id: activeRound.id,
+          roundNumber: activeRound.roundNumber,
+          status: activeRound.status,
+          statusLabel: labelFor(ROUND_STATUS_LABELS, activeRound.status),
+          expectedReviewAt: activeRound.expectedReviewAt,
+          disputeSummary,
+          disputeItems: activeRound.disputeItems.map((item) => ({
+            bureau: labelFor(CREDIT_BUREAU_LABELS, item.bureau),
+            creditor: item.creditItem.creditorName,
+            accountMasked: item.creditItem.accountNumberMasked,
+            balance: item.creditItem.balance?.toString() ?? null,
+            reason: item.disputeReason,
+            status: item.status,
+            statusLabel: labelFor(DISPUTE_ITEM_STATUS_LABELS, item.status),
+            outcome: item.outcome,
+            outcomeLabel: item.outcome
+              ? labelFor(DISPUTE_OUTCOME_LABELS, item.outcome)
+              : null,
+          })),
+        }
+      : null,
+    latestComparison: latestComparison
+      ? {
+          id: latestComparison.id,
+          createdAt: latestComparison.createdAt,
+          notes: latestComparison.notes,
+          summary: comparisonSummary,
+          href: `/crm/casos/${caseId}/comparaciones/${latestComparison.id}`,
+          resultLabels: COMPARISON_RESULT_LABELS,
+        }
+      : null,
+  });
+}
+
+/** Clientes/casos que requieren atención crediticia esta semana. */
+export async function listCreditAttention(ctx: OrganizationContext) {
+  if (!can(ctx.role, "cases.view") && !can(ctx.role, "dashboard.view")) {
+    return deny("ver atención crediticia");
+  }
+
+  const orgId = ctx.organizationId;
+  const now = new Date();
+  const weekEnd = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  const [waitingUpdateOverdue, reviewsThisWeek, docsPending, roundsPreparing] =
+    await Promise.all([
+      prisma.creditRound.findMany({
+        where: {
+          organizationId: orgId,
+          status: "WAITING_UPDATE",
+          OR: [
+            { expectedReviewAt: { lt: now } },
+            { expectedReviewAt: null },
+          ],
+        },
+        select: {
+          id: true,
+          roundNumber: true,
+          expectedReviewAt: true,
+          case: {
+            select: {
+              id: true,
+              caseCode: true,
+              client: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+        orderBy: { expectedReviewAt: "asc" },
+        take: 15,
+      }),
+      prisma.creditCase.findMany({
+        where: {
+          organizationId: orgId,
+          state: "OPEN",
+          nextReviewAt: { gte: now, lte: weekEnd },
+        },
+        select: {
+          id: true,
+          caseCode: true,
+          nextReviewAt: true,
+          client: { select: { firstName: true, lastName: true } },
+        },
+        orderBy: { nextReviewAt: "asc" },
+        take: 15,
+      }),
+      prisma.creditCase.findMany({
+        where: {
+          organizationId: orgId,
+          state: "OPEN",
+          stage: { key: "DOCUMENTS_PENDING" },
+        },
+        select: {
+          id: true,
+          caseCode: true,
+          client: { select: { firstName: true, lastName: true } },
+        },
+        take: 10,
+      }),
+      prisma.creditRound.findMany({
+        where: {
+          organizationId: orgId,
+          status: { in: ["DRAFT", "PREPARING"] },
+        },
+        select: {
+          id: true,
+          roundNumber: true,
+          status: true,
+          case: {
+            select: {
+              id: true,
+              caseCode: true,
+              client: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+        take: 10,
+      }),
+    ]);
+
+  return jsonSafe({
+    waitingUpdateOverdue: waitingUpdateOverdue.map((r) => ({
+      roundNumber: r.roundNumber,
+      expectedReviewAt: r.expectedReviewAt,
+      caseCode: r.case.caseCode,
+      client: fullName(r.case.client),
+      href: `/crm/casos/${r.case.id}/rondas`,
+    })),
+    reviewsThisWeek: reviewsThisWeek.map((c) => ({
+      caseCode: c.caseCode,
+      nextReviewAt: c.nextReviewAt,
+      client: fullName(c.client),
+      href: `/crm/casos/${c.id}`,
+    })),
+    documentsPending: docsPending.map((c) => ({
+      caseCode: c.caseCode,
+      client: fullName(c.client),
+      href: `/crm/casos/${c.id}`,
+    })),
+    roundsToPrepare: roundsPreparing.map((r) => ({
+      roundNumber: r.roundNumber,
+      statusLabel: labelFor(ROUND_STATUS_LABELS, r.status),
+      caseCode: r.case.caseCode,
+      client: fullName(r.case.client),
+      href: `/crm/casos/${r.case.id}/rondas`,
+    })),
+    links: {
+      dashboard: "/crm/dashboard",
+      cases: "/crm/casos",
+      rounds: "/crm/rondas",
+    },
+  });
+}
+
+/**
+ * Resumen de progreso crediticio por nombre de cliente.
+ * Solo reporta eliminaciones/actualizaciones con outcome o comparación real.
+ */
+export async function searchCreditProgress(
+  ctx: OrganizationContext,
+  clientName: string,
+) {
+  if (!can(ctx.role, "cases.view")) return deny("ver casos");
+
+  const q = clientName.trim();
+  if (q.length < 2) {
+    return { error: "Escribe al menos 2 caracteres del nombre." };
+  }
+
+  const clients = await prisma.client.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      OR: [
+        { firstName: contains(q) },
+        { lastName: contains(q) },
+        { clientCode: contains(q) },
+      ],
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      clientCode: true,
+      status: true,
+      cases: {
+        where: { state: { in: ["OPEN", "PAUSED", "COMPLETED"] } },
+        select: {
+          id: true,
+          caseCode: true,
+          state: true,
+          nextReviewAt: true,
+          stage: { select: { name: true } },
+        },
+        orderBy: { openedAt: "desc" },
+        take: 3,
+      },
+    },
+    take: 5,
+    orderBy: { updatedAt: "desc" },
+  });
+
+  if (clients.length === 0) {
+    return { query: q, results: [], note: "Sin coincidencias." };
+  }
+
+  const results = [];
+  for (const client of clients) {
+    const caseIds = client.cases.map((c) => c.id);
+    const [outcomes, activeDisputes, latestComparison] = await Promise.all([
+      prisma.disputeItem.groupBy({
+        by: ["outcome"],
+        where: {
+          organizationId: ctx.organizationId,
+          outcome: { not: null },
+          round: { caseId: { in: caseIds } },
+        },
+        _count: { _all: true },
+      }),
+      prisma.disputeItem.count({
+        where: {
+          organizationId: ctx.organizationId,
+          status: { in: ["SENT", "WAITING", "RESPONDED"] },
+          round: { caseId: { in: caseIds } },
+        },
+      }),
+      caseIds.length
+        ? prisma.reportComparison.findFirst({
+            where: {
+              organizationId: ctx.organizationId,
+              caseId: { in: caseIds },
+            },
+            orderBy: { createdAt: "desc" },
+            select: {
+              id: true,
+              caseId: true,
+              createdAt: true,
+              items: {
+                select: { autoResult: true, manualResult: true },
+              },
+            },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const outcomeCounts: Record<string, number> = {};
+    for (const row of outcomes) {
+      if (row.outcome) outcomeCounts[row.outcome] = row._count._all;
+    }
+
+    let comparisonSummary = null;
+    if (latestComparison) {
+      const summary = {
+        deleted: 0,
+        updated: 0,
+        verified: 0,
+        unchanged: 0,
+        new: 0,
+      };
+      for (const item of latestComparison.items) {
+        const result = item.manualResult ?? item.autoResult;
+        if (result === "DELETED") summary.deleted += 1;
+        else if (result === "UPDATED") summary.updated += 1;
+        else if (result === "VERIFIED") summary.verified += 1;
+        else if (result === "UNCHANGED") summary.unchanged += 1;
+        else if (result === "NEW") summary.new += 1;
+      }
+      comparisonSummary = {
+        id: latestComparison.id,
+        createdAt: latestComparison.createdAt,
+        href: `/crm/casos/${latestComparison.caseId}/comparaciones/${latestComparison.id}`,
+        summary,
+      };
+    }
+
+    results.push({
+      client: {
+        name: fullName(client),
+        clientCode: client.clientCode,
+        statusLabel: labelFor(CLIENT_STATUS_LABELS, client.status),
+        href: `/crm/clientes/${client.id}`,
+      },
+      cases: client.cases.map((c) => ({
+        caseCode: c.caseCode,
+        stateLabel: labelFor(CASE_STATE_LABELS, c.state),
+        stage: c.stage.name,
+        nextReviewAt: c.nextReviewAt,
+        href: `/crm/casos/${c.id}/credito`,
+      })),
+      progress: {
+        activeDisputes,
+        outcomes: {
+          deleted: outcomeCounts.DELETED ?? 0,
+          updated: outcomeCounts.UPDATED ?? 0,
+          verified: outcomeCounts.VERIFIED ?? 0,
+          noChange: outcomeCounts.NO_CHANGE ?? 0,
+        },
+        note: "Solo cuenta outcomes registrados. No asumas eliminaciones sin dato.",
+        latestComparison: comparisonSummary,
+      },
+    });
+  }
+
+  return jsonSafe({
+    query: q,
+    results,
+    rules:
+      "Nunca inventes eliminaciones. Si deleted=0, di que no hay eliminaciones registradas.",
+  });
 }
 
 export async function getCatalogSnapshot(ctx: OrganizationContext) {

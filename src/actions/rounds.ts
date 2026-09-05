@@ -22,7 +22,6 @@ const createRoundSchema = z.object({
   caseId: cuidSchema,
   notes: z.string().trim().max(5000).nullish(),
   lettersCount: z.number().int().min(0).optional(),
-  disputedItemsCount: z.number().int().min(0).optional(),
 });
 
 export async function createRound(
@@ -43,7 +42,6 @@ export async function createRound(
 const updateRoundSchema = z.object({
   notes: z.string().trim().max(5000).nullish(),
   lettersCount: z.number().int().min(0).optional(),
-  disputedItemsCount: z.number().int().min(0).optional(),
 });
 
 export async function updateRound(

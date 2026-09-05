@@ -82,6 +82,7 @@ export function MarketingHome() {
       ) : null}
 
       <header className={scrolled || menuOpen ? "scrolled" : "on-hero"}>
+        <div className="header-frost" aria-hidden="true" />
         <div className="wrap nav">
           <a className="brand" href="#inicio" aria-label="J&H MultiServices LLC — Inicio">
             <span className="brand-mark">
@@ -181,17 +182,19 @@ export function MarketingHome() {
                 <ContactForm variant="hero" />
               </div>
               <div className="hero-copy">
-                <p className="hero-welcome reveal d1">Bienvenido a J&amp;H MultiServices</p>
+                <p className="hero-welcome reveal d1">Reparación y análisis de crédito</p>
                 <h1 className="reveal d2">
                   <span className="hero-brand">J&amp;H</span>
-                  <span className="hero-headline">Su futuro financiero, en buenas manos.</span>
+                  <span className="hero-headline">
+                    Análisis crediticio, reparación de crédito y acompañamiento claro.
+                  </span>
                 </h1>
                 <p className="hero-sub reveal d3">
-                  Consultoría profesional con orientación personalizada, soluciones prácticas y una
-                  consulta inicial por solo $1 USD.
+                  Revisamos su reporte, explicamos su situación y le acompañamos en el proceso de
+                  disputa — con una consulta inicial por solo $1 USD. Sin promesas de puntaje.
                 </p>
                 <a className="btn btn-ghost-light reveal d4" href="#servicios">
-                  Ver servicios
+                  Ver servicios de crédito
                 </a>
               </div>
             </div>
@@ -204,22 +207,30 @@ export function MarketingHome() {
                 <span className="benefit-num" aria-hidden="true">
                   01
                 </span>
-                <h3>Claridad financiera</h3>
-                <p>Ordene su situación y tome decisiones con información clara y cercana.</p>
+                <h3>Análisis de crédito</h3>
+                <p>
+                  Revisamos su reporte y le explicamos cuentas, burós y puntos críticos con lenguaje
+                  claro.
+                </p>
               </article>
               <article className="benefit reveal d1">
                 <span className="benefit-num" aria-hidden="true">
                   02
                 </span>
-                <h3>Estructura de negocio</h3>
-                <p>Forme su LLC y organice su proyecto con pasos seguros y sin complicaciones.</p>
+                <h3>Reparación guiada</h3>
+                <p>
+                  Acompañamiento en disputas y seguimiento de rondas, con un plan adaptado a su caso.
+                </p>
               </article>
               <article className="benefit reveal d2">
                 <span className="benefit-num" aria-hidden="true">
                   03
                 </span>
-                <h3>Presencia profesional</h3>
-                <p>Una web moderna y servicios a medida para que su marca inspire confianza.</p>
+                <h3>Educación crediticia</h3>
+                <p>
+                  Aprenda a leer su perfil y a tomar decisiones informadas. Los resultados dependen de
+                  su situación y de los burós.
+                </p>
               </article>
             </div>
           </section>
@@ -230,7 +241,7 @@ export function MarketingHome() {
               <div className="about-visual reveal">
                 <Image
                   src={IMG.about}
-                  alt="Equipo profesional en reunión de consultoría"
+                  alt="Asesoría profesional sobre análisis y reparación de crédito"
                   fill
                   sizes="(max-width: 1020px) 100vw, 40vw"
                   className="about-photo"
@@ -239,33 +250,34 @@ export function MarketingHome() {
               <div className="about-body">
                 <div className="sec-head reveal d1">
                   <div className="eyebrow">Acerca de nosotros</div>
-                  <h2>Orientación clara para decisiones informadas</h2>
+                  <h2>Especialistas en crédito y acompañamiento personalizado</h2>
                 </div>
                 <p className="lead reveal d2">
-                  J&amp;H MultiServices LLC ofrece servicios de consultoría diseñados para ayudarle a{" "}
-                  <strong>comprender mejor su situación financiera</strong> y tomar decisiones
-                  informadas con total tranquilidad.
+                  J&amp;H MultiServices LLC se enfoca en{" "}
+                  <strong>análisis crediticio, reparación de crédito y educación</strong> para que
+                  comprenda su reporte y avance con un plan concreto — sin garantías de puntaje ni de
+                  eliminación.
                 </p>
                 <p className="about-note reveal d2">
-                  Nos enfocamos en orientación personalizada y soluciones prácticas adaptadas a cada
-                  cliente. Su consulta inicial cuesta solo $1 USD: un punto de partida accesible para
-                  conocer su caso y trazar un plan.
+                  Su consulta inicial cuesta solo $1 USD: revisamos su situación, le explicamos el
+                  panorama y, si encaja, diseñamos el siguiente paso (documentos, disputas y
+                  seguimiento).
                 </p>
                 <div className="values reveal d3">
                   <div className="value">
                     <span className="value-num">01</span>
-                    <h3>Experiencia</h3>
-                    <p>Trayectoria brindando servicios confiables a quienes más lo necesitan.</p>
+                    <h3>Análisis</h3>
+                    <p>Leemos su reporte con usted y priorizamos lo que realmente importa.</p>
                   </div>
                   <div className="value">
                     <span className="value-num">02</span>
-                    <h3>Compromiso</h3>
-                    <p>Cada cliente recibe dedicación completa, del primer contacto al resultado.</p>
+                    <h3>Reparación</h3>
+                    <p>Proceso de disputa ordenado, con seguimiento de cada ronda.</p>
                   </div>
                   <div className="value">
                     <span className="value-num">03</span>
-                    <h3>Valor</h3>
-                    <p>Soluciones prácticas que generan un beneficio real y medible para usted.</p>
+                    <h3>Claridad</h3>
+                    <p>Educación crediticia y comunicación cercana en cada etapa.</p>
                   </div>
                 </div>
               </div>
@@ -277,113 +289,127 @@ export function MarketingHome() {
             <div className="wrap">
               <div className="sec-head reveal">
                 <div className="eyebrow">Nuestros servicios</div>
-                <h2>Todo lo que su proyecto necesita, en un solo lugar</h2>
-                <p>Cuatro áreas de especialización, un mismo nivel de dedicación.</p>
+                <h2>Crédito primero: análisis, reparación y seguimiento</h2>
+                <p>
+                  Nuestro foco es su perfil crediticio. También ofrecemos LLC y presencia web cuando
+                  su proyecto lo necesita.
+                </p>
               </div>
               <div className="svc-grid">
                 <article className="svc reveal">
                   <div className="svc-media">
                     <Image
-                      src={IMG.llc}
-                      alt="Documentos de formación de empresa sobre un escritorio"
+                      src={IMG.consult}
+                      alt="Consultora revisando información crediticia con un cliente"
                       width={640}
                       height={420}
                       sizes="(max-width: 760px) 100vw, 50vw"
                     />
                   </div>
                   <span className="svc-num">01</span>
-                  <h3>Formación de LLC</h3>
+                  <h3>Análisis de crédito</h3>
                   <p>
-                    Le ayudamos a registrar su negocio de manera fácil y segura, paso a paso y sin
-                    complicaciones.
+                    Revisión de su reporte (Experian, Equifax, TransUnion): cuentas, puntajes e
+                    ítems a vigilar — explicados en lenguaje claro.
                   </p>
                 </article>
                 <article className="svc reveal d1">
                   <div className="svc-media">
                     <Image
-                      src={IMG.web}
-                      alt="Diseño de página web en una laptop"
+                      src={IMG.projects}
+                      alt="Equipo trabajando en el seguimiento de un caso de crédito"
                       width={640}
                       height={420}
                       sizes="(max-width: 760px) 100vw, 50vw"
                     />
                   </div>
                   <span className="svc-num">02</span>
-                  <h3>Páginas Web</h3>
+                  <h3>Reparación de crédito</h3>
                   <p>
-                    Creamos su presencia profesional en internet: moderna, clara y lista para captar
-                    clientes.
+                    Acompañamiento en disputas ante burós y acreedores, con rondas ordenadas y
+                    seguimiento continuo. Sin garantías de eliminación ni de puntaje.
                   </p>
                 </article>
                 <article className="svc reveal d2">
                   <div className="svc-media">
                     <Image
-                      src={IMG.consult}
-                      alt="Consultora escuchando a un cliente"
+                      src={IMG.llc}
+                      alt="Documentos educativos sobre crédito y finanzas personales"
                       width={640}
                       height={420}
                       sizes="(max-width: 760px) 100vw, 50vw"
                     />
                   </div>
                   <span className="svc-num">03</span>
-                  <h3>Consultoría Personalizada</h3>
+                  <h3>Educación crediticia</h3>
                   <p>
-                    Asesoría adaptada a sus necesidades específicas, con acompañamiento cercano y
-                    profesional.
+                    Aprenda a leer su reporte, priorizar deudas y sostener buenos hábitos. El
+                    progreso depende de su situación y de terceros.
                   </p>
                 </article>
                 <article className="svc reveal d3">
                   <div className="svc-media">
                     <Image
-                      src={IMG.projects}
-                      alt="Equipo colaborando en un proyecto de negocio"
+                      src={IMG.web}
+                      alt="Servicios complementarios de negocio y presencia digital"
                       width={640}
                       height={420}
                       sizes="(max-width: 760px) 100vw, 50vw"
                     />
                   </div>
                   <span className="svc-num">04</span>
-                  <h3>Proyectos Personales y de Negocio</h3>
+                  <h3>LLC y presencia web</h3>
                   <p>
-                    Convertimos sus ideas en realidad: planificación, ejecución y seguimiento de
-                    principio a fin.
+                    Si además necesita estructurar su negocio o una web profesional, lo
+                    acompañamos como servicio complementario.
                   </p>
                 </article>
               </div>
             </div>
           </section>
 
-          {/* PROCESO */}
+          {/* PROCESO — Cómo funciona */}
           <section className="process" id="proceso">
             <div className="wrap">
               <div className="sec-head reveal">
-                <div className="eyebrow">Cómo lo hacemos</div>
-                <h2>Nuestro proceso en 3 pasos</h2>
-                <p>De la primera consulta al resultado, con claridad en cada etapa.</p>
+                <div className="eyebrow">Cómo funciona</div>
+                <h2>De la consulta al seguimiento de su crédito</h2>
+                <p>
+                  Un proceso claro para analizar su reporte y avanzar en la reparación, sin
+                  promesas de resultados.
+                </p>
               </div>
               <ol className="process-steps">
                 <li className="reveal">
                   <span className="step-num">01</span>
-                  <h3>Consulta por $1</h3>
+                  <h3>Consulta inicial</h3>
                   <p>
-                    Cuéntenos su situación. Por solo $1 USD revisamos su caso y le ofrecemos una
-                    primera orientación concreta.
+                    Por $1 USD escuchamos su caso y le damos una primera orientación sobre análisis
+                    y reparación de crédito.
                   </p>
                 </li>
                 <li className="reveal d1">
                   <span className="step-num">02</span>
-                  <h3>Plan personalizado</h3>
+                  <h3>Análisis del reporte</h3>
                   <p>
-                    Diseñamos un plan de acción adaptado a sus metas: LLC, web, consultoría o
-                    proyecto a medida.
+                    Revisamos su información crediticia (cuentas, burós, ítems negativos) para
+                    entender el panorama con usted.
                   </p>
                 </li>
                 <li className="reveal d2">
                   <span className="step-num">03</span>
-                  <h3>Ejecución y seguimiento</h3>
+                  <h3>Plan de reparación</h3>
                   <p>
-                    Avanzamos juntos con comunicación clara, plazos definidos y acompañamiento hasta
-                    el resultado.
+                    Definimos un plan personalizado: documentos, disputas y prioridades según su
+                    situación real.
+                  </p>
+                </li>
+                <li className="reveal d3">
+                  <span className="step-num">04</span>
+                  <h3>Seguimiento</h3>
+                  <p>
+                    Acompañamos cada ronda con comunicación clara. Los resultados dependen de su
+                    caso y de los burós; no garantizamos plazos ni puntajes.
                   </p>
                 </li>
               </ol>
@@ -400,36 +426,39 @@ export function MarketingHome() {
             <div className="wrap">
               <div className="sec-head reveal">
                 <div className="eyebrow">Nuestros clientes</div>
-                <h2>Una empresa elegida por quienes valoran el profesionalismo</h2>
-                <p>Hemos proporcionado servicios confiables desde el inicio de nuestras operaciones.</p>
+                <h2>Personas que buscan claridad en su crédito</h2>
+                <p>
+                  Acompañamos a quienes quieren entender su reporte y avanzar en un proceso de
+                  reparación responsable.
+                </p>
               </div>
               <div className="clients-grid">
                 <article className="client reveal">
-                  <h3>Clientes individuales</h3>
+                  <h3>Quienes revisan su reporte</h3>
                   <p>
-                    Personas que buscan ordenar sus finanzas y alcanzar sus metas con acompañamiento
-                    experto.
+                    Personas que necesitan un análisis claro de cuentas, burós y próximos pasos.
                   </p>
                 </article>
                 <article className="client reveal d1">
-                  <h3>Servicios profesionales</h3>
+                  <h3>Proceso de reparación</h3>
                   <p>
-                    Profesionales y negocios que confían en nosotros para estructurar y hacer crecer
-                    sus proyectos.
+                    Clientes que buscan acompañamiento en disputas y seguimiento de rondas, sin
+                    promesas vacías.
                   </p>
                 </article>
                 <article className="client reveal d2">
-                  <h3>Clientes por referencia</h3>
+                  <h3>Por recomendación</h3>
                   <p>
-                    La mayor prueba de confianza: clientes que llegan recomendados por quienes ya
-                    trabajaron con nosotros.
+                    Quienes llegan referidos por alguien que ya trabajó con nosotros en su caso de
+                    crédito.
                   </p>
                 </article>
               </div>
               <blockquote className="clients-quote reveal">
                 <p>
-                  «Nos sentimos orgullosos de ser una empresa elegida por diferentes clientes que
-                  valoran nuestro <em>profesionalismo y dedicación</em>.»
+                  «Nuestro compromiso es{" "}
+                  <em>analizar, educar y acompañar</em> — con profesionalismo y sin garantías
+                  irreales de puntaje.»
                 </p>
               </blockquote>
             </div>
@@ -440,8 +469,11 @@ export function MarketingHome() {
             <div className="wrap">
               <div className="sec-head reveal">
                 <div className="eyebrow">Contacto</div>
-                <h2>Trabajemos juntos</h2>
-                <p>Estamos listos para escucharle. Comuníquese con nosotros por el medio que prefiera.</p>
+                <h2>Empiece su análisis de crédito</h2>
+                <p>
+                  Solicite la consulta por $1 USD o llámenos. Le explicaremos cómo trabajamos el
+                  análisis y la reparación.
+                </p>
               </div>
               <div className="contact-grid">
                 <div className="reveal">
@@ -532,8 +564,8 @@ export function MarketingHome() {
                   J<span>&</span>H
                 </span>
                 <p>
-                  Consultoría y servicios profesionales con experiencia, compromiso y valor. Consulta
-                  inicial por $1 USD.
+                  Análisis crediticio, reparación de crédito y educación — con consulta inicial por
+                  $1 USD. Sin garantías de puntaje.
                 </p>
               </div>
               <div className="foot-col">
@@ -543,6 +575,15 @@ export function MarketingHome() {
                 <a href="#proceso">Proceso</a>
                 <a href="#clientes">Clientes</a>
                 <a href="#contacto">Contacto</a>
+              </div>
+              <div className="foot-col">
+                <b>Legal</b>
+                <a href="/privacy">Privacidad</a>
+                <a href="/terms">Términos</a>
+                <a href="/cancellation">Cancelación</a>
+                <a href="/refunds">Reembolsos</a>
+                <a href="/disclosures">Divulgaciones</a>
+                <a href="/sms-terms">Términos SMS</a>
               </div>
               <div className="foot-col">
                 <b>Contacto</b>

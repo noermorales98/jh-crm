@@ -1,4 +1,5 @@
 import {
+  DeleteObjectCommand,
   GetObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -93,21 +94,71 @@ export async function createPresignedUploadUrl(input: {
   };
 }
 
+const MIME_EXTENSIONS: Record<string, string> = {
+  "application/pdf": ".pdf",
+  "image/jpeg": ".jpg",
+  "image/png": ".png",
+  "image/webp": ".webp",
+  "image/gif": ".gif",
+};
+
+/**
+ * Nombre seguro para Content-Disposition, siempre con extensión según mime.
+ * Evita descargas sin ".pdf" que el SO/navegador no abre como PDF.
+ */
+export function buildDownloadFilename(
+  name: string,
+  mimeType?: string,
+): string {
+  const ext = mimeType ? (MIME_EXTENSIONS[mimeType] ?? "") : "";
+  let base = name
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w.\-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+  if (!base) base = "documento";
+  if (ext && !base.toLowerCase().endsWith(ext)) {
+    base = `${base}${ext}`;
+  }
+  return base;
+}
+
 export async function createPresignedDownloadUrl(input: {
   storageKey: string;
   /** Nombre sugerido de descarga, sin PII obligatoria. */
   downloadName?: string;
+  mimeType?: string;
+  /** inline = previsualizar en el navegador; attachment = forzar descarga. */
+  disposition?: "attachment" | "inline";
 }): Promise<string> {
+  const disposition = input.disposition ?? "attachment";
+  const filename = input.downloadName
+    ? buildDownloadFilename(input.downloadName, input.mimeType)
+    : undefined;
   const command = new GetObjectCommand({
     Bucket: getBucket(),
     Key: input.storageKey,
-    ...(input.downloadName
-      ? { ResponseContentDisposition: `attachment; filename="${input.downloadName.replace(/[^\w.\- ]/g, "_")}"` }
+    ...(filename
+      ? {
+          ResponseContentDisposition: `${disposition}; filename="${filename}"`,
+        }
       : {}),
+    ...(input.mimeType ? { ResponseContentType: input.mimeType } : {}),
   });
   return getSignedUrl(getClient(), command, {
     expiresIn: PRESIGN_EXPIRES_SECONDS,
   });
+}
+
+/** Elimina un objeto del bucket (hard delete / retención). */
+export async function deleteObject(storageKey: string): Promise<void> {
+  await getClient().send(
+    new DeleteObjectCommand({
+      Bucket: getBucket(),
+      Key: storageKey,
+    }),
+  );
 }
 
 /** Subida server-side (evita CORS del browser → R2). */

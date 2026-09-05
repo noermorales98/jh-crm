@@ -110,6 +110,7 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   STAGE_CHANGE: "Cambio de etapa",
   DOCUMENT_UPLOAD: "Documento subido",
   DOCUMENT_DELETE: "Documento eliminado",
+  DOCUMENT_HARD_DELETED: "Documento eliminado (permanente)",
   ROUND_CREATED: "Ronda creada",
   ROUND_SENT: "Ronda enviada",
   ROUND_REVIEWED: "Ronda revisada",
@@ -123,6 +124,91 @@ export const ACTIVITY_TYPE_LABELS: Record<string, string> = {
   MAIL_RECEIVED: "Correo recibido",
   CREDIT_REPORT_CREATED: "Reporte de crédito",
   CREDIT_REPORT_UPDATED: "Reporte actualizado",
+  DISPUTE_ITEM_ADDED: "Elemento disputado",
+  DISPUTE_ITEM_UPDATED: "Disputa actualizada",
+  COMPARISON_CREATED: "Comparación creada",
+  COMPARISON_UPDATED: "Comparación actualizada",
+  LETTER_CREATED: "Carta creada",
+  LETTER_UPDATED: "Carta actualizada",
+  LETTER_FINALIZED: "Carta finalizada",
+  PROGRESS_REPORT_GENERATED: "Reporte de progreso",
+  OPPORTUNITY_CREATED: "Oportunidad creada",
+  OPPORTUNITY_STAGE_CHANGED: "Etapa de oportunidad",
+  OPPORTUNITY_WON: "Oportunidad ganada",
+  PROCESSOR_LINKED: "Procesador vinculado",
+  PAYMENT_PLAN_CREATED: "Plan de pago creado",
+  CONSULTATION_REQUESTED: "Consulta solicitada",
+  PORTAL_ACCESS_INVITED: "Portal invitado",
+  PORTAL_ACCESS_REVOKED: "Portal revocado",
+  CONTRACT_CREATED: "Contrato creado",
+  CONTRACT_SIGNED: "Contrato firmado",
+  OTHER: "Otro",
+};
+
+export const PAYMENT_PLAN_FREQUENCY_LABELS: Record<string, string> = {
+  WEEKLY: "Semanal",
+  BIWEEKLY: "Quincenal",
+  MONTHLY: "Mensual",
+  CUSTOM: "Personalizada",
+};
+
+export const PAYMENT_PLAN_STATUS_LABELS: Record<string, string> = {
+  ACTIVE: "Activo",
+  COMPLETED: "Completado",
+  CANCELLED: "Cancelado",
+  PAUSED: "Pausado",
+};
+
+export const PAYMENT_INSTALLMENT_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pendiente",
+  PAID: "Pagada",
+  CANCELLED: "Cancelada",
+  OVERDUE: "Vencida",
+};
+
+export const CONSULTATION_STATUS_LABELS: Record<string, string> = {
+  REQUESTED: "Solicitada",
+  PAYMENT_PENDING: "Pago pendiente",
+  PAID: "Pagada",
+  SCHEDULED: "Agendada",
+  COMPLETED: "Completada",
+  CANCELLED: "Cancelada",
+};
+
+export const LEAD_CHANNEL_LABELS: Record<string, string> = {
+  FACEBOOK: "Facebook",
+  INSTAGRAM: "Instagram",
+  GOOGLE: "Google",
+  WEBSITE: "Sitio web",
+  REFERRAL: "Referido",
+  MANUAL: "Manual",
+  OTHER: "Otro",
+};
+
+export const OPPORTUNITY_STAGE_LABELS: Record<string, string> = {
+  NEW_LEAD: "Nuevo lead",
+  CONTACTED: "Contactado",
+  CONSULTATION: "Consulta",
+  INTAKE_SENT: "Intake enviado",
+  INTAKE_COMPLETED: "Intake completado",
+  PROPOSAL: "Propuesta",
+  WAITING_PAYMENT: "Esperando pago",
+  WON: "Ganada",
+  LOST: "Perdida",
+};
+
+export const PROCESSOR_ACCOUNT_STATUS_LABELS: Record<string, string> = {
+  PLANNED: "Planificada",
+  ACTIVE: "Activa",
+  EXPIRED: "Vencida",
+  CANCELLED: "Cancelada",
+};
+
+export const INTAKE_PRIMARY_GOAL_LABELS: Record<string, string> = {
+  HOME_PURCHASE: "Compra de vivienda",
+  VEHICLE: "Vehículo",
+  BUSINESS: "Negocio",
+  PERSONAL: "Personal",
   OTHER: "Otro",
 };
 
@@ -158,6 +244,51 @@ export const CREDIT_ITEM_LIFECYCLE_LABELS: Record<string, string> = {
   EXCLUDED: "Excluido",
 };
 
+export const DISPUTE_ITEM_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Borrador",
+  SELECTED: "Seleccionado",
+  LETTER_GENERATED: "Carta generada",
+  SENT: "Enviado",
+  WAITING: "En espera",
+  RESPONDED: "Respondido",
+  COMPLETED: "Completado",
+  CANCELLED: "Cancelado",
+};
+
+export const DISPUTE_OUTCOME_LABELS: Record<string, string> = {
+  DELETED: "Eliminado",
+  UPDATED: "Actualizado",
+  VERIFIED: "Verificado",
+  NO_CHANGE: "Sin cambio",
+  NOT_RESPONDED: "Sin respuesta",
+  NEW_INFORMATION: "Nueva información",
+  OTHER: "Otro",
+};
+
+export const COMPARISON_RESULT_LABELS: Record<string, string> = {
+  DELETED: "Eliminado",
+  UPDATED: "Actualizado",
+  VERIFIED: "Verificado",
+  UNCHANGED: "Sin cambio",
+  NEW: "Nuevo",
+};
+
+export const DISPUTE_LETTER_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Borrador",
+  READY_FOR_REVIEW: "Listo para revisión",
+  FINAL: "Final",
+  SENT: "Enviada",
+  CANCELLED: "Cancelada",
+};
+
+export const CONTRACT_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Borrador",
+  SENT: "Enviado",
+  SIGNED: "Firmado",
+  CANCELLED: "Cancelado",
+  EXPIRED: "Expirado",
+};
+
 export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   TASK_DUE: "Recordatorio de tarea",
   TASK_OVERDUE: "Tarea vencida",
@@ -169,6 +300,10 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   MAIL_RECEIVED: "Correo nuevo",
   CONTACT_FORM: "Formulario de contacto",
   INTAKE_SUBMITTED: "Registro de intake",
+  CONSULTATION_REQUESTED: "Consulta solicitada",
+  PORTAL_MESSAGE: "Mensaje del portal",
+  CONTRACT_READY: "Contrato listo",
+  META_LEAD: "Lead de Meta",
 };
 
 export const MAIL_FOLDER_LABELS: Record<string, string> = {

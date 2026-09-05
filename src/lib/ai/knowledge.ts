@@ -21,10 +21,8 @@ export const CRM_ROUTES = [
   { href: "/crm/casos/{id}/cotizaciones", label: "Cotizaciones del caso", how: "Cotizaciones ligadas al caso." },
   { href: "/crm/casos/{id}/pagos", label: "Pagos del caso", how: "Pagos ligados al caso." },
   { href: "/crm/rondas", label: "Rondas", how: "Rondas de disputa ligadas a un caso. Crear desde /crm/casos/{id}/rondas." },
-  { href: "/crm/oportunidades", label: "Oportunidades", how: "Pipeline comercial (Kanban). WON crea caso y activa cliente." },
   { href: "/crm/consultas", label: "Consultas", how: "Consultas de $1 desde el sitio (REQUESTED). No marcar PAID sin pasarela." },
   { href: "/crm/contratos", label: "Contratos", how: "Plantillas y contratos de cliente; firma desde el portal." },
-  { href: "/crm/atribucion", label: "Atribución", how: "Canales y campañas de leads (UTM, Meta, etc.)." },
   { href: "/portal", label: "Portal del cliente", how: "Acceso del cliente (FEATURE_CLIENT_PORTAL). Progreso, documentos, pagos." },
   { href: "/crm/tareas", label: "Tareas", how: "Tareas con vencimiento y asignación. También se crean desde el caso o el cliente." },
   { href: "/crm/servicios", label: "Servicios", how: "Catálogo de servicios. Paquetes en /crm/servicios/paquetes." },
@@ -70,9 +68,8 @@ export const HOW_TO_GUIDE = `
 1. Abrir el caso → [Crédito](/crm/casos) (pestaña crédito del caso).
 2. Comparar reportes desde Comparaciones. Solo contar eliminaciones con outcome DELETED o resultado de comparación.
 
-### Oportunidades y consultas
-1. [Oportunidades](/crm/oportunidades) — Kanban comercial.
-2. [Consultas](/crm/consultas) — solicitudes de consulta del sitio.
+### Consultas
+1. [Consultas](/crm/consultas) — solicitudes de consulta del sitio.
 
 ### Portal y contratos
 1. Invitar al portal desde la ficha del cliente (si FEATURE_CLIENT_PORTAL).

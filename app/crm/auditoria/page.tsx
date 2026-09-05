@@ -17,6 +17,7 @@ import {
   FilterBar,
   FilterDate,
   FilterSelect,
+  ListToolbar,
   PageHeader,
   Table,
   TBody,
@@ -106,8 +107,8 @@ export default async function AuditPage({
         description="Eventos de seguridad: accesos a datos sensibles, documentos, pagos, recibos y membresías."
       />
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-end gap-3 border-b border-border-subtle px-4 py-3">
+      <ListToolbar
+        filters={
           <FilterBar>
             <FilterSelect
               name="action"
@@ -130,8 +131,10 @@ export default async function AuditPage({
             <FilterDate name="from" label="Desde" />
             <FilterDate name="to" label="Hasta" />
           </FilterBar>
-        </div>
+        }
+      />
 
+      <Card>
         {result.items.length === 0 ? (
           <EmptyState
             icon={ScrollText}

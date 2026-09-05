@@ -17,6 +17,7 @@ import {
   CursorPagination,
   FilterBar,
   FilterSelect,
+  ListToolbar,
   PageHeader,
 } from "@/src/components/ui";
 import {
@@ -27,7 +28,7 @@ import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
 import { TaskTable } from "@/src/components/tasks/task-table";
 
 export const metadata: Metadata = {
-  title: "Tareas",
+  title: "Hoy",
 };
 
 const TASK_STATUSES = Object.keys(TASK_STATUS_LABELS) as TaskStatus[];
@@ -73,8 +74,8 @@ export default async function TasksPage({
   return (
     <div>
       <PageHeader
-        title="Tareas"
-        description="Seguimientos, solicitudes y recordatorios del equipo."
+        title="Hoy"
+        description="Lo que tienes pendiente: vencidas, de hoy y de esta semana."
         actions={
           canManage ? (
             <CreateTaskButton members={members} clients={clientOptions} />
@@ -82,8 +83,8 @@ export default async function TasksPage({
         }
       />
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-end gap-3 border-b border-border-subtle px-4 py-3">
+      <ListToolbar
+        filters={
           <FilterBar>
             <FilterSelect
               name="due"
@@ -113,9 +114,20 @@ export default async function TasksPage({
               options={members.map((m) => ({ value: m.id, label: m.name }))}
             />
           </FilterBar>
-        </div>
+        }
+      />
 
-        <TaskTable tasks={result.items} members={members} canManage={canManage} />
+      <Card>
+        <TaskTable
+          tasks={result.items}
+          members={members}
+          canManage={canManage}
+          emptyAction={
+            canManage ? (
+              <CreateTaskButton members={members} clients={clientOptions} />
+            ) : null
+          }
+        />
 
         <CursorPagination
           pathname="/crm/tareas"

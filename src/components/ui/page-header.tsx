@@ -13,13 +13,13 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-7 flex flex-wrap items-start justify-between gap-4">
+    <div className="mb-1 flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0">
-        <h1 className="text-[1.5rem] font-semibold leading-[1.15] tracking-[-0.022em] text-ink text-balance lg:text-[1.625rem]">
+        <h1 className="text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.03em] text-ink text-balance lg:text-[2rem]">
           {title}
         </h1>
         {description ? (
-          <div className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-text-secondary text-pretty lg:text-sm">
+          <div className="mt-1.5 max-w-prose text-[13px] leading-relaxed text-text-secondary text-pretty">
             {description}
           </div>
         ) : null}

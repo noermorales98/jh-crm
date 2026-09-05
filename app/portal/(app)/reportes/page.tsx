@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import {
   Card,
   EmptyState,
@@ -46,6 +47,7 @@ export default async function PortalReportesPage() {
                 <TH>Ronda</TH>
                 <TH>Fecha</TH>
                 <TH>Próxima revisión</TH>
+                <TH>Acciones</TH>
               </TR>
             </THead>
             <TBody>
@@ -57,6 +59,22 @@ export default async function PortalReportesPage() {
                   <TD>{formatDate(r.reportDate)}</TD>
                   <TD>
                     {r.nextReviewAt ? formatDate(r.nextReviewAt) : "—"}
+                  </TD>
+                  <TD>
+                    <div className="flex flex-wrap gap-2 text-sm">
+                      <Link
+                        href={`/portal/reportes/${r.id}`}
+                        className="font-medium text-action-primary hover:underline"
+                      >
+                        Ver
+                      </Link>
+                      <a
+                        href={`/api/progress-reports/${r.id}/pdf`}
+                        className="font-medium text-action-primary hover:underline"
+                      >
+                        PDF
+                      </a>
+                    </div>
                   </TD>
                 </TR>
               ))}

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import * as caseService from "@/src/server/cases";
+import { getCaseNextSteps } from "@/src/server/cases/next-steps";
 import * as configService from "@/src/server/config";
 import { listMemberOptions, toDateInputValue } from "@/src/server/page-helpers";
 import { DomainError } from "@/src/server/errors";
@@ -17,6 +18,7 @@ import { CaseStageSelect } from "@/src/components/cases/case-stage-select";
 import { CaseStateActions } from "@/src/components/cases/case-state-actions";
 import { CaseSummaryForm } from "@/src/components/cases/case-summary-form";
 import { CaseReviewForm } from "@/src/components/cases/case-review-form";
+import { CaseNextStepsCard } from "@/src/components/cases/case-next-steps-card";
 import { CaseHeader } from "@/app/crm/casos/[caseId]/case-header";
 
 export async function CaseDetailPanel({ caseId }: { caseId: string }) {
@@ -33,6 +35,7 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
   const { case: creditCase, timeline } = detail;
   const canManage = can(ctx.role, "cases.manage");
   const isOpen = creditCase.state === "OPEN";
+  const nextSteps = await getCaseNextSteps(ctx, caseId);
 
   const [stages, members] = canManage
     ? await Promise.all([configService.listStages(ctx), listMemberOptions(ctx)])
@@ -51,6 +54,8 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
 
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="space-y-6 lg:col-span-2">
+          <CaseNextStepsCard steps={nextSteps} />
+
           <Card>
             <CardHeader title="Estado del proceso" />
             <CardBody className="space-y-5">
@@ -101,13 +106,18 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
               </dl>
 
               {canManage && isOpen ? (
-                <div className="border-t border-border-subtle pt-4">
+                <div
+                  id="proxima-revision"
+                  className="scroll-mt-24 border-t border-border-subtle pt-4"
+                >
                   <CaseReviewForm
                     caseId={creditCase.id}
                     initialDate={toDateInputValue(creditCase.nextReviewAt)}
                   />
                 </div>
-              ) : null}
+              ) : (
+                <div id="proxima-revision" className="scroll-mt-24" />
+              )}
             </CardBody>
           </Card>
         </div>

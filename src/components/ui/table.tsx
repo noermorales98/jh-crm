@@ -1,31 +1,24 @@
 import type { ReactNode, TdHTMLAttributes, ThHTMLAttributes } from "react";
 
 /**
- * Tabla estilizada del kit: limpia, divisores sutiles, hover suave.
- *
- * <Table>
- *   <THead><TR><TH>Nombre</TH></TR></THead>
- *   <TBody><TR><TD>...</TD></TR></TBody>
- * </Table>
+ * Tabla sobre fondo blanco del Card: cabecera clara, filas limpias.
  */
 
 export function Table({ children }: { children: ReactNode }) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-border-subtle text-sm">
-        {children}
-      </table>
+      <table className="min-w-full text-sm">{children}</table>
     </div>
   );
 }
 
 export function THead({ children }: { children: ReactNode }) {
-  return <thead className="bg-surface-app">{children}</thead>;
+  return <thead className="border-b border-border-subtle/80">{children}</thead>;
 }
 
 export function TBody({ children }: { children: ReactNode }) {
   return (
-    <tbody className="divide-y divide-border-subtle bg-surface-elevated [&>tr]:transition-colors [&>tr]:duration-200 [&>tr:hover]:bg-nav-hover motion-reduce:[&>tr]:transition-none">
+    <tbody className="bg-surface-elevated [&>tr]:border-b [&>tr]:border-border-subtle/50 [&>tr:last-child]:border-b-0 [&>tr]:transition-colors [&>tr]:duration-150 [&>tr:hover]:bg-nav-hover/60 motion-reduce:[&>tr]:transition-none">
       {children}
     </tbody>
   );
@@ -49,7 +42,7 @@ export function TH({
   return (
     <th
       scope="col"
-      className={`px-4 py-3 text-left text-[12px] font-semibold uppercase tracking-[0.04em] text-text-secondary ${className}`}
+      className={`bg-surface-elevated px-5 py-3.5 text-left text-[13px] font-medium tracking-[-0.01em] text-text-secondary ${className}`}
       {...props}
     >
       {children}
@@ -63,7 +56,10 @@ export function TD({
   ...props
 }: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={`px-4 py-3.5 align-middle text-sm text-ink ${className}`} {...props}>
+    <td
+      className={`px-5 py-3.5 align-middle text-[14px] text-ink ${className}`}
+      {...props}
+    >
       {children}
     </td>
   );

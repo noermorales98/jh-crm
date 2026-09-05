@@ -409,7 +409,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       },
       conversions: {
         count: conversions,
-        link: "/crm/oportunidades",
+        link: "/crm/clientes?status=ACTIVE",
       },
       disputedItems: {
         count: disputedItems,

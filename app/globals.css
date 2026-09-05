@@ -69,7 +69,7 @@
   --z-sticky: 30;
   --z-overlay: 40;
   --z-dropdown: 50;
-  --z-modal: 60;
+  --z-modal: 80;
   --z-skip: 100;
 }
 
@@ -285,3 +285,55 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Documento de contrato (editor TipTap + vista portal) */
+.prose-contract h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  color: var(--color-ink, #111);
+}
+.prose-contract h3 {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  color: var(--color-ink, #111);
+}
+.prose-contract p {
+  margin: 0 0 0.85rem;
+}
+.prose-contract ul,
+.prose-contract ol {
+  margin: 0 0 0.85rem;
+  padding-left: 1.35rem;
+}
+.prose-contract li {
+  margin: 0.2rem 0;
+}
+.prose-contract strong {
+  font-weight: 650;
+}
+.jh-doc-editor p.is-editor-empty:first-child::before {
+  float: left;
+  height: 0;
+  color: #9ca3af;
+  content: attr(data-placeholder);
+  pointer-events: none;
+}
+
+/* Bottom nav móvil */
+.jh-mobile-bottom-nav {
+  -webkit-backdrop-filter: saturate(140%) blur(12px);
+  backdrop-filter: saturate(140%) blur(12px);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .jh-mobile-bottom-nav {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: var(--color-surface-elevated);
+  }
+}
+

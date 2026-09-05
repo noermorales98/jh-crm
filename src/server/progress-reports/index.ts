@@ -234,16 +234,46 @@ export async function getProgressReport(
   return report;
 }
 
-/** PDF on-demand desde el snapshot (sin persistir). */
+/** PDF on-demand desde el snapshot (sin persistir). Staff o dueño portal. */
 export async function buildProgressReportPdf(
   ctx: OrganizationContext,
   reportId: string,
 ): Promise<{ pdf: Buffer; filename: string }> {
   const report = await getProgressReport(ctx, reportId);
-  if (report.organizationId !== ctx.organizationId) {
-    throw new DomainError("Reporte de progreso no encontrado.");
-  }
-  const org = await getOrgPdfInfo(ctx.organizationId);
+  return renderProgressPdf(report);
+}
+
+/** PDF para el cliente del portal (solo si el reporte es de su caso). */
+export async function buildProgressReportPdfForPortal(
+  clientId: string,
+  organizationId: string,
+  reportId: string,
+): Promise<{ pdf: Buffer; filename: string }> {
+  const report = await prisma.clientProgressReport.findFirst({
+    where: {
+      id: reportId,
+      organizationId,
+      case: { clientId, organizationId },
+    },
+  });
+  if (!report) throw new DomainError("Reporte de progreso no encontrado.");
+  return renderProgressPdf(report);
+}
+
+async function renderProgressPdf(report: {
+  organizationId: string;
+  clientName: string;
+  caseCode: string;
+  periodLabel: string;
+  roundLabel: string;
+  reportDate: Date;
+  scoresJson: Prisma.JsonValue;
+  resultsJson: Prisma.JsonValue;
+  resultLinesJson: Prisma.JsonValue;
+  nextReviewAt: Date | null;
+  nextSteps: string;
+}): Promise<{ pdf: Buffer; filename: string }> {
+  const org = await getOrgPdfInfo(report.organizationId);
   const pdf = generateClientProgressPdf({
     organization: {
       legalName: org.legalName,

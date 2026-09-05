@@ -5,24 +5,31 @@ import { useRouter } from "next/navigation";
 import { Alert, Button, Field, Input } from "@/src/components/ui";
 import { signPortalContractAction } from "@/src/actions/portal";
 import { playActionResult } from "@/src/lib/cuelume";
+import { DocumentView } from "@/src/components/contracts/document-editor";
+import { sanitizeContractHtml } from "@/src/lib/contracts/sanitize";
 
-/** Firma simple: nombre + trazo en canvas como data URL PNG. */
+/** Firma: lee el documento, acepta términos, nombre + trazo. */
 export function PortalSignContractButton({
   contractId,
   title,
+  contentHtml,
   defaultName,
 }: {
   contractId: string;
   title: string;
+  contentHtml: string;
   defaultName?: string;
 }) {
   const router = useRouter();
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [open, setOpen] = useState(false);
   const [signerName, setSignerName] = useState(defaultName ?? "");
+  const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const safeHtml = sanitizeContractHtml(contentHtml);
 
   function getCtx() {
     const canvas = canvasRef.current;
@@ -49,6 +56,10 @@ export function PortalSignContractButton({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!accepted) {
+      setError("Debes confirmar que leíste y aceptas el contrato.");
+      return;
+    }
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
@@ -75,6 +86,7 @@ export function PortalSignContractButton({
       }
       playActionResult(true);
       setOpen(false);
+      setAccepted(false);
       router.refresh();
     });
   }
@@ -82,7 +94,7 @@ export function PortalSignContractButton({
   if (!open) {
     return (
       <Button size="sm" onClick={() => setOpen(true)}>
-        Firmar
+        Leer y firmar
       </Button>
     );
   }
@@ -90,10 +102,21 @@ export function PortalSignContractButton({
   return (
     <form
       onSubmit={handleSubmit}
-      className="mt-3 space-y-3 rounded-surface border border-border-subtle bg-surface-app p-3"
+      className="mt-3 space-y-4 rounded-surface border border-border-subtle bg-surface-app p-3 sm:p-4"
     >
-      <p className="text-sm font-medium text-ink">Firmar: {title}</p>
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <DocumentView html={safeHtml} />
       {error ? <Alert tone="error">{error}</Alert> : null}
+      <label className="flex items-start gap-2 text-sm text-ink">
+        <input
+          type="checkbox"
+          className="mt-1"
+          checked={accepted}
+          onChange={(e) => setAccepted(e.target.checked)}
+          required
+        />
+        <span>He leído y acepto los términos de este contrato.</span>
+      </label>
       <Field label="Nombre completo" htmlFor={`signer-${contractId}`} required>
         <Input
           id={`signer-${contractId}`}
@@ -147,12 +170,15 @@ export function PortalSignContractButton({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => setOpen(false)}
+          onClick={() => {
+            setOpen(false);
+            setAccepted(false);
+          }}
           disabled={pending}
         >
           Cancelar
         </Button>
-        <Button type="submit" size="sm" disabled={pending}>
+        <Button type="submit" size="sm" disabled={pending || !accepted}>
           {pending ? "Firmando…" : "Confirmar firma"}
         </Button>
       </div>

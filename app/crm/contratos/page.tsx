@@ -98,7 +98,7 @@ export default async function ContratosPage() {
         <Card className="mb-4">
           <CardHeader
             title="Plantillas"
-            description="Contenido HTML base para emitir contratos."
+            description="Documentos base para emitir contratos. Se editan como en Word."
           />
           <CardBody>
             {templates.length === 0 ? (

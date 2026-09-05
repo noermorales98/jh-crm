@@ -23,6 +23,7 @@ import {
   FilterBar,
   FilterDate,
   FilterSelect,
+  ListToolbar,
   PageHeader,
   StatusPill,
   Table,
@@ -41,7 +42,7 @@ import {
 import { PaymentRowActions } from "@/src/components/payments/payment-row-actions";
 
 export const metadata: Metadata = {
-  title: "Pagos",
+  title: "Cobrar",
 };
 
 const PAYMENT_STATUSES = Object.keys(PAYMENT_STATUS_LABELS) as PaymentStatus[];
@@ -77,8 +78,8 @@ export default async function PaymentsPage({
   return (
     <div>
       <PageHeader
-        title="Pagos"
-        description="Control de pagos manuales (Zelle, Stripe manual, efectivo, transferencia)."
+        title="Cobrar"
+        description="Pagos por cobrar y cobros registrados."
         actions={
           canRegister ? (
             <ButtonLink href="/crm/pagos/nuevo">
@@ -105,8 +106,8 @@ export default async function PaymentsPage({
         </CardBody>
       </Card>
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-end gap-3 border-b border-border-subtle px-4 py-3">
+      <ListToolbar
+        filters={
           <FilterBar>
             <FilterSelect
               name="status"
@@ -128,8 +129,10 @@ export default async function PaymentsPage({
             <FilterDate name="from" label="Desde" />
             <FilterDate name="to" label="Hasta" />
           </FilterBar>
-        </div>
+        }
+      />
 
+      <Card>
         {result.items.length === 0 ? (
           <EmptyState
             icon={CreditCard}
@@ -137,7 +140,7 @@ export default async function PaymentsPage({
             description={
               status || method || clientId || from || to
                 ? "Ningún pago coincide con los filtros aplicados."
-                : "Registra el primer pago de un cliente."
+                : "Cuando tengas algo por cobrar, aparecerá aquí."
             }
             action={
               canRegister && !status && !method && !clientId && !from && !to ? (

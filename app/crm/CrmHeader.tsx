@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { ChevronLeft, Menu } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import {
   createContext,
   useContext,
@@ -13,7 +13,6 @@ import {
   type ReactNode,
 } from "react";
 import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
-import { useCrmSidebar } from "@/src/components/layout/crm-shell";
 import { SpotlightSearch } from "@/src/components/search/spotlight-search";
 import type { Role } from "@prisma/client";
 
@@ -22,22 +21,21 @@ const SECTION_TITLES: Record<string, string> = {
   clientes: "Clientes",
   casos: "Casos",
   rondas: "Rondas",
-  tareas: "Tareas",
+  tareas: "Hoy",
   servicios: "Servicios",
   cotizaciones: "Cotizaciones",
-  pagos: "Pagos",
+  pagos: "Cobrar",
   recibos: "Recibos",
   chats: "Chats",
-  mails: "Correos",
+  mails: "Mensajes",
   usuarios: "Usuarios",
   auditoria: "Auditoría",
   configuracion: "Configuración",
-  oportunidades: "Oportunidades",
   consultas: "Consultas",
   procesadores: "Procesadores",
-  atribucion: "Atribución",
   contratos: "Contratos",
-  "planes-pago": "Planes de pago",
+
+  "planes-pago": "Cuotas",
 };
 
 const NESTED_TITLES: Record<string, string> = {
@@ -211,22 +209,11 @@ export function CrmHeader({
   const backHref = useCrmBackHref(pathname, structuralBack);
   const label = override.title ?? title;
 
-  const { open, toggle } = useCrmSidebar();
   const showTitle = Boolean(backHref || override.blobatarName);
 
   return (
-    <header className="jh-toolbar sticky top-0 z-sticky flex h-14 items-center justify-between gap-3 px-4 lg:h-16 lg:px-6">
+    <header className="jh-toolbar sticky top-0 z-sticky flex h-14 items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top)] lg:h-16 lg:px-6">
       <div className="flex min-w-0 items-center gap-1.5">
-        <button
-          type="button"
-          className="flex size-9 shrink-0 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink lg:hidden motion-reduce:transition-none"
-          aria-label="Abrir menú"
-          aria-expanded={open}
-          aria-controls="crm-sidebar"
-          onClick={toggle}
-        >
-          <Menu className="size-5" aria-hidden />
-        </button>
         {backHref ? (
           <Link
             href={backHref}

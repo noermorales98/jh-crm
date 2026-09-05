@@ -21,6 +21,7 @@ import {
   FilterBar,
   FilterDate,
   FilterSelect,
+  ListToolbar,
   PageHeader,
   Pill,
   Table,
@@ -76,8 +77,8 @@ export default async function ReceiptsPage({
         description="Recibos emitidos por pagos recibidos. La anulación nunca borra el registro."
       />
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-end gap-3 border-b border-border-subtle px-4 py-3">
+      <ListToolbar
+        filters={
           <FilterBar>
             <FilterSelect
               name="status"
@@ -91,8 +92,10 @@ export default async function ReceiptsPage({
             <FilterDate name="from" label="Desde" />
             <FilterDate name="to" label="Hasta" />
           </FilterBar>
-        </div>
+        }
+      />
 
+      <Card>
         {result.items.length === 0 ? (
           <EmptyState
             icon={Receipt}

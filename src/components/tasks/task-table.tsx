@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ClipboardList } from "lucide-react";
 import {
   EmptyState,
@@ -42,18 +43,21 @@ export function TaskTable({
   members,
   canManage,
   showLinks = true,
+  emptyAction,
 }: {
   tasks: TaskRow[];
   members: { id: string; name: string }[];
   canManage: boolean;
   showLinks?: boolean;
+  emptyAction?: ReactNode;
 }) {
   if (tasks.length === 0) {
     return (
       <EmptyState
         icon={ClipboardList}
-        title="Sin tareas"
-        description="No hay tareas que coincidan con los filtros."
+        title="Nada pendiente por aquí"
+        description="Cuando tengas algo que hacer hoy, aparecerá en esta lista."
+        action={emptyAction}
       />
     );
   }

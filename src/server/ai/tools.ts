@@ -8,9 +8,12 @@ import {
   getCompanySnapshot,
   getCreditCaseDetail,
   getDashboardSnapshot,
+  getMailSnapshot,
   getRoutesAndHowTo,
+  draftMailHelp,
   listCreditAttention,
   listCrm,
+  listMailsSnapshot,
   searchCreditProgress,
   searchCrm,
 } from "./queries";
@@ -144,10 +147,69 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .string()
           .optional()
           .describe(
-            "Tema: cliente, caso, ronda, tarea, cotización, pago, recibo, documento, usuario, etapa, configuración, crédito, oportunidades, portal, contratos.",
+            "Tema: cliente, caso, ronda, tarea, cotización, pago, recibo, documento, usuario, etapa, configuración, crédito, portal, contratos, correo, mails.",
           ),
       }),
       execute: async ({ topic }) => getRoutesAndHowTo(topic),
+    }),
+    listMails: tool({
+      description:
+        "Lista correos del CRM (bandeja, enviados, borradores, etc.). Úsala cuando pidan leer, revisar o resumir correos. No inventes mensajes.",
+      inputSchema: z.object({
+        folder: z
+          .enum(["inbox", "sent", "drafts", "archive", "spam", "trash"])
+          .optional()
+          .describe("Carpeta. Por defecto inbox."),
+        q: z
+          .string()
+          .optional()
+          .describe("Filtro opcional por asunto, remitente o texto."),
+        limit: z
+          .number()
+          .int()
+          .min(1)
+          .max(30)
+          .optional()
+          .describe("Cuántos correos devolver (máx 30)."),
+      }),
+      execute: async ({ folder, q, limit }) =>
+        listMailsSnapshot(ctx, { folder, q, limit }),
+    }),
+    getMail: tool({
+      description:
+        "Lee el detalle y cuerpo de un correo por id. Úsala después de listMails cuando necesites el texto completo para resumir o responder.",
+      inputSchema: z.object({
+        mailId: z.string().min(1).describe("Id interno del correo."),
+      }),
+      execute: async ({ mailId }) => getMailSnapshot(ctx, mailId),
+    }),
+    draftMail: tool({
+      description:
+        "Prepara contexto para redactar un correo (nuevo o respuesta). NO envía el mensaje: solo ayuda a escribir asunto y cuerpo. Pasa intent claro; opcional to, clientName, tone, inReplyToId.",
+      inputSchema: z.object({
+        intent: z
+          .string()
+          .trim()
+          .min(3)
+          .max(500)
+          .describe(
+            "Qué debe decir el correo (ej. recordar pago, pedir documentos, responder duda).",
+          ),
+        to: z.string().optional().describe("Destinatario si se conoce."),
+        clientName: z
+          .string()
+          .optional()
+          .describe("Nombre o código del cliente para buscar su correo."),
+        tone: z
+          .string()
+          .optional()
+          .describe("Tono deseado: formal, amable, breve, etc."),
+        inReplyToId: z
+          .string()
+          .optional()
+          .describe("Id del correo al que se responde."),
+      }),
+      execute: async (input) => draftMailHelp(ctx, input),
     }),
   };
 }

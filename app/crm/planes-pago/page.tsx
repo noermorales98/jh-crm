@@ -26,7 +26,7 @@ import {
 import { CreatePlanButton } from "@/src/components/payment-plans/create-plan-button";
 
 export const metadata: Metadata = {
-  title: "Planes de pago",
+  title: "Cuotas",
 };
 
 const STATUS_TONE: Record<string, "green" | "amber" | "slate" | "blue"> = {
@@ -67,8 +67,8 @@ export default async function PaymentPlansPage() {
   return (
     <div>
       <PageHeader
-        title="Planes de pago"
-        description="Cuotas periódicas con pagos pendientes vinculados. Al registrar el cobro, la cuota pasa a pagada."
+        title="Cuotas"
+        description="Planes de pago en cuotas. Al registrar el cobro, la cuota queda pagada."
         actions={
           canRegister ? <CreatePlanButton clients={clientOptions} /> : null
         }
@@ -78,8 +78,8 @@ export default async function PaymentPlansPage() {
         {items.length === 0 ? (
           <EmptyState
             icon={CalendarClock}
-            title="Sin planes de pago"
-            description="Crea un plan para generar cuotas y pagos pendientes automáticamente."
+            title="Sin cuotas todavía"
+            description="Crea un plan para generar las cuotas y los pagos por cobrar."
             action={
               canRegister ? (
                 <CreatePlanButton clients={clientOptions} />

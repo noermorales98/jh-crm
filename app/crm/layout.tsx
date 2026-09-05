@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
@@ -74,7 +75,11 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
               <span className="brand-tag">Multiservices LLC</span>
             </Link>
           }
-          sidebar={<SidebarNav />}
+          sidebar={
+            <Suspense fallback={<div className="flex-1" aria-hidden />}>
+              <SidebarNav />
+            </Suspense>
+          }
           header={
             <CrmHeader role={session.user.role ?? null}>
               <NotificationBell

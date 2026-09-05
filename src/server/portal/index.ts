@@ -414,6 +414,70 @@ export async function listPortalProgressReports(
   });
 }
 
+/** Último reporte de progreso visible al cliente (campos seguros). */
+export async function getLatestPortalProgressReport(
+  clientId: string,
+  organizationId: string,
+) {
+  const cases = await prisma.creditCase.findMany({
+    where: { clientId, organizationId },
+    select: { id: true },
+  });
+  const caseIds = cases.map((c) => c.id);
+  if (caseIds.length === 0) return null;
+
+  const report = await prisma.clientProgressReport.findFirst({
+    where: { organizationId, caseId: { in: caseIds } },
+    orderBy: [{ reportDate: "desc" }, { createdAt: "desc" }],
+    select: {
+      id: true,
+      caseId: true,
+      caseCode: true,
+      clientName: true,
+      periodLabel: true,
+      roundLabel: true,
+      reportDate: true,
+      nextReviewAt: true,
+      nextSteps: true,
+      scoresJson: true,
+      resultsJson: true,
+      resultLinesJson: true,
+    },
+  });
+  return report;
+}
+
+/** Detalle de un reporte del cliente (solo si pertenece a su caso). */
+export async function getPortalProgressReport(
+  clientId: string,
+  organizationId: string,
+  reportId: string,
+) {
+  const report = await prisma.clientProgressReport.findFirst({
+    where: {
+      id: reportId,
+      organizationId,
+      case: { clientId, organizationId },
+    },
+    select: {
+      id: true,
+      caseId: true,
+      caseCode: true,
+      clientName: true,
+      periodLabel: true,
+      roundLabel: true,
+      reportDate: true,
+      nextReviewAt: true,
+      nextSteps: true,
+      scoresJson: true,
+      resultsJson: true,
+      resultLinesJson: true,
+    },
+  });
+  if (!report) throw new DomainError("Reporte de progreso no encontrado.");
+  return report;
+}
+
 export async function listPortalContracts(
   clientId: string,
   organizationId: string,
@@ -429,6 +493,7 @@ export async function listPortalContracts(
       title: true,
       status: true,
       version: true,
+      contentSnapshot: true,
       signedAt: true,
       createdAt: true,
       cancellationDeadline: true,

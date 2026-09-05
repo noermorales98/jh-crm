@@ -1,8 +1,4 @@
-import type {
-  InputHTMLAttributes,
-  SelectHTMLAttributes,
-  TextareaHTMLAttributes,
-} from "react";
+import type { InputHTMLAttributes, TextareaHTMLAttributes } from "react";
 
 /**
  * Controles de formulario con estilo uniforme.
@@ -30,18 +26,6 @@ export function Input({ invalid, className = "", ...props }: InputProps) {
   return <input className={`${inputClasses(invalid)} ${className}`} {...props} />;
 }
 
-interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
-  invalid?: boolean;
-}
-
-export function Select({ invalid, className = "", children, ...props }: SelectProps) {
-  return (
-    <select className={`${inputClasses(invalid)} ${className}`} {...props}>
-      {children}
-    </select>
-  );
-}
-
 interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
   invalid?: boolean;
 }
@@ -49,16 +33,5 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 export function Textarea({ invalid, className = "", rows = 3, ...props }: TextareaProps) {
   return (
     <textarea rows={rows} className={`${inputClasses(invalid)} ${className}`} {...props} />
-  );
-}
-
-/** Input type="date" con el estilo del kit. Valor: "yyyy-MM-dd". */
-export function DateInput({ invalid, className = "", ...props }: InputProps) {
-  return (
-    <input
-      type="date"
-      className={`${inputClasses(invalid)} ${className}`}
-      {...props}
-    />
   );
 }

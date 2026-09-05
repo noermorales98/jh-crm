@@ -76,9 +76,17 @@ export default async function PortalHomePage() {
                   Próxima revisión
                 </dt>
                 <dd className="mt-0.5 text-sm text-ink">
-                  {activeCase.nextReviewAt
-                    ? formatDate(activeCase.nextReviewAt)
-                    : "—"}
+                  {activeCase.nextReviewAt ? (
+                    new Date(activeCase.nextReviewAt) < new Date() ? (
+                      <Pill tone="red">
+                        Pendiente {formatDate(activeCase.nextReviewAt)}
+                      </Pill>
+                    ) : (
+                      formatDate(activeCase.nextReviewAt)
+                    )
+                  ) : (
+                    "—"
+                  )}
                 </dd>
               </div>
               <div>
@@ -142,6 +150,7 @@ export default async function PortalHomePage() {
                     <PortalSignContractButton
                       contractId={c.id}
                       title={c.title}
+                      contentHtml={c.contentSnapshot}
                       defaultName={home.client.name}
                     />
                   </div>

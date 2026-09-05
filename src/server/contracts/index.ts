@@ -50,7 +50,7 @@ export async function upsertTemplate(
   const name = data.name.trim();
   const contentHtml = data.contentHtml.trim();
   if (!name) throw new DomainError("El nombre de la plantilla es obligatorio.");
-  if (!contentHtml) throw new DomainError("El contenido HTML es obligatorio.");
+  if (!contentHtml) throw new DomainError("El contenido del contrato es obligatorio.");
 
   if (data.id) {
     const existing = await prisma.contractTemplate.findFirst({

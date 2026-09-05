@@ -21,6 +21,7 @@ import {
   FilterBar,
   FilterDate,
   FilterSelect,
+  ListToolbar,
   PageHeader,
   StatusPill,
   Table,
@@ -79,8 +80,8 @@ export default async function QuotesPage({
         }
       />
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-end gap-3 border-b border-border-subtle px-4 py-3">
+      <ListToolbar
+        filters={
           <FilterBar>
             <FilterSelect
               name="status"
@@ -94,8 +95,10 @@ export default async function QuotesPage({
             <FilterDate name="from" label="Emitida desde" />
             <FilterDate name="to" label="Emitida hasta" />
           </FilterBar>
-        </div>
+        }
+      />
 
+      <Card>
         {result.items.length === 0 ? (
           <EmptyState
             icon={FileText}

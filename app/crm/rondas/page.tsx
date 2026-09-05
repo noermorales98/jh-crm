@@ -137,9 +137,9 @@ export default async function RoundsPage({
           )}
         </Card>
 
-        <Card>
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
-            <h2 className="text-sm font-semibold text-ink">
+        <div>
+          <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+            <h2 className="pb-1 text-[15px] font-semibold tracking-[-0.01em] text-ink">
               Todas las rondas
             </h2>
             <FilterBar>
@@ -154,6 +154,7 @@ export default async function RoundsPage({
             </FilterBar>
           </div>
 
+          <Card>
           {list.items.length === 0 ? (
             <EmptyState
               icon={RefreshCcw}
@@ -225,7 +226,8 @@ export default async function RoundsPage({
             cursor={cursor}
             nextCursor={list.nextCursor}
           />
-        </Card>
+          </Card>
+        </div>
       </div>
     </div>
   );

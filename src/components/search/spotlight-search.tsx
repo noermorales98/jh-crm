@@ -40,6 +40,7 @@ import {
   type SpotlightHit,
   type SpotlightKind,
 } from "@/src/lib/search/spotlight";
+import { SPOTLIGHT_OPEN_EVENT } from "@/src/components/search/spotlight-events";
 
 const RECENT_KEY = "jh-spotlight-recent";
 const RECENT_MAX = 6;
@@ -168,8 +169,15 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
       if (dialogRef.current?.open) close();
       else openPalette();
     }
+    function onOpenRequest() {
+      openPalette();
+    }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener(SPOTLIGHT_OPEN_EVENT, onOpenRequest);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener(SPOTLIGHT_OPEN_EVENT, onOpenRequest);
+    };
   }, [close, openPalette]);
 
   useEffect(() => {

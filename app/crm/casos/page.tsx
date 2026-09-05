@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Briefcase } from "lucide-react";
+import { Briefcase, Users } from "lucide-react";
 import type { CaseState } from "@prisma/client";
 import { requireOrganization } from "@/src/server/auth/guards";
 import * as caseService from "@/src/server/cases";
@@ -14,12 +14,14 @@ import {
   type SearchParams,
 } from "@/src/server/page-helpers";
 import {
+  ButtonLink,
   Card,
   CursorPagination,
   EmptyState,
   FilterBar,
   FilterDate,
   FilterSelect,
+  ListToolbar,
   PageHeader,
   StagePill,
   StatusPill,
@@ -79,8 +81,8 @@ export default async function CasesPage({
         description="Vista global de los casos de reparación de crédito. La creación de casos se hace desde la página del cliente."
       />
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-end gap-3 border-b border-border-subtle px-4 py-3">
+      <ListToolbar
+        filters={
           <FilterBar>
             <FilterSelect
               name="stage"
@@ -103,13 +105,21 @@ export default async function CasesPage({
             <FilterDate name="reviewFrom" label="Revisión desde" />
             <FilterDate name="reviewTo" label="Revisión hasta" />
           </FilterBar>
-        </div>
+        }
+      />
 
+      <Card>
         {result.items.length === 0 ? (
           <EmptyState
             icon={Briefcase}
-            title="Sin casos"
-            description="Ningún caso coincide con los filtros aplicados. Los casos se crean desde la página del cliente."
+            title="Sin casos todavía"
+            description="Los casos se crean desde la ficha del cliente. Empieza abriendo un cliente."
+            action={
+              <ButtonLink href="/crm/clientes" size="sm">
+                <Users className="size-4" aria-hidden />
+                Ver clientes
+              </ButtonLink>
+            }
           />
         ) : (
           <Table>

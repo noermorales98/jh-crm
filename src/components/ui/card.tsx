@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Tarjeta base: blanca, plana en reposo (sin sombra), radio 12px. */
+/** Tarjeta base: superficie limpia, borde muy sutil. */
 export function Card({
   className = "",
   children,
@@ -10,7 +10,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`rounded-surface border border-border-subtle/80 bg-surface-elevated ${className}`}
+      className={`overflow-hidden rounded-surface border border-border-subtle/60 bg-surface-elevated ${className}`}
     >
       {children}
     </div>
@@ -31,16 +31,18 @@ export function CardHeader({
 }) {
   return (
     <div
-      className={`flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle ${
-        compact ? "px-4 py-2.5" : "px-5 py-4"
+      className={`flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle/70 ${
+        compact ? "px-4 py-2.5" : "px-5 py-3.5"
       }`}
     >
       <div className="min-w-0">
-        <h2 className={`font-semibold text-ink ${compact ? "text-sm" : "text-base"}`}>
+        <h2 className={`font-semibold tracking-[-0.015em] text-ink ${compact ? "text-sm" : "text-[15px]"}`}>
           {title}
         </h2>
         {description ? (
-          <p className="mt-0.5 text-[13px] text-text-secondary">{description}</p>
+          <p className="mt-0.5 text-[13px] leading-snug text-text-secondary">
+            {description}
+          </p>
         ) : null}
       </div>
       {actions ? (

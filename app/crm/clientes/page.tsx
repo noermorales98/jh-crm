@@ -19,6 +19,7 @@ import {
   EmptyState,
   FilterBar,
   FilterSelect,
+  ListToolbar,
   PageHeader,
   SearchInput,
   StatusPill,
@@ -71,9 +72,14 @@ export default async function ClientsPage({
         }
       />
 
-      <Card>
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
-          <SearchInput placeholder="Buscar por nombre, código, correo o teléfono…" defaultValue={q ?? ""} />
+      <ListToolbar
+        search={
+          <SearchInput
+            placeholder="Buscar por nombre, código, correo o teléfono…"
+            defaultValue={q ?? ""}
+          />
+        }
+        filters={
           <FilterBar>
             <FilterSelect
               name="status"
@@ -89,8 +95,10 @@ export default async function ClientsPage({
               options={members.map((m) => ({ value: m.id, label: m.name }))}
             />
           </FilterBar>
-        </div>
+        }
+      />
 
+      <Card>
         {result.items.length === 0 ? (
           <EmptyState
             icon={Users}
@@ -98,13 +106,13 @@ export default async function ClientsPage({
             description={
               q || status || assignedToId
                 ? "Ningún cliente coincide con los filtros aplicados."
-                : "Crea el primer cliente para empezar a operar."
+                : "Agrega el primer cliente para empezar."
             }
             action={
               can(ctx.role, "clients.create") && !q && !status && !assignedToId ? (
                 <ButtonLink href="/crm/clientes/nuevo" size="sm">
                   <Plus className="size-4" aria-hidden />
-                  Nuevo cliente
+                  Agregar cliente
                 </ButtonLink>
               ) : null
             }

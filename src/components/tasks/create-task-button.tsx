@@ -198,6 +198,7 @@ export function CreateTaskButton({
           </div>
           <div className="flex justify-end gap-2">
             <Button
+              type="button"
               variant="secondary"
               onClick={() => setOpen(false)}
               disabled={pending}

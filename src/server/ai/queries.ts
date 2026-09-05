@@ -1732,3 +1732,262 @@ export function getRoutesAndHowTo(topic?: string) {
     guide: HOW_TO_GUIDE,
   };
 }
+
+const MAIL_FOLDER_MAP = {
+  inbox: "INBOX",
+  sent: "SENT",
+  drafts: "DRAFTS",
+  archive: "ARCHIVE",
+  spam: "SPAM",
+  trash: "TRASH",
+} as const;
+
+type MailFolderKey = keyof typeof MAIL_FOLDER_MAP;
+
+function truncateBody(text: string | null | undefined, max = 4000): string {
+  const value = (text ?? "").trim();
+  if (!value) return "(sin texto)";
+  if (value.length <= max) return value;
+  return `${value.slice(0, max)}…`;
+}
+
+/** Lista correos de una carpeta (solo lectura). */
+export async function listMailsSnapshot(
+  ctx: OrganizationContext,
+  input: { folder?: MailFolderKey; q?: string; limit?: number } = {},
+) {
+  if (!can(ctx.role, "mails.view")) return deny("ver correos");
+
+  const folderKey = input.folder ?? "inbox";
+  const folder = MAIL_FOLDER_MAP[folderKey] ?? "INBOX";
+  const limit = Math.min(input.limit ?? 15, 30);
+  const q = input.q?.trim();
+
+  const where: Prisma.MailMessageWhereInput = {
+    organizationId: ctx.organizationId,
+    folder,
+    ...(q
+      ? {
+          OR: [
+            { subject: { contains: q } },
+            { fromAddress: { contains: q } },
+            { fromName: { contains: q } },
+            { bodyText: { contains: q } },
+          ],
+        }
+      : {}),
+  };
+
+  const [rows, unread] = await Promise.all([
+    prisma.mailMessage.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: limit,
+      select: {
+        id: true,
+        folder: true,
+        direction: true,
+        fromAddress: true,
+        fromName: true,
+        toAddresses: true,
+        subject: true,
+        isRead: true,
+        sentAt: true,
+        receivedAt: true,
+        createdAt: true,
+        client: {
+          select: { id: true, firstName: true, lastName: true, clientCode: true },
+        },
+      },
+    }),
+    prisma.mailMessage.count({
+      where: {
+        organizationId: ctx.organizationId,
+        folder: "INBOX",
+        isRead: false,
+      },
+    }),
+  ]);
+
+  return jsonSafe({
+    folder: folderKey,
+    listHref: `/crm/mails?folder=${folderKey}`,
+    composeHref: "/crm/mails/nuevo",
+    unreadInbox: unread,
+    count: rows.length,
+    items: rows.map((mail) => ({
+      id: mail.id,
+      subject: mail.subject || "(sin asunto)",
+      from: mail.fromName || mail.fromAddress,
+      to: Array.isArray(mail.toAddresses) ? mail.toAddresses : [],
+      direction: mail.direction,
+      isRead: mail.isRead,
+      date: mail.receivedAt ?? mail.sentAt ?? mail.createdAt,
+      client: mail.client
+        ? { name: fullName(mail.client), href: `/crm/clientes/${mail.client.id}` }
+        : null,
+      href: `/crm/mails/${mail.id}`,
+    })),
+  });
+}
+
+/** Lee el cuerpo de un correo (sin HTML crudo largo). */
+export async function getMailSnapshot(ctx: OrganizationContext, mailId: string) {
+  if (!can(ctx.role, "mails.view")) return deny("ver correos");
+
+  const mail = await prisma.mailMessage.findFirst({
+    where: { id: mailId, organizationId: ctx.organizationId },
+    select: {
+      id: true,
+      folder: true,
+      direction: true,
+      fromAddress: true,
+      fromName: true,
+      toAddresses: true,
+      ccAddresses: true,
+      subject: true,
+      bodyText: true,
+      isRead: true,
+      sentAt: true,
+      receivedAt: true,
+      createdAt: true,
+      client: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          clientCode: true,
+        },
+      },
+    },
+  });
+
+  if (!mail) return { error: "Correo no encontrado." };
+
+  return jsonSafe({
+    id: mail.id,
+    subject: mail.subject || "(sin asunto)",
+    from: mail.fromName
+      ? `${mail.fromName} <${mail.fromAddress}>`
+      : mail.fromAddress,
+    to: mail.toAddresses,
+    cc: mail.ccAddresses,
+    folder: mail.folder,
+    direction: mail.direction,
+    isRead: mail.isRead,
+    date: mail.receivedAt ?? mail.sentAt ?? mail.createdAt,
+    body: truncateBody(mail.bodyText),
+    client: mail.client
+      ? {
+          name: fullName(mail.client),
+          email: mail.client.email,
+          href: `/crm/clientes/${mail.client.id}`,
+        }
+      : null,
+    href: `/crm/mails/${mail.id}`,
+    replyHref: `/crm/mails/nuevo?replyTo=${mail.id}`,
+    composeHref: "/crm/mails/nuevo",
+    instruction:
+      "Si el usuario quiere responder, ofrece un borrador (asunto + cuerpo) y el enlace replyHref o composeHref. No envíes el correo tú: el usuario debe enviarlo en la UI.",
+  });
+}
+
+/**
+ * Ayuda a redactar un correo: no envía; devuelve borrador + enlace a redactar.
+ */
+export async function draftMailHelp(
+  ctx: OrganizationContext,
+  input: {
+    intent: string;
+    to?: string;
+    clientName?: string;
+    tone?: string;
+    inReplyToId?: string;
+  },
+) {
+  if (!can(ctx.role, "mails.view")) return deny("usar el correo");
+
+  let replyContext: {
+    subject: string;
+    from: string;
+    bodyPreview: string;
+    href: string;
+  } | null = null;
+
+  if (input.inReplyToId) {
+    const original = await prisma.mailMessage.findFirst({
+      where: { id: input.inReplyToId, organizationId: ctx.organizationId },
+      select: {
+        id: true,
+        subject: true,
+        fromAddress: true,
+        fromName: true,
+        bodyText: true,
+      },
+    });
+    if (original) {
+      replyContext = {
+        subject: original.subject || "(sin asunto)",
+        from: original.fromName || original.fromAddress,
+        bodyPreview: truncateBody(original.bodyText, 1200),
+        href: `/crm/mails/${original.id}`,
+      };
+    }
+  }
+
+  let clientHint: { name: string; email: string | null; href: string } | null =
+    null;
+  if (input.clientName?.trim()) {
+    const q = input.clientName.trim();
+    const client = await prisma.client.findFirst({
+      where: {
+        organizationId: ctx.organizationId,
+        OR: [
+          { firstName: { contains: q } },
+          { lastName: { contains: q } },
+          { email: { contains: q } },
+          { clientCode: { contains: q } },
+        ],
+      },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+      },
+    });
+    if (client) {
+      clientHint = {
+        name: fullName(client),
+        email: client.email,
+        href: `/crm/clientes/${client.id}`,
+      };
+    }
+  }
+
+  const tone = input.tone?.trim() || "claro, amable y profesional";
+  const to = input.to?.trim() || clientHint?.email || replyContext?.from || "";
+
+  return jsonSafe({
+    mode: "draft_only",
+    intent: input.intent,
+    tone,
+    suggestedTo: to || null,
+    client: clientHint,
+    replyTo: replyContext,
+    composeHref: replyContext
+      ? `/crm/mails/nuevo?replyTo=${input.inReplyToId}`
+      : "/crm/mails/nuevo",
+    instruction: [
+      "Redacta un borrador completo en español: asunto + cuerpo.",
+      `Tono: ${tone}.`,
+      "No envíes el correo. Incluye el enlace composeHref para que el usuario lo pegue y envíe.",
+      replyContext
+        ? "Es una respuesta: respeta el hilo y sé concreto."
+        : "Es un correo nuevo.",
+      "Cuerpo corto (4–8 frases), sin jerga innecesaria.",
+    ].join(" "),
+  });
+}
+

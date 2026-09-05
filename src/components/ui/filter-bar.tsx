@@ -2,15 +2,12 @@
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
+import { Select } from "./select";
+import { DateInput } from "./date-input";
 
 /**
  * FilterBar: contenedor horizontal de filtros.
- * FilterSelect: select que escribe su param en la URL al cambiar,
- * reiniciando la paginación (cursor/back) y conservando los demás.
- *
- * <FilterBar>
- *   <FilterSelect name="status" label="Estado" options={[{value, label}]} />
- * </FilterBar>
+ * FilterSelect / FilterDate: pickers en popup (Confirmar/Cancelar).
  */
 export function FilterBar({ children }: { children: ReactNode }) {
   return (
@@ -43,12 +40,13 @@ export function FilterSelect({
     <div>
       <label
         htmlFor={`filter-${name}`}
-        className="mb-1 block text-[13px] font-semibold text-text-secondary-strong"
+        className="mb-1 block text-[12px] font-medium text-text-secondary"
       >
         {label}
       </label>
-      <select
+      <Select
         id={`filter-${name}`}
+        pickerTitle={label}
         value={current}
         onChange={(e) => {
           const sp = new URLSearchParams(searchParams.toString());
@@ -62,20 +60,17 @@ export function FilterSelect({
           const qs = sp.toString();
           router.push(qs ? `${pathname}?${qs}` : pathname);
         }}
-        className="block min-h-11 rounded-control border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/15"
-      >
-        <option value="">{allLabel}</option>
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+        className="min-h-10 bg-transparent"
+        options={[
+          { value: "", label: allLabel },
+          ...options.map((opt) => ({ value: opt.value, label: opt.label })),
+        ]}
+      />
     </div>
   );
 }
 
-/** Input date que escribe su param en la URL al cambiar. */
+/** Filtro de fecha con calendario popup. */
 export function FilterDate({
   name,
   label,
@@ -92,13 +87,13 @@ export function FilterDate({
     <div>
       <label
         htmlFor={`filter-${name}`}
-        className="mb-1 block text-[13px] font-semibold text-text-secondary-strong"
+        className="mb-1 block text-[12px] font-medium text-text-secondary"
       >
         {label}
       </label>
-      <input
+      <DateInput
         id={`filter-${name}`}
-        type="date"
+        pickerTitle={label}
         value={current}
         onChange={(e) => {
           const sp = new URLSearchParams(searchParams.toString());
@@ -112,7 +107,7 @@ export function FilterDate({
           const qs = sp.toString();
           router.push(qs ? `${pathname}?${qs}` : pathname);
         }}
-        className="block min-h-11 rounded-control border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-ink focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/15"
+        className="min-h-10 bg-transparent"
       />
     </div>
   );

@@ -6,9 +6,11 @@ set -euo pipefail
 DB_NAME="jhcrm"
 DB_USER="jhcrm"
 DB_PASS="jhcrm"
+LOG=/var/log/mariadb-dev.log
 
-sudo mkdir -p /var/run/mysqld
-sudo chown mysql:mysql /var/run/mysqld
+sudo mkdir -p /run/mysqld
+sudo chown mysql:mysql /run/mysqld
+sudo chown -R mysql:mysql /var/lib/mysql
 
 # Initialize the data directory the first time only.
 if [ ! -d /var/lib/mysql/mysql ]; then
@@ -16,14 +18,26 @@ if [ ! -d /var/lib/mysql/mysql ]; then
 fi
 
 # Start the daemon if it is not already accepting connections.
-if ! sudo mariadb -e "SELECT 1;" >/dev/null 2>&1; then
-  sudo -b bash -c 'mariadbd --user=mysql >/var/log/mariadb-dev.log 2>&1'
-  for _ in $(seq 1 30); do
-    if sudo mariadb -e "SELECT 1;" >/dev/null 2>&1; then
+if ! sudo mariadb-admin ping >/dev/null 2>&1; then
+  # Clear any stale pid so a fresh daemon can bind cleanly.
+  sudo rm -f /run/mysqld/mysqld.pid
+  # Fully detach the daemon so it survives the install step.
+  sudo bash -c "setsid mariadbd --user=mysql >'$LOG' 2>&1 < /dev/null &"
+
+  ready=0
+  for _ in $(seq 1 60); do
+    if sudo mariadb-admin ping >/dev/null 2>&1; then
+      ready=1
       break
     fi
     sleep 1
   done
+
+  if [ "$ready" -ne 1 ]; then
+    echo "MariaDB did not become ready in time. Recent log:" >&2
+    sudo tail -n 40 "$LOG" >&2 || true
+    exit 1
+  fi
 fi
 
 # Create database and user (idempotent).

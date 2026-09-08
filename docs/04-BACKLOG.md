@@ -1,5 +1,8 @@
 # BACKLOG — JH CRM
 
+> Decisiones de dominio: [`ARCHITECTURE_V1.md`](ARCHITECTURE_V1.md).
+> No crear tabla `Lead`. Leads en UI = `Opportunity`. Credit Repair se envuelve, no se reescribe.
+
 ## Convenciones
 
 Prioridad:
@@ -48,151 +51,165 @@ Analizar:
 - `GAP_ANALYSIS.md`
 - `MIGRATION_PLAN.md`
 
-**Regla:** no modificar producción durante esta tarea.
+**Estado:** DONE (2026-09-08). No se modificó producción.
 
 ---
 
 ## ARC-002 — Congelar modelo de dominio v1
 **Prioridad:** P0
 
-Validar:
+Validar contra `ARCHITECTURE_V1.md`:
 
 ```text
-Lead
 Client
+Opportunity          (UI: Leads; no tabla Lead)
 Service
-ServiceCase
-Task
+WorkflowStage        (por Service; única fuente de stage)
+ServiceCase          (stageId, nextActionAt, status)
+ServiceCaseStageHistory
 Note
-Activity
+Task
+ActivityLog
 Document
 Quote
 Payment
-CreditCase
+CreditCase           (1:1 wrap; no rename)
+CreditRound
 CreditReport
 CreditItem
-DisputeRound
-DisputeRoundItem
+DisputeItem
 AuditLog
 ```
 
 **Done cuando:**
 
-- relaciones aprobadas;
-- nombres consistentes;
-- migración definida;
-- no existe servicio/estado único dentro de Client.
+- `ARCHITECTURE_V1.md` aprobado (2026-09-08);
+- docs de dominio/DB/migración alineados;
+- no existe tabla Lead;
+- no existe `ServiceCase.stage` string;
+- no se reescribe el módulo de crédito.
+
+**Estado:** DONE (documentación). Implementación = ARC-003+.
 
 ---
 
-## ARC-003 — Crear ServiceCase
+## ARC-003 — Crear ServiceCase y envolver CreditCase
 **Prioridad:** P0
 
-Crear entidad y relaciones base.
+Crear entidad y relaciones base. Migración aditiva, dos deploys (`MIGRATION_PLAN.md`).
 
 **Acceptance Criteria:**
 
 - Client puede tener múltiples ServiceCase.
-- Cada ServiceCase pertenece a Service.
-- Tiene status y stage separados.
-- Tiene `nextActionAt`.
-- Tiene historial de etapas.
+- Cada ServiceCase pertenece a Service (`serviceId` + `code`).
+- `status` y `stageId` separados; stage solo vía WorkflowStage.
+- `nextActionAt` en ServiceCase.
+- `CreditCase.serviceCaseId` 1:1 para CREDIT_REPAIR (backfill 1:1).
+- StageHistory para cambios **nuevos**.
+- No rename de CreditCase / CreditRound.
+- No DROP.
 
 ---
 
-# EPIC 1 — Leads
-
-## LD-001 — Crear Lead
+## ARC-004 — WorkflowStage por Service
 **Prioridad:** P0
 
-Campos mínimos:
+Asociar etapas al catálogo de servicios.
 
-- nombre;
-- teléfono;
-- email;
+**Acceptance Criteria:**
+
+- `WorkflowStage.serviceId` obligatorio tras backfill.
+- Unique `(organizationId, serviceId, key)` y `(…, order)`.
+- Etapas actuales de crédito ligadas a `Service.code = CREDIT_REPAIR`.
+- `ServiceCase.stageId` debe ser de ese Service.
+
+---
+
+# EPIC 1 — Leads (Opportunity)
+
+La UI dice “Leads”. El modelo es `Client` + `Opportunity`. **No crear tabla Lead.**
+
+## LD-001 — Alta de prospecto
+**Prioridad:** P0
+
+Alta de `Client` (persona) + `Opportunity` (deal) con:
+
+- nombre / contacto;
 - idioma;
 - fuente;
-- servicio interesado;
-- estado;
+- servicio interesado (catálogo o `serviceRequested` hasta existir `code`);
+- etapa comercial;
 - responsable;
-- seguimiento.
+- `nextFollowUpAt`.
 
 **Acceptance Criteria:**
 
-- se crea correctamente;
-- aparece en listado;
+- se crea Client + Opportunity;
+- aparece en listado de Leads (Opportunity);
 - registra Activity;
-- valida datos obligatorios.
+- valida datos obligatorios;
+- no se crea tabla Lead.
 
 ---
 
-## LD-002 — Editar Lead
+## LD-002 — Editar prospecto / deal
 **Prioridad:** P0
 
 **Acceptance Criteria:**
 
-- editar datos;
+- editar datos de persona (Client) y de deal (Opportunity);
 - editar fuente;
 - editar servicio interesado;
 - editar responsable;
-- conservar historial.
+- conservar historial (Activity); no borrar Opportunity.
 
 ---
 
 ## LD-003 — Pipeline de Leads
 **Prioridad:** P0
 
-Estados base:
-
-```text
-NEW
-CONTACT_PENDING
-CONTACTED
-QUALIFIED
-FOLLOW_UP
-QUOTE_SENT
-LOST
-CONVERTED
-```
+Usar `OpportunityStage` existente (o mapear labels de UI). Restaurar la pantalla de Leads sobre Opportunity (hoy `/crm/oportunidades` redirige al dashboard).
 
 **Acceptance Criteria:**
 
-- filtrar por estado;
-- cambiar estado;
-- registrar historial;
-- no perder fuente original.
+- filtrar por etapa;
+- cambiar etapa;
+- registrar Activity;
+- no perder fuente original del Client.
 
 ---
 
-## LD-004 — Seguimiento de Lead
+## LD-004 — Seguimiento comercial
 **Prioridad:** P0
 
 **Acceptance Criteria:**
 
-- definir próxima fecha;
-- crear Task;
-- mostrar en dashboard;
-- marcar vencido si corresponde.
+- definir `Opportunity.nextFollowUpAt`;
+- opcional: crear Task (`dueAt`) sin sustituir el follow-up del deal;
+- mostrar en dashboard “leads por contactar”;
+- marcar vencido si `nextFollowUpAt` < ahora.
 
 ---
 
-## LD-005 — Convertir Lead a Client
+## LD-005 — Marcar Opportunity WON
 **Prioridad:** P0
 
-Debe ejecutar transacción:
+Transacción (BR-012):
 
-1. crear Client;
-2. enlazar Lead;
-3. cambiar Lead a CONVERTED;
-4. crear ServiceCase;
-5. crear Activity.
+1. Client ya existe (no duplicar persona);
+2. crear ServiceCase;
+3. si CREDIT_REPAIR: crear CreditCase 1:1;
+4. Opportunity → WON + `wonServiceCaseId` (`wonCaseId` temporal);
+5. Client.status → ACTIVE si aplicaba;
+6. Activity.
 
 **Acceptance Criteria:**
 
 - no duplica cliente;
-- no elimina Lead;
+- no elimina Opportunity ni Client;
 - conserva source;
-- rollback completo si una operación falla.
+- rollback completo si una operación falla;
+- no deja CreditCase huérfano.
 
 ---
 
@@ -236,7 +253,7 @@ Testimonios
 **Acceptance Criteria:**
 
 - cliente puede tener dos o más ServiceCase;
-- cada uno mantiene stage independiente;
+- cada uno mantiene `stageId` independiente (WorkflowStage de su Service);
 - cada uno mantiene pagos y tareas independientes.
 
 ---
@@ -249,10 +266,11 @@ Testimonios
 **Acceptance Criteria:**
 
 - asociado a cliente;
-- asociado a servicio;
+- asociado a servicio (`serviceId`);
 - genera caseNumber;
 - status OPEN;
-- stage inicial;
+- `stageId` inicial del WorkflowStage de ese Service;
+- si CREDIT_REPAIR: crea CreditCase 1:1 (wrap, no rewrite);
 - Activity automática.
 
 ---
@@ -262,12 +280,11 @@ Testimonios
 
 **Acceptance Criteria:**
 
-- guarda fromStage;
-- guarda toStage;
-- guarda actor;
-- guarda fecha;
+- cambia `stageId` (WorkflowStage del mismo Service);
+- guarda fromStageId / toStageId / actor / fecha en `ServiceCaseStageHistory`;
 - crea Activity;
-- conserva StageHistory.
+- no escribe un string `stage` en ServiceCase;
+- no reconstruye historial anterior.
 
 ---
 
@@ -320,7 +337,12 @@ Debe responder:
 ## NT-001 — Notas
 **Prioridad:** P0
 
-Notas humanas separadas de Activity.
+Tabla `Note` para notas humanas nuevas, separadas de Activity.
+
+**Acceptance Criteria:**
+
+- crear/listar notas en cliente y/o ServiceCase;
+- no backfill automático desde `ActivityLog.NOTE`.
 
 ---
 
@@ -376,10 +398,19 @@ OTHER
 
 # EPIC 6 — Reparación de crédito
 
-## CR-001 — Crear CreditCase
+## CR-001 — Envolver CreditCase
 **Prioridad:** P0
 
-Se crea solamente para ServiceCase de reparación de crédito.
+Se crea solamente junto a un ServiceCase CREDIT_REPAIR (1:1).
+
+**Regla:** conservar y envolver el módulo existente. No reescribir CreditCase, CreditRound, CreditReport, CreditItem, DisputeItem, Letters, Comparisons ni ProgressReports.
+
+---
+
+## CR-001b — Deprecar nextReviewAt
+**Prioridad:** P0
+
+Tras el deploy 2, la próxima acción operativa es `ServiceCase.nextActionAt`. Dejar de escribir `CreditCase.nextReviewAt`. No DROP.
 
 ---
 
@@ -428,19 +459,12 @@ Campos:
 
 ---
 
-## CR-005 — Crear DisputeRound
+## CR-005 — Crear ronda
 **Prioridad:** P0
 
-Estados sugeridos:
+Usar `CreditRound` existente (concepto DisputeRound). No crear tabla nueva ni rename.
 
-```text
-DRAFT
-PREPARED
-SENT
-WAITING_RESPONSE
-REVIEWED
-COMPLETED
-```
+Estados: los de `RoundStatus` actual (`DRAFT`, `PREPARING`, `SENT`, `WAITING_UPDATE`, `REVIEWING`, `COMPLETED`, `CANCELLED`).
 
 ---
 
@@ -465,8 +489,8 @@ Debe:
 - establecer sentAt;
 - solicitar expectedReviewAt;
 - crear Activity;
-- crear Task de revisión;
-- actualizar próxima acción.
+- crear Task de revisión (`dueAt`);
+- actualizar `ServiceCase.nextActionAt`.
 
 ---
 

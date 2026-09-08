@@ -1,88 +1,81 @@
 # ROADMAP — Orden de implementación
 
+> Fuente canónica: [`ARCHITECTURE_V1.md`](ARCHITECTURE_V1.md).
+
 ## Fase 0 — Auditoría
 
-Objetivo:
+**Estado:** DONE (2026-09-08).
 
-Entender el proyecto existente sin modificarlo.
+Entregables: `CURRENT_STATE.md`, `GAP_ANALYSIS.md`, `MIGRATION_PLAN.md`.
 
-Entregables:
-
-- CURRENT_STATE
-- GAP_ANALYSIS
-- MIGRATION_PLAN
+Dominio v1 congelado en `ARCHITECTURE_V1.md`.
 
 ---
 
-## Fase 1 — Núcleo comercial
+## Fase 1 — ServiceCase + Leads UI
+
+Dos deploys aditivos (`MIGRATION_PLAN.md`). Sin tabla Lead. Sin rewrite de crédito.
 
 Construir:
 
 ```text
-Lead
-→ Follow-up
-→ Conversion
-→ Client
-→ ServiceCase
-→ Dashboard básico
+WorkflowStage por Service
+→ ServiceCase (envuelve CreditCase)
+→ Opportunity como Leads en UI
+→ markOpportunityWon transaccional
+→ nextActionAt / nextFollowUpAt / Task.dueAt
+→ Dashboard (leads por contactar + próxima acción)
 ```
 
 ### Demo de aceptación
 
-Un lead llega desde Instagram, se registra, se programa llamada, se contacta, se convierte en cliente y se crea un expediente de reparación de crédito.
+Un prospecto llega desde Instagram: se registra como Client + Opportunity, se programa `nextFollowUpAt`, se contacta, se marca WON y queda un ServiceCase CREDIT_REPAIR con CreditCase 1:1.
 
 ---
 
 ## Fase 2 — Operación diaria
 
-Construir:
+Ya existe Tasks / Documents / Activity / dashboard. Completar:
 
-- Tasks
-- Notes
-- Activity Timeline
-- Documents
-- Next Action
-- Due Dates
+- tabla `Note` (sin backfill de ActivityLog.NOTE);
+- `ServiceCaseStageHistory` (solo cambios nuevos);
+- `ServiceCase.nextActionAt` como fuente operativa (deprecar escritura de `nextReviewAt`);
+- ligar Task/Document/Payment/Quote a `serviceCaseId`.
 
 ### Meta
 
 Al abrir un expediente, Hugo debe saber en pocos segundos:
 
 - qué ocurrió;
-- qué toca hacer;
-- cuándo toca hacerlo.
+- qué toca hacer (`nextActionAt`);
+- cuándo toca hacerlo (`Task.dueAt` si hay tarea).
 
 ---
 
 ## Fase 3 — Reparación de crédito
 
-Construir:
+**El módulo ya existe.** No reconstruir.
 
-- CreditCase
-- CreditReport
-- CreditItem
-- DisputeRound
-- DisputeRoundItem
-- Credit timeline
+Trabajo de esta fase = envolver + huecos de producto (action en DisputeItem, balance de expediente, dual tarea de revisión), no un segundo CreditCase.
 
-### Demo de aceptación
+### Demo de aceptación (flujo ya implementado, debe seguir funcionando tras el wrap)
 
 ```text
 Cliente
+↓
+ServiceCase + CreditCase
 ↓
 Reporte inicial
 ↓
 Items
 ↓
-Ronda #1
+Ronda #1 (CreditRound)
 ↓
-Items incluidos
+Items (DisputeItem)
 ↓
 Marcar enviada
 ↓
-Programar revisión
-↓
-Task
+expectedReviewAt + Task + nextActionAt
 ↓
 Revisar resultado
 ↓
@@ -95,23 +88,21 @@ Finalizar
 
 ## Fase 4 — Ventas y cobranza
 
-Construir:
+Ya hay Quotes / Payments / Receipts / Plans / Contracts.
 
-- Quotes
-- Contracts
-- Payments
-- Balance
-- Payment History
+Completar:
+
+- `agreedAmount` y balance a nivel ServiceCase;
+- `wonServiceCaseId` como único enlace WON (wonCaseId sin escritura).
 
 ---
 
 ## Fase 5 — Servicios secundarios
 
-Construir:
+Nuevos `WorkflowStage` por Service + extensión 1:1:
 
 - HomeBuyerCase
-- FundingCase
-- FundingApplication
+- FundingCase / FundingApplication
 - PersonalLoanCase
 - ProjectCase
 
@@ -119,33 +110,16 @@ Construir:
 
 ## Fase 6 — Testimonios
 
-Construir:
-
-- CRUD
-- consentimiento
-- aprobación
-- publicación
-- endpoint público
+CRUD, consentimiento, aprobación, publicación, endpoint público.
 
 ---
 
 ## Fase 7 — Automatizaciones
 
-Después del MVP estable:
-
-- email;
-- webhook de website;
-- SMS;
-- WhatsApp;
-- pagos online.
+Después del MVP estable: email, webhook, SMS, WhatsApp, pagos online.
 
 ---
 
 ## Fase 8 — IA
 
-Después de que los datos estén estructurados correctamente:
-
-- resumen de expediente;
-- siguiente acción sugerida;
-- extracción de tareas desde notas;
-- búsqueda asistida.
+Después de `sanitizeForAI()`: resumen de expediente, siguiente acción sugerida, extracción de tareas, búsqueda asistida.

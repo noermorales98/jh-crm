@@ -1,6 +1,8 @@
 # JH CRM — Documentación del proyecto
 
-Esta carpeta contiene la especificación funcional y técnica base para desarrollar el CRM de JH Financial.
+Esta carpeta contiene la especificación funcional y técnica del CRM de JH Financial.
+
+**Fuente canónica de arquitectura:** [`ARCHITECTURE_V1.md`](ARCHITECTURE_V1.md). Si otro archivo contradice ese documento, prevalece v1.
 
 ## Stack actual
 
@@ -13,68 +15,71 @@ Esta carpeta contiene la especificación funcional y técnica base para desarrol
 - ChatGPT como apoyo de producto/arquitectura
 - Kimi como auditor técnico y de casos límite
 
-## Modelo central
+## Modelo central (v1)
 
 ```text
-Lead
-  ↓
-Client
-  ↓
-ServiceCase
-  ↓
-Workflow
-  ↓
-Tasks / Documents / Notes / Payments
-  ↓
-Completion
-  ↓
-Testimonial
+Client                         persona / contacto
+  ├── Opportunity              pipeline comercial (UI: Leads)
+  └── ServiceCase
+        ↓
+      WorkflowStage            única fuente de stage (por Service)
+        ↓
+      Tasks / Documents / Notes / Payments
+        ↓
+      Completion
+        ↓
+      Testimonial              (P1)
 ```
 
-Para reparación de crédito:
+No hay tabla `Lead`. El prospecto es un `Client`; el deal es una `Opportunity`.
+
+Para reparación de crédito (módulo existente, se envuelve):
 
 ```text
-CreditCase
+ServiceCase (CREDIT_REPAIR)
   ↓
-CreditReport
+CreditCase                     1:1; no rename
   ↓
-CreditItems
+CreditReport / CreditItem
   ↓
-DisputeRounds
+CreditRound                    (concepto DisputeRound)
   ↓
-Review
+DisputeItem
   ↓
-Next Action
+Review + ServiceCase.nextActionAt
 ```
 
 ## Orden recomendado de trabajo
 
-1. Auditar el repositorio actual.
-2. Congelar modelo de dominio y base de datos v1.
-3. Implementar Lead → Client → ServiceCase.
-4. Implementar Tasks / Activity / Notes / Documents.
-5. Implementar Credit Repair.
-6. Implementar Quotes / Payments / Contracts.
-7. Implementar servicios secundarios.
-8. Implementar testimonios.
-9. Implementar automatizaciones.
-10. Implementar IA dentro del CRM.
+1. Auditoría del repo — DONE (`CURRENT_STATE`, `GAP_ANALYSIS`, `MIGRATION_PLAN`).
+2. Congelar arquitectura v1 — DONE (`ARCHITECTURE_V1.md`).
+3. ServiceCase + WorkflowStage por Service + wrap CreditCase (dos deploys aditivos).
+4. Leads UI sobre Opportunity; `markOpportunityWon` transaccional.
+5. Notes nuevas + StageHistory nueva (sin backfill histórico).
+6. Completar Credit Repair existente (no reescribir).
+7. Quotes / Payments / Contracts a nivel expediente.
+8. Servicios secundarios.
+9. Testimonios.
+10. Automatizaciones.
+11. IA dentro del CRM (`sanitizeForAI` antes).
 
 ## Archivos
 
+- `ARCHITECTURE_V1.md`: **decisiones arquitectónicas canónicas**.
 - `00-PRODUCT.md`: objetivo y alcance.
 - `01-DOMAIN.md`: entidades y relaciones.
 - `02-BUSINESS_RULES.md`: reglas de negocio.
-- `03-DATABASE.md`: diseño objetivo de datos.
+- `03-DATABASE.md`: diseño objetivo de datos v1.
 - `04-BACKLOG.md`: backlog priorizado.
 - `05-ROADMAP.md`: orden de entregas.
 - `06-DEFINITION_OF_DONE.md`: criterios de terminado.
 - `07-SECURITY.md`: reglas de seguridad y datos sensibles.
 - `08-AI_CONTEXT.md`: contexto corto para IAs.
 - `09-QA_PLAN.md`: plan de pruebas para Grok Bot.
-- `10-CURRENT_STATE_TEMPLATE.md`: auditoría del estado actual.
-- `11-GAP_ANALYSIS_TEMPLATE.md`: diferencias entre actual y objetivo.
-- `12-MIGRATION_PLAN_TEMPLATE.md`: plan de migración.
+- `CURRENT_STATE.md`: auditoría del estado actual (ARC-001).
+- `GAP_ANALYSIS.md`: diferencias auditadas vs el objetivo *previo* (histórico; gana v1).
+- `MIGRATION_PLAN.md`: migración aditiva, dos deploys.
+- `10-CURRENT_STATE_TEMPLATE.md` / `11-GAP_ANALYSIS_TEMPLATE.md` / `12-MIGRATION_PLAN_TEMPLATE.md`: plantillas.
 - `13-OPENROUTER_AI.md`: arquitectura recomendada para IA.
 - `14-DEPLOYMENT.md`: entornos y despliegues.
 - `99-SOURCE_REPORT.md`: reporte original de requerimientos.

@@ -19,19 +19,22 @@ Toda historia debe cumplir, según corresponda:
 - responsive;
 - no romper flujos existentes.
 
-## Lead terminado
+## Lead terminado (UI; modelo = Client + Opportunity)
+
+No hay tabla `Lead`. Ver `ARCHITECTURE_V1.md`.
 
 ```text
-✓ se crea
+✓ se crea Client + Opportunity
 ✓ se edita
 ✓ se asigna
 ✓ tiene fuente
 ✓ tiene interés
-✓ tiene seguimiento
+✓ tiene nextFollowUpAt
 ✓ aparece en dashboard
 ✓ mantiene historial
-✓ se convierte sin duplicación
-✓ puede marcarse perdido
+✓ WON crea ServiceCase sin duplicar persona
+✓ puede marcarse LOST
+✓ no elimina Opportunity
 ```
 
 ## ServiceCase terminado
@@ -41,9 +44,9 @@ Toda historia debe cumplir, según corresponda:
 ✓ pertenece a Client
 ✓ pertenece a Service
 ✓ tiene status
-✓ tiene stage
+✓ tiene stageId (WorkflowStage; no string stage)
 ✓ tiene nextActionAt
-✓ mantiene historial de etapas
+✓ mantiene historial de etapas nuevas (ServiceCaseStageHistory)
 ✓ soporta tareas
 ✓ soporta documentos
 ✓ soporta notas

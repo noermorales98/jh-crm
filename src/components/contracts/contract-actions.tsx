@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { FilePlus, Plus } from "lucide-react";
+import { FilePlus, FileText, Plus } from "lucide-react";
 import {
   Alert,
   Button,
@@ -17,6 +17,7 @@ import {
 } from "@/src/actions/contracts";
 import { playActionResult } from "@/src/lib/cuelume";
 import { DocumentEditor } from "@/src/components/contracts/document-editor";
+import { TemplateStudioChrome } from "@/src/components/contracts/template-studio-chrome";
 import { DEFAULT_CONTRACT_CONTENT } from "@/src/lib/contracts/sanitize";
 
 type ClientOption = { id: string; label: string };
@@ -164,6 +165,7 @@ export function UpsertTemplateButton({
   const [active, setActive] = useState(initial?.active ?? true);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const fieldId = initial?.id ?? "new";
 
   function openModal() {
     setName(initial?.name ?? "");
@@ -208,66 +210,45 @@ export function UpsertTemplateButton({
         variant={initial ? "ghost" : "secondary"}
         onClick={openModal}
       >
-        <FilePlus className="size-4" aria-hidden />
-        {initial ? "Editar" : "Nueva plantilla"}
+        {initial ? (
+          <FileText className="size-4" aria-hidden />
+        ) : (
+          <FilePlus className="size-4" aria-hidden />
+        )}
+        {initial ? "Abrir" : "Nueva plantilla"}
       </Button>
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        size="xl"
+        size="full"
+        hideHeader
         title={initial ? "Editar plantilla" : "Nueva plantilla"}
-        description="Escribe el contrato como en Word. Usa «Nombre del cliente» para insertarlo al emitir."
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error ? <Alert tone="error">{error}</Alert> : null}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Nombre" htmlFor="tpl-name" required>
-              <Input
-                id="tpl-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </Field>
-            <Field label="Versión" htmlFor="tpl-version">
-              <Input
-                id="tpl-version"
-                value={version}
-                onChange={(e) => setVersion(e.target.value)}
-              />
-            </Field>
-          </div>
-          <div>
-            <p className="mb-1.5 text-sm font-medium text-ink">Documento</p>
-            {open ? (
-              <DocumentEditor
-                key={initial?.id ?? "new"}
-                value={contentHtml}
-                onChange={setContentHtml}
-              />
-            ) : null}
-          </div>
-          <label className="flex items-center gap-2 text-sm text-ink">
-            <input
-              type="checkbox"
-              checked={active}
-              onChange={(e) => setActive(e.target.checked)}
+        <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+          <div className="jh-doc-chrome shrink-0">
+            <TemplateStudioChrome
+              title={initial ? "Editar plantilla" : "Nueva plantilla"}
+              name={name}
+              version={version}
+              active={active}
+              pending={pending}
+              error={error}
+              nameId={`tpl-name-${fieldId}`}
+              versionId={`tpl-version-${fieldId}`}
+              onClose={() => setOpen(false)}
+              onNameChange={setName}
+              onVersionChange={setVersion}
+              onActiveChange={setActive}
             />
-            Plantilla activa
-          </label>
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setOpen(false)}
-              disabled={pending}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Guardando…" : "Guardar"}
-            </Button>
           </div>
+          {open ? (
+            <DocumentEditor
+              key={initial?.id ?? "new"}
+              value={contentHtml}
+              onChange={setContentHtml}
+              variant="studio"
+            />
+          ) : null}
         </form>
       </Modal>
     </>

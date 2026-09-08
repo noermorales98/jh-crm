@@ -16,6 +16,7 @@ export function Modal({
   children,
   footer,
   size = "md",
+  hideHeader = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -23,8 +24,10 @@ export function Modal({
   description?: string;
   children: ReactNode;
   footer?: ReactNode;
-  /** md = formularios; xl = editor de documentos */
-  size?: "md" | "xl";
+  /** md = formularios; xl = editor embebido; full = plantilla a pantalla completa */
+  size?: "md" | "xl" | "full";
+  /** Oculta el título del modal; el hijo aporta su propio chrome. */
+  hideHeader?: boolean;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const backdropIntentRef = useRef(false);
@@ -40,7 +43,9 @@ export function Modal({
     return Boolean(ref.current?.querySelector("[data-jh-picker]"));
   }
 
-  const panelWidth = size === "xl" ? "max-w-3xl" : "max-w-lg";
+  const fullscreen = size === "full";
+  const panelWidth =
+    size === "full" ? "max-w-none" : size === "xl" ? "max-w-3xl" : "max-w-lg";
 
   return (
     <dialog
@@ -70,33 +75,72 @@ export function Modal({
         }
         backdropIntentRef.current = false;
       }}
-      className="fixed inset-0 z-modal m-0 hidden h-dvh max-h-dvh w-full max-w-none items-end justify-center bg-transparent p-0 backdrop:bg-ink/40 backdrop:backdrop-blur-[2px] open:flex sm:items-center sm:p-4"
+      className={
+        fullscreen
+          ? "fixed inset-0 z-modal m-0 hidden h-dvh max-h-dvh w-full max-w-none items-stretch justify-stretch bg-transparent p-0 backdrop:bg-[#d8dbe3]/80 open:flex"
+          : "fixed inset-0 z-modal m-0 hidden h-dvh max-h-dvh w-full max-w-none items-end justify-center bg-transparent p-0 backdrop:bg-ink/40 backdrop:backdrop-blur-[2px] open:flex sm:items-center sm:p-4"
+      }
     >
       <div
-        className={`jh-overlay-shadow relative flex max-h-[min(92dvh,100%)] w-full ${panelWidth} flex-col overflow-hidden rounded-t-[20px] bg-surface-elevated pb-[env(safe-area-inset-bottom)] sm:max-h-full sm:rounded-surface sm:pb-0`}
+        className={
+          fullscreen
+            ? "relative flex h-dvh max-h-dvh w-full flex-col overflow-hidden bg-[#eceef2] [color-scheme:light]"
+            : `jh-overlay-shadow relative flex max-h-[min(92dvh,100%)] w-full ${panelWidth} flex-col overflow-hidden rounded-t-[20px] bg-surface-elevated pb-[env(safe-area-inset-bottom)] sm:max-h-full sm:rounded-surface sm:pb-0`
+        }
       >
-        <div
-          className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border-subtle sm:hidden"
-          aria-hidden
-        />
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-border-subtle px-5 py-4">
-          <div>
-            <h2 className="text-base font-semibold text-ink">{title}</h2>
-            {description ? (
-              <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
-            ) : null}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onClose}
-            aria-label="Cerrar"
-            className="size-9 shrink-0 px-0"
+        {fullscreen ? null : (
+          <div
+            className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border-subtle sm:hidden"
+            aria-hidden
+          />
+        )}
+        {hideHeader ? (
+          <h2 className="sr-only">{title}</h2>
+        ) : (
+          <div
+            className={
+              fullscreen
+                ? "flex h-10 shrink-0 items-center justify-between gap-3 border-b border-black/8 px-3"
+                : "flex shrink-0 items-start justify-between gap-4 border-b border-border-subtle px-5 py-4"
+            }
           >
-            <X className="size-4" aria-hidden />
-          </Button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+            <div className="min-w-0">
+              <h2
+                className={
+                  fullscreen
+                    ? "text-[13px] font-medium text-[#3f4556]"
+                    : "text-base font-semibold text-ink"
+                }
+              >
+                {title}
+              </h2>
+              {description ? (
+                <p className="mt-0.5 text-sm text-text-secondary">{description}</p>
+              ) : null}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              aria-label="Cerrar"
+              className={
+                fullscreen
+                  ? "h-8 min-h-8 shrink-0 gap-1 px-2 text-[13px] text-[#3f4556]"
+                  : "size-9 shrink-0 px-0"
+              }
+            >
+              <X className="size-3.5" aria-hidden />
+              {fullscreen ? <span>Cerrar</span> : null}
+            </Button>
+          </div>
+        )}
+        <div
+          className={
+            fullscreen
+              ? "flex min-h-0 flex-1 flex-col overflow-hidden"
+              : "min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4"
+          }
+        >
           {children}
         </div>
         {footer ? (

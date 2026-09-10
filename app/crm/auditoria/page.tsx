@@ -44,7 +44,7 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   MEMBER_INVITED: "Miembro invitado",
   MEMBER_ROLE_CHANGED: "Rol de miembro cambiado",
   MEMBER_DEACTIVATED: "Miembro desactivado",
-  INTAKE_SUBMITTED: "Intake enviado",
+  INTAKE_SUBMITTED: "Formulario enviado",
 };
 
 const ENTITY_TYPES = [

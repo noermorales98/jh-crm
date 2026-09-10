@@ -109,6 +109,8 @@ Crear entidad y relaciones base. Migración aditiva, dos deploys (`MIGRATION_PLA
 - No rename de CreditCase / CreditRound.
 - No DROP.
 
+**Estado:** DONE (2026-09-10). Schema + backfill DEV + wrap create/move/markWon. Lecturas UI siguen por CreditCase (Deploy 2 pendiente).
+
 ---
 
 ## ARC-004 — WorkflowStage por Service
@@ -123,8 +125,7 @@ Asociar etapas al catálogo de servicios.
 - Etapas actuales de crédito ligadas a `Service.code = CREDIT_REPAIR`.
 - `ServiceCase.stageId` debe ser de ese Service.
 
----
-
+**Estado:** DONE (2026-09-10). Stages scoped en config/bootstrap; uniques migrados en DEV.
 # EPIC 1 — Leads (Opportunity)
 
 La UI dice “Leads”. El modelo es `Client` + `Opportunity`. **No crear tabla Lead.**
@@ -150,6 +151,8 @@ Alta de `Client` (persona) + `Opportunity` (deal) con:
 - valida datos obligatorios;
 - no se crea tabla Lead.
 
+**Estado:** DONE (2026-09-10). `createLead` + UI “Nuevo lead” en `/crm/oportunidades`.
+
 ---
 
 ## LD-002 — Editar prospecto / deal
@@ -162,6 +165,8 @@ Alta de `Client` (persona) + `Opportunity` (deal) con:
 - editar servicio interesado;
 - editar responsable;
 - conservar historial (Activity); no borrar Opportunity.
+
+**Estado:** DONE (2026-09-10). `updateLead` + `EditLeadButton` en kanban.
 
 ---
 
@@ -177,6 +182,8 @@ Usar `OpportunityStage` existente (o mapear labels de UI). Restaurar la pantalla
 - registrar Activity;
 - no perder fuente original del Client.
 
+**Estado:** DONE (2026-09-10). Kanban restaurado; nav “Leads”; sin tabla Lead.
+
 ---
 
 ## LD-004 — Seguimiento comercial
@@ -189,7 +196,7 @@ Usar `OpportunityStage` existente (o mapear labels de UI). Restaurar la pantalla
 - mostrar en dashboard “leads por contactar”;
 - marcar vencido si `nextFollowUpAt` < ahora.
 
----
+**Estado:** DONE (2026-09-10). Follow-up en cards + widget/attention dashboard; vencidos en rojo.
 
 ## LD-005 — Marcar Opportunity WON
 **Prioridad:** P0
@@ -343,6 +350,8 @@ Tabla `Note` para notas humanas nuevas, separadas de Activity.
 
 - crear/listar notas en cliente y/o ServiceCase;
 - no backfill automático desde `ActivityLog.NOTE`.
+
+**Estado:** PARCIAL (2026-09-10). Crear/listar en lead (Client) desde modal de Leads; ServiceCase pendiente.
 
 ---
 

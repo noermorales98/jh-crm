@@ -1,4 +1,4 @@
-import type { CaseState, Prisma } from "@prisma/client";
+import type { CaseState, Prisma, ServiceCaseStatus } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { DomainError } from "@/src/server/errors";
 import { nextCaseCode } from "@/src/server/folios";
@@ -6,11 +6,12 @@ import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
 import { resolveAssigneeForOrg } from "@/src/server/users";
+import { ensureCreditRepairService } from "@/src/server/services";
 
 /**
  * Servicio de casos de reparación de crédito.
- * Un caso pertenece a un cliente y se mueve entre WorkflowStage
- * configurables de la organización.
+ * Crear expediente = ServiceCase + CreditCase 1:1 (CREDIT_REPAIR).
+ * Las pantallas de crédito siguen leyendo por CreditCase.id.
  */
 
 export interface CaseCreateData {
@@ -39,6 +40,7 @@ export interface CaseListFilters {
 const CASE_LIST_SELECT = {
   id: true,
   caseCode: true,
+  serviceCaseId: true,
   state: true,
   openedAt: true,
   nextReviewAt: true,
@@ -48,6 +50,19 @@ const CASE_LIST_SELECT = {
   stage: { select: { id: true, key: true, name: true, color: true } },
   assignedTo: { select: { id: true, name: true } },
 } satisfies Prisma.CreditCaseSelect;
+
+function mapCaseStateToServiceStatus(state: CaseState): ServiceCaseStatus {
+  switch (state) {
+    case "PAUSED":
+      return "ON_HOLD";
+    case "COMPLETED":
+      return "COMPLETED";
+    case "CANCELLED":
+      return "CANCELED";
+    default:
+      return "OPEN";
+  }
+}
 
 async function assertMember(ctx: OrganizationContext, userId: string) {
   const member = await prisma.organizationMember.findUnique({
@@ -70,18 +85,41 @@ async function getCaseOrThrow(ctx: OrganizationContext, caseId: string) {
   return creditCase;
 }
 
-async function getActiveStageOrThrow(ctx: OrganizationContext, stageId: string) {
+async function getCreditRepairServiceId(
+  organizationId: string,
+  tx?: Prisma.TransactionClient,
+) {
+  const service = await ensureCreditRepairService(organizationId, tx);
+  return service.id;
+}
+
+async function getActiveStageOrThrow(
+  ctx: OrganizationContext,
+  stageId: string,
+  serviceId: string,
+) {
   const stage = await prisma.workflowStage.findFirst({
-    where: { id: stageId, organizationId: ctx.organizationId, isActive: true },
+    where: {
+      id: stageId,
+      organizationId: ctx.organizationId,
+      serviceId,
+      isActive: true,
+    },
   });
-  if (!stage) throw new DomainError("La etapa seleccionada no existe o está inactiva.");
+  if (!stage) {
+    throw new DomainError("La etapa seleccionada no existe o está inactiva.");
+  }
   return stage;
 }
 
-/** Primera etapa activa de la organización (por order). */
-async function getDefaultStage(ctx: OrganizationContext) {
+/** Primera etapa activa del Service CREDIT_REPAIR (por order). */
+async function getDefaultStage(ctx: OrganizationContext, serviceId: string) {
   const stage = await prisma.workflowStage.findFirst({
-    where: { organizationId: ctx.organizationId, isActive: true },
+    where: {
+      organizationId: ctx.organizationId,
+      serviceId,
+      isActive: true,
+    },
     orderBy: { order: "asc" },
   });
   if (!stage) {
@@ -90,35 +128,97 @@ async function getDefaultStage(ctx: OrganizationContext) {
   return stage;
 }
 
-export async function createCreditCase(ctx: OrganizationContext, data: CaseCreateData) {
-  const client = await prisma.client.findFirst({
-    where: { id: data.clientId, organizationId: ctx.organizationId },
-    select: { id: true, status: true, firstName: true, lastName: true },
-  });
-  if (!client) throw new DomainError("Cliente no encontrado.");
-  if (client.status === "ARCHIVED") {
-    throw new DomainError("No se puede crear un caso para un cliente archivado.");
-  }
-  const assigneeId = await resolveAssigneeForOrg(
-    ctx.organizationId,
-    data.assignedToId,
-  );
-  if (assigneeId) await assertMember(ctx, assigneeId);
-  const stage = data.stageId
-    ? await getActiveStageOrThrow(ctx, data.stageId)
-    : await getDefaultStage(ctx);
+/**
+ * Crea ServiceCase + CreditCase en la misma transacción.
+ * Si se pasa `tx`, se usa esa transacción (p.ej. markWon).
+ */
+export async function createCreditCase(
+  ctx: OrganizationContext,
+  data: CaseCreateData,
+  tx?: Prisma.TransactionClient,
+) {
+  const run = async (client: Prisma.TransactionClient) => {
+    const found = await client.client.findFirst({
+      where: { id: data.clientId, organizationId: ctx.organizationId },
+      select: { id: true, status: true, firstName: true, lastName: true },
+    });
+    if (!found) throw new DomainError("Cliente no encontrado.");
+    if (found.status === "ARCHIVED") {
+      throw new DomainError("No se puede crear un caso para un cliente archivado.");
+    }
+    const assigneeId = await resolveAssigneeForOrg(
+      ctx.organizationId,
+      data.assignedToId,
+    );
+    if (assigneeId) {
+      const member = await client.organizationMember.findUnique({
+        where: {
+          userId_organizationId: {
+            userId: assigneeId,
+            organizationId: ctx.organizationId,
+          },
+        },
+        include: { user: { select: { isActive: true } } },
+      });
+      if (!member || !member.user.isActive) {
+        throw new DomainError(
+          "El responsable seleccionado no es un miembro activo de la organización.",
+        );
+      }
+    }
 
-  return prisma.$transaction(async (tx) => {
-    const { code } = await nextCaseCode(tx, ctx.organizationId);
-    const creditCase = await tx.creditCase.create({
+    const serviceId = await getCreditRepairServiceId(ctx.organizationId, client);
+    const stage = data.stageId
+      ? await client.workflowStage.findFirst({
+          where: {
+            id: data.stageId,
+            organizationId: ctx.organizationId,
+            serviceId,
+            isActive: true,
+          },
+        })
+      : await client.workflowStage.findFirst({
+          where: {
+            organizationId: ctx.organizationId,
+            serviceId,
+            isActive: true,
+          },
+          orderBy: { order: "asc" },
+        });
+    if (!stage) {
+      throw new DomainError(
+        data.stageId
+          ? "La etapa seleccionada no existe o está inactiva."
+          : "La organización no tiene etapas activas configuradas.",
+      );
+    }
+
+    const { code } = await nextCaseCode(client, ctx.organizationId);
+    const nextActionAt = data.nextReviewAt ?? null;
+
+    const serviceCase = await client.serviceCase.create({
       data: {
         organizationId: ctx.organizationId,
-        clientId: client.id,
+        clientId: found.id,
+        serviceId,
+        caseNumber: code,
+        status: "OPEN",
+        stageId: stage.id,
+        assignedToId: assigneeId,
+        nextActionAt,
+      },
+    });
+
+    const creditCase = await client.creditCase.create({
+      data: {
+        organizationId: ctx.organizationId,
+        clientId: found.id,
+        serviceCaseId: serviceCase.id,
         caseCode: code,
         stageId: stage.id,
         assignedToId: assigneeId,
         summary: data.summary ?? null,
-        nextReviewAt: data.nextReviewAt ?? null,
+        nextReviewAt: nextActionAt,
       },
       include: { stage: { select: { id: true, name: true, color: true } } },
     });
@@ -128,15 +228,23 @@ export async function createCreditCase(ctx: OrganizationContext, data: CaseCreat
       {
         type: "CREATED",
         description: `Caso ${creditCase.caseCode} creado en etapa "${stage.name}".`,
-        clientId: client.id,
+        clientId: found.id,
         caseId: creditCase.id,
-        metadata: { caseCode: creditCase.caseCode, stageKey: stage.key },
+        serviceCaseId: serviceCase.id,
+        metadata: {
+          caseCode: creditCase.caseCode,
+          stageKey: stage.key,
+          serviceCaseId: serviceCase.id,
+        },
       },
-      tx,
+      client,
     );
 
     return creditCase;
-  });
+  };
+
+  if (tx) return run(tx);
+  return prisma.$transaction((client) => run(client));
 }
 
 export async function updateCreditCase(
@@ -147,12 +255,21 @@ export async function updateCreditCase(
   const creditCase = await getCaseOrThrow(ctx, caseId);
   if (data.assignedToId) await assertMember(ctx, data.assignedToId);
 
-  return prisma.creditCase.update({
-    where: { id: creditCase.id },
-    data: {
-      ...(data.assignedToId !== undefined ? { assignedToId: data.assignedToId } : {}),
-      ...(data.summary !== undefined ? { summary: data.summary } : {}),
-    },
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.creditCase.update({
+      where: { id: creditCase.id },
+      data: {
+        ...(data.assignedToId !== undefined ? { assignedToId: data.assignedToId } : {}),
+        ...(data.summary !== undefined ? { summary: data.summary } : {}),
+      },
+    });
+    if (data.assignedToId !== undefined) {
+      await tx.serviceCase.update({
+        where: { id: creditCase.serviceCaseId },
+        data: { assignedToId: data.assignedToId },
+      });
+    }
+    return updated;
   });
 }
 
@@ -162,7 +279,15 @@ export async function moveCaseToStage(
   stageId: string,
 ) {
   const creditCase = await getCaseOrThrow(ctx, caseId);
-  const stage = await getActiveStageOrThrow(ctx, stageId);
+  const serviceCase = await prisma.serviceCase.findFirst({
+    where: { id: creditCase.serviceCaseId, organizationId: ctx.organizationId },
+  });
+  if (!serviceCase) throw new DomainError("Expediente ServiceCase no encontrado.");
+
+  const stage = await getActiveStageOrThrow(ctx, stageId, serviceCase.serviceId);
+  if (stage.serviceId !== serviceCase.serviceId) {
+    throw new DomainError("La etapa no pertenece al servicio del expediente.");
+  }
   if (creditCase.stageId === stage.id) {
     throw new DomainError("El caso ya está en esa etapa.");
   }
@@ -170,13 +295,27 @@ export async function moveCaseToStage(
   return prisma.$transaction(async (tx) => {
     const fromStage = await tx.workflowStage.findUnique({
       where: { id: creditCase.stageId },
-      select: { name: true, key: true },
+      select: { id: true, name: true, key: true },
     });
 
     const updated = await tx.creditCase.update({
       where: { id: creditCase.id },
       data: { stageId: stage.id },
       include: { stage: { select: { id: true, name: true, color: true } } },
+    });
+
+    await tx.serviceCase.update({
+      where: { id: serviceCase.id },
+      data: { stageId: stage.id },
+    });
+
+    await tx.serviceCaseStageHistory.create({
+      data: {
+        serviceCaseId: serviceCase.id,
+        fromStageId: fromStage?.id ?? creditCase.stageId,
+        toStageId: stage.id,
+        changedById: ctx.userId ?? null,
+      },
     });
 
     await writeActivityLog(
@@ -186,6 +325,7 @@ export async function moveCaseToStage(
         description: `Caso ${creditCase.caseCode} movido de "${fromStage?.name ?? "?"}" a "${stage.name}".`,
         clientId: creditCase.clientId,
         caseId: creditCase.id,
+        serviceCaseId: serviceCase.id,
         metadata: { fromStageKey: fromStage?.key, toStageKey: stage.key },
       },
       tx,
@@ -202,13 +342,23 @@ async function setCaseState(
   description: string,
 ) {
   const creditCase = await getCaseOrThrow(ctx, caseId);
+  const serviceStatus = mapCaseStateToServiceStatus(state);
+  const closed =
+    state === "COMPLETED" || state === "CANCELLED" ? new Date() : null;
 
   return prisma.$transaction(async (tx) => {
     const updated = await tx.creditCase.update({
       where: { id: creditCase.id },
       data: {
         state,
-        closedAt: state === "COMPLETED" || state === "CANCELLED" ? new Date() : null,
+        closedAt: closed,
+      },
+    });
+    await tx.serviceCase.update({
+      where: { id: creditCase.serviceCaseId },
+      data: {
+        status: serviceStatus,
+        completedAt: closed,
       },
     });
     await writeActivityLog(
@@ -218,6 +368,7 @@ async function setCaseState(
         description,
         clientId: creditCase.clientId,
         caseId: creditCase.id,
+        serviceCaseId: creditCase.serviceCaseId,
         metadata: { from: creditCase.state, to: state },
       },
       tx,
@@ -264,9 +415,16 @@ export async function setNextReviewDate(
   nextReviewAt: Date | null,
 ) {
   const creditCase = await getCaseOrThrow(ctx, caseId);
-  const updated = await prisma.creditCase.update({
-    where: { id: creditCase.id },
-    data: { nextReviewAt },
+  const updated = await prisma.$transaction(async (tx) => {
+    const row = await tx.creditCase.update({
+      where: { id: creditCase.id },
+      data: { nextReviewAt },
+    });
+    await tx.serviceCase.update({
+      where: { id: creditCase.serviceCaseId },
+      data: { nextActionAt: nextReviewAt },
+    });
+    return row;
   });
   await writeActivityLog(toActivityContext(ctx), {
     type: "NOTE",
@@ -275,6 +433,7 @@ export async function setNextReviewDate(
       : `Se eliminó la próxima revisión del caso ${creditCase.caseCode}.`,
     clientId: creditCase.clientId,
     caseId: creditCase.id,
+    serviceCaseId: creditCase.serviceCaseId,
     metadata: { nextReviewAt: nextReviewAt?.toISOString() ?? null },
   });
   return updated;
@@ -317,6 +476,7 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
     select: {
       id: true,
       caseCode: true,
+      serviceCaseId: true,
       state: true,
       openedAt: true,
       nextReviewAt: true,

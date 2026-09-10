@@ -9,7 +9,8 @@
  *   2. OrganizationSettings con defaults
  *   3. User OWNER (BOOTSTRAP_OWNER_EMAIL / _PASSWORD / _NAME)
  *   4. OrganizationMember role OWNER
- *   5. Las 10 WorkflowStage iniciales
+ *   5. Service CREDIT_REPAIR
+ *   6. Las 10 WorkflowStage iniciales (scoped a CREDIT_REPAIR)
  */
 import bcrypt from "bcryptjs";
 import { PrismaClient, Role } from "@prisma/client";
@@ -89,13 +90,40 @@ async function main() {
         create: { userId: user.id, organizationId: organization.id, role: Role.OWNER },
       });
 
-      // 5. WorkflowStage iniciales
+      // 5. Service CREDIT_REPAIR
+      let creditService = await tx.service.findFirst({
+        where: { organizationId: organization.id, code: "CREDIT_REPAIR" },
+      });
+      if (!creditService) {
+        const nameTaken = await tx.service.findFirst({
+          where: { organizationId: organization.id, name: "Credit Repair" },
+          select: { id: true },
+        });
+        creditService = await tx.service.create({
+          data: {
+            organizationId: organization.id,
+            code: "CREDIT_REPAIR",
+            name: nameTaken
+              ? `Credit Repair [${organization.id.slice(0, 8)}]`
+              : "Credit Repair",
+            defaultPrice: 0,
+            currency: "USD",
+            isActive: true,
+          },
+        });
+      }
+
+      // 6. WorkflowStage iniciales (scoped a CREDIT_REPAIR)
       const stages = [];
       for (const stage of WORKFLOW_STAGES) {
         stages.push(
           await tx.workflowStage.upsert({
             where: {
-              organizationId_key: { organizationId: organization.id, key: stage.key },
+              organizationId_serviceId_key: {
+                organizationId: organization.id,
+                serviceId: creditService.id,
+                key: stage.key,
+              },
             },
             update: {
               name: stage.name,
@@ -104,6 +132,7 @@ async function main() {
             },
             create: {
               organizationId: organization.id,
+              serviceId: creditService.id,
               key: stage.key,
               name: stage.name,
               order: stage.order,
@@ -114,20 +143,26 @@ async function main() {
         );
       }
 
-      return { organization, settings, user, stagesCount: stages.length };
+      return {
+        organization,
+        settings,
+        user,
+        creditServiceId: creditService.id,
+        stagesCount: stages.length,
+      };
     });
 
     console.log("Bootstrap completado:");
-    console.log(`  Organización : ${result.organization.name} (${result.organization.id})`);
-    console.log(`  Settings     : ${result.settings.id}`);
-    console.log(`  Usuario OWNER: ${result.user.email} (${result.user.id})`);
-    console.log(`  Etapas       : ${result.stagesCount}`);
+    console.log(`  org=${result.organization.id}`);
+    console.log(`  user=${result.user.email}`);
+    console.log(`  creditService=${result.creditServiceId}`);
+    console.log(`  stages=${result.stagesCount}`);
   } finally {
     await prisma.$disconnect();
   }
 }
 
-main().catch((error) => {
-  console.error("Error en bootstrap:", error);
+main().catch((e) => {
+  console.error(e);
   process.exit(1);
 });

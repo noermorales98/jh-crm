@@ -681,7 +681,7 @@ export function SettingsForm({
                   ["Pago por cobrar", "notifyEmailPayment", "notifyWhatsappPayment"],
                   ["Correo nuevo", "notifyEmailMail", null],
                   ["Formulario de contacto", "notifyEmailContact", "notifyWhatsappContact"],
-                  ["Registro de intake", "notifyEmailIntake", "notifyWhatsappIntake"],
+                  ["Registro de formulario", "notifyEmailIntake", "notifyWhatsappIntake"],
                   ["Resumen diario", "notifyEmailDigest", "notifyWhatsappDigest"],
                 ] as const
               ).map(([label, emailKey, waKey]) => (
@@ -720,7 +720,7 @@ export function SettingsForm({
         {(
           [
             ["Pago por cobrar", "emailClientPaymentDue"],
-            ["Documentos / intake pendiente", "emailClientDocsPending"],
+            ["Documentos / formulario pendiente", "emailClientDocsPending"],
             ["Cotización enviada", "emailClientQuoteSent"],
             ["Cotización por vencer", "emailClientQuoteExpiring"],
             ["Revisión de caso", "emailClientCaseReview"],

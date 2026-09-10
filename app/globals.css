@@ -108,6 +108,21 @@ body {
   outline-offset: 2px;
 }
 
+/* Cards de leads: sin anillo azul ni sombra; foco solo con borde sutil */
+.jh-lead-card:focus,
+.jh-lead-card:focus-visible {
+  outline: none;
+  outline-offset: 0;
+  box-shadow: none;
+  border-color: color-mix(in srgb, var(--color-ink) 22%, transparent);
+}
+
+.jh-stage-chip:focus,
+.jh-stage-chip:focus-visible {
+  outline: none;
+  outline-offset: 0;
+}
+
 .jh-chat-input:focus,
 .jh-chat-input:focus-visible {
   outline: none;

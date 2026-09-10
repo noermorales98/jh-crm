@@ -18,6 +18,7 @@ import {
   assertEmailRecipientCount,
 } from "@/src/server/notifications/email-recipients";
 import { isSmtpConfigured, sendSmtpMail } from "@/src/server/notifications/smtp";
+import { ensureCreditRepairService } from "@/src/server/services";
 
 /**
  * Configuración de la organización: datos de empresa, moneda, impuesto,
@@ -569,7 +570,7 @@ export async function sendTestEmail(ctx: OrganizationContext, to: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Etapas del flujo (WorkflowStage)
+// Etapas del flujo (WorkflowStage) — scoped por Service (CREDIT_REPAIR)
 // ---------------------------------------------------------------------------
 
 export interface StageData {
@@ -577,14 +578,38 @@ export interface StageData {
   name: string;
   color?: string;
   isTerminal?: boolean;
+  /** Por defecto CREDIT_REPAIR. */
+  serviceId?: string;
 }
 
 const STAGE_KEY_REGEX = /^[A-Z][A-Z0-9_]{0,39}$/;
 
-export async function listStages(ctx: OrganizationContext, includeInactive = false) {
+async function resolveStagesServiceId(
+  ctx: OrganizationContext,
+  serviceId?: string,
+) {
+  if (serviceId) {
+    const service = await prisma.service.findFirst({
+      where: { id: serviceId, organizationId: ctx.organizationId },
+      select: { id: true },
+    });
+    if (!service) throw new DomainError("Servicio no encontrado.");
+    return service.id;
+  }
+  const credit = await ensureCreditRepairService(ctx.organizationId);
+  return credit.id;
+}
+
+export async function listStages(
+  ctx: OrganizationContext,
+  includeInactive = false,
+  serviceId?: string,
+) {
+  const sid = await resolveStagesServiceId(ctx, serviceId);
   return prisma.workflowStage.findMany({
     where: {
       organizationId: ctx.organizationId,
+      serviceId: sid,
       ...(includeInactive ? {} : { isActive: true }),
     },
     orderBy: { order: "asc" },
@@ -595,15 +620,17 @@ export async function createStage(ctx: OrganizationContext, data: StageData) {
   if (!STAGE_KEY_REGEX.test(data.key)) {
     throw new DomainError("La clave de la etapa debe ser MAYÚSCULAS_CON_GUIONES.");
   }
+  const serviceId = await resolveStagesServiceId(ctx, data.serviceId);
   return prisma.$transaction(async (tx) => {
     const last = await tx.workflowStage.findFirst({
-      where: { organizationId: ctx.organizationId },
+      where: { organizationId: ctx.organizationId, serviceId },
       orderBy: { order: "desc" },
       select: { order: true },
     });
     return tx.workflowStage.create({
       data: {
         organizationId: ctx.organizationId,
+        serviceId,
         key: data.key,
         name: data.name,
         order: (last?.order ?? 0) + 1,
@@ -638,13 +665,17 @@ export async function updateStage(
 }
 
 /**
- * Reordena etapas. `orderedIds` debe contener TODAS las etapas activas
- * e inactivas de la organización para evitar colisiones del índice
- * @@unique([organizationId, order]). Se hace en dos fases.
+ * Reordena etapas de un Service. `orderedIds` debe contener TODAS las etapas
+ * de ese service para evitar colisiones @@unique([organizationId, serviceId, order]).
  */
-export async function reorderStages(ctx: OrganizationContext, orderedIds: string[]) {
+export async function reorderStages(
+  ctx: OrganizationContext,
+  orderedIds: string[],
+  serviceId?: string,
+) {
+  const sid = await resolveStagesServiceId(ctx, serviceId);
   const stages = await prisma.workflowStage.findMany({
-    where: { organizationId: ctx.organizationId },
+    where: { organizationId: ctx.organizationId, serviceId: sid },
     select: { id: true },
   });
   const existing = new Set(stages.map((s) => s.id));
@@ -653,21 +684,19 @@ export async function reorderStages(ctx: OrganizationContext, orderedIds: string
   }
 
   return prisma.$transaction(async (tx) => {
-    // Fase 1: órdenes temporales negativas (evitan choques de unicidad).
     for (const [index, id] of orderedIds.entries()) {
       await tx.workflowStage.update({
         where: { id },
         data: { order: -(index + 1) },
       });
     }
-    // Fase 2: orden definitivo 1..N.
     for (const [index, id] of orderedIds.entries()) {
       await tx.workflowStage.update({
         where: { id },
         data: { order: index + 1 },
       });
     }
-    return listStages(ctx, true);
+    return listStages(ctx, true, sid);
   });
 }
 
@@ -675,13 +704,17 @@ export async function reorderStages(ctx: OrganizationContext, orderedIds: string
 export async function deactivateStage(ctx: OrganizationContext, stageId: string) {
   const stage = await prisma.workflowStage.findFirst({
     where: { id: stageId, organizationId: ctx.organizationId },
-    include: { _count: { select: { cases: true } } },
+    include: { _count: { select: { cases: true, serviceCases: true } } },
   });
   if (!stage) throw new DomainError("Etapa no encontrada.");
   if (!stage.isActive) throw new DomainError("La etapa ya está inactiva.");
 
   const activeCount = await prisma.workflowStage.count({
-    where: { organizationId: ctx.organizationId, isActive: true },
+    where: {
+      organizationId: ctx.organizationId,
+      serviceId: stage.serviceId,
+      isActive: true,
+    },
   });
   if (activeCount <= 1) {
     throw new DomainError("Debe quedar al menos una etapa activa.");

@@ -129,16 +129,45 @@ export async function updateService(
   }
 }
 
-/** Resuelve el Service de vertical por code dentro de la org (tickets posteriores). */
+/** Resuelve el Service de vertical por code dentro de la org. */
 export async function getServiceByCode(
   organizationId: string,
   code: ServiceCode,
+  tx?: Prisma.TransactionClient,
 ) {
   if (!isServiceCode(code)) {
     throw new DomainError(`Código de servicio inválido: ${code}`);
   }
-  return prisma.service.findFirst({
+  const db = tx ?? prisma;
+  return db.service.findFirst({
     where: { organizationId, code },
+  });
+}
+
+/** Garantiza Service CREDIT_REPAIR en la org (idempotente). */
+export async function ensureCreditRepairService(
+  organizationId: string,
+  tx?: Prisma.TransactionClient,
+) {
+  const db = tx ?? prisma;
+  const existing = await getServiceByCode(organizationId, "CREDIT_REPAIR", db);
+  if (existing) return existing;
+
+  const nameTaken = await db.service.findFirst({
+    where: { organizationId, name: "Credit Repair" },
+    select: { id: true },
+  });
+  return db.service.create({
+    data: {
+      organizationId,
+      code: "CREDIT_REPAIR",
+      name: nameTaken
+        ? `Credit Repair [${organizationId.slice(0, 8)}]`
+        : "Credit Repair",
+      defaultPrice: 0,
+      currency: "USD",
+      isActive: true,
+    },
   });
 }
 

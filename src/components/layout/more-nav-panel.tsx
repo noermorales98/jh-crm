@@ -16,6 +16,7 @@ import {
   RefreshCcw,
   Scale,
   Settings,
+  Target,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -43,6 +44,7 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
   {
     label: "Ventas",
     items: [
+      { href: "/crm/oportunidades", label: "Leads", icon: Target },
       { href: "/crm/consultas", label: "Consultas", icon: Headphones },
     ],
   },
@@ -87,6 +89,7 @@ export function isMoreNavPath(pathname: string): boolean {
   if (
     pathname === "/crm/dashboard" ||
     pathname.startsWith("/crm/tareas") ||
+    pathname.startsWith("/crm/oportunidades") ||
     pathname.startsWith("/crm/clientes") ||
     pathname.startsWith("/crm/casos") ||
     pathname.startsWith("/crm/pagos") ||

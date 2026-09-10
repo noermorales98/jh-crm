@@ -7,8 +7,8 @@ import { Button } from "./button";
 import { Alert } from "./alert";
 
 /**
- * ConfirmDialog: patrón de confirmación destructiva/neutra (client).
- * El trigger es `children` (se clona como botón) o se controla externamente.
+ * ConfirmDialog: patrón de confirmación (HIG Alerts) — título claro, mensaje
+ * breve, Cancelar + acción específica. Destructiva (rojo) o positiva (verde).
  *
  * Uso con trigger propio:
  * <ConfirmDialog
@@ -28,6 +28,7 @@ export function ConfirmDialog({
   confirmLabel = "Confirmar",
   cancelLabel = "Cancelar",
   danger,
+  success,
   onConfirm,
   trigger,
 }: {
@@ -36,6 +37,8 @@ export function ConfirmDialog({
   confirmLabel?: string;
   cancelLabel?: string;
   danger?: boolean;
+  /** Acción positiva (p. ej. marcar ganada). No combinar con danger. */
+  success?: boolean;
   onConfirm: () => Promise<string | void>;
   trigger: ReactNode;
 }) {
@@ -62,22 +65,31 @@ export function ConfirmDialog({
     });
   }
 
+  const confirmVariant = danger ? "danger" : success ? "success" : "primary";
+
   return (
     <>
-      <span onClick={() => setOpen(true)} className="inline-flex">
+      <span onClick={() => setOpen(true)} className="inline-flex min-w-0 flex-1">
         {trigger}
       </span>
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={() => {
+          if (pending) return;
+          setOpen(false);
+        }}
         title={title}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
+            <Button
+              variant="secondary"
+              onClick={() => setOpen(false)}
+              disabled={pending}
+            >
               {cancelLabel}
             </Button>
             <Button
-              variant={danger ? "danger" : "primary"}
+              variant={confirmVariant}
               onClick={handleConfirm}
               disabled={pending}
             >
@@ -87,7 +99,9 @@ export function ConfirmDialog({
         }
       >
         <div className="space-y-3">
-          <div className="text-sm text-text-secondary-strong">{message}</div>
+          <div className="text-sm leading-relaxed text-text-secondary-strong">
+            {message}
+          </div>
           {error ? <Alert tone="error">{error}</Alert> : null}
         </div>
       </Modal>

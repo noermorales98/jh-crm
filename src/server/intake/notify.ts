@@ -32,7 +32,7 @@ export async function notifyIntakeSubmitted(
   ].filter(Boolean);
   const body = lines.join("\n");
   const link = `/crm/clientes/${payload.clientId}`;
-  const title = "Nuevo registro de intake";
+  const title = "Nuevo registro de formulario";
 
   const members = await prisma.organizationMember.findMany({
     where: {

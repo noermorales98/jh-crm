@@ -133,7 +133,7 @@ export async function scanIncompleteIntakeFollowUps(now = new Date()) {
   let created = 0;
   for (const link of links) {
     if (!link.clientId) continue;
-    const title = "Intake sin completar";
+    const title = "Formulario sin completar";
     const existing = await prisma.task.findFirst({
       where: {
         organizationId: link.organizationId,
@@ -142,6 +142,7 @@ export async function scanIncompleteIntakeFollowUps(now = new Date()) {
         status: { in: ["PENDING", "IN_PROGRESS"] },
         OR: [
           { title },
+          { title: "Intake sin completar" },
           { description: { contains: `intake:${link.id}` } },
         ],
       },

@@ -11,6 +11,7 @@ import {
   Inbox,
   RefreshCcw,
   Users,
+  Target,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { requireOrganization } from "@/src/server/auth/guards";
@@ -153,6 +154,23 @@ export default async function DashboardPage() {
     });
   }
 
+  for (const lead of widgets.leadsToContact.items.slice(0, 8)) {
+    const overdue = lead.overdue;
+    attention.push({
+      id: `lead-followup-${lead.id}`,
+      title: `Contactar · ${clientFullName(lead.client)}`,
+      detail: `${overdue ? "Seguimiento vencido" : "Seguimiento"}${
+        lead.nextFollowUpAt
+          ? ` · ${formatDate(lead.nextFollowUpAt, tz)}`
+          : ""
+      }${lead.owner?.name ? ` · ${lead.owner.name}` : ""}`,
+      href: widgets.leadsToContact.link,
+      tone: overdue ? "danger" : "warning",
+      icon: Target,
+      badge: overdue ? "Vencido" : "Lead",
+    });
+  }
+
   const summaryKpis = pickSummaryKpis([
     {
       href: widgets.openCases.link,
@@ -176,46 +194,53 @@ export default async function DashboardPage() {
       priority: 3,
     },
     {
+      href: widgets.leadsToContact.link,
+      icon: Target,
+      label: "Leads por contactar",
+      value: widgets.leadsToContact.count,
+      priority: 4,
+    },
+    {
       href: widgets.pendingPayments.link,
       icon: CreditCard,
       label: "Por cobrar",
       value: widgets.pendingPayments.count,
-      priority: 4,
+      priority: 5,
     },
     {
       href: widgets.overdueTasks.link,
       icon: AlertTriangle,
       label: "Tareas vencidas",
       value: widgets.overdueTasks.count,
-      priority: 5,
+      priority: 6,
     },
     {
       href: widgets.tasksToday.link,
       icon: ClipboardList,
       label: "Tareas de hoy",
       value: widgets.tasksToday.count,
-      priority: 6,
+      priority: 7,
     },
     {
       href: widgets.documentsPendingCases.link,
       icon: FileText,
       label: "Docs pendientes",
       value: widgets.documentsPendingCases.count,
-      priority: 7,
+      priority: 8,
     },
     {
       href: widgets.newLeads.link,
       icon: Users,
       label: "Leads nuevos",
       value: widgets.newLeads.count,
-      priority: 8,
+      priority: 9,
     },
     {
       href: widgets.unreadMails.link,
       icon: Inbox,
       label: "Mensajes sin leer",
       value: widgets.unreadMails.count,
-      priority: 9,
+      priority: 10,
     },
   ]);
 

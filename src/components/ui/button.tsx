@@ -3,11 +3,16 @@ import Link from "next/link";
 
 /**
  * Botón base del UI kit. Variantes: primary (acción principal, índigo),
- * secondary (Lavanda con texto Obsidiana), danger (destructivas),
- * ghost (discretas, dentro de tablas).
+ * secondary (Lavanda con texto Obsidiana), success (positivo), danger
+ * (destructivas), ghost (discretas, dentro de tablas).
  */
 
-export type ButtonVariant = "primary" | "secondary" | "danger" | "ghost";
+export type ButtonVariant =
+  | "primary"
+  | "secondary"
+  | "success"
+  | "danger"
+  | "ghost";
 export type ButtonSize = "sm" | "md";
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -15,6 +20,8 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
     "bg-action-primary font-semibold text-action-primary-foreground hover:bg-action-secondary active:brightness-95 disabled:opacity-50",
   secondary:
     "bg-surface-panel font-medium text-ink hover:bg-nav-active active:brightness-95 disabled:opacity-50",
+  success:
+    "bg-success-ink font-semibold text-white hover:brightness-110 active:brightness-95 disabled:opacity-50 dark:text-[#0a1f14]",
   danger:
     "bg-danger font-semibold text-white hover:bg-danger-hover active:brightness-95 disabled:opacity-50",
   ghost:

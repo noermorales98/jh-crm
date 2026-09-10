@@ -17,6 +17,7 @@ export interface ActivityEvent {
   description: string;
   clientId: string;
   caseId?: string | null;
+  serviceCaseId?: string | null;
   roundId?: string | null;
   metadata?: Record<string, unknown>;
 }
@@ -35,6 +36,7 @@ export async function writeActivityLog(
       description: event.description,
       clientId: event.clientId,
       caseId: event.caseId ?? null,
+      serviceCaseId: event.serviceCaseId ?? null,
       roundId: event.roundId ?? null,
       metadata: safeMetadata(event.metadata) as Prisma.InputJsonValue | undefined,
     },

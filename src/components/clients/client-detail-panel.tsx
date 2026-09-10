@@ -143,7 +143,7 @@ export async function ClientDetailPanel({
               <div className="bg-surface-panel p-3">
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <h3 className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
-                    Intake
+                    Formulario
                   </h3>
                   {intakeLinks.length > 0 ? (
                     <span className="tabular-nums text-[11px] text-text-secondary">

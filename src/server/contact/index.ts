@@ -124,6 +124,68 @@ async function createConsultationForLead(
   }
 }
 
+function looksLikeCreditAnalysis(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("análisis de mi reporte") ||
+    lower.includes("analisis de mi reporte") ||
+    lower.includes("consulta de crédito ($1") ||
+    lower.includes("consulta de credito ($1") ||
+    lower.includes("reparación crediticia") ||
+    lower.includes("reparacion crediticia")
+  );
+}
+
+async function ensureOpenOpportunityForLead(opts: {
+  organizationId: string;
+  clientId: string;
+  ownerId: string | null;
+  source: string;
+  serviceRequested: string | null;
+  message: string;
+}) {
+  const open = await prisma.opportunity.findFirst({
+    where: {
+      organizationId: opts.organizationId,
+      clientId: opts.clientId,
+      stage: { notIn: ["WON", "LOST"] },
+    },
+    select: { id: true },
+  });
+  if (open) return open;
+
+  const opp = await prisma.opportunity.create({
+    data: {
+      organizationId: opts.organizationId,
+      clientId: opts.clientId,
+      ownerId: opts.ownerId,
+      stage: "NEW_LEAD",
+      source: opts.source,
+      campaign: null,
+      nextFollowUpAt: null,
+    },
+  });
+
+  await writeActivityLog(
+    { organizationId: opts.organizationId, actorUserId: null },
+    {
+      type: "OPPORTUNITY_CREATED",
+      description: `Oportunidad creada desde formulario web (${
+        opts.serviceRequested ?? "consulta"
+      }).`,
+      clientId: opts.clientId,
+      metadata: {
+        opportunityId: opp.id,
+        source: opts.source,
+        serviceRequested: opts.serviceRequested,
+        message: opts.message.slice(0, 500),
+      },
+    },
+  );
+
+  return opp;
+}
+
 /**
  * Alta pública desde el formulario de `/`.
  * Crea un cliente LEAD; si el correo o teléfono ya existen, anota el
@@ -146,6 +208,9 @@ export async function submitContactLead(
     attribution.utm_source?.trim() ||
     attribution.utm_campaign?.trim() ||
     CONTACT_SOURCE;
+  const inferredService = looksLikeCreditAnalysis(data.message)
+    ? "Análisis y reparación de crédito"
+    : emptyToNull(data.serviceRequested) ?? "Consulta general";
   const publicMessage =
     "Solicitud recibida. No se ha cobrado ningún pago. Te contactaremos pronto.";
 
@@ -201,6 +266,14 @@ export async function submitContactLead(
         },
       });
     }
+    await ensureOpenOpportunityForLead({
+      organizationId,
+      clientId: existing.id,
+      ownerId: null,
+      source: sourceDerived,
+      serviceRequested: emptyToNull(data.serviceRequested) ?? inferredService,
+      message: data.message,
+    });
     const consultationId = await createConsultationForLead(
       organizationId,
       existing.id,
@@ -228,7 +301,8 @@ export async function submitContactLead(
         state: emptyToNull(data.state),
         source: sourceDerived,
         leadChannel,
-        serviceRequested: emptyToNull(data.serviceRequested),
+        serviceRequested:
+          emptyToNull(data.serviceRequested) ?? inferredService,
         preferredContactMethod: emptyToNull(data.preferredContactMethod),
         preferredContactTime: emptyToNull(data.preferredContactTime),
         attribution:
@@ -250,6 +324,8 @@ export async function submitContactLead(
           message: data.message,
           leadChannel,
           attribution,
+          serviceRequested:
+            emptyToNull(data.serviceRequested) ?? inferredService,
         },
       },
       tx,
@@ -264,6 +340,15 @@ export async function submitContactLead(
       },
       tx,
     );
+    await tx.opportunity.create({
+      data: {
+        organizationId,
+        clientId: created.id,
+        ownerId: assigneeId,
+        stage: "NEW_LEAD",
+        source: sourceDerived,
+      },
+    });
     return created;
   });
 
@@ -281,6 +366,29 @@ export async function submitContactLead(
   } catch (error) {
     console.error(
       "[contact] automatización onNewLead:",
+      error instanceof Error ? error.message : "error",
+    );
+  }
+
+  try {
+    await writeActivityLog(
+      { organizationId, actorUserId: null },
+      {
+        type: "OPPORTUNITY_CREATED",
+        description: `Oportunidad creada desde formulario web (${
+          emptyToNull(data.serviceRequested) ?? inferredService
+        }).`,
+        clientId: client.id,
+        metadata: {
+          source: sourceDerived,
+          serviceRequested:
+            emptyToNull(data.serviceRequested) ?? inferredService,
+        },
+      },
+    );
+  } catch (error) {
+    console.error(
+      "[contact] activity OPPORTUNITY_CREATED:",
       error instanceof Error ? error.message : "error",
     );
   }

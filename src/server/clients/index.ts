@@ -370,10 +370,23 @@ export async function getClientDetail(ctx: OrganizationContext, clientId: string
           type: true,
           description: true,
           createdAt: true,
-          actor: { select: { id: true, name: true } },
+          caseId: true,
+          roundId: true,
+          serviceCaseId: true,
+          metadata: true,
+          actor: { select: { name: true, email: true } },
+          case: { select: { caseCode: true, summary: true } },
+          serviceCase: {
+            select: {
+              caseNumber: true,
+              notes: true,
+              service: { select: { name: true } },
+            },
+          },
+          round: { select: { roundNumber: true } },
         },
         orderBy: { createdAt: "desc" },
-        take: 50,
+        take: 80,
       }),
     ]);
 

@@ -52,6 +52,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
     disputedItems,
     deletedItems,
     updatedItems,
+    leadsToContact,
   ] = await Promise.all([
     prisma.client.count({
       where: { organizationId: orgId, status: "ACTIVE" },
@@ -313,8 +314,33 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
         outcome: "UPDATED",
       },
     }),
+    // LD-004 — Leads por contactar (nextFollowUpAt vencido o en 7 días).
+    prisma.opportunity.findMany({
+      where: {
+        organizationId: orgId,
+        stage: { notIn: ["WON", "LOST"] },
+        nextFollowUpAt: { not: null, lte: in7Days },
+      },
+      select: {
+        id: true,
+        nextFollowUpAt: true,
+        stage: true,
+        client: {
+          select: { id: true, firstName: true, lastName: true, clientCode: true },
+        },
+        owner: { select: { id: true, name: true } },
+      },
+      orderBy: { nextFollowUpAt: "asc" },
+      take: 15,
+    }),
   ]);
 
+  const leadsToContactItems = leadsToContact.map((row) => ({
+    ...row,
+    overdue:
+      row.nextFollowUpAt != null && row.nextFollowUpAt.getTime() < now.getTime(),
+  }));
+  const leadsToContactOverdue = leadsToContactItems.filter((r) => r.overdue).length;
   return {
     generatedAt: now,
     timezone,
@@ -406,6 +432,12 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       newLeads: {
         count: newLeads,
         link: "/crm/clientes?status=LEAD",
+      },
+      leadsToContact: {
+        count: leadsToContactItems.length,
+        overdueCount: leadsToContactOverdue,
+        items: leadsToContactItems,
+        link: "/crm/oportunidades",
       },
       conversions: {
         count: conversions,

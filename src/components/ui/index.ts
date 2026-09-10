@@ -29,3 +29,4 @@ export type { FilterOption } from "./filter-bar";
 export { ListToolbar } from "./list-toolbar";
 export { Tabs } from "./tabs";
 export { UserMenu } from "./user-menu";
+export { Tooltip, Popover } from "./tooltip";

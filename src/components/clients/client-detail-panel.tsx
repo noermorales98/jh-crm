@@ -1,25 +1,15 @@
-import type { ReactNode } from "react";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Briefcase, ClipboardList, CreditCard, Mail, MapPin, Phone } from "lucide-react";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
-import * as clientService from "@/src/server/clients";
+import { getClientOverview } from "@/src/server/clients/overview";
 import { listMemberOptions } from "@/src/server/page-helpers";
-import {
-  Alert,
-  Card,
-  CardBody,
-  CardHeader,
-  EmptyState,
-  Pill,
-  StagePill,
-  StatusPill,
-} from "@/src/components/ui";
-import { formatDate, formatMoney } from "@/src/lib/format";
+import { listStages } from "@/src/server/config";
 import { DomainError } from "@/src/server/errors";
 import { ClientActions } from "@/src/components/clients/client-actions";
 import { ClientHeader } from "@/app/crm/clientes/[clientId]/client-header";
+import { ClientServiceSwitcher } from "@/src/components/clients/client-service-switcher";
+import { ClientQuickAdd } from "@/src/components/clients/client-quick-add";
+import { ClientOverviewPanel } from "@/src/components/clients/client-overview-panel";
 import { CreateIntakeLinkCard } from "@/src/components/intake/create-intake-link-card";
 import { isIntakeEnabled } from "@/src/server/intake";
 import { listClientIntakeLinks } from "@/src/server/intake/links";
@@ -27,36 +17,37 @@ import * as processors from "@/src/server/processors";
 import { LinkProcessorButton } from "@/src/components/processors/link-processor-button";
 import { InvitePortalButton } from "@/src/components/portal/invite-portal-button";
 import { isPortalEnabled, getPortalAccess } from "@/src/server/portal";
+import { Pill } from "@/src/components/ui";
 import {
   labelFor,
   PROCESSOR_ACCOUNT_STATUS_LABELS,
 } from "@/src/lib/labels";
 
-function DataItem({ label, value }: { label: string; value?: ReactNode }) {
-  return (
-    <div>
-      <dt className="text-xs font-medium uppercase tracking-wide text-text-secondary">
-        {label}
-      </dt>
-      <dd className="mt-0.5 text-sm text-ink">{value ?? "—"}</dd>
-    </div>
-  );
-}
-
-export async function ClientDetailPanel({ clientId }: { clientId: string }) {
+export async function ClientDetailPanel({
+  clientId,
+  caseId,
+}: {
+  clientId: string;
+  caseId?: string | null;
+}) {
   const ctx = await requireOrganization();
 
-  let detail: Awaited<ReturnType<typeof clientService.getClientDetail>>;
+  let overview: Awaited<ReturnType<typeof getClientOverview>>;
   try {
-    detail = await clientService.getClientDetail(ctx, clientId);
+    overview = await getClientOverview(ctx, clientId, { caseId });
   } catch (error) {
     if (error instanceof DomainError) notFound();
     throw error;
   }
 
-  const { client, cases, openTasks, recentPayments } = detail;
+  const { client } = overview;
   const canEdit = can(ctx.role, "clients.edit");
-  const members = canEdit ? await listMemberOptions(ctx) : [];
+  const members = canEdit || can(ctx.role, "tasks.manage")
+    ? await listMemberOptions(ctx)
+    : [];
+  const canManageCases = can(ctx.role, "cases.manage");
+  const stages = canManageCases ? await listStages(ctx, false) : [];
+
   const intakeEnabled = isIntakeEnabled();
   const intakeLinks = intakeEnabled
     ? await listClientIntakeLinks(ctx, client.id)
@@ -76,276 +67,158 @@ export async function ClientDetailPanel({ clientId }: { clientId: string }) {
       ? await getPortalAccess(ctx, client.id)
       : null;
 
-  const openCases = cases.filter((c) => c.state === "OPEN");
-  const pendingPayments = recentPayments.filter((p) => p.status === "PENDING");
-  const pendingTotal = pendingPayments.reduce(
-    (acc, p) => acc + Number(p.amount.toString()),
-    0,
-  );
-
-  const address = [
-    client.addressLine1,
-    client.addressLine2,
-    [client.city, client.state].filter(Boolean).join(", "),
-    client.postalCode,
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const activeCaseId = overview.activeService?.creditCaseId ?? null;
 
   return (
     <div>
       <ClientHeader
-        client={client}
+        client={{
+          id: client.id,
+          clientCode: client.clientCode,
+          firstName: client.firstName,
+          lastName: client.lastName,
+          status: client.status,
+          email: client.email,
+          phone: client.phone,
+          source: client.source,
+          leadChannel: client.leadChannel,
+          assignedTo: client.assignedTo,
+        }}
+        meta={
+          <ClientServiceSwitcher
+            clientId={client.id}
+            services={overview.services}
+            activeCaseId={activeCaseId}
+          />
+        }
         actions={
-          canEdit ? (
-            <ClientActions
+          <div className="flex flex-wrap items-center gap-2">
+            <ClientQuickAdd
               clientId={client.id}
-              currentAssigneeId={client.assignedToId}
-              isArchived={client.status === "ARCHIVED"}
+              caseId={activeCaseId}
               members={members}
+              canTask={can(ctx.role, "tasks.manage")}
+              canDocument={can(ctx.role, "documents.upload")}
+              canPayment={can(ctx.role, "payments.register")}
+              canReport={can(ctx.role, "creditReports.manage")}
+              canRound={can(ctx.role, "rounds.manage")}
+              canNote={can(ctx.role, "clients.view")}
+              canQuote={can(ctx.role, "quotes.manage")}
             />
-          ) : null
+            {canEdit ? (
+              <ClientActions
+                clientId={client.id}
+                currentAssigneeId={client.assignedToId}
+                isArchived={client.status === "ARCHIVED"}
+                members={members}
+              />
+            ) : null}
+          </div>
         }
       />
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Link
-          href={`/crm/clientes/${client.id}/casos`}
-          className="rounded-surface bg-surface-app p-3 transition-colors hover:bg-nav-hover"
-        >
-          <div className="flex items-center gap-2 text-text-secondary">
-            <Briefcase className="size-4" aria-hidden />
-            <span className="text-xs font-medium uppercase tracking-wide">Casos abiertos</span>
-          </div>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
-            {openCases.length}
-          </p>
-        </Link>
-        <div className="rounded-surface bg-surface-app p-3">
-          <div className="flex items-center gap-2 text-text-secondary">
-            <ClipboardList className="size-4" aria-hidden />
-            <span className="text-xs font-medium uppercase tracking-wide">Tareas abiertas</span>
-          </div>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
-            {openTasks.length}
-          </p>
-        </div>
-        <Link
-          href={`/crm/pagos?status=PENDING&clientId=${client.id}`}
-          className="rounded-surface bg-surface-app p-3 transition-colors hover:bg-nav-hover"
-        >
-          <div className="flex items-center gap-2 text-text-secondary">
-            <CreditCard className="size-4" aria-hidden />
-            <span className="text-xs font-medium uppercase tracking-wide">Pagos pendientes</span>
-          </div>
-          <p className="mt-1 text-xl font-semibold tabular-nums text-ink">
-            {formatMoney(pendingTotal)}
-          </p>
-        </Link>
-      </div>
+      <ClientOverviewPanel
+        overview={overview}
+        canManageCredit={can(ctx.role, "creditReports.manage")}
+        canManageCases={canManageCases}
+        stages={stages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
+        members={members}
+      />
 
-      <Card>
-        <CardHeader title="Datos principales" />
-        <CardBody>
-          <dl className="grid gap-4 sm:grid-cols-2">
-            <DataItem label="Código" value={client.clientCode} />
-            <DataItem
-              label="Responsable"
-              value={client.assignedTo?.name ?? "Sin asignar"}
-            />
-            <DataItem
-              label="Correo"
-              value={
-                client.email ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Mail className="size-3.5 text-text-secondary" aria-hidden />
-                    {client.email}
-                  </span>
-                ) : undefined
-              }
-            />
-            <DataItem
-              label="Teléfono"
-              value={
-                client.phone ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <Phone className="size-3.5 text-text-secondary" aria-hidden />
-                    {client.phone}
-                  </span>
-                ) : undefined
-              }
-            />
-            <DataItem
-              label="Dirección"
-              value={
-                address ? (
-                  <span className="inline-flex items-center gap-1.5">
-                    <MapPin className="size-3.5 text-text-secondary" aria-hidden />
-                    {address}
-                  </span>
-                ) : undefined
-              }
-            />
-            <DataItem label="Fuente" value={client.source ?? undefined} />
-            <DataItem label="Cliente desde" value={formatDate(client.createdAt)} />
-            <DataItem label="SSN" value={client.ssnMasked ?? "No registrado"} />
-          </dl>
-        </CardBody>
-      </Card>
-
-      {canEdit ? (
-        <Card className="mt-4">
-          <CardHeader
-            title="Enlace de intake"
-            description="Comparte un link para que el cliente cargue sus datos y documentos."
-          />
-          <CardBody>
+      {/* Secundario: fila compacta L→R */}
+      {(intakeEnabled ||
+        (portalEnabled && canManagePortal) ||
+        canViewProcessors) && (
+        <details className="mt-4 rounded-control border border-border-subtle open:shadow-sm">
+          <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium uppercase tracking-wide text-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
+            <span className="inline-flex items-center gap-1.5">
+              Accesos e integraciones
+              <span className="font-normal normal-case tracking-normal text-text-placeholder">
+                · intake · portal · procesadores
+              </span>
+            </span>
+          </summary>
+          <div className="grid gap-px border-t border-border-subtle bg-border-subtle sm:grid-cols-2 lg:grid-cols-3">
             {intakeEnabled ? (
-              <CreateIntakeLinkCard
-                clientId={client.id}
-                cases={cases.map((c) => ({ id: c.id, caseCode: c.caseCode }))}
-                existingLinks={intakeLinks}
-              />
-            ) : (
-              <Alert tone="info">
-                El intake público está desactivado. Activa{" "}
-                <span className="font-medium">FEATURE_PUBLIC_INTAKE=true</span> en
-                el entorno y reinicia el servidor para generar enlaces.
-              </Alert>
-            )}
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {canManagePortal ? (
-        <Card className="mt-4">
-          <CardHeader
-            title="Portal del cliente"
-            description="Invita al cliente a consultar progreso, documentos y pagos."
-          />
-          <CardBody>
-            {portalEnabled ? (
-              <InvitePortalButton
-                clientId={client.id}
-                defaultEmail={client.email}
-                access={portalAccess}
-              />
-            ) : (
-              <Alert tone="info">
-                El portal está desactivado. Activa{" "}
-                <span className="font-medium">FEATURE_CLIENT_PORTAL=true</span> en
-                el entorno y reinicia el servidor.
-              </Alert>
-            )}
-          </CardBody>
-        </Card>
-      ) : null}
-
-      {canViewProcessors ? (
-        <Card className="mt-4">
-          <CardHeader
-            title="Procesadores"
-            description="Cuentas externas vinculadas (sin contraseñas)."
-            actions={
-              canManageProcessors ? (
-                <LinkProcessorButton
+              <div className="bg-surface-panel p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                    Intake
+                  </h3>
+                  {intakeLinks.length > 0 ? (
+                    <span className="tabular-nums text-[11px] text-text-secondary">
+                      {intakeLinks.filter((l) => l.usable).length}/{intakeLinks.length} activos
+                    </span>
+                  ) : null}
+                </div>
+                <CreateIntakeLinkCard
                   clientId={client.id}
-                  processors={activeProcessors.map((p) => ({
-                    id: p.id,
-                    name: p.name,
+                  cases={overview.services.map((s) => ({
+                    id: s.creditCaseId,
+                    caseCode: s.caseCode,
                   }))}
+                  existingLinks={intakeLinks}
+                  compact
                 />
-              ) : null
-            }
-          />
-          <CardBody>
-            {processorAccounts.length === 0 ? (
-              <p className="text-sm text-text-secondary">
-                Ningún procesador vinculado todavía.
-              </p>
-            ) : (
-              <ul className="divide-y divide-border-subtle">
-                {processorAccounts.map((account) => (
-                  <li
-                    key={account.id}
-                    className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0"
-                  >
-                    <div>
-                      <p className="text-sm font-medium text-ink">
-                        {account.processor.name}
-                      </p>
-                      <p className="text-xs text-text-secondary">
-                        {account.externalMemberId
-                          ? `ID: ${account.externalMemberId}`
-                          : "Sin ID externo"}
-                      </p>
-                    </div>
-                    <Pill
-                      tone={
-                        account.status === "ACTIVE"
-                          ? "green"
-                          : account.status === "PLANNED"
-                            ? "blue"
-                            : "slate"
-                      }
-                    >
-                      {labelFor(
-                        PROCESSOR_ACCOUNT_STATUS_LABELS,
-                        account.status,
-                      )}
-                    </Pill>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardBody>
-        </Card>
-      ) : null}
+              </div>
+            ) : null}
 
-      <Card className="mt-4">
-        <CardHeader
-          title="Casos recientes"
-          actions={
-            <Link
-              href={`/crm/clientes/${client.id}/casos`}
-              className="text-xs font-medium text-action-primary hover:text-action-secondary"
-            >
-              Ver todos →
-            </Link>
-          }
-        />
-        <CardBody className="p-0">
-          {cases.length === 0 ? (
-            <EmptyState
-              icon={Briefcase}
-              title="Sin casos"
-              description="Este cliente aún no tiene casos de reparación de crédito."
-            />
-          ) : (
-            <ul className="divide-y divide-border-subtle">
-              {cases.slice(0, 6).map((c) => (
-                <li key={c.id}>
-                  <Link
-                    href={`/crm/casos/${c.id}`}
-                    className="flex items-center justify-between gap-3 px-5 py-3 transition-colors hover:bg-nav-hover"
-                  >
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-ink">{c.caseCode}</p>
-                      <p className="text-xs text-text-secondary">
-                        Abierto {formatDate(c.openedAt)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <StagePill name={c.stage.name} color={c.stage.color} />
-                      <StatusPill domain="case" value={c.state} />
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardBody>
-      </Card>
+            {portalEnabled && canManagePortal ? (
+              <div className="bg-surface-panel p-3">
+                <h3 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                  Portal
+                </h3>
+                <InvitePortalButton
+                  clientId={client.id}
+                  defaultEmail={client.email}
+                  access={portalAccess}
+                  compact
+                />
+              </div>
+            ) : null}
+
+            {canViewProcessors ? (
+              <div className="bg-surface-panel p-3 sm:col-span-2 lg:col-span-1">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                    Procesadores
+                  </h3>
+                  {canManageProcessors ? (
+                    <LinkProcessorButton
+                      clientId={client.id}
+                      processors={activeProcessors.map((p) => ({
+                        id: p.id,
+                        name: p.name,
+                      }))}
+                    />
+                  ) : null}
+                </div>
+                {processorAccounts.length === 0 ? (
+                  <p className="text-xs text-text-secondary">Sin cuentas vinculadas.</p>
+                ) : (
+                  <ul className="flex flex-wrap gap-1.5">
+                    {processorAccounts.map((acc) => (
+                      <li key={acc.id}>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-border-subtle bg-surface-app px-2 py-0.5 text-xs">
+                          <span className="font-medium text-ink">
+                            {acc.processor.name}
+                          </span>
+                          <Pill tone="slate">
+                            {labelFor(
+                              PROCESSOR_ACCOUNT_STATUS_LABELS,
+                              acc.status,
+                            )}
+                          </Pill>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

@@ -26,10 +26,13 @@ export function CreateIntakeLinkCard({
   clientId,
   cases = [],
   existingLinks = [],
+  compact = false,
 }: {
   clientId: string;
   cases?: { id: string; caseCode: string }[];
   existingLinks?: ExistingLink[];
+  /** Layout denso para columnas laterales (ficha cliente). */
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [caseId, setCaseId] = useState("");
@@ -88,10 +91,14 @@ export function CreateIntakeLinkCard({
   }
 
   return (
-    <div className="space-y-4">
+    <div className={compact ? "space-y-2" : "space-y-4"}>
       {error ? <Alert tone="error">{error}</Alert> : null}
 
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div
+        className={
+          compact ? "grid gap-2" : "grid gap-3 sm:grid-cols-3"
+        }
+      >
         <Field label="Caso (opcional)" htmlFor="intake-case">
           <Select
             id="intake-case"
@@ -107,36 +114,39 @@ export function CreateIntakeLinkCard({
             ))}
           </Select>
         </Field>
-        <Field label="Usos máximos" htmlFor="intake-uses">
-          <Select
-            id="intake-uses"
-            value={maxUses}
-            onChange={(e) => setMaxUses(e.target.value)}
-            disabled={pending}
-          >
-            <option value="1">1 uso</option>
-            <option value="3">3 usos</option>
-            <option value="5">5 usos</option>
-          </Select>
-        </Field>
-        <Field label="Caduca en" htmlFor="intake-expires">
-          <Select
-            id="intake-expires"
-            value={expiresInDays}
-            onChange={(e) => setExpiresInDays(e.target.value)}
-            disabled={pending}
-          >
-            <option value="1">1 día</option>
-            <option value="7">7 días</option>
-            <option value="30">30 días</option>
-          </Select>
-        </Field>
+        <div className={compact ? "grid grid-cols-2 gap-2" : "contents"}>
+          <Field label="Usos máximos" htmlFor="intake-uses">
+            <Select
+              id="intake-uses"
+              value={maxUses}
+              onChange={(e) => setMaxUses(e.target.value)}
+              disabled={pending}
+            >
+              <option value="1">1 uso</option>
+              <option value="3">3 usos</option>
+              <option value="5">5 usos</option>
+            </Select>
+          </Field>
+          <Field label="Caduca en" htmlFor="intake-expires">
+            <Select
+              id="intake-expires"
+              value={expiresInDays}
+              onChange={(e) => setExpiresInDays(e.target.value)}
+              disabled={pending}
+            >
+              <option value="1">1 día</option>
+              <option value="7">7 días</option>
+              <option value="30">30 días</option>
+            </Select>
+          </Field>
+        </div>
       </div>
 
       <Button
         type="button"
-        variant="secondary"
+        variant="primary"
         size="sm"
+        className={compact ? "w-full border border-transparent shadow-sm" : ""}
         onClick={create}
         disabled={pending}
       >
@@ -154,8 +164,14 @@ export function CreateIntakeLinkCard({
       </Button>
 
       {url ? (
-        <div className="space-y-2 rounded-control bg-surface-app px-3 py-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+        <div
+          className={
+            compact
+              ? "space-y-1.5 rounded-control bg-surface-app px-2 py-2"
+              : "space-y-2 rounded-control bg-surface-app px-3 py-3"
+          }
+        >
+          <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
             Enlace nuevo
             {expiresAt ? ` · caduca ${formatDate(expiresAt)}` : ""}
           </p>
@@ -163,7 +179,7 @@ export function CreateIntakeLinkCard({
             <input
               readOnly
               value={url}
-              className="min-w-0 flex-1 truncate rounded-control border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-ink"
+              className="min-w-0 flex-1 truncate rounded-control border border-border-subtle bg-surface-elevated px-2 py-1.5 text-xs text-ink"
               onFocus={(e) => e.currentTarget.select()}
             />
             <Button
@@ -184,29 +200,42 @@ export function CreateIntakeLinkCard({
       ) : null}
 
       {existingLinks.length > 0 ? (
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
-            Enlaces recientes
-          </p>
-          <ul className="divide-y divide-border-subtle rounded-control border border-border-subtle">
-            {existingLinks.map((link) => (
+        <div className={compact ? "space-y-1" : "space-y-2"}>
+          {!compact ? (
+            <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
+              Enlaces recientes
+            </p>
+          ) : null}
+          <ul
+            className={
+              compact
+                ? "max-h-28 space-y-1 overflow-y-auto"
+                : "divide-y divide-border-subtle rounded-control border border-border-subtle"
+            }
+          >
+            {existingLinks.slice(0, compact ? 3 : undefined).map((link) => (
               <li
                 key={link.id}
-                className="flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                className={
+                  compact
+                    ? "flex items-center justify-between gap-1 rounded-control border border-border-subtle px-2 py-1"
+                    : "flex flex-col gap-2 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between"
+                }
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm text-ink" title={link.url}>
-                    {link.url}
-                  </p>
-                  <p className="text-xs text-text-secondary">
-                    {link.usable ? "Activo" : link.isActive ? "Agotado/vencido" : "Revocado"}
+                  {!compact ? (
+                    <p className="truncate text-sm text-ink" title={link.url}>
+                      {link.url}
+                    </p>
+                  ) : null}
+                  <p className="truncate text-[11px] text-text-secondary">
+                    {link.usable ? "Activo" : link.isActive ? "Agotado" : "Revocado"}
                     {" · "}
-                    {link.useCount}/{link.maxUses} usos
+                    {link.useCount}/{link.maxUses}
                     {link.caseCode ? ` · ${link.caseCode}` : ""}
-                    {link.expiresAt ? ` · caduca ${formatDate(link.expiresAt)}` : ""}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-1">
                   <Button
                     type="button"
                     variant="ghost"
@@ -215,9 +244,9 @@ export function CreateIntakeLinkCard({
                     aria-label="Copiar"
                   >
                     {copied === link.id ? (
-                      <Check className="size-4 text-success-ink" aria-hidden />
+                      <Check className="size-3.5 text-success-ink" aria-hidden />
                     ) : (
-                      <Copy className="size-4" aria-hidden />
+                      <Copy className="size-3.5" aria-hidden />
                     )}
                   </Button>
                   {link.isActive ? (
@@ -228,7 +257,7 @@ export function CreateIntakeLinkCard({
                       disabled={pending}
                       onClick={() => revoke(link.id)}
                     >
-                      Revocar
+                      {compact ? "×" : "Revocar"}
                     </Button>
                   ) : null}
                 </div>

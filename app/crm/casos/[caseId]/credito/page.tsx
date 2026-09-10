@@ -31,23 +31,12 @@ import { CreateCreditReportButton } from "@/src/components/credit-reports/create
 import { CreateComparisonButton } from "@/src/components/comparisons/create-comparison-button";
 import { GenerateProgressReportButton } from "@/src/components/letters/generate-progress-report-button";
 import { ScoreEvolutionChart } from "@/src/components/credit-reports/score-evolution-chart";
+import { BureauScoreStrip } from "@/src/components/credit-reports/bureau-score-strip";
 import { CaseHeader } from "../case-header";
 
 export const metadata: Metadata = {
   title: "Crédito del caso",
 };
-
-function Delta({ value }: { value: number | null }) {
-  if (value == null) return <span className="text-text-placeholder">—</span>;
-  const tone = value > 0 ? "text-success-ink" : value < 0 ? "text-danger-ink" : "text-text-secondary";
-  const sign = value > 0 ? "+" : "";
-  return (
-    <span className={`font-medium tabular-nums ${tone}`}>
-      {sign}
-      {value}
-    </span>
-  );
-}
 
 export default async function CaseCreditPage({
   params,
@@ -130,27 +119,14 @@ export default async function CaseCreditPage({
           />
         ) : (
           <div className="space-y-6 px-1 pb-2">
-            <div className="grid gap-3 sm:grid-cols-3">
-              {overview.current.map((row) => (
-                <div
-                  key={row.bureau}
-                  className="rounded-control border border-border-subtle bg-surface-panel/60 px-4 py-3"
-                >
-                  <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
-                    {CREDIT_BUREAU_LABELS[row.bureau]}
-                  </p>
-                  <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">
-                    {row.score ?? "—"}
-                  </p>
-                  <p className="mt-1 text-sm text-text-secondary">
-                    Anterior:{" "}
-                    <span className="tabular-nums">{row.previousScore ?? "—"}</span>
-                    {" · "}
-                    <Delta value={row.delta} />
-                  </p>
-                </div>
-              ))}
-            </div>
+            <BureauScoreStrip
+              rows={overview.current.map((row) => ({
+                bureau: row.bureau,
+                score: row.score,
+                previousScore: row.previousScore,
+                delta: row.delta,
+              }))}
+            />
 
             {overview.history.some((h) =>
               Object.values(h.scores).some((s) => s != null),

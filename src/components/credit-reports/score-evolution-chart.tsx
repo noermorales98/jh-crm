@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import type { CreditBureau } from "@prisma/client";
 import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
 
@@ -7,6 +8,18 @@ export type ScoreHistoryPoint = {
   label: string;
   reportDate: string;
   scores: Record<CreditBureau, number | null>;
+  reportId?: string;
+};
+
+export type ScorePointEvent = {
+  bureau: CreditBureau;
+  index: number;
+  reportId?: string;
+  label: string;
+  reportDate: string;
+  score: number;
+  previousScore: number | null;
+  delta: number | null;
 };
 
 const SERIES: { bureau: CreditBureau; color: string }[] = [
@@ -16,15 +29,32 @@ const SERIES: { bureau: CreditBureau; color: string }[] = [
 ];
 
 /**
- * Gráfico SVG simple de evolución de scores (sin dependencia externa).
+ * Gráfico SVG de evolución de scores.
+ * Con `interactive`, emite hover/click con datos del punto (sin fetch).
  */
-export function ScoreEvolutionChart({ history }: { history: ScoreHistoryPoint[] }) {
+export function ScoreEvolutionChart({
+  history,
+  compact = false,
+  interactive = false,
+  onPointHover,
+  onPointClick,
+}: {
+  history: ScoreHistoryPoint[];
+  compact?: boolean;
+  interactive?: boolean;
+  onPointHover?: (point: ScorePointEvent | null) => void;
+  onPointClick?: (point: ScorePointEvent) => void;
+}) {
+  const [hoverKey, setHoverKey] = useState<string | null>(null);
   const width = 640;
-  const height = 220;
-  const padX = 36;
-  const padY = 24;
+  const height = compact ? 132 : 220;
+  const padX = compact ? 28 : 36;
+  const padY = compact ? 14 : 24;
   const plotW = width - padX * 2;
   const plotH = height - padY * 2;
+  const strokeW = compact ? 2 : 2.5;
+  const pointR = compact ? 2.5 : 3.5;
+  const fontSize = compact ? 9 : 10;
 
   const values = history.flatMap((h) =>
     SERIES.map((s) => h.scores[s.bureau]).filter((v): v is number => v != null),
@@ -44,11 +74,36 @@ export function ScoreEvolutionChart({ history }: { history: ScoreHistoryPoint[] 
     return padY + plotH - ((score - min) / range) * plotH;
   }
 
+  function eventAt(bureau: CreditBureau, i: number): ScorePointEvent | null {
+    const h = history[i];
+    if (!h) return null;
+    const score = h.scores[bureau];
+    if (score == null) return null;
+    let previousScore: number | null = null;
+    for (let j = i - 1; j >= 0; j -= 1) {
+      const prev = history[j]?.scores[bureau];
+      if (prev != null) {
+        previousScore = prev;
+        break;
+      }
+    }
+    return {
+      bureau,
+      index: i,
+      reportId: h.reportId,
+      label: h.label,
+      reportDate: h.reportDate,
+      score,
+      previousScore,
+      delta: previousScore != null ? score - previousScore : null,
+    };
+  }
+
   return (
     <div className="w-full overflow-x-auto">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="h-auto w-full min-w-[320px] max-w-3xl"
+        className={`h-auto w-full min-w-[280px] ${compact ? "max-w-full" : "max-w-3xl"}`}
         role="img"
         aria-label="Evolución de puntajes por buró"
       >
@@ -66,11 +121,11 @@ export function ScoreEvolutionChart({ history }: { history: ScoreHistoryPoint[] 
                 strokeOpacity={0.12}
               />
               <text
-                x={padX - 8}
-                y={y + 4}
+                x={padX - 6}
+                y={y + 3}
                 textAnchor="end"
                 className="fill-text-secondary"
-                fontSize={10}
+                fontSize={fontSize}
               >
                 {val}
               </text>
@@ -86,46 +141,54 @@ export function ScoreEvolutionChart({ history }: { history: ScoreHistoryPoint[] 
               return `${xAt(i)},${yAt(score)}`;
             })
             .filter(Boolean);
-          if (pts.length < 2) {
-            const single = history
-              .map((h, i) => {
-                const score = h.scores[bureau];
-                if (score == null) return null;
-                return { x: xAt(i), y: yAt(score) };
-              })
-              .find(Boolean);
-            if (!single) return null;
-            return (
-              <circle
-                key={bureau}
-                cx={single.x}
-                cy={single.y}
-                r={4}
-                fill={color}
-              />
-            );
-          }
           return (
             <g key={bureau}>
-              <polyline
-                fill="none"
-                stroke={color}
-                strokeWidth={2.5}
-                strokeLinejoin="round"
-                strokeLinecap="round"
-                points={pts.join(" ")}
-              />
+              {pts.length >= 2 ? (
+                <polyline
+                  fill="none"
+                  stroke={color}
+                  strokeWidth={strokeW}
+                  strokeLinejoin="round"
+                  strokeLinecap="round"
+                  points={pts.join(" ")}
+                />
+              ) : null}
               {history.map((h, i) => {
                 const score = h.scores[bureau];
                 if (score == null) return null;
+                const key = `${bureau}-${i}`;
+                const active = hoverKey === key;
                 return (
-                  <circle
-                    key={`${bureau}-${i}`}
-                    cx={xAt(i)}
-                    cy={yAt(score)}
-                    r={3.5}
-                    fill={color}
-                  />
+                  <g key={key}>
+                    {interactive ? (
+                      <circle
+                        cx={xAt(i)}
+                        cy={yAt(score)}
+                        r={10}
+                        fill="transparent"
+                        className="cursor-pointer"
+                        onMouseEnter={() => {
+                          setHoverKey(key);
+                          onPointHover?.(eventAt(bureau, i));
+                        }}
+                        onMouseLeave={() => {
+                          setHoverKey(null);
+                          onPointHover?.(null);
+                        }}
+                        onClick={() => {
+                          const ev = eventAt(bureau, i);
+                          if (ev) onPointClick?.(ev);
+                        }}
+                      />
+                    ) : null}
+                    <circle
+                      cx={xAt(i)}
+                      cy={yAt(score)}
+                      r={active ? pointR + 1.5 : pointR}
+                      fill={color}
+                      className={interactive ? "pointer-events-none" : undefined}
+                    />
+                  </g>
                 );
               })}
             </g>
@@ -136,16 +199,20 @@ export function ScoreEvolutionChart({ history }: { history: ScoreHistoryPoint[] 
           <text
             key={h.reportDate + i}
             x={xAt(i)}
-            y={height - 6}
+            y={height - 4}
             textAnchor="middle"
             className="fill-text-secondary"
-            fontSize={10}
+            fontSize={fontSize}
           >
             {h.label}
           </text>
         ))}
       </svg>
-      <ul className="mt-3 flex flex-wrap gap-4 text-xs text-text-secondary">
+      <ul
+        className={`flex flex-wrap gap-3 text-xs text-text-secondary ${
+          compact ? "mt-1.5" : "mt-3 gap-4"
+        }`}
+      >
         {SERIES.map(({ bureau, color }) => (
           <li key={bureau} className="inline-flex items-center gap-1.5">
             <span

@@ -797,6 +797,8 @@ model Task {
 model Service {
   id             String   @id @default(cuid())
   organizationId String
+  /** Identificador estable de vertical (p.ej. CREDIT_REPAIR). Nullable: ítems de catálogo comercial sin vertical. */
+  code           String?
   name           String
   description    String?  @db.Text
   defaultPrice   Decimal  @default(0) @db.Decimal(12, 2)
@@ -810,7 +812,9 @@ model Service {
   quoteItems   QuoteItem[]
 
   @@unique([organizationId, name])
+  @@unique([organizationId, code])
   @@index([organizationId, isActive])
+  @@index([organizationId, code])
 }
 
 model ServicePackage {

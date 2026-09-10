@@ -11,6 +11,7 @@ import {
 } from "@/src/server/errors";
 import { cuidSchema, moneySchema } from "@/src/lib/validation/common";
 import * as catalog from "@/src/server/services";
+import { SERVICE_CODES } from "@/src/server/services/codes";
 
 function revalidateCatalog() {
   revalidatePath("/crm/servicios");
@@ -18,11 +19,14 @@ function revalidateCatalog() {
   revalidatePath("/crm/cotizaciones/nueva");
 }
 
+const serviceCodeSchema = z.enum(SERVICE_CODES);
+
 const serviceSchema = z.object({
   name: z.string().trim().min(1, "El nombre es obligatorio.").max(150),
   description: z.string().trim().max(2000).nullish(),
   defaultPrice: moneySchema,
   currency: z.string().trim().length(3).optional(),
+  code: serviceCodeSchema.nullish(),
 });
 
 export async function createService(input: unknown): Promise<ActionResult<{ id: string }>> {

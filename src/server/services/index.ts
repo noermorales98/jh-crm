@@ -2,6 +2,13 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { DomainError } from "@/src/server/errors";
 import type { OrganizationContext } from "@/src/server/auth/guards";
+import {
+  isServiceCode,
+  type ServiceCode,
+} from "@/src/server/services/codes";
+
+export type { ServiceCode } from "@/src/server/services/codes";
+export { SERVICE_CODES, isServiceCode } from "@/src/server/services/codes";
 
 /**
  * Catálogo de servicios y paquetes. Las cotizaciones guardan SNAPSHOTS
@@ -14,6 +21,34 @@ export interface ServiceData {
   description?: string | null;
   defaultPrice: Prisma.Decimal | number | string;
   currency?: string;
+  /** Vertical estable (opcional). Null/omitido = ítem comercial sin vertical. */
+  code?: ServiceCode | null;
+}
+
+function normalizeOptionalCode(code: ServiceCode | null | undefined): string | null {
+  if (code === undefined || code === null) return null;
+  if (!isServiceCode(code)) {
+    throw new DomainError(`Código de servicio inválido: ${code}`);
+  }
+  return code;
+}
+
+function mapServiceWriteError(error: unknown): never {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  ) {
+    const target = error.meta?.target;
+    const fields = Array.isArray(target) ? target.join(",") : String(target ?? "");
+    if (fields.includes("code")) {
+      throw new DomainError("Ya existe un servicio con ese código en la organización.");
+    }
+    if (fields.includes("name")) {
+      throw new DomainError("Ya existe un servicio con ese nombre en la organización.");
+    }
+    throw new DomainError("Conflicto de unicidad al guardar el servicio.");
+  }
+  throw error;
 }
 
 export interface PackageItemInput {
@@ -44,15 +79,21 @@ async function assertActiveServices(ctx: OrganizationContext, items: PackageItem
 }
 
 export async function createService(ctx: OrganizationContext, data: ServiceData) {
-  return prisma.service.create({
-    data: {
-      organizationId: ctx.organizationId,
-      name: data.name,
-      description: data.description ?? null,
-      defaultPrice: new Prisma.Decimal(data.defaultPrice),
-      currency: data.currency ?? "USD",
-    },
-  });
+  const code = normalizeOptionalCode(data.code);
+  try {
+    return await prisma.service.create({
+      data: {
+        organizationId: ctx.organizationId,
+        code,
+        name: data.name,
+        description: data.description ?? null,
+        defaultPrice: new Prisma.Decimal(data.defaultPrice),
+        currency: data.currency ?? "USD",
+      },
+    });
+  } catch (error) {
+    mapServiceWriteError(error);
+  }
 }
 
 export async function updateService(
@@ -64,16 +105,40 @@ export async function updateService(
     where: { id: serviceId, organizationId: ctx.organizationId },
   });
   if (!existing) throw new DomainError("Servicio no encontrado.");
-  return prisma.service.update({
-    where: { id: existing.id },
-    data: {
-      ...(data.name !== undefined ? { name: data.name } : {}),
-      ...(data.description !== undefined ? { description: data.description } : {}),
-      ...(data.defaultPrice !== undefined
-        ? { defaultPrice: new Prisma.Decimal(data.defaultPrice) }
-        : {}),
-      ...(data.currency !== undefined ? { currency: data.currency } : {}),
-    },
+
+  let codeUpdate: { code?: string | null } = {};
+  if (data.code !== undefined) {
+    codeUpdate = { code: normalizeOptionalCode(data.code) };
+  }
+
+  try {
+    return await prisma.service.update({
+      where: { id: existing.id },
+      data: {
+        ...codeUpdate,
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.description !== undefined ? { description: data.description } : {}),
+        ...(data.defaultPrice !== undefined
+          ? { defaultPrice: new Prisma.Decimal(data.defaultPrice) }
+          : {}),
+        ...(data.currency !== undefined ? { currency: data.currency } : {}),
+      },
+    });
+  } catch (error) {
+    mapServiceWriteError(error);
+  }
+}
+
+/** Resuelve el Service de vertical por code dentro de la org (tickets posteriores). */
+export async function getServiceByCode(
+  organizationId: string,
+  code: ServiceCode,
+) {
+  if (!isServiceCode(code)) {
+    throw new DomainError(`Código de servicio inválido: ${code}`);
+  }
+  return prisma.service.findFirst({
+    where: { organizationId, code },
   });
 }
 

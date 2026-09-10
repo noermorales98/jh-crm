@@ -31,10 +31,12 @@ export function InvitePortalButton({
   clientId,
   defaultEmail,
   access,
+  compact = false,
 }: {
   clientId: string;
   defaultEmail?: string | null;
   access: PortalAccessSummary;
+  compact?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -85,34 +87,48 @@ export function InvitePortalButton({
   }
 
   return (
-    <div className="space-y-3">
+    <div className={compact ? "space-y-2" : "space-y-3"}>
       {access ? (
-        <div className="rounded-surface bg-surface-app p-3 text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="font-medium text-ink">{access.email}</span>
+        <div
+          className={
+            compact
+              ? "rounded-control bg-surface-app px-2 py-1.5 text-xs"
+              : "rounded-surface bg-surface-app p-3 text-sm"
+          }
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="truncate font-medium text-ink">{access.email}</span>
             <Pill tone={access.isActive ? "green" : "slate"}>
               {access.isActive ? "Activo" : "Revocado"}
             </Pill>
           </div>
-          <p className="mt-1 text-xs text-text-secondary">
-            Invitado {formatDate(access.invitedAt)}
-            {access.lastLoginAt
-              ? ` · Último acceso ${formatDate(access.lastLoginAt)}`
-              : ""}
-          </p>
+          {!compact ? (
+            <p className="mt-1 text-xs text-text-secondary">
+              Invitado {formatDate(access.invitedAt)}
+              {access.lastLoginAt
+                ? ` · Último acceso ${formatDate(access.lastLoginAt)}`
+                : ""}
+            </p>
+          ) : (
+            <p className="mt-0.5 text-[11px] text-text-secondary">
+              {access.lastLoginAt
+                ? `Último acceso ${formatDate(access.lastLoginAt)}`
+                : `Invitado ${formatDate(access.invitedAt)}`}
+            </p>
+          )}
         </div>
       ) : (
-        <p className="text-sm text-text-secondary">
-          Este cliente aún no tiene acceso al portal.
+        <p className={compact ? "text-xs text-text-secondary" : "text-sm text-text-secondary"}>
+          Sin acceso al portal.
         </p>
       )}
 
       {error && !open ? <Alert tone="error">{error}</Alert> : null}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         <Button size="sm" onClick={openInvite} disabled={pending}>
-          <KeyRound className="size-4" aria-hidden />
-          {access?.isActive ? "Reinvitar" : "Invitar al portal"}
+          <KeyRound className="size-3.5" aria-hidden />
+          {access?.isActive ? "Reinvitar" : "Invitar"}
         </Button>
         {access?.isActive ? (
           <Button
@@ -121,7 +137,7 @@ export function InvitePortalButton({
             onClick={handleRevoke}
             disabled={pending}
           >
-            <ShieldOff className="size-4" aria-hidden />
+            <ShieldOff className="size-3.5" aria-hidden />
             Revocar
           </Button>
         ) : null}

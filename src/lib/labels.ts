@@ -19,6 +19,13 @@ export const CASE_STATE_LABELS: Record<string, string> = {
   CANCELLED: "Cancelado",
 };
 
+export const SERVICE_CASE_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Abierto",
+  ON_HOLD: "En espera",
+  COMPLETED: "Completado",
+  CANCELED: "Cancelado",
+};
+
 export const ROUND_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Borrador",
   PREPARING: "En preparación",

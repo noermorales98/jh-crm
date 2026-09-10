@@ -70,13 +70,13 @@ export function CreateCaseButton({
   return (
     <>
       <Button size="sm" onClick={() => setOpen(true)}>
-        Nuevo caso
+        Nuevo expediente
       </Button>
       <Modal
         open={open}
         onClose={() => setOpen(false)}
-        title="Crear caso de reparación de crédito"
-        description="El caso inicia en la primera etapa activa si no eliges otra."
+        title="Crear expediente"
+        description="Abre un expediente de Credit Repair. Si no eliges etapa, usa la primera activa del servicio."
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {error ? <Alert tone="error">{error}</Alert> : null}
@@ -109,7 +109,7 @@ export function CreateCaseButton({
                 ))}
               </Select>
             </Field>
-            <Field label="Próxima revisión" htmlFor="case-review">
+            <Field label="Próxima acción" htmlFor="case-review">
               <DateInput
                 id="case-review"
                 value={nextReviewAt}
@@ -123,7 +123,7 @@ export function CreateCaseButton({
               value={summary}
               onChange={(e) => setSummary(e.target.value)}
               maxLength={5000}
-              placeholder="Situación del cliente, objetivos del caso…"
+              placeholder="Situación del cliente, objetivos del expediente…"
             />
           </Field>
           <div className="flex justify-end gap-2">
@@ -135,7 +135,7 @@ export function CreateCaseButton({
               Cancelar
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Creando…" : "Crear caso"}
+              {pending ? "Creando…" : "Crear expediente"}
             </Button>
           </div>
         </form>

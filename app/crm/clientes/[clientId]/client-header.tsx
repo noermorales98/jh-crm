@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Mail, Phone, User } from "lucide-react";
 import { StatusPill, Tabs } from "@/src/components/ui";
 import { clientFullName } from "@/src/server/page-helpers";
@@ -16,7 +17,7 @@ export interface ClientHeaderData {
   assignedTo?: { name: string | null } | null;
 }
 
-/** Encabezado denso compartido de las páginas del cliente. */
+/** Encabezado denso compartido de las páginas del cliente (CL-002). */
 export function ClientHeader({
   client,
   actions,
@@ -68,6 +69,12 @@ export function ClientHeader({
             <span className="font-mono text-[11px] text-text-secondary">
               {client.clientCode}
             </span>
+            <Link
+              href={`${base}/expediente`}
+              className="text-[11px] font-medium text-action-primary hover:text-action-secondary"
+            >
+              Datos / perfil
+            </Link>
           </div>
           {contactBits.length > 0 ? (
             <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-text-secondary">
@@ -85,9 +92,13 @@ export function ClientHeader({
         <Tabs
           items={[
             { href: base, label: "Resumen" },
-            { href: `${base}/expediente`, label: "Expediente" },
-            { href: `${base}/casos`, label: "Casos" },
+            { href: `${base}/servicios`, label: "Servicios" },
             { href: `${base}/actividad`, label: "Actividad" },
+            { href: `${base}/tareas`, label: "Tareas" },
+            { href: `${base}/documentos`, label: "Documentos" },
+            { href: `${base}/pagos`, label: "Pagos" },
+            { href: `${base}/notas`, label: "Notas" },
+            { href: `${base}/testimonios`, label: "Testimonios" },
           ]}
         />
       </div>

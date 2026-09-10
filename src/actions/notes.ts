@@ -34,6 +34,43 @@ export async function addLeadMessageAction(
     revalidatePath("/crm/oportunidades", "page");
     revalidatePath(`/crm/clientes/${data.clientId}`);
     revalidatePath(`/crm/clientes/${data.clientId}/actividad`);
+    revalidatePath(`/crm/clientes/${data.clientId}/notas`);
+
+    return actionOk({
+      id: note.id,
+      body: note.body,
+      createdAt: note.createdAt.toISOString(),
+      authorName: note.author.name,
+    });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+/** Nota humana en ficha de cliente (CL-002 / NT-001). */
+export async function addClientNoteAction(
+  input: unknown,
+): Promise<
+  ActionResult<{
+    id: string;
+    body: string;
+    createdAt: string;
+    authorName: string | null;
+  }>
+> {
+  try {
+    const ctx = await requirePermission("clients.edit");
+    const data = leadMessageCreateSchema.parse(input);
+    const note = await notes.createClientNote(ctx, {
+      clientId: data.clientId,
+      body: data.body,
+      opportunityId: data.opportunityId,
+    });
+
+    revalidatePath(`/crm/clientes/${data.clientId}`);
+    revalidatePath(`/crm/clientes/${data.clientId}/notas`);
+    revalidatePath(`/crm/clientes/${data.clientId}/actividad`);
 
     return actionOk({
       id: note.id,

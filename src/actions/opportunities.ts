@@ -27,6 +27,7 @@ function revalidateOpportunities(clientId?: string, caseId?: string) {
   if (clientId) {
     revalidatePath(`/crm/clientes/${clientId}`);
     revalidatePath(`/crm/clientes/${clientId}/casos`);
+    revalidatePath(`/crm/clientes/${clientId}/servicios`);
   }
   if (caseId) {
     revalidatePath(`/crm/casos/${caseId}`);
@@ -144,13 +145,25 @@ export async function updateOpportunityStageAction(
 
 export async function markOpportunityWonAction(
   opportunityId: string,
-): Promise<ActionResult<{ id: string; caseId: string | null }>> {
+): Promise<
+  ActionResult<{
+    id: string;
+    caseId: string | null;
+    serviceCaseId: string | null;
+    caseCode: string | null;
+  }>
+> {
   try {
     const ctx = await requirePermission("opportunities.manage");
     const id = cuidSchema.parse(opportunityId);
     const opp = await opportunities.markWon(ctx, id);
     revalidateOpportunities(opp.clientId, opp.wonCaseId ?? undefined);
-    return actionOk({ id: opp.id, caseId: opp.wonCaseId });
+    return actionOk({
+      id: opp.id,
+      caseId: opp.wonCaseId,
+      serviceCaseId: opp.wonServiceCaseId,
+      caseCode: opp.wonCase?.caseCode ?? null,
+    });
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

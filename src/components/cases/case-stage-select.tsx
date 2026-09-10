@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/src/components/ui";
 import { moveCaseToStage } from "@/src/actions/cases";
@@ -8,8 +8,7 @@ import { playActionResult } from "@/src/lib/cuelume";
 import type { StageOption } from "./create-case-button";
 
 /**
- * Selector de etapa del caso (moveCaseToStage). Muestra un punto con el
- * color de la etapa actual; al cambiar, confirma con el servidor.
+ * Selector de etapa (SC-002 / moveCaseToStage). Solo WorkflowStage del mismo Service.
  */
 export function CaseStageSelect({
   caseId,
@@ -27,6 +26,10 @@ export function CaseStageSelect({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  useEffect(() => {
+    setValue(currentStageId);
+  }, [currentStageId]);
+
   const current = stages.find((s) => s.id === value);
 
   return (
@@ -40,7 +43,7 @@ export function CaseStageSelect({
           />
         ) : null}
         <select
-          aria-label="Etapa del caso"
+          aria-label="Etapa del expediente"
           value={value}
           disabled={disabled || pending}
           onChange={(e) => {

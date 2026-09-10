@@ -117,7 +117,10 @@ const OPPORTUNITY_INCLUDE = {
     },
   },
   owner: { select: { id: true, name: true } },
-  wonCase: { select: { id: true, caseCode: true } },
+  wonCase: { select: { id: true, caseCode: true, serviceCaseId: true } },
+  wonServiceCase: {
+    select: { id: true, caseNumber: true, status: true, serviceId: true },
+  },
 } satisfies Prisma.OpportunityInclude;
 
 async function getOpportunityOrThrow(ctx: OrganizationContext, id: string) {
@@ -465,7 +468,8 @@ export async function updateStage(
 }
 
 /**
- * Cierra como WON: ServiceCase+CreditCase + Client ACTIVE + won ids en una tx (BR-012).
+ * Cierra como WON: ServiceCase+CreditCase + Client ACTIVE + won ids en una tx (BR-012 / LD-005).
+ * No duplica Client; no toca source / leadChannel / attribution (BR-011).
  */
 export async function markWon(ctx: OrganizationContext, opportunityId: string) {
   const opp = await getOpportunityOrThrow(ctx, opportunityId);
@@ -475,8 +479,19 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
   if (opp.stage === "LOST") {
     throw new DomainError("No se puede ganar una oportunidad perdida.");
   }
+  if (opp.wonCaseId || opp.wonServiceCaseId) {
+    throw new DomainError(
+      "Esta oportunidad ya tiene un caso vinculado; no se puede volver a convertir.",
+    );
+  }
 
   return prisma.$transaction(async (tx) => {
+    const clientRow = await tx.client.findFirst({
+      where: { id: opp.clientId, organizationId: ctx.organizationId },
+      select: { id: true, status: true },
+    });
+    if (!clientRow) throw new DomainError("Cliente no encontrado.");
+
     const creditCase = await createCreditCase(
       ctx,
       {
@@ -487,11 +502,21 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
       tx,
     );
 
-    await tx.client.update({
-      where: { id: opp.clientId },
-      data: { status: "ACTIVE" },
-    });
+    if (!creditCase.serviceCaseId) {
+      throw new DomainError(
+        "La conversión WON requiere ServiceCase; CreditCase quedó sin vínculo.",
+      );
+    }
 
+    // Solo LEAD → ACTIVE (ciclo comercial). No tocar ACTIVE/ARCHIVED aquí.
+    if (clientRow.status === "LEAD") {
+      await tx.client.update({
+        where: { id: opp.clientId },
+        data: { status: "ACTIVE" },
+      });
+    }
+
+    // BR-011: no tocamos source / leadChannel / attribution — solo status si LEAD.
     const updated = await tx.opportunity.update({
       where: { id: opp.id },
       data: {
@@ -499,6 +524,7 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
         wonCaseId: creditCase.id,
         wonServiceCaseId: creditCase.serviceCaseId,
         lostReason: null,
+        nextFollowUpAt: null,
       },
       include: OPPORTUNITY_INCLUDE,
     });
@@ -516,6 +542,7 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
           caseId: creditCase.id,
           caseCode: creditCase.caseCode,
           serviceCaseId: creditCase.serviceCaseId,
+          clientWasLead: clientRow.status === "LEAD",
         },
       },
       tx,

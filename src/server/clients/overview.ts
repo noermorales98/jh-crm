@@ -25,7 +25,8 @@ import {
 export type ActiveServiceView = {
   kind: "CREDIT_REPAIR";
   creditCaseId: string;
-  label: "Credit Repair";
+  serviceCaseId: string | null;
+  label: string;
   caseCode: string;
   state: CaseState;
   stage: { id: string; name: string; color: string } | null;
@@ -274,7 +275,17 @@ export async function getClientOverview(
           state: true,
           openedAt: true,
           nextReviewAt: true,
+          serviceCaseId: true,
           stage: { select: { id: true, name: true, color: true } },
+          serviceCase: {
+            select: {
+              id: true,
+              nextActionAt: true,
+              status: true,
+              stage: { select: { id: true, name: true, color: true } },
+              service: { select: { code: true, name: true } },
+            },
+          },
         },
         orderBy: { openedAt: "desc" },
         take: 20,
@@ -284,17 +295,43 @@ export async function getClientOverview(
   const services: ActiveServiceView[] = cases.map((c) => ({
     kind: "CREDIT_REPAIR" as const,
     creditCaseId: c.id,
-    label: "Credit Repair" as const,
+    serviceCaseId: c.serviceCaseId ?? c.serviceCase?.id ?? null,
+    label: c.serviceCase?.service.name ?? "Credit Repair",
     caseCode: c.caseCode,
     state: c.state,
-    stage: c.stage,
-    nextActionAt: c.nextReviewAt,
+    stage: c.serviceCase?.stage ?? c.stage,
+    nextActionAt: c.serviceCase?.nextActionAt ?? c.nextReviewAt,
   }));
 
   const activeCase = pickActiveCase(cases, options?.caseId);
   const activeService = activeCase
     ? services.find((s) => s.creditCaseId === activeCase.id) ?? null
     : null;
+
+  // CL-003: métricas de operación scoped al servicio activo (no mezclar expedientes).
+  const paymentScope = activeCase
+    ? { organizationId: ctx.organizationId, clientId, caseId: activeCase.id }
+    : { organizationId: ctx.organizationId, clientId };
+  const openTaskStatuses: Array<"PENDING" | "IN_PROGRESS"> = [
+    "PENDING",
+    "IN_PROGRESS",
+  ];
+  const taskScope = activeCase
+    ? {
+        organizationId: ctx.organizationId,
+        status: { in: openTaskStatuses },
+        OR: [
+          { caseId: activeCase.id },
+          ...(activeCase.serviceCaseId
+            ? [{ serviceCaseId: activeCase.serviceCaseId }]
+            : []),
+        ],
+      }
+    : {
+        organizationId: ctx.organizationId,
+        clientId,
+        status: { in: openTaskStatuses },
+      };
 
   const [
     activityRows,
@@ -305,7 +342,20 @@ export async function getClientOverview(
     recentPayments,
   ] = await Promise.all([
     prisma.activityLog.findMany({
-      where: { clientId, organizationId: ctx.organizationId },
+      where: {
+        clientId,
+        organizationId: ctx.organizationId,
+        ...(activeCase
+          ? {
+              OR: [
+                { caseId: activeCase.id },
+                ...(activeCase.serviceCaseId
+                  ? [{ serviceCaseId: activeCase.serviceCaseId }]
+                  : []),
+              ],
+            }
+          : {}),
+      },
       select: {
         id: true,
         type: true,
@@ -321,26 +371,31 @@ export async function getClientOverview(
         organizationId: ctx.organizationId,
         clientId,
         deletedAt: null,
+        ...(activeCase
+          ? {
+              OR: [
+                { caseId: activeCase.id },
+                ...(activeCase.serviceCaseId
+                  ? [{ serviceCaseId: activeCase.serviceCaseId }]
+                  : []),
+                // Docs solo de cliente (sin caso) visibles en todos los servicios.
+                { caseId: null, serviceCaseId: null },
+              ],
+            }
+          : {}),
       },
     }),
-    prisma.task.count({
-      where: {
-        organizationId: ctx.organizationId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-        OR: activeCase
-          ? [{ clientId }, { caseId: activeCase.id }]
-          : [{ clientId }],
-      },
-    }),
+    prisma.task.count({ where: taskScope }),
     prisma.payment.groupBy({
       by: ["status"],
-      where: { organizationId: ctx.organizationId, clientId },
+      where: paymentScope,
       _sum: { amount: true },
     }),
     prisma.quote.findFirst({
       where: {
         organizationId: ctx.organizationId,
         clientId,
+        ...(activeCase ? { caseId: activeCase.id } : {}),
         status: { in: ["ACCEPTED", "PAID", "SENT"] },
       },
       orderBy: { issuedAt: "desc" },
@@ -348,7 +403,7 @@ export async function getClientOverview(
     }),
     canViewPayments
       ? prisma.payment.findMany({
-          where: { organizationId: ctx.organizationId, clientId },
+          where: paymentScope,
           orderBy: [{ receivedAt: "desc" }, { createdAt: "desc" }],
           take: 5,
           select: {

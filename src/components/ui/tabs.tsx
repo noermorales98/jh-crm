@@ -23,9 +23,16 @@ export function Tabs({
   let activeHref: string | null = null;
   let bestLen = -1;
   for (const item of items) {
-    const match =
-      pathname === item.href || pathname.startsWith(`${item.href}/`);
-    if (match && item.href.length > bestLen) {
+    const exact = pathname === item.href;
+    const hasTabChild = items.some(
+      (other) =>
+        other.href !== item.href && other.href.startsWith(`${item.href}/`),
+    );
+    // El índice (p. ej. Resumen) solo coincide exacto; si no, hijos no-tab
+    // como /expediente marcarían Resumen por error.
+    const prefix =
+      !hasTabChild && pathname.startsWith(`${item.href}/`);
+    if ((exact || prefix) && item.href.length > bestLen) {
       activeHref = item.href;
       bestLen = item.href.length;
     }

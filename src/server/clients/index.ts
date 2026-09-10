@@ -38,6 +38,9 @@ export interface ClientListFilters {
   limit?: number;
 }
 
+const ACTIVE_SERVICE_STATUSES = ["OPEN", "ON_HOLD"] as const;
+const ACTIVE_CASE_STATES = ["OPEN", "PAUSED"] as const;
+
 const CLIENT_LIST_SELECT = {
   id: true,
   clientCode: true,
@@ -49,11 +52,175 @@ const CLIENT_LIST_SELECT = {
   state: true,
   status: true,
   source: true,
+  leadChannel: true,
   assignedToId: true,
   createdAt: true,
   assignedTo: { select: { id: true, name: true, email: true } },
   sensitive: { select: { ssnLast4: true } },
+  serviceCases: {
+    where: { status: { in: [...ACTIVE_SERVICE_STATUSES] } },
+    select: {
+      id: true,
+      caseNumber: true,
+      status: true,
+      nextActionAt: true,
+      service: { select: { id: true, code: true, name: true } },
+      stage: { select: { id: true, name: true, color: true } },
+    },
+    orderBy: { startedAt: "desc" as const },
+    take: 6,
+  },
+  cases: {
+    where: { state: { in: [...ACTIVE_CASE_STATES] } },
+    select: {
+      id: true,
+      caseCode: true,
+      state: true,
+      nextReviewAt: true,
+      serviceCaseId: true,
+      stage: { select: { id: true, name: true, color: true } },
+    },
+    orderBy: { openedAt: "desc" as const },
+    take: 6,
+  },
+  opportunities: {
+    where: { stage: { notIn: ["WON", "LOST"] } },
+    select: {
+      id: true,
+      stage: true,
+      nextFollowUpAt: true,
+    },
+    orderBy: { nextFollowUpAt: "asc" as const },
+    take: 3,
+  },
 } satisfies Prisma.ClientSelect;
+
+export type ClientListActiveService = {
+  id: string;
+  kind: "service_case" | "credit_case";
+  label: string;
+  caseNumber: string;
+  stageName: string | null;
+  stageColor: string | null;
+};
+
+export type ClientListNextAction = {
+  at: Date;
+  kind: "service" | "follow_up" | "review";
+  label: string;
+};
+
+function mapClientListItem(row: {
+  sensitive: { ssnLast4: string | null } | null;
+  serviceCases: Array<{
+    id: string;
+    caseNumber: string;
+    status: string;
+    nextActionAt: Date | null;
+    service: { id: string; code: string | null; name: string };
+    stage: { id: string; name: string; color: string } | null;
+  }>;
+  cases: Array<{
+    id: string;
+    caseCode: string;
+    state: string;
+    nextReviewAt: Date | null;
+    serviceCaseId: string | null;
+    stage: { id: string; name: string; color: string } | null;
+  }>;
+  opportunities: Array<{
+    id: string;
+    stage: string;
+    nextFollowUpAt: Date | null;
+  }>;
+  id: string;
+  clientCode: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  city: string | null;
+  state: string | null;
+  status: ClientStatus;
+  source: string | null;
+  leadChannel: string | null;
+  assignedToId: string | null;
+  createdAt: Date;
+  assignedTo: { id: string; name: string | null; email: string | null } | null;
+}) {
+  const { sensitive, serviceCases, cases, opportunities, ...client } = row;
+
+  const activeServices: ClientListActiveService[] = [];
+  const seenCaseNumbers = new Set<string>();
+
+  for (const sc of serviceCases) {
+    seenCaseNumbers.add(sc.caseNumber);
+    activeServices.push({
+      id: sc.id,
+      kind: "service_case",
+      label: sc.service.name || sc.service.code || "Servicio",
+      caseNumber: sc.caseNumber,
+      stageName: sc.stage?.name ?? null,
+      stageColor: sc.stage?.color ?? null,
+    });
+  }
+
+  // Compat Deploy 1: CreditCase activo sin ServiceCase en listado.
+  for (const cc of cases) {
+    if (cc.serviceCaseId || seenCaseNumbers.has(cc.caseCode)) continue;
+    seenCaseNumbers.add(cc.caseCode);
+    activeServices.push({
+      id: cc.id,
+      kind: "credit_case",
+      label: "Credit Repair",
+      caseNumber: cc.caseCode,
+      stageName: cc.stage?.name ?? null,
+      stageColor: cc.stage?.color ?? null,
+    });
+  }
+
+  type Candidate = ClientListNextAction;
+  const candidates: Candidate[] = [];
+
+  for (const sc of serviceCases) {
+    if (!sc.nextActionAt) continue;
+    candidates.push({
+      at: sc.nextActionAt,
+      kind: "service",
+      label: sc.service.name || sc.caseNumber,
+    });
+  }
+
+  if (candidates.length === 0) {
+    for (const cc of cases) {
+      if (!cc.nextReviewAt) continue;
+      candidates.push({
+        at: cc.nextReviewAt,
+        kind: "review",
+        label: cc.caseCode,
+      });
+    }
+  }
+
+  for (const opp of opportunities) {
+    if (!opp.nextFollowUpAt) continue;
+    candidates.push({
+      at: opp.nextFollowUpAt,
+      kind: "follow_up",
+      label: "Seguimiento comercial",
+    });
+  }
+
+  candidates.sort((a, b) => a.at.getTime() - b.at.getTime());
+  const nextAction = candidates[0] ?? null;
+
+  return {
+    ...client,
+    ssnMasked: sensitive?.ssnLast4 ? maskSSN(sensitive.ssnLast4) : null,
+    activeServices,
+    nextAction,
+  };
+}
 
 function emptyToNull<T extends Record<string, unknown>>(data: T): T {
   const out: Record<string, unknown> = {};
@@ -245,11 +412,7 @@ export async function listClients(ctx: OrganizationContext, filters: ClientListF
 
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
-  // Listados: SSN siempre enmascarado, nunca el valor completo.
-  const mapped = items.map(({ sensitive, ...client }) => ({
-    ...client,
-    ssnMasked: sensitive?.ssnLast4 ? maskSSN(sensitive.ssnLast4) : null,
-  }));
+  const mapped = items.map(mapClientListItem);
   return {
     items: mapped,
     nextCursor: hasMore ? items[items.length - 1].id : null,
@@ -277,6 +440,7 @@ export async function getClientDetail(ctx: OrganizationContext, clientId: string
       postalCode: true,
       country: true,
       source: true,
+      leadChannel: true,
       status: true,
       assignedToId: true,
       archivedAt: true,
@@ -288,7 +452,7 @@ export async function getClientDetail(ctx: OrganizationContext, clientId: string
   });
   if (!client) throw new DomainError("Cliente no encontrado.");
 
-  const [cases, openTasks, recentQuotes, recentPayments, documents, timeline] =
+  const [cases, serviceCases, openTasks, recentQuotes, recentPayments, documents, timeline] =
     await Promise.all([
       prisma.creditCase.findMany({
         where: { clientId, organizationId: ctx.organizationId },
@@ -298,9 +462,26 @@ export async function getClientDetail(ctx: OrganizationContext, clientId: string
           state: true,
           openedAt: true,
           nextReviewAt: true,
+          serviceCaseId: true,
           stage: { select: { id: true, name: true, color: true } },
         },
         orderBy: { openedAt: "desc" },
+        take: 20,
+      }),
+      prisma.serviceCase.findMany({
+        where: { clientId, organizationId: ctx.organizationId },
+        select: {
+          id: true,
+          caseNumber: true,
+          status: true,
+          startedAt: true,
+          nextActionAt: true,
+          service: { select: { id: true, code: true, name: true } },
+          stage: { select: { id: true, name: true, color: true } },
+          creditCase: { select: { id: true, caseCode: true, state: true } },
+          assignedTo: { select: { id: true, name: true } },
+        },
+        orderBy: { startedAt: "desc" },
         take: 20,
       }),
       prisma.task.findMany({
@@ -398,6 +579,7 @@ export async function getClientDetail(ctx: OrganizationContext, clientId: string
       sensitiveProfileUpdatedAt: sensitive?.updatedAt ?? null,
     },
     cases,
+    serviceCases,
     openTasks,
     recentQuotes,
     recentPayments,

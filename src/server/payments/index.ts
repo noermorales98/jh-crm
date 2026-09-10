@@ -46,6 +46,8 @@ export interface PaymentListFilters {
   status?: PaymentStatus;
   method?: PaymentMethod;
   clientId?: string;
+  /** Scope CL-003: pagos de un CreditCase / servicio. */
+  caseId?: string;
   quoteId?: string;
   from?: Date;
   to?: Date;
@@ -173,15 +175,19 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
   });
   if (!client) throw new DomainError("Cliente no encontrado.");
 
+  let linkedCaseId: string | null = data.caseId ?? null;
+  let linkedServiceCaseId: string | null = null;
   if (data.caseId) {
     const creditCase = await prisma.creditCase.findFirst({
       where: { id: data.caseId, organizationId: ctx.organizationId },
-      select: { id: true, clientId: true },
+      select: { id: true, clientId: true, serviceCaseId: true },
     });
     if (!creditCase) throw new DomainError("El caso enlazado no existe.");
     if (creditCase.clientId !== client.id) {
       throw new DomainError("El caso no pertenece al cliente del pago.");
     }
+    linkedCaseId = creditCase.id;
+    linkedServiceCaseId = creditCase.serviceCaseId;
   }
 
   let quote: { id: string; folio: string; status: QuoteStatus; clientId: string } | null = null;
@@ -209,7 +215,8 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
       data: {
         organizationId: ctx.organizationId,
         clientId: client.id,
-        caseId: data.caseId ?? null,
+        caseId: linkedCaseId,
+        serviceCaseId: linkedServiceCaseId,
         quoteId: data.quoteId ?? null,
         amount,
         method: data.method,
@@ -224,7 +231,8 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
       type: "PAYMENT_RECORDED",
       description: `Pago pendiente registrado por ${amount.toString()} (vence ${data.dueAt?.toISOString().slice(0, 10) ?? ""}).`,
       clientId: client.id,
-      caseId: data.caseId ?? null,
+      caseId: linkedCaseId,
+      serviceCaseId: linkedServiceCaseId,
       metadata: { paymentId: payment.id, amount: amount.toString(), pending: true },
     });
     return { payment, receipt: null, quoteStatus: quote?.status ?? null };
@@ -236,7 +244,8 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
       data: {
         organizationId: ctx.organizationId,
         clientId: client.id,
-        caseId: data.caseId ?? null,
+        caseId: linkedCaseId,
+        serviceCaseId: linkedServiceCaseId,
         quoteId: data.quoteId ?? null,
         amount,
         method: data.method,
@@ -287,7 +296,8 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
         type: "PAYMENT_RECORDED",
         description: `Pago recibido por ${amount.toString()} ${payment.currency} (${data.method}).`,
         clientId: client.id,
-        caseId: data.caseId ?? null,
+        caseId: linkedCaseId,
+        serviceCaseId: linkedServiceCaseId,
         metadata: { paymentId: payment.id, amount: amount.toString(), method: data.method },
       },
       tx,
@@ -298,7 +308,8 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
         type: "RECEIPT_CREATED",
         description: `Recibo ${folio} emitido.`,
         clientId: client.id,
-        caseId: data.caseId ?? null,
+        caseId: linkedCaseId,
+        serviceCaseId: linkedServiceCaseId,
         metadata: { receiptId: receipt.id, folio, paymentId: payment.id },
       },
       tx,
@@ -604,6 +615,7 @@ export async function listPayments(ctx: OrganizationContext, filters: PaymentLis
     ...(filters.status ? { status: filters.status } : {}),
     ...(filters.method ? { method: filters.method } : {}),
     ...(filters.clientId ? { clientId: filters.clientId } : {}),
+    ...(filters.caseId ? { caseId: filters.caseId } : {}),
     ...(filters.quoteId ? { quoteId: filters.quoteId } : {}),
     ...(filters.from || filters.to
       ? {

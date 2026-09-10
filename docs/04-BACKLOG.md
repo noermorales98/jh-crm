@@ -201,6 +201,8 @@ Usar `OpportunityStage` existente (o mapear labels de UI). Restaurar la pantalla
 ## LD-005 — Marcar Opportunity WON
 **Prioridad:** P0
 
+**Estado:** DONE (2026-09-10). `markWon` transaccional (BR-012): ServiceCase+CreditCase, `wonServiceCaseId`/`wonCaseId`, LEAD→ACTIVE, Activity, sin tocar source. UI confirmación + smoke `scripts/smoke/mark-won-br012.ts`.
+
 Transacción (BR-012):
 
 1. Client ya existe (no duplicar persona);
@@ -225,6 +227,8 @@ Transacción (BR-012):
 ## CL-001 — Listado de Clientes
 **Prioridad:** P0
 
+**Estado:** DONE (2026-09-10). `listClients` enriquece origen (`source`/`leadChannel`), servicios activos (ServiceCase OPEN/ON_HOLD + fallback CreditCase) y próxima acción (`nextActionAt` / follow-up / review). UI `/crm/clientes` con columnas CL-001.
+
 Mostrar:
 
 - nombre;
@@ -238,6 +242,8 @@ Mostrar:
 
 ## CL-002 — Ficha de Cliente
 **Prioridad:** P0
+
+**Estado:** DONE (2026-09-10). Tabs: Resumen · Servicios · Actividad · Tareas · Documentos · Pagos · Notas · Testimonios. `/casos` redirige a `/servicios`. Expediente (datos/perfil) queda como enlace secundario. Testimonios = placeholder Epic 9 (sin schema v1).
 
 Tabs:
 
@@ -257,6 +263,8 @@ Testimonios
 ## CL-003 — Múltiples servicios
 **Prioridad:** P0
 
+**Estado:** DONE (2026-09-10). Cliente con ≥2 ServiceCase; `stageId` independiente; pagos/tareas dual-write `serviceCaseId` + listados/overview scoped por `?caseId=`. Smoke: `scripts/smoke/multi-service-cl003.ts`.
+
 **Acceptance Criteria:**
 
 - cliente puede tener dos o más ServiceCase;
@@ -269,6 +277,8 @@ Testimonios
 
 ## SC-001 — Crear expediente
 **Prioridad:** P0
+
+**Estado:** DONE (2026-09-10). `createCreditCase` = ServiceCase OPEN + CreditCase 1:1 + `caseNumber` + `stageId` inicial + StageHistory de apertura + Activity. UI «Nuevo expediente». Smoke: `scripts/smoke/sc-001-create.ts`.
 
 **Acceptance Criteria:**
 
@@ -284,6 +294,8 @@ Testimonios
 
 ## SC-002 — Cambiar etapa
 **Prioridad:** P0
+
+**Estado:** DONE (2026-09-10). `moveCaseToStage` dual-write `stageId`, StageHistory (from/to/actor/fecha), Activity; bloquea cerrados y etapas de otro Service; historial en ficha del caso. Smoke: `scripts/smoke/sc-002-change-stage.ts`.
 
 **Acceptance Criteria:**
 

@@ -16,7 +16,11 @@ function revalidateCases(clientId?: string, caseId?: string) {
   revalidatePath("/crm/casos");
   revalidatePath("/crm/dashboard");
   if (caseId) revalidatePath(`/crm/casos/${caseId}`);
-  if (clientId) revalidatePath(`/crm/clientes/${clientId}`);
+  if (clientId) {
+    revalidatePath(`/crm/clientes/${clientId}`);
+    revalidatePath(`/crm/clientes/${clientId}/servicios`);
+    revalidatePath(`/crm/clientes/${clientId}/casos`);
+  }
 }
 
 const createCaseSchema = z.object({
@@ -27,15 +31,28 @@ const createCaseSchema = z.object({
   nextReviewAt: optionalDateSchema,
 });
 
+/** SC-001 — Crear expediente CREDIT_REPAIR (ServiceCase + CreditCase). */
 export async function createCreditCase(
   input: unknown,
-): Promise<ActionResult<{ id: string; caseCode: string }>> {
+): Promise<
+  ActionResult<{
+    id: string;
+    caseCode: string;
+    serviceCaseId: string;
+    caseNumber: string;
+  }>
+> {
   try {
     const ctx = await requirePermission("cases.manage");
     const data = createCaseSchema.parse(input);
     const creditCase = await caseService.createCreditCase(ctx, data);
     revalidateCases(creditCase.clientId, creditCase.id);
-    return actionOk({ id: creditCase.id, caseCode: creditCase.caseCode });
+    return actionOk({
+      id: creditCase.id,
+      caseCode: creditCase.caseCode,
+      serviceCaseId: creditCase.serviceCaseId,
+      caseNumber: creditCase.caseCode,
+    });
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

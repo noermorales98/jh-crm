@@ -43,6 +43,7 @@ export interface TaskListFilters {
   due?: TaskDueFilter;
   clientId?: string;
   caseId?: string;
+  serviceCaseId?: string;
   cursor?: string;
   limit?: number;
 }
@@ -87,25 +88,31 @@ async function getTaskOrThrow(ctx: OrganizationContext, taskId: string) {
 async function validateLinks(
   ctx: OrganizationContext,
   links: { clientId?: string | null; caseId?: string | null; roundId?: string | null },
-): Promise<{ clientId: string | null }> {
+): Promise<{ clientId: string | null; serviceCaseId: string | null }> {
   let clientId = links.clientId ?? null;
+  let serviceCaseId: string | null = null;
 
   if (links.caseId) {
     const creditCase = await prisma.creditCase.findFirst({
       where: { id: links.caseId, organizationId: ctx.organizationId },
-      select: { id: true, clientId: true },
+      select: { id: true, clientId: true, serviceCaseId: true },
     });
     if (!creditCase) throw new DomainError("El caso enlazado no existe.");
     if (clientId && clientId !== creditCase.clientId) {
       throw new DomainError("La tarea no puede enlazar un cliente distinto al del caso.");
     }
     clientId = creditCase.clientId;
+    serviceCaseId = creditCase.serviceCaseId;
   }
 
   if (links.roundId) {
     const round = await prisma.creditRound.findFirst({
       where: { id: links.roundId, organizationId: ctx.organizationId },
-      select: { id: true, caseId: true, case: { select: { clientId: true } } },
+      select: {
+        id: true,
+        caseId: true,
+        case: { select: { clientId: true, serviceCaseId: true } },
+      },
     });
     if (!round) throw new DomainError("La ronda enlazada no existe.");
     if (links.caseId && round.caseId !== links.caseId) {
@@ -115,6 +122,7 @@ async function validateLinks(
     if (clientId !== round.case.clientId) {
       throw new DomainError("La tarea no puede enlazar un cliente distinto al de la ronda.");
     }
+    serviceCaseId = serviceCaseId ?? round.case.serviceCaseId;
   }
 
   if (links.clientId) {
@@ -125,7 +133,7 @@ async function validateLinks(
     if (!client) throw new DomainError("El cliente enlazado no existe.");
   }
 
-  return { clientId };
+  return { clientId, serviceCaseId };
 }
 
 export async function createTask(ctx: OrganizationContext, data: TaskCreateData) {
@@ -137,7 +145,7 @@ export async function createTask(ctx: OrganizationContext, data: TaskCreateData)
     throw new DomainError("Selecciona un responsable.");
   }
   await assertMember(ctx, assigneeId);
-  const { clientId } = await validateLinks(ctx, data);
+  const { clientId, serviceCaseId } = await validateLinks(ctx, data);
 
   return prisma.$transaction(async (tx) => {
     const task = await tx.task.create({
@@ -153,6 +161,7 @@ export async function createTask(ctx: OrganizationContext, data: TaskCreateData)
         createdById: ctx.userId,
         clientId,
         caseId: data.caseId ?? null,
+        serviceCaseId,
         roundId: data.roundId ?? null,
       },
     });
@@ -166,6 +175,7 @@ export async function createTask(ctx: OrganizationContext, data: TaskCreateData)
           description: `Tarea creada: ${task.title}`,
           clientId,
           caseId: data.caseId ?? null,
+          serviceCaseId,
           roundId: data.roundId ?? null,
           metadata: { taskId: task.id, taskType: task.type },
         },
@@ -297,7 +307,16 @@ export async function listTasks(ctx: OrganizationContext, filters: TaskListFilte
     ...(filters.type ? { type: filters.type } : {}),
     ...(filters.assignedToId ? { assignedToId: filters.assignedToId } : {}),
     ...(filters.clientId ? { clientId: filters.clientId } : {}),
-    ...(filters.caseId ? { caseId: filters.caseId } : {}),
+    ...(filters.caseId || filters.serviceCaseId
+      ? {
+          OR: [
+            ...(filters.caseId ? [{ caseId: filters.caseId }] : []),
+            ...(filters.serviceCaseId
+              ? [{ serviceCaseId: filters.serviceCaseId }]
+              : []),
+          ],
+        }
+      : {}),
     ...dueFilter,
   };
 

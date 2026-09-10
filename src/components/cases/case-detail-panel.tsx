@@ -32,13 +32,20 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
     throw error;
   }
 
-  const { case: creditCase, timeline } = detail;
+  const { case: creditCase, timeline, stageHistory } = detail;
   const canManage = can(ctx.role, "cases.manage");
   const isOpen = creditCase.state === "OPEN";
   const nextSteps = await getCaseNextSteps(ctx, caseId);
 
   const [stages, members] = canManage
-    ? await Promise.all([configService.listStages(ctx), listMemberOptions(ctx)])
+    ? await Promise.all([
+        configService.listStages(
+          ctx,
+          false,
+          creditCase.serviceCase?.serviceId,
+        ),
+        listMemberOptions(ctx),
+      ])
     : [[], []];
 
   return (
@@ -118,6 +125,29 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
               ) : (
                 <div id="proxima-revision" className="scroll-mt-24" />
               )}
+
+              {stageHistory.length > 0 ? (
+                <div className="border-t border-border-subtle pt-4">
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-text-secondary">
+                    Historial de etapas
+                  </p>
+                  <ul className="space-y-2">
+                    {stageHistory.slice(0, 8).map((row) => (
+                      <li key={row.id} className="text-xs text-text-secondary-strong">
+                        <span className="text-text-secondary">
+                          {row.fromStage?.name ?? "Inicio"}
+                        </span>
+                        {" → "}
+                        <span className="font-medium text-ink">{row.toStage.name}</span>
+                        <span className="mt-0.5 block text-[11px] text-text-secondary">
+                          {formatDate(row.changedAt)}
+                          {row.changedBy?.name ? ` · ${row.changedBy.name}` : ""}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </CardBody>
           </Card>
         </div>

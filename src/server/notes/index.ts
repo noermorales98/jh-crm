@@ -65,3 +65,35 @@ export async function createClientNote(
 
   return note;
 }
+
+export async function listClientNotes(
+  ctx: OrganizationContext,
+  clientId: string,
+  opts: { limit?: number } = {},
+) {
+  const client = await prisma.client.findFirst({
+    where: { id: clientId, organizationId: ctx.organizationId },
+    select: { id: true },
+  });
+  if (!client) throw new DomainError("Cliente no encontrado.");
+
+  const limit = Math.min(opts.limit ?? 50, 100);
+  return prisma.note.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      clientId: client.id,
+    },
+    select: {
+      id: true,
+      body: true,
+      createdAt: true,
+      serviceCaseId: true,
+      author: { select: { id: true, name: true } },
+      serviceCase: {
+        select: { id: true, caseNumber: true },
+      },
+    },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+  });
+}

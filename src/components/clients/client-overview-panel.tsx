@@ -370,20 +370,31 @@ export function ClientOverviewPanel({
         </Metric>
         <Metric
           label="Documentos"
-          href={`/crm/clientes/${client.id}/expediente`}
+          href={`/crm/clientes/${client.id}/documentos`}
         >
           <span className="tabular-nums">
             {overview.documentsSummary.count}
           </span>
         </Metric>
-        <Metric label="Tareas abiertas" href="/crm/tareas">
+        <Metric
+          label="Tareas abiertas"
+          href={
+            caseId
+              ? `/crm/clientes/${client.id}/tareas?caseId=${caseId}`
+              : `/crm/clientes/${client.id}/tareas`
+          }
+        >
           <span className="tabular-nums">
             {overview.tasksSummary.openCount}
           </span>
         </Metric>
         <Metric
           label="Pagos"
-          href={`/crm/pagos?clientId=${client.id}`}
+          href={
+            caseId
+              ? `/crm/clientes/${client.id}/pagos?caseId=${caseId}`
+              : `/crm/clientes/${client.id}/pagos`
+          }
         >
           <span className="text-xs tabular-nums">
             {formatMoney(overview.paymentsSummary.received)}

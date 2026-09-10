@@ -135,6 +135,7 @@ async function main() {
     wonCaseId = won.wonCaseId;
     check("markWon stage", won.stage === "WON");
     check("markWon wonCaseId", Boolean(won.wonCaseId));
+    check("markWon wonServiceCaseId", Boolean(won.wonServiceCaseId));
 
     const refreshedClient = await prisma.client.findUniqueOrThrow({
       where: { id: client.id },
@@ -145,6 +146,11 @@ async function main() {
       where: { id: won.wonCaseId!, organizationId: org.id },
     });
     check("CreditCase created", Boolean(creditCase));
+    check(
+      "CreditCase linked ServiceCase",
+      Boolean(creditCase?.serviceCaseId) &&
+        creditCase?.serviceCaseId === won.wonServiceCaseId,
+    );
 
     console.log("\n[3] Attribution aggregates");
     await prisma.client.update({

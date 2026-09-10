@@ -105,7 +105,17 @@ export type OppCard = {
     }>;
   };
   owner: { id: string; name: string | null } | null;
-  wonCase: { id: string; caseCode: string } | null;
+  wonCase: {
+    id: string;
+    caseCode: string;
+    serviceCaseId?: string | null;
+  } | null;
+  wonServiceCase?: {
+    id: string;
+    caseNumber: string;
+    status: string;
+    serviceId: string;
+  } | null;
 };
 
 type MemberOption = { id: string; name: string };
@@ -1064,8 +1074,8 @@ export function OpportunityKanban({
         title="Marcar como ganada"
         description={
           wonTarget
-            ? `Se creará el caso de servicio para ${clientName(wonTarget)} y el lead pasará a Ganada.`
-            : "Se creará el caso de servicio y el lead pasará a Ganada."
+            ? `Conversión de ${clientName(wonTarget)}: se abre el expediente sin crear otra persona.`
+            : "Se abrirá el expediente sin crear otra persona."
         }
         footer={
           <>
@@ -1085,7 +1095,7 @@ export function OpportunityKanban({
                   const result = await markOpportunityWonAction(wonFor);
                   if (result.ok) {
                     setWonFor(null);
-                    setSelectedId(null);
+                    // Mantener detalle abierto: tras refresh verá el enlace al caso.
                   }
                   return result;
                 });
@@ -1096,10 +1106,15 @@ export function OpportunityKanban({
           </>
         }
       >
-        <p className="text-sm leading-relaxed text-text-secondary-strong">
-          Revisa que el deal esté listo antes de continuar. Esta acción cierra
-          la oportunidad como ganada.
-        </p>
+        <ul className="list-disc space-y-1.5 pl-4 text-sm leading-relaxed text-text-secondary-strong">
+          <li>No se duplica el cliente ni se borra el lead.</li>
+          <li>Se crea ServiceCase OPEN (Credit Repair) con CreditCase 1:1.</li>
+          <li>La oportunidad queda Ganada y enlazada al caso.</li>
+          <li>
+            Si el cliente estaba en LEAD, pasa a ACTIVE. La fuente original se
+            conserva.
+          </li>
+        </ul>
       </Modal>
 
       <Modal

@@ -9,8 +9,8 @@ import { resolveAssigneeForOrg } from "@/src/server/users";
 import { ensureCreditRepairService } from "@/src/server/services";
 
 /**
- * Servicio de casos de reparación de crédito.
  * Crear expediente = ServiceCase + CreditCase 1:1 (CREDIT_REPAIR).
+ * SC-001: clientId + serviceId + caseNumber + OPEN + stageId inicial + Activity.
  * Las pantallas de crédito siguen leyendo por CreditCase.id.
  */
 
@@ -209,6 +209,16 @@ export async function createCreditCase(
       },
     });
 
+    // SC-001: apertura documentada (fromStageId null → etapa inicial).
+    await client.serviceCaseStageHistory.create({
+      data: {
+        serviceCaseId: serviceCase.id,
+        fromStageId: null,
+        toStageId: stage.id,
+        changedById: ctx.userId ?? null,
+      },
+    });
+
     const creditCase = await client.creditCase.create({
       data: {
         organizationId: ctx.organizationId,
@@ -227,14 +237,18 @@ export async function createCreditCase(
       toActivityContext(ctx),
       {
         type: "CREATED",
-        description: `Caso ${creditCase.caseCode} creado en etapa "${stage.name}".`,
+        description: `Expediente ${creditCase.caseCode} creado en etapa "${stage.name}".`,
         clientId: found.id,
         caseId: creditCase.id,
         serviceCaseId: serviceCase.id,
         metadata: {
           caseCode: creditCase.caseCode,
+          caseNumber: serviceCase.caseNumber,
           stageKey: stage.key,
           serviceCaseId: serviceCase.id,
+          serviceId,
+          serviceCode: "CREDIT_REPAIR",
+          status: "OPEN",
         },
       },
       client,
@@ -279,22 +293,32 @@ export async function moveCaseToStage(
   stageId: string,
 ) {
   const creditCase = await getCaseOrThrow(ctx, caseId);
+  if (creditCase.state === "COMPLETED" || creditCase.state === "CANCELLED") {
+    throw new DomainError("No se puede cambiar la etapa de un caso cerrado.");
+  }
+
   const serviceCase = await prisma.serviceCase.findFirst({
     where: { id: creditCase.serviceCaseId, organizationId: ctx.organizationId },
   });
   if (!serviceCase) throw new DomainError("Expediente ServiceCase no encontrado.");
+  if (serviceCase.status === "COMPLETED" || serviceCase.status === "CANCELED") {
+    throw new DomainError("No se puede cambiar la etapa de un expediente cerrado.");
+  }
 
   const stage = await getActiveStageOrThrow(ctx, stageId, serviceCase.serviceId);
   if (stage.serviceId !== serviceCase.serviceId) {
     throw new DomainError("La etapa no pertenece al servicio del expediente.");
   }
-  if (creditCase.stageId === stage.id) {
-    throw new DomainError("El caso ya está en esa etapa.");
+
+  // BR-005 / SC-002: stageId canónico en ServiceCase (no string paralelo).
+  const fromStageId = serviceCase.stageId;
+  if (fromStageId === stage.id) {
+    throw new DomainError("El expediente ya está en esa etapa.");
   }
 
   return prisma.$transaction(async (tx) => {
     const fromStage = await tx.workflowStage.findUnique({
-      where: { id: creditCase.stageId },
+      where: { id: fromStageId },
       select: { id: true, name: true, key: true },
     });
 
@@ -304,6 +328,7 @@ export async function moveCaseToStage(
       include: { stage: { select: { id: true, name: true, color: true } } },
     });
 
+    // Solo stageId FK — nunca un campo string `stage` en ServiceCase.
     await tx.serviceCase.update({
       where: { id: serviceCase.id },
       data: { stageId: stage.id },
@@ -312,7 +337,7 @@ export async function moveCaseToStage(
     await tx.serviceCaseStageHistory.create({
       data: {
         serviceCaseId: serviceCase.id,
-        fromStageId: fromStage?.id ?? creditCase.stageId,
+        fromStageId,
         toStageId: stage.id,
         changedById: ctx.userId ?? null,
       },
@@ -322,11 +347,17 @@ export async function moveCaseToStage(
       toActivityContext(ctx),
       {
         type: "STAGE_CHANGE",
-        description: `Caso ${creditCase.caseCode} movido de "${fromStage?.name ?? "?"}" a "${stage.name}".`,
+        description: `Expediente ${creditCase.caseCode} movido de "${fromStage?.name ?? "?"}" a "${stage.name}".`,
         clientId: creditCase.clientId,
         caseId: creditCase.id,
         serviceCaseId: serviceCase.id,
-        metadata: { fromStageKey: fromStage?.key, toStageKey: stage.key },
+        metadata: {
+          fromStageId,
+          toStageId: stage.id,
+          fromStageKey: fromStage?.key ?? null,
+          toStageKey: stage.key,
+          actorId: ctx.userId,
+        },
       },
       tx,
     );
@@ -488,59 +519,123 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
       },
       stage: { select: { id: true, key: true, name: true, color: true, isTerminal: true } },
       assignedTo: { select: { id: true, name: true, email: true } },
+      serviceCase: {
+        select: {
+          id: true,
+          serviceId: true,
+          stageId: true,
+          status: true,
+        },
+      },
     },
   });
   if (!creditCase) throw new DomainError("Caso no encontrado.");
 
-  const [rounds, openTasks, documents, quotes, payments, timeline] = await Promise.all([
-    prisma.creditRound.findMany({
-      where: { caseId, organizationId: ctx.organizationId },
-      orderBy: { roundNumber: "desc" },
-      take: 30,
-    }),
-    prisma.task.findMany({
-      where: { caseId, organizationId: ctx.organizationId, status: { in: ["PENDING", "IN_PROGRESS"] } },
-      select: {
-        id: true, title: true, type: true, priority: true, status: true, dueAt: true,
-        assignedTo: { select: { id: true, name: true } },
-      },
-      orderBy: [{ dueAt: "asc" }],
-      take: 30,
-    }),
-    prisma.document.findMany({
-      where: { caseId, organizationId: ctx.organizationId, deletedAt: null },
-      select: {
-        id: true, category: true, sensitivity: true, originalName: true,
-        displayName: true, mimeType: true, sizeBytes: true, createdAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 30,
-    }),
-    prisma.quote.findMany({
-      where: { caseId, organizationId: ctx.organizationId },
-      select: { id: true, folio: true, status: true, total: true, currency: true, issuedAt: true },
-      orderBy: { issuedAt: "desc" },
-      take: 10,
-    }),
-    prisma.payment.findMany({
-      where: { caseId, organizationId: ctx.organizationId },
-      select: {
-        id: true, amount: true, currency: true, method: true, status: true,
-        dueAt: true, receivedAt: true,
-      },
-      orderBy: { createdAt: "desc" },
-      take: 10,
-    }),
-    prisma.activityLog.findMany({
-      where: { caseId, organizationId: ctx.organizationId },
-      select: {
-        id: true, type: true, description: true, createdAt: true,
-        actor: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-    }),
-  ]);
+  const [rounds, openTasks, documents, quotes, payments, timeline, stageHistory] =
+    await Promise.all([
+      prisma.creditRound.findMany({
+        where: { caseId, organizationId: ctx.organizationId },
+        orderBy: { roundNumber: "desc" },
+        take: 30,
+      }),
+      prisma.task.findMany({
+        where: {
+          caseId,
+          organizationId: ctx.organizationId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+        },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          priority: true,
+          status: true,
+          dueAt: true,
+          assignedTo: { select: { id: true, name: true } },
+        },
+        orderBy: [{ dueAt: "asc" }],
+        take: 30,
+      }),
+      prisma.document.findMany({
+        where: {
+          caseId,
+          organizationId: ctx.organizationId,
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          category: true,
+          sensitivity: true,
+          originalName: true,
+          displayName: true,
+          mimeType: true,
+          sizeBytes: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 30,
+      }),
+      prisma.quote.findMany({
+        where: { caseId, organizationId: ctx.organizationId },
+        select: {
+          id: true,
+          folio: true,
+          status: true,
+          total: true,
+          currency: true,
+          issuedAt: true,
+        },
+        orderBy: { issuedAt: "desc" },
+        take: 10,
+      }),
+      prisma.payment.findMany({
+        where: { caseId, organizationId: ctx.organizationId },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          method: true,
+          status: true,
+          dueAt: true,
+          receivedAt: true,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      }),
+      prisma.activityLog.findMany({
+        where: { caseId, organizationId: ctx.organizationId },
+        select: {
+          id: true,
+          type: true,
+          description: true,
+          createdAt: true,
+          actor: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      prisma.serviceCaseStageHistory.findMany({
+        where: { serviceCaseId: creditCase.serviceCaseId },
+        select: {
+          id: true,
+          changedAt: true,
+          fromStage: { select: { id: true, name: true, color: true } },
+          toStage: { select: { id: true, name: true, color: true } },
+          changedBy: { select: { id: true, name: true } },
+        },
+        orderBy: { changedAt: "desc" },
+        take: 15,
+      }),
+    ]);
 
-  return { case: creditCase, rounds, openTasks, documents, quotes, payments, timeline };
+  return {
+    case: creditCase,
+    rounds,
+    openTasks,
+    documents,
+    quotes,
+    payments,
+    timeline,
+    stageHistory,
+  };
 }

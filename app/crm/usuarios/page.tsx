@@ -93,7 +93,7 @@ export default async function UsersPage() {
                       <span className="ml-1 text-xs text-text-secondary">(tú)</span>
                     ) : null}
                   </TD>
-                  <TD className="text-text-secondary-strong">{member.user.email}</TD>
+                  <TD className="font-mono text-[12px] text-text-secondary-strong">{member.user.email}</TD>
                   <TD>
                     <Pill tone={ROLE_TONES[member.role] ?? "slate"}>
                       {ROLE_LABELS[member.role] ?? member.role}
@@ -106,7 +106,7 @@ export default async function UsersPage() {
                       <Pill tone="slate">Inactivo</Pill>
                     )}
                   </TD>
-                  <TD className="whitespace-nowrap text-text-secondary">
+                  <TD className="whitespace-nowrap tabular-nums text-text-secondary">
                     {member.user.lastLoginAt
                       ? formatDateTime(member.user.lastLoginAt)
                       : "Nunca"}

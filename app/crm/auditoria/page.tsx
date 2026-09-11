@@ -45,6 +45,7 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   MEMBER_ROLE_CHANGED: "Rol de miembro cambiado",
   MEMBER_DEACTIVATED: "Miembro desactivado",
   INTAKE_SUBMITTED: "Formulario enviado",
+  CONTRACT_CREATED: "Contrato creado",
 };
 
 const ENTITY_TYPES = [
@@ -159,7 +160,7 @@ export default async function AuditPage({
             <TBody>
               {result.items.map((log) => (
                 <TR key={log.id} className="align-top transition-colors hover:bg-nav-hover">
-                  <TD className="whitespace-nowrap text-text-secondary">
+                  <TD className="whitespace-nowrap tabular-nums text-text-secondary">
                     {formatDateTime(log.createdAt)}
                   </TD>
                   <TD>
@@ -168,7 +169,7 @@ export default async function AuditPage({
                         <span className="block text-ink">
                           {log.actor.name ?? log.actor.email}
                         </span>
-                        <span className="block text-xs text-text-secondary">
+                        <span className="block font-mono text-[12px] text-text-secondary">
                           {log.actor.email}
                         </span>
                       </>
@@ -180,10 +181,10 @@ export default async function AuditPage({
                     {AUDIT_ACTION_LABELS[log.action] ?? log.action}
                   </TD>
                   <TD>
-                    <span className="block text-text-secondary-strong">{log.entityType}</span>
+                    <span className="block font-mono text-[12px] text-text-secondary-strong">{log.entityType}</span>
                     {log.entityId ? (
                       <span
-                        className="block font-mono text-xs text-text-secondary"
+                        className="block font-mono text-[12px] text-text-secondary"
                         title={log.entityId}
                       >
                         {log.entityId.slice(0, 8)}…
@@ -192,11 +193,11 @@ export default async function AuditPage({
                   </TD>
                   <TD>
                     {log.metadata ? (
-                      <details className="text-xs">
+                      <details className="text-[12px]">
                         <summary className="cursor-pointer text-action-primary hover:text-action-secondary">
                           Ver metadata
                         </summary>
-                        <pre className="mt-1 max-w-md overflow-x-auto rounded-control bg-surface-app p-2 font-mono text-xs text-text-secondary-strong">
+                        <pre className="mt-1 max-w-md overflow-x-auto rounded-control bg-surface-app p-2 font-mono text-[12px] text-text-secondary-strong">
                           {JSON.stringify(log.metadata, null, 2)}
                         </pre>
                       </details>

@@ -102,7 +102,7 @@ export default async function PackagesPage() {
                       ))}
                     </ul>
                   </TD>
-                  <TD className="whitespace-nowrap tabular-nums">
+                  <TD className="whitespace-nowrap font-medium tabular-nums">
                     {formatMoney(pkg.defaultPrice, pkg.currency)}
                   </TD>
                   <TD>

@@ -11,6 +11,7 @@ import {
   Input,
   Modal,
   Pill,
+  StagePill,
 } from "@/src/components/ui";
 import { playActionResult } from "@/src/lib/cuelume";
 import {
@@ -124,7 +125,7 @@ export function StagesManager({ stages }: { stages: StageRow[] }) {
         </Button>
       </div>
 
-      <ul className="divide-y divide-border-subtle rounded-surface bg-surface-elevated">
+      <ul className="divide-y divide-border-subtle overflow-hidden rounded-surface border border-border-subtle">
         {stages.map((stage, index) => (
           <li key={stage.id} className="flex items-center gap-3 px-4 py-3">
             <div className="flex flex-col">
@@ -147,17 +148,17 @@ export function StagesManager({ stages }: { stages: StageRow[] }) {
                 <ArrowDown className="size-3.5" aria-hidden />
               </Button>
             </div>
-            <span
-              aria-hidden
-              className="size-4 shrink-0 rounded-full ring-1 ring-inset ring-border-subtle"
-              style={{ backgroundColor: stage.color }}
-            />
+            <span className="w-6 shrink-0 text-center text-[13px] tabular-nums text-text-secondary">
+              {index + 1}
+            </span>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-ink">{stage.name}</p>
-              <p className="font-mono text-xs text-text-secondary">{stage.key}</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <StagePill name={stage.name} color={stage.color} />
+                {stage.isTerminal ? <Pill tone="indigo">Terminal</Pill> : null}
+              </div>
+              <p className="mt-1 font-mono text-[12px] text-text-secondary">{stage.key}</p>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              {stage.isTerminal ? <Pill tone="indigo">Terminal</Pill> : null}
               {stage.isActive ? (
                 <Pill tone="green">Activa</Pill>
               ) : (
@@ -230,13 +231,18 @@ export function StagesManager({ stages }: { stages: StageRow[] }) {
             />
           </Field>
           <Field label="Color" htmlFor="stage-color">
-            <input
-              id="stage-color"
-              type="color"
-              value={form.color}
-              onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
-              className="h-10 w-16 cursor-pointer rounded-control border border-border-subtle bg-surface-elevated p-1"
-            />
+            <div className="flex items-center gap-3">
+              <input
+                id="stage-color"
+                type="color"
+                value={form.color}
+                onChange={(e) => setForm((f) => ({ ...f, color: e.target.value }))}
+                className="h-10 w-16 cursor-pointer rounded-control border border-border-subtle bg-surface-elevated p-1"
+              />
+              <span className="font-mono text-[12px] uppercase text-text-secondary">
+                {form.color}
+              </span>
+            </div>
           </Field>
           <label className="flex items-center gap-2 text-sm text-text-secondary-strong">
             <input

@@ -666,11 +666,11 @@ export function SettingsForm({
         </div>
         <div className="overflow-x-auto rounded-control border border-border-subtle">
           <table className="w-full text-left text-sm">
-            <thead className="bg-nav-hover text-xs text-text-secondary">
-              <tr>
-                <th className="px-3 py-2 font-medium">Tipo</th>
-                <th className="px-3 py-2 font-medium">Correo al equipo</th>
-                <th className="px-3 py-2 font-medium">WhatsApp al equipo</th>
+            <thead>
+              <tr className="border-b border-border-subtle">
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-text-secondary">Tipo</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-text-secondary">Correo al equipo</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-text-secondary">WhatsApp al equipo</th>
               </tr>
             </thead>
             <tbody>
@@ -714,7 +714,7 @@ export function SettingsForm({
             </tbody>
           </table>
         </div>
-        <p className="text-xs font-medium text-text-secondary-strong">
+        <p className="text-[13px] font-semibold text-text-secondary-strong">
           Correos a clientes (requiere SMTP)
         </p>
         {(
@@ -755,7 +755,7 @@ export function SettingsForm({
           {emailRecipients.map((row, index) => (
             <div
               key={row.key}
-              className="space-y-3 rounded-control border border-border-subtle p-4"
+              className="space-y-3 rounded-control border border-border-subtle bg-surface-app p-4"
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium text-ink">
@@ -889,7 +889,7 @@ export function SettingsForm({
           {recipients.map((row, index) => (
             <div
               key={row.key}
-              className="space-y-3 rounded-control border border-border-subtle p-4"
+              className="space-y-3 rounded-control border border-border-subtle bg-surface-app p-4"
             >
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium text-ink">

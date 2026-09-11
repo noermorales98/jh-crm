@@ -97,15 +97,15 @@ export function MfaSettingsPanel({
 
       <div className="flex items-start gap-3">
         {enabled ? (
-          <ShieldCheck className="mt-0.5 size-5 text-emerald-600" aria-hidden />
+          <ShieldCheck className="mt-0.5 size-5 text-success-ink" aria-hidden />
         ) : (
           <ShieldOff className="mt-0.5 size-5 text-text-secondary" aria-hidden />
         )}
         <div>
           <p className="text-sm font-medium text-ink">
             {enabled
-              ? "MFA activada en tu cuenta"
-              : "MFA desactivada en tu cuenta"}
+              ? "Autenticación en dos pasos activada en tu cuenta"
+              : "Autenticación en dos pasos desactivada en tu cuenta"}
           </p>
           <p className="mt-1 text-sm text-text-secondary">
             {recommended
@@ -132,7 +132,7 @@ export function MfaSettingsPanel({
               id="mfa-secret"
               readOnly
               value={setup.secret}
-              className="font-mono text-sm"
+              className="font-mono text-[12px]"
             />
           </Field>
           <Field label="URI otpauth" htmlFor="mfa-uri">
@@ -140,14 +140,14 @@ export function MfaSettingsPanel({
               id="mfa-uri"
               readOnly
               value={setup.otpauthUri}
-              className="font-mono text-xs"
+              className="font-mono text-[12px]"
             />
           </Field>
           <div>
             <p className="mb-2 text-sm font-medium text-ink">
               Códigos de recuperación
             </p>
-            <ul className="grid gap-1 rounded-lg bg-surface-app p-3 font-mono text-sm sm:grid-cols-2">
+            <ul className="grid gap-1 rounded-control bg-surface-app p-3 font-mono text-[13px] sm:grid-cols-2">
               {setup.recoveryCodes.map((c) => (
                 <li key={c}>{c}</li>
               ))}

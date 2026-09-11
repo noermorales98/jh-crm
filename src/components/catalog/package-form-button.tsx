@@ -193,7 +193,7 @@ export function PackageFormButton({
           <div>
             <div className="mb-1.5 flex items-center justify-between">
               <span className="text-sm font-medium text-text-secondary-strong">
-                Servicios incluidos<span className="ml-0.5 text-red-500">*</span>
+                Servicios incluidos<span className="ml-0.5 text-danger" aria-hidden>*</span>
               </span>
               <Button
                 variant="secondary"

@@ -76,7 +76,7 @@ export default async function ServicesPage() {
                       <span className="text-text-secondary">—</span>
                     )}
                   </TD>
-                  <TD className="whitespace-nowrap tabular-nums">
+                  <TD className="whitespace-nowrap font-medium tabular-nums">
                     {formatMoney(service.defaultPrice, service.currency)}
                   </TD>
                   <TD>

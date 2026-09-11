@@ -107,7 +107,7 @@ async function main() {
   const moved = await prisma.creditCase.findUniqueOrThrow({ where: { id: creditCase.id } });
   check("moveToStage actualiza stageId", moved.stageId === stageAnalysis.id);
 
-  await cases.setNextReviewDate(ctx, creditCase.id, new Date(Date.now() + 5 * 86400_000));
+  await cases.setNextActionAt(ctx, creditCase.id, new Date(Date.now() + 5 * 86400_000));
 
   // ── 4. Rondas ─────────────────────────────────────────────────────────
   console.log("\n[4] Rondas");

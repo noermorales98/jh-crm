@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   ChevronRight,
   ClipboardList,
+  CalendarClock,
   CreditCard,
   FileText,
   Inbox,
@@ -132,13 +133,31 @@ export default async function DashboardPage() {
 
   for (const c of widgets.overdueUpdates.items) {
     attention.push({
-      id: `review-overdue-${c.id}`,
-      title: `Revisión vencida · ${c.caseCode}`,
-      detail: clientFullName(c.client),
-      href: `/crm/casos/${c.id}`,
+      id: `action-overdue-${c.serviceCaseId}`,
+      title: `Próxima acción vencida · ${c.caseNumber}`,
+      detail: `${clientFullName(c.client)}${
+        c.nextActionAt ? ` · ${formatDate(c.nextActionAt, tz)}` : ""
+      }`,
+      href: c.caseId
+        ? `/crm/casos/${c.caseId}`
+        : `/crm/clientes/${c.client.id}/servicios`,
       tone: "danger",
       icon: AlertTriangle,
       badge: "Urgente",
+    });
+  }
+
+  for (const c of widgets.upcomingReviews.cases.slice(0, 5)) {
+    attention.push({
+      id: `action-upcoming-${c.serviceCaseId}`,
+      title: `Próxima acción · ${c.caseNumber}`,
+      detail: `${c.nextActionAt ? formatDate(c.nextActionAt, tz) : "Sin fecha"} · ${clientFullName(c.client)}`,
+      href: c.caseId
+        ? `/crm/casos/${c.caseId}`
+        : `/crm/clientes/${c.client.id}/servicios`,
+      tone: "neutral",
+      icon: CalendarClock,
+      badge: "Próxima",
     });
   }
 

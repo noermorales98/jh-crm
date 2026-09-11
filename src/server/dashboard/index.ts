@@ -30,7 +30,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
     activeRounds,
     tasksToday,
     overdueTasks,
-    upcomingCaseReviews,
+    upcomingCaseActions,
     upcomingRoundReviews,
     pendingQuotes,
     pendingPaymentsAgg,
@@ -57,23 +57,24 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
     prisma.client.count({
       where: { organizationId: orgId, status: "ACTIVE" },
     }),
-    prisma.creditCase.count({
-      where: { organizationId: orgId, state: "OPEN" },
+    prisma.serviceCase.count({
+      where: { organizationId: orgId, status: "OPEN" },
     }),
-    // Casos esperando actualización: revisión vencida o dentro de 7 días.
-    prisma.creditCase.findMany({
+    // SC-003: acciones operativas vencidas o dentro de 7 días.
+    prisma.serviceCase.findMany({
       where: {
         organizationId: orgId,
-        state: "OPEN",
-        nextReviewAt: { lte: in7Days },
+        status: "OPEN",
+        nextActionAt: { lte: in7Days },
       },
       select: {
         id: true,
-        caseCode: true,
-        nextReviewAt: true,
+        caseNumber: true,
+        nextActionAt: true,
+        creditCase: { select: { id: true } },
         client: { select: { id: true, firstName: true, lastName: true } },
       },
-      orderBy: { nextReviewAt: "asc" },
+      orderBy: { nextActionAt: "asc" },
       take: 10,
     }),
     prisma.creditRound.count({
@@ -106,19 +107,20 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       orderBy: { dueAt: "asc" },
       take: 10,
     }),
-    prisma.creditCase.findMany({
+    prisma.serviceCase.findMany({
       where: {
         organizationId: orgId,
-        state: "OPEN",
-        nextReviewAt: { gte: now, lte: in14Days },
+        status: "OPEN",
+        nextActionAt: { gte: now, lte: in14Days },
       },
       select: {
         id: true,
-        caseCode: true,
-        nextReviewAt: true,
+        caseNumber: true,
+        nextActionAt: true,
+        creditCase: { select: { id: true } },
         client: { select: { id: true, firstName: true, lastName: true } },
       },
-      orderBy: { nextReviewAt: "asc" },
+      orderBy: { nextActionAt: "asc" },
       take: 10,
     }),
     prisma.creditRound.findMany({
@@ -237,26 +239,27 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
         status: "WAITING_UPDATE",
       },
     }),
-    prisma.creditCase.count({
+    prisma.serviceCase.count({
       where: {
         organizationId: orgId,
-        state: "OPEN",
-        nextReviewAt: { lt: now },
+        status: "OPEN",
+        nextActionAt: { lt: now },
       },
     }),
-    prisma.creditCase.findMany({
+    prisma.serviceCase.findMany({
       where: {
         organizationId: orgId,
-        state: "OPEN",
-        nextReviewAt: { lt: now },
+        status: "OPEN",
+        nextActionAt: { lt: now },
       },
       select: {
         id: true,
-        caseCode: true,
-        nextReviewAt: true,
+        caseNumber: true,
+        nextActionAt: true,
+        creditCase: { select: { id: true } },
         client: { select: { id: true, firstName: true, lastName: true } },
       },
-      orderBy: { nextReviewAt: "asc" },
+      orderBy: { nextActionAt: "asc" },
       take: 5,
     }),
     prisma.payment.count({
@@ -341,6 +344,16 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       row.nextFollowUpAt != null && row.nextFollowUpAt.getTime() < now.getTime(),
   }));
   const leadsToContactOverdue = leadsToContactItems.filter((r) => r.overdue).length;
+  const toNextActionItem = (row: (typeof casesWaitingUpdate)[number]) => ({
+    serviceCaseId: row.id,
+    caseId: row.creditCase?.id ?? null,
+    caseNumber: row.caseNumber,
+    nextActionAt: row.nextActionAt,
+    client: row.client,
+  });
+  const casesWaitingUpdateItems = casesWaitingUpdate.map(toNextActionItem);
+  const upcomingCaseActionItems = upcomingCaseActions.map(toNextActionItem);
+  const overdueUpdateItems = overdueUpdatesList.map(toNextActionItem);
   return {
     generatedAt: now,
     timezone,
@@ -354,9 +367,9 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
         link: "/crm/casos?state=OPEN",
       },
       casesWaitingUpdate: {
-        count: casesWaitingUpdate.length,
-        items: casesWaitingUpdate,
-        link: `/crm/casos?state=OPEN&reviewTo=${in7Days.toISOString().slice(0, 10)}`,
+        count: casesWaitingUpdateItems.length,
+        items: casesWaitingUpdateItems,
+        link: "/crm/casos?state=OPEN",
       },
       activeRounds: {
         count: activeRounds,
@@ -373,9 +386,9 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
         link: "/crm/tareas?due=overdue",
       },
       upcomingReviews: {
-        cases: upcomingCaseReviews,
+        cases: upcomingCaseActionItems,
         rounds: upcomingRoundReviews,
-        count: upcomingCaseReviews.length + upcomingRoundReviews.length,
+        count: upcomingCaseActionItems.length + upcomingRoundReviews.length,
         link: "/crm/rondas",
       },
       pendingQuotes: {
@@ -421,7 +434,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       },
       overdueUpdates: {
         count: overdueUpdates,
-        items: overdueUpdatesList,
+        items: overdueUpdateItems,
         link: "/crm/casos?state=OPEN",
       },
       overduePayments: {

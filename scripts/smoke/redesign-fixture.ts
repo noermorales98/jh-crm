@@ -67,12 +67,12 @@ async function main() {
   const case1 = await cases.createCreditCase(ctx, {
     clientId: c1.id,
     summary: "SHOT — Reparación de crédito integral (3 burós).",
-    nextReviewAt: inDays(4),
+    nextActionAt: inDays(4),
   });
   const case2 = await cases.createCreditCase(ctx, {
     clientId: c2.id,
     summary: "SHOT — Disputa de colecciones médicas.",
-    nextReviewAt: inDays(-2),
+    nextActionAt: inDays(-2),
   });
 
   await tasks.createTask(ctx, {

@@ -35,7 +35,7 @@ export async function getCaseNextSteps(
     select: {
       id: true,
       state: true,
-      nextReviewAt: true,
+      serviceCase: { select: { nextActionAt: true } },
     },
   });
   if (!creditCase) throw new DomainError("Caso no encontrado.");
@@ -60,12 +60,15 @@ export async function getCaseNextSteps(
   }
 
   const now = new Date();
-  if (creditCase.nextReviewAt && creditCase.nextReviewAt < now) {
+  if (
+    creditCase.serviceCase.nextActionAt &&
+    creditCase.serviceCase.nextActionAt < now
+  ) {
     steps.push({
-      id: "review-overdue",
-      title: "Revisión vencida",
-      detail: "Actualiza la próxima fecha de revisión.",
-      href: `${base}#proxima-revision`,
+      id: "next-action-overdue",
+      title: "Próxima acción vencida",
+      detail: "Actualiza la fecha de la próxima acción.",
+      href: `${base}#proxima-accion`,
       tone: "danger",
     });
   }
@@ -140,10 +143,10 @@ export async function getCaseNextSteps(
     steps.push({
       id: "all-clear",
       title: "Todo al día",
-      detail: creditCase.nextReviewAt
-        ? "No hay urgencias. Revisa la próxima fecha programada."
-        : "Programa una próxima revisión cuando toque.",
-      href: `${base}#proxima-revision`,
+      detail: creditCase.serviceCase.nextActionAt
+        ? "No hay urgencias. Revisa la próxima acción programada."
+        : "Programa la próxima acción cuando corresponda.",
+      href: `${base}#proxima-accion`,
       tone: "neutral",
     });
   }

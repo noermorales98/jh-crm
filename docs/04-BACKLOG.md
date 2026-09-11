@@ -317,6 +317,8 @@ Testimonios
 - mostrar en dashboard;
 - permitir actualizarla.
 
+**Estado:** DONE (2026-09-10). `ServiceCase.nextActionAt` es la fuente canónica (ficha, dashboard, `setNextActionAt`, `markRoundSent`). `CreditCase.nextReviewAt` queda en solo lectura legacy; smoke `scripts/smoke/sc-003-next-action.ts` verde.
+
 ---
 
 ## SC-004 — Completar expediente

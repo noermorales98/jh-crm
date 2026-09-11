@@ -308,11 +308,13 @@ export async function getDashboardSnapshot(ctx: OrganizationContext) {
       client: task.client ? fullName(task.client) : null,
       href: "/crm/tareas?due=overdue",
     })),
-    casesWaitingUpdate: w.casesWaitingUpdate.items.map((creditCase) => ({
-      caseCode: creditCase.caseCode,
-      nextReviewAt: creditCase.nextReviewAt,
-      client: fullName(creditCase.client),
-      href: `/crm/casos/${creditCase.id}`,
+    casesWaitingUpdate: w.casesWaitingUpdate.items.map((serviceCase) => ({
+      caseNumber: serviceCase.caseNumber,
+      nextActionAt: serviceCase.nextActionAt,
+      client: fullName(serviceCase.client),
+      href: serviceCase.caseId
+        ? `/crm/casos/${serviceCase.caseId}`
+        : `/crm/clientes/${serviceCase.client.id}/servicios`,
     })),
     pendingPayments: w.pendingPayments.items.map((payment) => ({
       amount: formatMoney(payment.amount, payment.currency),
@@ -1990,4 +1992,3 @@ export async function draftMailHelp(
     ].join(" "),
   });
 }
-

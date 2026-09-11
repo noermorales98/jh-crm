@@ -41,7 +41,7 @@ export function CreateCaseButton({
     defaultAssigneeId(members),
   );
   const [summary, setSummary] = useState("");
-  const [nextReviewAt, setNextReviewAt] = useState("");
+  const [nextActionAt, setNextActionAt] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -54,7 +54,7 @@ export function CreateCaseButton({
         ...(stageId ? { stageId } : {}),
         ...(assignedToId ? { assignedToId } : {}),
         ...(summary.trim() ? { summary: summary.trim() } : {}),
-        ...(nextReviewAt ? { nextReviewAt } : {}),
+        ...(nextActionAt ? { nextActionAt } : {}),
       });
       if (!result.ok) {
         play("error");
@@ -109,11 +109,12 @@ export function CreateCaseButton({
                 ))}
               </Select>
             </Field>
-            <Field label="Próxima acción" htmlFor="case-review">
+            <Field label="Próxima acción" htmlFor="case-next-action">
               <DateInput
-                id="case-review"
-                value={nextReviewAt}
-                onChange={(e) => setNextReviewAt(e.target.value)}
+                id="case-next-action"
+                value={nextActionAt}
+                onChange={(e) => setNextActionAt(e.target.value)}
+                pickerTitle="Elegir fecha de próxima acción"
               />
             </Field>
           </div>

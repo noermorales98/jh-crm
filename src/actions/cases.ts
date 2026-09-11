@@ -28,7 +28,7 @@ const createCaseSchema = z.object({
   stageId: cuidSchema.optional(),
   assignedToId: cuidSchema.nullish(),
   summary: z.string().trim().max(5000).nullish(),
-  nextReviewAt: optionalDateSchema,
+  nextActionAt: optionalDateSchema,
 });
 
 /** SC-001 — Crear expediente CREDIT_REPAIR (ServiceCase + CreditCase). */
@@ -126,19 +126,19 @@ export async function reopenCase(caseId: string) {
   return transition(caseId, caseService.reopenCase);
 }
 
-const nextReviewSchema = z.object({ nextReviewAt: optionalDateSchema });
+const nextActionSchema = z.object({ nextActionAt: optionalDateSchema });
 
-export async function setNextReviewDate(
+export async function setNextActionAt(
   caseId: string,
   input: unknown,
 ): Promise<ActionResult<{ id: string }>> {
   try {
     const ctx = await requirePermission("cases.manage");
     const id = cuidSchema.parse(caseId);
-    const { nextReviewAt } = nextReviewSchema.parse(input);
-    const creditCase = await caseService.setNextReviewDate(ctx, id, nextReviewAt ?? null);
-    revalidateCases(creditCase.clientId, creditCase.id);
-    return actionOk({ id: creditCase.id });
+    const { nextActionAt } = nextActionSchema.parse(input);
+    const updated = await caseService.setNextActionAt(ctx, id, nextActionAt ?? null);
+    revalidateCases(updated.clientId, updated.id);
+    return actionOk({ id: updated.id });
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

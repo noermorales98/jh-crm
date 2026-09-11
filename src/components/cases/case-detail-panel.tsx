@@ -17,7 +17,7 @@ import { formatDate } from "@/src/lib/format";
 import { CaseStageSelect } from "@/src/components/cases/case-stage-select";
 import { CaseStateActions } from "@/src/components/cases/case-state-actions";
 import { CaseSummaryForm } from "@/src/components/cases/case-summary-form";
-import { CaseReviewForm } from "@/src/components/cases/case-review-form";
+import { CaseNextActionForm } from "@/src/components/cases/case-review-form";
 import { CaseNextStepsCard } from "@/src/components/cases/case-next-steps-card";
 import { CaseHeader } from "@/app/crm/casos/[caseId]/case-header";
 
@@ -92,17 +92,17 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
                     {creditCase.closedAt ? formatDate(creditCase.closedAt) : "—"}
                   </dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Próxima revisión</dt>
+                <div className="flex items-start justify-between gap-4 rounded-control bg-surface-panel px-3 py-2.5">
+                  <dt className="font-medium text-ink">Próxima acción</dt>
                   <dd>
-                    {creditCase.nextReviewAt ? (
-                      new Date(creditCase.nextReviewAt) < new Date() && isOpen ? (
+                    {creditCase.serviceCase.nextActionAt ? (
+                      new Date(creditCase.serviceCase.nextActionAt) < new Date() && isOpen ? (
                         <Pill tone="red">
-                          Vencida {formatDate(creditCase.nextReviewAt)}
+                          Vencida · {formatDate(creditCase.serviceCase.nextActionAt)}
                         </Pill>
                       ) : (
-                        <span className="text-ink">
-                          {formatDate(creditCase.nextReviewAt)}
+                        <span className="font-medium text-ink">
+                          {formatDate(creditCase.serviceCase.nextActionAt)}
                         </span>
                       )
                     ) : (
@@ -114,16 +114,16 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
 
               {canManage && isOpen ? (
                 <div
-                  id="proxima-revision"
+                  id="proxima-accion"
                   className="scroll-mt-24 border-t border-border-subtle pt-4"
                 >
-                  <CaseReviewForm
+                  <CaseNextActionForm
                     caseId={creditCase.id}
-                    initialDate={toDateInputValue(creditCase.nextReviewAt)}
+                    initialDate={toDateInputValue(creditCase.serviceCase.nextActionAt)}
                   />
                 </div>
               ) : (
-                <div id="proxima-revision" className="scroll-mt-24" />
+                <div id="proxima-accion" className="scroll-mt-24" />
               )}
 
               {stageHistory.length > 0 ? (

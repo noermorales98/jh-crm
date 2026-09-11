@@ -19,6 +19,8 @@ export interface CaseCreateData {
   stageId?: string;
   assignedToId?: string | null;
   summary?: string | null;
+  nextActionAt?: Date | null;
+  /** @deprecated Compatibilidad de llamadas internas previas a SC-003. */
   nextReviewAt?: Date | null;
 }
 
@@ -112,22 +114,6 @@ async function getActiveStageOrThrow(
   return stage;
 }
 
-/** Primera etapa activa del Service CREDIT_REPAIR (por order). */
-async function getDefaultStage(ctx: OrganizationContext, serviceId: string) {
-  const stage = await prisma.workflowStage.findFirst({
-    where: {
-      organizationId: ctx.organizationId,
-      serviceId,
-      isActive: true,
-    },
-    orderBy: { order: "asc" },
-  });
-  if (!stage) {
-    throw new DomainError("La organización no tiene etapas activas configuradas.");
-  }
-  return stage;
-}
-
 /**
  * Crea ServiceCase + CreditCase en la misma transacción.
  * Si se pasa `tx`, se usa esa transacción (p.ej. markWon).
@@ -194,7 +180,7 @@ export async function createCreditCase(
     }
 
     const { code } = await nextCaseCode(client, ctx.organizationId);
-    const nextActionAt = data.nextReviewAt ?? null;
+    const nextActionAt = data.nextActionAt ?? data.nextReviewAt ?? null;
 
     const serviceCase = await client.serviceCase.create({
       data: {
@@ -228,7 +214,6 @@ export async function createCreditCase(
         stageId: stage.id,
         assignedToId: assigneeId,
         summary: data.summary ?? null,
-        nextReviewAt: nextActionAt,
       },
       include: { stage: { select: { id: true, name: true, color: true } } },
     });
@@ -440,34 +425,41 @@ export async function reopenCase(ctx: OrganizationContext, caseId: string) {
   return setCaseState(ctx, caseId, "OPEN", `Caso ${creditCase.caseCode} reabierto.`);
 }
 
-export async function setNextReviewDate(
+/** SC-003: actualiza solamente la fuente operativa canónica. */
+export async function setNextActionAt(
   ctx: OrganizationContext,
   caseId: string,
-  nextReviewAt: Date | null,
+  nextActionAt: Date | null,
 ) {
   const creditCase = await getCaseOrThrow(ctx, caseId);
-  const updated = await prisma.$transaction(async (tx) => {
-    const row = await tx.creditCase.update({
-      where: { id: creditCase.id },
-      data: { nextReviewAt },
-    });
-    await tx.serviceCase.update({
+  return prisma.$transaction(async (tx) => {
+    const serviceCase = await tx.serviceCase.update({
       where: { id: creditCase.serviceCaseId },
-      data: { nextActionAt: nextReviewAt },
+      data: { nextActionAt },
     });
-    return row;
+
+    await writeActivityLog(
+      toActivityContext(ctx),
+      {
+        type: "NOTE",
+        description: nextActionAt
+          ? `Próxima acción del expediente ${creditCase.caseCode} programada.`
+          : `Se eliminó la próxima acción del expediente ${creditCase.caseCode}.`,
+        clientId: creditCase.clientId,
+        caseId: creditCase.id,
+        serviceCaseId: creditCase.serviceCaseId,
+        metadata: { nextActionAt: nextActionAt?.toISOString() ?? null },
+      },
+      tx,
+    );
+
+    return {
+      id: creditCase.id,
+      clientId: creditCase.clientId,
+      serviceCaseId: serviceCase.id,
+      nextActionAt: serviceCase.nextActionAt,
+    };
   });
-  await writeActivityLog(toActivityContext(ctx), {
-    type: "NOTE",
-    description: nextReviewAt
-      ? `Próxima revisión del caso ${creditCase.caseCode} programada.`
-      : `Se eliminó la próxima revisión del caso ${creditCase.caseCode}.`,
-    clientId: creditCase.clientId,
-    caseId: creditCase.id,
-    serviceCaseId: creditCase.serviceCaseId,
-    metadata: { nextReviewAt: nextReviewAt?.toISOString() ?? null },
-  });
-  return updated;
 }
 
 export async function listCases(ctx: OrganizationContext, filters: CaseListFilters = {}) {
@@ -510,7 +502,6 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
       serviceCaseId: true,
       state: true,
       openedAt: true,
-      nextReviewAt: true,
       closedAt: true,
       summary: true,
       createdAt: true,
@@ -525,6 +516,7 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
           serviceId: true,
           stageId: true,
           status: true,
+          nextActionAt: true,
         },
       },
     },

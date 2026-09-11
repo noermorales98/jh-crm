@@ -41,7 +41,7 @@ async function main() {
       clientId: client.id,
       assignedToId: member.userId,
       summary: "Smoke ARC-003 wrap",
-      nextReviewAt: new Date(Date.now() + 7 * 86400000),
+      nextActionAt: new Date(Date.now() + 7 * 86400000),
     });
 
     if (!created.serviceCaseId) {
@@ -54,8 +54,8 @@ async function main() {
     if (sc.caseNumber !== created.caseCode) {
       throw new Error("caseNumber != caseCode");
     }
-    if (sc.nextActionAt?.getTime() !== created.nextReviewAt?.getTime()) {
-      throw new Error("nextActionAt no copió nextReviewAt");
+    if (!sc.nextActionAt) {
+      throw new Error("ServiceCase.nextActionAt no se guardó");
     }
 
     const target = stages.find((s) => s.id !== created.stage.id) ?? stages[1]!;

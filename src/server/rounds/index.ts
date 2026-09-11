@@ -75,7 +75,17 @@ async function getCaseInOrg(ctx: OrganizationContext, caseId: string) {
 async function getRoundOrThrow(ctx: OrganizationContext, roundId: string) {
   const round = await prisma.creditRound.findFirst({
     where: { id: roundId, organizationId: ctx.organizationId },
-    include: { case: { select: { id: true, caseCode: true, clientId: true, assignedToId: true } } },
+    include: {
+      case: {
+        select: {
+          id: true,
+          caseCode: true,
+          clientId: true,
+          serviceCaseId: true,
+          assignedToId: true,
+        },
+      },
+    },
   });
   if (!round) throw new DomainError("Ronda no encontrada.");
   return round;
@@ -152,6 +162,7 @@ export async function updateRound(
 /**
  * Marca la ronda como enviada. En una sola transacción:
  *   ronda → SENT + sentAt + expectedReviewAt
+ *   ServiceCase.nextActionAt ← expectedReviewAt (BR-033)
  *   opcional: Task(type=CREDIT_UPDATE) con dueAt=expectedReviewAt
  *   ActivityLog ROUND_SENT
  */
@@ -187,6 +198,11 @@ export async function markRoundSent(
       },
     });
 
+    await tx.serviceCase.update({
+      where: { id: round.case.serviceCaseId },
+      data: { nextActionAt: data.expectedReviewAt },
+    });
+
     let reviewTask = null;
     if (data.createReviewTask) {
       const assignee = reviewAssignee!;
@@ -214,6 +230,7 @@ export async function markRoundSent(
         description: `Ronda ${round.roundNumber} del caso ${round.case.caseCode} marcada como enviada.`,
         clientId: round.case.clientId,
         caseId: round.caseId,
+        serviceCaseId: round.case.serviceCaseId,
         roundId: round.id,
         metadata: {
           roundNumber: round.roundNumber,

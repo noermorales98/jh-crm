@@ -51,7 +51,7 @@ async function main() {
       clientId: client.id,
       assignedToId: member.userId,
       summary: `Smoke SC-001 ${MARK}`,
-      nextReviewAt: nextAction,
+      nextActionAt: nextAction,
     });
     caseId = created.id;
     serviceCaseId = created.serviceCaseId;

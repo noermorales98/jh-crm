@@ -2,65 +2,63 @@
 
 /**
  * Design system J&H CRM — Apple HIG
- * Paleta: Índigo (acción) · Jazmín (fondo app) · Lavanda (paneles) ·
- * Obsidiana (tinta) · Lima (énfasis excepcional).
+ * Acento: Índigo J&H (#3545d6). Neutros: escala systemGray de iOS.
+ * Superficies agrupadas (systemGroupedBackground): app gris, tarjetas blancas.
  * Apariencia: light-dark() + data-theme (light | dark | auto).
  * Materiales: blur en toolbars/menús; opaco si Reduce Transparency.
  */
 
 @theme {
-  --font-sans: "Open Sauce Two", system-ui, -apple-system, "Segoe UI",
-    sans-serif;
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
+    Roboto, "Helvetica Neue", Arial, sans-serif;
 
   /* Marca (fijos: no invierten significado entre apariencias) */
   --color-brand-indigo: #3545d6;
   --color-brand-discord: #5363ee;
   --color-brand-memory: #7f96f9;
-  --color-brand-lime: #c8fe37;
-  --color-brand-obsidian: #0b0b18;
-  --color-brand-jasmine: #f5f6fb;
-  --color-brand-lavender: #ebedfa;
-  --color-brand-silver: light-dark(#6b7184, #a8adc0);
+  --color-brand-obsidian: #1c1c1e;
+  --color-brand-jasmine: #f2f2f7;
+  --color-brand-lavender: #e5e5ea;
+  --color-brand-silver: light-dark(#8e8e93, #98989d);
 
   /* Roles semánticos — light-dark para Dark Mode del sistema */
-  --color-action-primary: light-dark(#3545d6, #6d7cf5);
+  --color-action-primary: light-dark(#3545d6, #8b97f8);
   --color-action-primary-foreground: #ffffff;
-  --color-action-secondary: light-dark(#5363ee, #8b97f8);
+  --color-action-secondary: light-dark(#5363ee, #a5aefa);
   --color-selection-soft: light-dark(#7f96f9, #9aacfb);
-  --color-highlight: #c8fe37;
-  --color-ink: light-dark(#0b0b18, #f4f5fa);
-  --color-surface-app: light-dark(#f5f6fb, #0c0c14);
-  --color-surface-panel: light-dark(#ebedfa, #161622);
-  --color-surface-elevated: light-dark(#ffffff, #1c1c2a);
-  --color-text-primary: light-dark(#0b0b18, #f4f5fa);
-  --color-text-secondary: light-dark(#3f4556, #c5c9d6);
-  --color-text-secondary-strong: light-dark(#2e3344, #d7dae4);
-  --color-text-placeholder: light-dark(#3f4556, #c5c9d6);
-  --color-border-subtle: light-dark(#d5d8e2, #2e2e42);
-  --color-nav-active: light-dark(#dde3fe, #252a52);
-  --color-nav-hover: light-dark(#f0f2fe, #222236);
+  --color-ink: light-dark(#1c1c1e, #f2f2f7);
+  --color-surface-app: light-dark(#f2f2f7, #000000);
+  --color-surface-panel: light-dark(#ffffff, #1c1c1e);
+  --color-surface-elevated: light-dark(#ffffff, #2c2c2e);
+  --color-text-primary: light-dark(#1c1c1e, #f2f2f7);
+  --color-text-secondary: light-dark(#5f5f66, #a9a9b0);
+  --color-text-secondary-strong: light-dark(#3a3a3c, #e5e5ea);
+  --color-text-placeholder: light-dark(#8e8e93, #636366);
+  --color-border-subtle: light-dark(#3c3c432e, #54545880);
+  --color-nav-active: light-dark(#3545d614, #8b97f826);
+  --color-nav-hover: light-dark(#3c3c430a, #ffffff14);
   --color-focus: light-dark(#3545d6, #8b97f8);
 
-  --color-danger: light-dark(#dc2626, #f87171);
-  --color-danger-hover: light-dark(#b91c1c, #ef4444);
-  --color-danger-soft: light-dark(#fef2f2, #3b1518);
-  --color-danger-ink: light-dark(#b91c1c, #fca5a5);
+  --color-danger: light-dark(#d70015, #ff6961);
+  --color-danger-hover: light-dark(#b80012, #ff453a);
+  --color-danger-soft: light-dark(#d7001512, #ff69611f);
+  --color-danger-ink: light-dark(#d70015, #ff6961);
 
-  --color-success-soft: light-dark(#ecfdf5, #14291f);
-  --color-success-ink: light-dark(#047857, #6ee7b7);
+  --color-success-soft: light-dark(#1d7a3212, #30d1581f);
+  --color-success-ink: light-dark(#1d7a32, #30d158);
 
-  --color-warning-soft: light-dark(#fffbeb, #3a2a10);
-  --color-warning-ink: light-dark(#b45309, #fbbf24);
+  --color-warning-soft: light-dark(#b2500012, #ffb3401f);
+  --color-warning-ink: light-dark(#b25000, #ffb340);
 
-  --color-info-soft: light-dark(#eff6ff, #152033);
-  --color-info-ink: light-dark(#1d4ed8, #93c5fd);
+  --color-info-soft: light-dark(#0a5bd712, #409cff1f);
+  --color-info-ink: light-dark(#0a5bd7, #409cff);
 
-  --color-purple-soft: light-dark(#faf5ff, #2a1838);
-  --color-purple-ink: light-dark(#7e22ce, #d8b4fe);
+  --color-purple-soft: light-dark(#7e22ce12, #da9fff1f);
+  --color-purple-ink: light-dark(#7e22ce, #da9fff);
 
   /* Compatibilidad con utilidades bg-background/text-foreground */
-  --color-background: light-dark(#f5f6fb, #0c0c14);
-  --color-foreground: light-dark(#0b0b18, #f4f5fa);
+  --color-background: light-dark(#f2f2f7, #000000);
+  --color-foreground: light-dark(#1c1c1e, #f2f2f7);
 
   /* Radios: control 10px, superficie 12px, pill 9999px */
   --radius-control: 10px;
@@ -215,9 +213,9 @@ body {
 
 @media (prefers-contrast: more) {
   :root {
-    --color-text-secondary: light-dark(#1f2433, #eceef4);
-    --color-text-placeholder: light-dark(#1f2433, #eceef4);
-    --color-border-subtle: light-dark(#8b90a0, #6b7090);
+    --color-text-secondary: light-dark(#3a3a3c, #e5e5ea);
+    --color-text-placeholder: light-dark(#3a3a3c, #e5e5ea);
+    --color-border-subtle: light-dark(#63636680, #98989d99);
     --color-focus: light-dark(#1e2bb8, #c5ccff);
   }
 }
@@ -270,7 +268,7 @@ body {
   font-weight: 700;
   letter-spacing: -0.02em;
   line-height: 1;
-  color: light-dark(#0a1f44, #f4f5fa);
+  color: light-dark(#1c1c1e, #f2f2f7);
 }
 
 .jh-brand .brand-mark {
@@ -279,7 +277,7 @@ body {
 
 .crm-brand .brand-mark span,
 .jh-brand .brand-mark span {
-  color: light-dark(#1570ef, #7f96f9);
+  color: light-dark(#3545d6, #8b97f8);
 }
 
 .crm-brand .brand-tag,

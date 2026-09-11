@@ -27,7 +27,6 @@
     "@aws-sdk/client-s3": "^3.1123.0",
     "@aws-sdk/s3-request-presigner": "^3.1123.0",
     "@blobatar/react": "^2.7.0",
-    "@fontsource/open-sauce-two": "^5.3.0",
     "@hugeicons/core-free-icons": "^4.3.0",
     "@hugeicons/react": "^1.1.10",
     "@openrouter/ai-sdk-provider": "^3.0.0",

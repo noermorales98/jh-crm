@@ -46,6 +46,7 @@
 
   --color-success-soft: light-dark(#1d7a3212, #30d1581f);
   --color-success-ink: light-dark(#1d7a32, #30d158);
+  --color-success-foreground: light-dark(#ffffff, #0a1f14);
 
   --color-warning-soft: light-dark(#b2500012, #ffb3401f);
   --color-warning-ink: light-dark(#b25000, #ffb340);

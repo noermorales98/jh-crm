@@ -79,7 +79,7 @@ export function PickerDialog({
       }}
     >
       <div
-        className="jh-overlay-shadow flex max-h-[min(32rem,85dvh)] w-full max-w-md flex-col overflow-hidden rounded-[20px] bg-surface-elevated"
+        className="jh-overlay-shadow flex max-h-[min(32rem,85dvh)] w-full max-w-md flex-col overflow-hidden rounded-[20px] border border-border-subtle bg-surface-elevated"
         onClick={(event) => event.stopPropagation()}
         onMouseDown={(event) => event.stopPropagation()}
       >

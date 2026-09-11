@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CircleAlert } from "lucide-react";
 
 /**
  * Field: envoltorio label + control + error/hint para formularios.
@@ -28,7 +29,7 @@ export function Field({
     <div className={className}>
       <label
         htmlFor={htmlFor}
-        className="mb-1.5 block text-[13px] font-semibold text-text-secondary-strong"
+        className="mb-1.5 block text-[13px] font-medium text-text-secondary-strong"
       >
         {label}
         {required ? (
@@ -42,11 +43,12 @@ export function Field({
       </label>
       {children}
       {error ? (
-        <p role="alert" className="mt-1 text-xs text-danger-ink">
-          {error}
+        <p role="alert" className="mt-1 flex items-start gap-1 text-[13px] text-danger-ink">
+          <CircleAlert className="mt-px size-3.5 shrink-0" strokeWidth={2} aria-hidden />
+          <span>{error}</span>
         </p>
       ) : hint ? (
-        <p className="mt-1 text-xs text-text-secondary">{hint}</p>
+        <p className="mt-1 text-[13px] text-text-secondary">{hint}</p>
       ) : null}
     </div>
   );

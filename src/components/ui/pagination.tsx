@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { buttonClasses } from "./button";
 
 /**
  * Paginación cursor-based (Anterior/Siguiente).
@@ -63,8 +64,7 @@ export function CursorPagination({
 
   if (!nextHref && !prevHref) return null;
 
-  const linkBase =
-    "inline-flex min-h-10 items-center gap-1 rounded-control bg-surface-panel px-3.5 text-sm font-medium text-ink transition-colors duration-200 hover:bg-nav-active motion-reduce:transition-none";
+  const linkBase = buttonClasses("secondary", "sm");
   const linkDisabled = "pointer-events-none opacity-40";
 
   return (

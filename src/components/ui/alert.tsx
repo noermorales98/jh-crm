@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { AlertCircle, CheckCircle2, Info } from "lucide-react";
+import { CircleAlert, CircleCheck, Info } from "lucide-react";
 
 /**
  * Feedback inline (patrón elegido en lugar de toasts globales):
@@ -17,12 +17,12 @@ export function Alert({
     error: "bg-danger-soft text-danger-ink",
     success: "bg-success-soft text-success-ink",
   }[tone];
-  const Icon = tone === "error" ? AlertCircle : tone === "success" ? CheckCircle2 : Info;
+  const Icon = tone === "error" ? CircleAlert : tone === "success" ? CircleCheck : Info;
 
   return (
     <div
       role={tone === "error" ? "alert" : "status"}
-      className={`flex items-start gap-2 rounded-control px-4 py-3 text-sm ${styles}`}
+      className={`flex items-start gap-2 rounded-control px-4 py-3 text-[13px] ${styles}`}
     >
       <Icon className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
       <div>{children}</div>

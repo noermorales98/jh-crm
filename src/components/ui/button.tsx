@@ -3,8 +3,8 @@ import Link from "next/link";
 
 /**
  * Botón base del UI kit. Variantes: primary (acción principal, índigo),
- * secondary (Lavanda con texto Obsidiana), success (positivo), danger
- * (destructivas), ghost (discretas, dentro de tablas).
+ * secondary (gris iOS: panel con hairline), success (positivo), danger
+ * (destructivas), ghost (link-botón tintado, sin fondo).
  */
 
 export type ButtonVariant =
@@ -19,17 +19,17 @@ const VARIANT_CLASSES: Record<ButtonVariant, string> = {
   primary:
     "bg-action-primary font-semibold text-action-primary-foreground hover:bg-action-secondary active:brightness-95 disabled:opacity-50",
   secondary:
-    "bg-surface-panel font-medium text-ink hover:bg-nav-active active:brightness-95 disabled:opacity-50",
+    "bg-surface-panel font-medium text-ink border border-border-subtle hover:bg-nav-hover active:brightness-95 disabled:opacity-50",
   success:
-    "bg-success-ink font-semibold text-white hover:brightness-110 active:brightness-95 disabled:opacity-50 dark:text-[#0a1f14]",
+    "bg-success-ink font-semibold text-success-foreground hover:brightness-110 active:brightness-95 disabled:opacity-50",
   danger:
     "bg-danger font-semibold text-white hover:bg-danger-hover active:brightness-95 disabled:opacity-50",
   ghost:
-    "font-medium text-text-secondary-strong hover:bg-surface-panel hover:text-ink active:bg-nav-hover disabled:opacity-50",
+    "font-medium text-action-primary hover:bg-nav-hover active:bg-nav-active disabled:opacity-50",
 };
 
 const SIZE_CLASSES: Record<ButtonSize, string> = {
-  sm: "min-h-10 px-3 text-sm",
+  sm: "min-h-9 px-3 text-[13px]",
   md: "min-h-11 px-4 text-sm",
 };
 

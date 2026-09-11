@@ -44,7 +44,7 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ring-1 ring-inset ${TONE_CLASSES[tone]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${TONE_CLASSES[tone]}`}
     >
       {children}
     </span>
@@ -139,7 +139,7 @@ export function StatusPill({
 export function StagePill({ name, color }: { name: string; color: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full bg-surface-panel px-2.5 py-0.5 text-xs font-semibold text-text-secondary-strong ring-1 ring-inset ring-border-subtle"
+      className="inline-flex items-center gap-1.5 rounded-full bg-surface-panel px-2 py-0.5 text-[11px] font-medium text-text-secondary-strong ring-1 ring-inset ring-border-subtle"
     >
       <span
         aria-hidden

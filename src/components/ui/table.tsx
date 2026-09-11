@@ -13,12 +13,12 @@ export function Table({ children }: { children: ReactNode }) {
 }
 
 export function THead({ children }: { children: ReactNode }) {
-  return <thead className="border-b border-border-subtle/80">{children}</thead>;
+  return <thead className="border-b border-border-subtle">{children}</thead>;
 }
 
 export function TBody({ children }: { children: ReactNode }) {
   return (
-    <tbody className="bg-surface-elevated [&>tr]:border-b [&>tr]:border-border-subtle/50 [&>tr:last-child]:border-b-0 [&>tr]:transition-colors [&>tr]:duration-150 [&>tr:hover]:bg-nav-hover/60 motion-reduce:[&>tr]:transition-none">
+    <tbody className="bg-surface-elevated [&>tr]:border-b [&>tr]:border-border-subtle [&>tr:last-child]:border-b-0 [&>tr]:transition-colors [&>tr]:duration-150 [&>tr:hover]:bg-nav-hover motion-reduce:[&>tr]:transition-none">
       {children}
     </tbody>
   );
@@ -42,7 +42,7 @@ export function TH({
   return (
     <th
       scope="col"
-      className={`bg-surface-elevated px-5 py-3.5 text-left text-[13px] font-medium tracking-[-0.01em] text-text-secondary ${className}`}
+      className={`bg-surface-elevated px-4 py-3 text-left text-[11px] font-semibold text-text-secondary ${className}`}
       {...props}
     >
       {children}
@@ -57,7 +57,7 @@ export function TD({
 }: TdHTMLAttributes<HTMLTableCellElement>) {
   return (
     <td
-      className={`px-5 py-3.5 align-middle text-[14px] text-ink ${className}`}
+      className={`px-4 py-3 align-middle text-[13px] text-ink ${className}`}
       {...props}
     >
       {children}

@@ -71,7 +71,7 @@ export function Tooltip({
             <div
               id={tipId}
               role="tooltip"
-              className="pointer-events-none fixed z-[80] max-w-xs -translate-x-1/2 rounded-control border border-border-subtle bg-surface-elevated px-2.5 py-1.5 text-xs text-ink shadow-md"
+              className="jh-overlay-shadow pointer-events-none fixed z-[80] max-w-xs -translate-x-1/2 rounded-control border border-border-subtle bg-surface-elevated px-2.5 py-1.5 text-[13px] text-ink"
               style={{
                 top: side === "top" ? undefined : coords.top,
                 bottom:
@@ -185,7 +185,7 @@ export function Popover({
             <div
               ref={panelRef}
               role="dialog"
-              className="fixed z-[80] min-w-[14rem] max-w-sm rounded-control border border-border-subtle bg-surface-elevated p-3 text-sm text-ink shadow-lg"
+              className="jh-overlay-shadow fixed z-[80] min-w-[14rem] max-w-sm rounded-control border border-border-subtle bg-surface-elevated p-3 text-[13px] text-ink"
               style={{ top: coords.top, left: coords.left, transform }}
             >
               {children}

@@ -23,11 +23,9 @@ export function EmptyState({
     >
       {Icon ? (
         <div
-          className={`mb-3.5 flex items-center justify-center rounded-full bg-surface-panel text-text-secondary-strong ${
-            compact ? "size-11" : "size-12"
-          }`}
+          className="mb-3.5 flex size-11 items-center justify-center rounded-full bg-surface-panel text-text-secondary"
         >
-          <Icon className={compact ? "size-5" : "size-6"} strokeWidth={1.75} aria-hidden />
+          <Icon className="size-5" strokeWidth={1.75} aria-hidden />
         </div>
       ) : null}
       <p className="text-[15px] font-semibold tracking-[-0.01em] text-ink">

@@ -60,7 +60,6 @@ export function FilterSelect({
           const qs = sp.toString();
           router.push(qs ? `${pathname}?${qs}` : pathname);
         }}
-        className="min-h-10 bg-transparent"
         options={[
           { value: "", label: allLabel },
           ...options.map((opt) => ({ value: opt.value, label: opt.label })),
@@ -107,7 +106,6 @@ export function FilterDate({
           const qs = sp.toString();
           router.push(qs ? `${pathname}?${qs}` : pathname);
         }}
-        className="min-h-10 bg-transparent"
       />
     </div>
   );

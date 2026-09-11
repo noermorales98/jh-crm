@@ -40,7 +40,7 @@ const ROLE_LABELS: Record<string, string> = {
 };
 
 const MENU_ITEM_CLASSES =
-  "flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-left text-sm font-medium text-ink transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none";
+  "flex w-full items-center gap-2.5 rounded-control px-3 py-2 text-left text-[13px] font-medium text-ink transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none";
 const MENU_ICON_CLASSES = "size-4 shrink-0 text-text-secondary-strong";
 const THEME_ICONS = {
   light: Sun,
@@ -172,7 +172,7 @@ export function UserMenu({
               aria-label="Cuenta"
               onKeyDown={onMenuKeyDown}
               style={{ top: coords.top, right: coords.right }}
-              className="jh-material jh-overlay-shadow fixed z-dropdown w-72 overflow-hidden rounded-surface py-1.5"
+              className="jh-material jh-overlay-shadow fixed z-dropdown w-72 overflow-hidden rounded-surface border border-border-subtle py-1.5"
             >
           <div className="px-3.5 py-2.5">
             <p className="truncate text-sm font-semibold text-ink">{name}</p>

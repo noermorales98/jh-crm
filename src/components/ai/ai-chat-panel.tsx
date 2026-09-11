@@ -85,7 +85,7 @@ function AssistantWaitingBubble({
         className="mb-0.5 shrink-0"
         title="Asistente"
       />
-      <div className="max-w-[min(40rem,90%)] rounded-control bg-surface-panel px-3 py-2">
+      <div className="max-w-[min(40rem,90%)] rounded-[18px] bg-surface-panel px-3.5 py-2 text-ink ring-1 ring-border-subtle/40">
         <WaitingStatus label={label} />
       </div>
     </div>
@@ -218,7 +218,7 @@ export function AiChatPanel({
                 disabled={busy}
                 data-cuelume-press="press"
                 data-cuelume-release="release"
-                className="rounded-control bg-surface-panel px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-nav-active disabled:opacity-60"
+                className="rounded-full bg-surface-elevated px-3.5 py-2 text-left text-sm text-ink ring-1 ring-border-subtle/50 transition-colors hover:bg-nav-hover disabled:opacity-60"
               >
                 {suggestion}
               </button>
@@ -253,8 +253,10 @@ export function AiChatPanel({
               />
             ) : null}
             <div
-              className={`max-w-[min(40rem,90%)] rounded-control px-3 py-2 ${
-                mine ? "bg-action-primary text-action-primary-foreground" : "bg-surface-panel"
+              className={`max-w-[min(40rem,90%)] rounded-[18px] px-3.5 py-2 ${
+                mine
+                  ? "bg-action-primary text-action-primary-foreground"
+                  : "bg-surface-panel text-ink ring-1 ring-border-subtle/40"
               }`}
             >
               {pendingAssistant ? (

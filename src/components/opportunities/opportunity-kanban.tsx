@@ -520,7 +520,7 @@ export function OpportunityKanban({
               ) : null}
               <button
                 type="button"
-                className={`jh-stage-chip flex max-w-[7.5rem] flex-col items-center gap-1 rounded-[12px] px-2 py-2 transition-colors hover:bg-surface-panel/80 sm:max-w-none sm:px-2.5 ${
+                className={`jh-stage-chip flex max-w-[7.5rem] flex-col items-center gap-1 rounded-surface px-2 py-2 transition-colors hover:bg-surface-panel/80 sm:max-w-none sm:px-2.5 ${
                   count > 0 ? "" : "opacity-55"
                 }`}
                 onClick={() => {
@@ -555,7 +555,7 @@ export function OpportunityKanban({
     <div className="space-y-3">
       {error ? <Alert tone="error">{error}</Alert> : null}
 
-      <div className="space-y-2 rounded-[16px] border border-border-subtle/50 bg-surface-elevated/80 px-3 py-3 sm:px-4">
+      <div className="space-y-2 rounded-surface bg-surface-elevated px-3 py-3 ring-1 ring-border-subtle/50 sm:px-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0 flex-1">{progressStrip}</div>
           {viewToggle}
@@ -589,8 +589,8 @@ export function OpportunityKanban({
                   setDragOverStage((cur) => (cur === stage ? null : cur));
                 }}
                 onDrop={(e) => onDropColumn(e, stage)}
-                className={`flex w-[17.5rem] shrink-0 flex-col rounded-[18px] ring-1 transition-[box-shadow,ring-color] duration-200 ${theme.column} ${
-                  isDrop ? `ring-2 ${theme.dropRing} shadow-md` : ""
+                className={`flex w-[17.5rem] shrink-0 flex-col rounded-surface ring-1 transition-[ring-color,background-color] duration-200 ${theme.column} ${
+                  isDrop ? `ring-2 ${theme.dropRing}` : ""
                 }`}
               >
                 <div className="px-4 pb-2 pt-3.5">
@@ -624,7 +624,7 @@ export function OpportunityKanban({
                               openLead(opp.id);
                             }
                           }}
-                          className={`jh-lead-card w-full cursor-pointer rounded-[16px] border border-border-subtle/40 bg-surface-elevated p-4 text-left transition-[transform,opacity] duration-200 ease-out hover:-translate-y-px motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
+                          className={`jh-lead-card w-full cursor-pointer rounded-surface border border-border-subtle/60 bg-surface-elevated p-4 text-left transition-[transform,opacity] duration-200 ease-out hover:-translate-y-px motion-reduce:transition-none motion-reduce:hover:translate-y-0 ${
                             draggable ? "cursor-grab active:cursor-grabbing" : ""
                           } ${
                             draggingId === opp.id ? "opacity-40" : ""
@@ -637,7 +637,7 @@ export function OpportunityKanban({
                     );
                   })}
                   {items.length === 0 ? (
-                    <li className="rounded-[14px] border border-dashed border-border-subtle/70 px-3 py-6 text-center text-[12px] text-text-secondary">
+                    <li className="rounded-surface border border-dashed border-border-subtle/70 px-3 py-6 text-center text-[12px] text-text-secondary">
                       {canManage ? "Suelta aquí" : "Vacío"}
                     </li>
                   ) : null}
@@ -658,7 +658,7 @@ export function OpportunityKanban({
               <section
                 key={stage}
                 id={`lead-list-${stage}`}
-                className={`overflow-hidden rounded-[16px] ring-1 ${theme.column}`}
+                className={`overflow-hidden rounded-surface ring-1 ${theme.column}`}
               >
                 <header className="flex items-center justify-between gap-2 px-4 py-3">
                   <h2
@@ -712,7 +712,7 @@ export function OpportunityKanban({
             );
           })}
           {flat.length === 0 ? (
-            <p className="rounded-[14px] bg-surface-app px-4 py-8 text-center text-sm text-text-secondary">
+            <p className="rounded-surface bg-surface-app px-4 py-8 text-center text-sm text-text-secondary">
               No hay leads todavía.
             </p>
           ) : null}
@@ -747,7 +747,7 @@ export function OpportunityKanban({
                     onClick={() => scrollToStage(stage)}
                   >
                     <span
-                      className={`flex size-9 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums text-white shadow-sm ${theme.dot}`}
+                      className={`flex size-9 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums text-white ${theme.dot}`}
                     >
                       {items.length}
                     </span>
@@ -763,14 +763,14 @@ export function OpportunityKanban({
                         <button
                           type="button"
                           onClick={() => openLead(opp.id)}
-                          className="jh-lead-card w-full rounded-[14px] border border-border-subtle/40 bg-surface-elevated p-3 text-left transition-transform hover:-translate-y-px motion-reduce:hover:translate-y-0"
+                          className="jh-lead-card w-full rounded-surface border border-border-subtle/60 bg-surface-elevated p-3 text-left transition-transform hover:-translate-y-px motion-reduce:hover:translate-y-0"
                         >
                           <LeadCardFace opp={opp} stage={stage} dense />
                         </button>
                       </li>
                     ))}
                     {items.length === 0 ? (
-                      <li className="rounded-[12px] border border-dashed border-border-subtle/60 px-2 py-4 text-center text-[11px] text-text-secondary">
+                      <li className="rounded-surface border border-dashed border-border-subtle/60 px-2 py-4 text-center text-[11px] text-text-secondary">
                         —
                       </li>
                     ) : null}
@@ -867,7 +867,7 @@ export function OpportunityKanban({
               </div>
             </div>
 
-            <dl className="grid gap-3 rounded-[14px] border border-border-subtle/60 bg-surface-app/50 px-3.5 py-3.5 sm:grid-cols-2">
+            <dl className="grid gap-3 rounded-surface border border-border-subtle/60 bg-surface-app/50 px-3.5 py-3.5 sm:grid-cols-2">
               <div className="sm:col-span-2">
                 <dt className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.04em] text-text-secondary">
                   <MapPin className="size-3.5" aria-hidden />
@@ -943,7 +943,7 @@ export function OpportunityKanban({
               </h3>
 
               {canManage ? (
-                <div className="mb-3 space-y-2 rounded-[12px] border border-border-subtle/60 bg-surface-app/40 p-3">
+                <div className="mb-3 space-y-2 rounded-surface border border-border-subtle/60 bg-surface-app/40 p-3">
                   <Field
                     label="Nuevo mensaje"
                     htmlFor="lead-message-draft"
@@ -974,7 +974,7 @@ export function OpportunityKanban({
               ) : null}
 
               {historyMessages.length === 0 ? (
-                <p className="rounded-[12px] bg-surface-app/60 px-3 py-3 text-xs text-text-secondary">
+                <p className="rounded-surface bg-surface-app/60 px-3 py-3 text-xs text-text-secondary">
                   Aún no hay mensajes. Agrega el primero para dejar historial.
                 </p>
               ) : (
@@ -982,7 +982,7 @@ export function OpportunityKanban({
                   {historyMessages.map((msg) => (
                     <li
                       key={msg.id}
-                      className="rounded-[12px] border border-border-subtle/50 bg-surface-elevated px-3.5 py-3"
+                      className="rounded-surface border border-border-subtle/50 bg-surface-elevated px-3.5 py-3"
                     >
                       <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary-strong">
                         {msg.body}

@@ -279,7 +279,7 @@ export function EditLeadButton({
               Cancelar
             </Button>
             <Button type="submit" disabled={pending || !firstName.trim()}>
-              {pending ? "Guardando…" : "Guardar"}
+              {pending ? "Guardando…" : "Guardar cambios"}
             </Button>
           </div>
         </form>

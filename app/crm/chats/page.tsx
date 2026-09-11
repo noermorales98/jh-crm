@@ -27,7 +27,7 @@ export default async function ChatsPage() {
           <form action={createAiChat}>
             <Button type="submit">
               <Plus className="size-4" aria-hidden />
-              Nuevo
+              Nuevo chat
             </Button>
           </form>
         }
@@ -45,12 +45,12 @@ export default async function ChatsPage() {
           }
         />
       ) : (
-        <ul className="divide-y divide-border-subtle rounded-surface bg-surface-elevated">
+        <ul className="divide-y divide-border-subtle overflow-hidden rounded-surface bg-surface-elevated ring-1 ring-border-subtle/50">
           {chats.map((chat) => (
-            <li key={chat.id} className="flex items-center gap-2 px-2">
+            <li key={chat.id} className="flex items-center gap-1 pr-2">
               <Link
                 href={`/crm/chats/${chat.id}`}
-                className="flex min-w-0 flex-1 items-center gap-3 rounded-control px-3 py-3 transition-colors hover:bg-nav-hover"
+                className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 transition-colors hover:bg-nav-hover"
               >
                 <ChatBlobatar
                   name={chatBlobatarName(chat.id)}

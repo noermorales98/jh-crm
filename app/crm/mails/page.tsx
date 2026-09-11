@@ -102,9 +102,7 @@ export default async function MailsPage({
                 <li key={mail.id}>
                   <Link
                     href={`/crm/mails/${mail.id}?folder=${folderParam}`}
-                    className={`flex items-start gap-3 px-4 py-3 transition-colors hover:bg-nav-hover ${
-                      mail.isRead ? "" : "bg-nav-active/40"
-                    }`}
+                    className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-nav-hover"
                   >
                     <span
                       className={`mt-2 size-2 shrink-0 rounded-full ${
@@ -133,9 +131,7 @@ export default async function MailsPage({
                       </span>
                       <span
                         className={`mt-0.5 block truncate text-sm ${
-                          mail.isRead
-                            ? "text-text-secondary-strong"
-                            : "font-medium text-ink"
+                          mail.isRead ? "text-ink" : "font-medium text-ink"
                         }`}
                       >
                         {mail.subject}

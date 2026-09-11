@@ -53,7 +53,7 @@ export function DashboardSuggestedChats({
           <form action={createAiChat}>
             <Button type="submit" size="sm" variant="secondary">
               <Plus className="size-4" aria-hidden />
-              Nuevo
+              Nuevo chat
             </Button>
           </form>
         </div>

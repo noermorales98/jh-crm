@@ -3,7 +3,7 @@ import { OPPORTUNITY_STAGES } from "@/src/lib/validation/opportunities";
 
 /** Tema visual por etapa (HIG: color comunica significado, no decoración). */
 export type StageTheme = {
-  /** Fondo de columna / sección */
+  /** Fondo de columna / sección (neutro; la etapa se lee en el encabezado) */
   column: string;
   /** Barra / punto del timeline de progreso */
   dot: string;
@@ -20,7 +20,7 @@ export type StageTheme = {
 
 export const STAGE_THEME: Record<string, StageTheme> = {
   NEW_LEAD: {
-    column: "bg-purple-soft/70 ring-purple-ink/15",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-purple-ink",
     accent: "text-purple-ink",
     avatarWrap: "bg-purple-soft ring-purple-ink/20",
@@ -29,7 +29,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
     dropRing: "ring-purple-ink/40",
   },
   CONTACTED: {
-    column: "bg-info-soft/70 ring-info-ink/15",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-info-ink",
     accent: "text-info-ink",
     avatarWrap: "bg-info-soft ring-info-ink/20",
@@ -38,7 +38,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
     dropRing: "ring-info-ink/40",
   },
   CONSULTATION: {
-    column: "bg-warning-soft/80 ring-warning-ink/15",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-warning-ink",
     accent: "text-warning-ink",
     avatarWrap: "bg-warning-soft ring-warning-ink/20",
@@ -47,7 +47,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
     dropRing: "ring-warning-ink/40",
   },
   INTAKE_SENT: {
-    column: "bg-nav-active/80 ring-action-primary/20",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-action-primary",
     accent: "text-action-primary",
     avatarWrap: "bg-nav-active ring-action-primary/25",
@@ -56,7 +56,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
     dropRing: "ring-action-primary/40",
   },
   INTAKE_COMPLETED: {
-    column: "bg-nav-active ring-action-primary/30",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-action-secondary",
     accent: "text-action-secondary",
     avatarWrap: "bg-nav-active ring-action-primary/30",
@@ -65,7 +65,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
     dropRing: "ring-action-primary/45",
   },
   PROPOSAL: {
-    column: "bg-success-soft/70 ring-success-ink/15",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-success-ink",
     accent: "text-success-ink",
     avatarWrap: "bg-success-soft ring-success-ink/20",
@@ -74,7 +74,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
     dropRing: "ring-success-ink/40",
   },
   WAITING_PAYMENT: {
-    column: "bg-warning-soft/90 ring-warning-ink/25",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-warning-ink",
     accent: "text-warning-ink",
     avatarWrap: "bg-warning-soft ring-warning-ink/25",
@@ -83,7 +83,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
     dropRing: "ring-warning-ink/45",
   },
   WON: {
-    column: "bg-success-soft ring-success-ink/25",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-success-ink",
     accent: "text-success-ink",
     avatarWrap: "bg-success-soft ring-success-ink/25",
@@ -92,7 +92,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
     dropRing: "ring-success-ink/50",
   },
   LOST: {
-    column: "bg-danger-soft/80 ring-danger-ink/15",
+    column: "bg-surface-panel ring-border-subtle/60",
     dot: "bg-danger-ink",
     accent: "text-danger-ink",
     avatarWrap: "bg-danger-soft ring-danger-ink/20",
@@ -105,7 +105,7 @@ export const STAGE_THEME: Record<string, StageTheme> = {
 export function stageTheme(stage: string): StageTheme {
   return (
     STAGE_THEME[stage] ?? {
-      column: "bg-surface-app ring-border-subtle/40",
+      column: "bg-surface-panel ring-border-subtle/60",
       dot: "bg-text-secondary",
       accent: "text-text-secondary",
       avatarWrap: "bg-surface-panel ring-border-subtle",

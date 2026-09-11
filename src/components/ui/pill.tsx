@@ -1,6 +1,7 @@
 import {
   CLIENT_STATUS_LABELS,
   CASE_STATE_LABELS,
+  CONSULTATION_STATUS_LABELS,
   ROUND_STATUS_LABELS,
   TASK_STATUS_LABELS,
   TASK_PRIORITY_LABELS,
@@ -54,6 +55,7 @@ export function Pill({
 export type PillDomain =
   | "client"
   | "case"
+  | "consultation"
   | "round"
   | "taskStatus"
   | "taskPriority"
@@ -63,6 +65,7 @@ export type PillDomain =
 const DOMAIN_LABELS: Record<PillDomain, Record<string, string>> = {
   client: CLIENT_STATUS_LABELS,
   case: CASE_STATE_LABELS,
+  consultation: CONSULTATION_STATUS_LABELS,
   round: ROUND_STATUS_LABELS,
   taskStatus: TASK_STATUS_LABELS,
   taskPriority: TASK_PRIORITY_LABELS,
@@ -83,6 +86,14 @@ const DOMAIN_TONES: Record<PillDomain, Record<string, PillTone>> = {
     OPEN: "green",
     PAUSED: "amber",
     COMPLETED: "indigo",
+    CANCELLED: "slate",
+  },
+  consultation: {
+    REQUESTED: "amber",
+    PAYMENT_PENDING: "purple",
+    PAID: "green",
+    SCHEDULED: "blue",
+    COMPLETED: "green",
     CANCELLED: "slate",
   },
   round: {

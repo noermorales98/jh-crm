@@ -8,7 +8,7 @@ import {
   Card,
   EmptyState,
   PageHeader,
-  Pill,
+  StatusPill,
   Table,
   TBody,
   TD,
@@ -17,26 +17,10 @@ import {
   TR,
 } from "@/src/components/ui";
 import { formatDate, formatMoney } from "@/src/lib/format";
-import {
-  CONSULTATION_STATUS_LABELS,
-  labelFor,
-} from "@/src/lib/labels";
 import { ConsultationStatusActions } from "@/src/components/consultations/consultation-status-actions";
 
 export const metadata: Metadata = {
   title: "Consultas",
-};
-
-const STATUS_TONE: Record<
-  string,
-  "green" | "amber" | "slate" | "blue" | "purple"
-> = {
-  REQUESTED: "amber",
-  PAYMENT_PENDING: "purple",
-  PAID: "green",
-  SCHEDULED: "blue",
-  COMPLETED: "green",
-  CANCELLED: "slate",
 };
 
 export default async function ConsultationsPage() {
@@ -91,9 +75,7 @@ export default async function ConsultationsPage() {
                   <TD className="tabular-nums">{formatMoney(row.amount)}</TD>
                   <TD>{formatDate(row.requestedAt)}</TD>
                   <TD>
-                    <Pill tone={STATUS_TONE[row.status] ?? "slate"}>
-                      {labelFor(CONSULTATION_STATUS_LABELS, row.status)}
-                    </Pill>
+                    <StatusPill domain="consultation" value={row.status} />
                   </TD>
                   {canManage ? (
                     <TD>

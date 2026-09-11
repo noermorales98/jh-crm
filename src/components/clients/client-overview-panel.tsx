@@ -29,11 +29,11 @@ function Metric({
   href?: string;
 }) {
   const body = (
-    <div className="rounded-control border border-border-subtle bg-surface-panel/40 px-2.5 py-1.5">
-      <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+    <div className="rounded-control border border-border-subtle bg-surface-panel px-3 py-2">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
         {label}
       </p>
-      <div className="mt-0.5 text-sm font-medium text-ink">{children}</div>
+      <div className="mt-0.5 text-sm font-medium tabular-nums text-ink">{children}</div>
     </div>
   );
   if (!href) return body;
@@ -202,7 +202,7 @@ export function ClientOverviewPanel({
       ) : null}
 
       {activeService && credit ? (
-        <section className="rounded-control border border-border-subtle bg-surface-app/40 p-3">
+        <section className="rounded-surface border border-border-subtle bg-surface-panel p-3 sm:p-4">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-text-secondary">
@@ -329,27 +329,27 @@ export function ClientOverviewPanel({
                   ) : null}
 
                   <div className="grid grid-cols-3 gap-1.5 text-center">
-                    <div className="rounded-control bg-surface-panel/60 px-1 py-1.5">
+                    <div className="rounded-control bg-surface-app px-1 py-1.5">
                       <p className="text-[10px] uppercase text-text-secondary">
                         Activos
                       </p>
-                      <p className="text-sm font-semibold tabular-nums">
+                      <p className="text-sm font-semibold tabular-nums text-ink">
                         {credit.itemsSummary.active}
                       </p>
                     </div>
-                    <div className="rounded-control bg-surface-panel/60 px-1 py-1.5">
+                    <div className="rounded-control bg-surface-app px-1 py-1.5">
                       <p className="text-[10px] uppercase text-text-secondary">
                         Resueltos
                       </p>
-                      <p className="text-sm font-semibold tabular-nums">
+                      <p className="text-sm font-semibold tabular-nums text-ink">
                         {credit.itemsSummary.resolved}
                       </p>
                     </div>
-                    <div className="rounded-control bg-surface-panel/60 px-1 py-1.5">
+                    <div className="rounded-control bg-surface-app px-1 py-1.5">
                       <p className="text-[10px] uppercase text-text-secondary">
                         Pend.
                       </p>
-                      <p className="text-sm font-semibold tabular-nums">
+                      <p className="text-sm font-semibold tabular-nums text-ink">
                         {credit.itemsSummary.pending}
                       </p>
                     </div>

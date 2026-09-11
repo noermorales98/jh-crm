@@ -31,7 +31,7 @@ export function PaymentsSummaryStrip({
   return (
     <div className="space-y-2 rounded-control border border-border-subtle px-2.5 py-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
           Pagos
         </p>
         <Link

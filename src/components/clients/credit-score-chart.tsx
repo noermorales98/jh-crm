@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import type { CreditBureau } from "@prisma/client";
 import {
   ScoreEvolutionChart,

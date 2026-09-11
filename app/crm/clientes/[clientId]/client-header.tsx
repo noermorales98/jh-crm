@@ -17,7 +17,7 @@ export interface ClientHeaderData {
   assignedTo?: { name: string | null } | null;
 }
 
-/** Encabezado denso compartido de las páginas del cliente (CL-002). */
+/** Encabezado compartido de las páginas del cliente (CL-002): identidad arriba, estilo ficha de Contactos. */
 export function ClientHeader({
   client,
   actions,
@@ -31,6 +31,7 @@ export function ClientHeader({
   below?: ReactNode;
 }) {
   const base = `/crm/clientes/${client.id}`;
+  const initials = `${client.firstName.charAt(0)}${client.lastName?.charAt(0) ?? ""}`.toUpperCase();
   const contactBits = [
     client.phone ? (
       <span key="phone" className="inline-flex items-center gap-1">
@@ -59,29 +60,37 @@ export function ClientHeader({
 
   return (
     <div className="mb-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight text-ink lg:text-[1.35rem]">
-              {clientFullName(client)}
-            </h1>
-            <StatusPill domain="client" value={client.status} />
-            <span className="font-mono text-[11px] text-text-secondary">
-              {client.clientCode}
-            </span>
-            <Link
-              href={`${base}/expediente`}
-              className="text-[11px] font-medium text-action-primary hover:text-action-secondary"
-            >
-              Datos / perfil
-            </Link>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex min-w-0 items-start gap-3">
+          <span
+            aria-hidden
+            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-nav-active text-sm font-semibold text-action-primary"
+          >
+            {initials}
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <h1 className="text-[22px] font-bold leading-[1.2] tracking-[-0.02em] text-ink text-balance">
+                {clientFullName(client)}
+              </h1>
+              <StatusPill domain="client" value={client.status} />
+              <span className="font-mono text-[11px] text-text-secondary">
+                {client.clientCode}
+              </span>
+              <Link
+                href={`${base}/expediente`}
+                className="text-xs font-medium text-action-primary hover:text-action-secondary"
+              >
+                Ver expediente
+              </Link>
+            </div>
+            {contactBits.length > 0 ? (
+              <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-text-secondary">
+                {contactBits}
+              </p>
+            ) : null}
+            {meta ? <div className="mt-2">{meta}</div> : null}
           </div>
-          {contactBits.length > 0 ? (
-            <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-text-secondary">
-              {contactBits}
-            </p>
-          ) : null}
-          {meta ? <div className="mt-2">{meta}</div> : null}
         </div>
         {actions ? (
           <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>

@@ -129,8 +129,8 @@ export async function ClientDetailPanel({
       {(intakeEnabled ||
         (portalEnabled && canManagePortal) ||
         canViewProcessors) && (
-        <details className="mt-4 rounded-control border border-border-subtle open:shadow-sm">
-          <summary className="cursor-pointer list-none px-3 py-2 text-xs font-medium uppercase tracking-wide text-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
+        <details className="mt-4 overflow-hidden rounded-surface border border-border-subtle bg-surface-panel open:shadow-sm">
+          <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
             <span className="inline-flex items-center gap-1.5">
               Accesos e integraciones
               <span className="font-normal normal-case tracking-normal text-text-placeholder">

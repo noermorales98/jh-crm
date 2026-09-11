@@ -29,7 +29,7 @@ export function RoundsSummaryStrip({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+        <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
           Rondas ({roundsTotal})
         </p>
       </div>
@@ -56,7 +56,7 @@ export function RoundsSummaryStrip({
                   onClick={() => setPeekId(r.id)}
                   className={
                     current
-                      ? "rounded-full bg-action-primary px-2.5 py-0.5 text-xs font-medium text-white"
+                      ? "rounded-full bg-action-primary px-2.5 py-0.5 text-xs font-medium text-action-primary-foreground"
                       : "rounded-full border border-border-subtle bg-surface-panel px-2.5 py-0.5 text-xs font-medium text-ink hover:bg-nav-hover"
                   }
                 >

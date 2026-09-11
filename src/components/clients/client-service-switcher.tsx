@@ -34,7 +34,7 @@ export function ClientServiceSwitcher({
             href={href}
             className={
               active
-                ? "rounded-full bg-action-primary px-2.5 py-0.5 text-xs font-medium text-white"
+                ? "rounded-full bg-action-primary px-2.5 py-0.5 text-xs font-medium text-action-primary-foreground"
                 : "rounded-full border border-border-subtle bg-surface-panel px-2.5 py-0.5 text-xs font-medium text-text-secondary transition-colors hover:bg-nav-hover hover:text-ink"
             }
             title={svc.stage?.name ?? undefined}

@@ -223,15 +223,10 @@ export default async function ClientsPage({
                               <span className="font-medium text-text-primary">
                                 {svc.label}
                               </span>
-                              <span className="text-text-secondary">
-                                {" "}
-                                · {svc.caseNumber}
+                              <span className="block text-[11px] text-text-secondary">
+                                {svc.caseNumber}
+                                {svc.stageName ? ` · ${svc.stageName}` : ""}
                               </span>
-                              {svc.stageName ? (
-                                <span className="block text-[11px] text-text-secondary">
-                                  {svc.stageName}
-                                </span>
-                              ) : null}
                             </li>
                           ))}
                           {client.activeServices.length > 3 ? (

@@ -36,10 +36,10 @@ export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
       <Card>
         <CardHeader title="Detalle" />
         <CardBody>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Cliente</dt>
-              <dd>
+          <dl className="space-y-2">
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Cliente</dt>
+              <dd className="text-[13px] text-ink">
                 <Link
                   href={`/crm/clientes?id=${payment.client.id}`}
                   className="text-action-primary hover:text-action-secondary"
@@ -48,25 +48,25 @@ export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
                 </Link>
               </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Método</dt>
-              <dd>{labelFor(PAYMENT_METHOD_LABELS, payment.method)}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Método</dt>
+              <dd className="text-[13px] text-ink">{labelFor(PAYMENT_METHOD_LABELS, payment.method)}</dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Fecha</dt>
-              <dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Fecha</dt>
+              <dd className="text-[13px] text-ink">
                 {formatDate(
                   payment.receivedAt ?? payment.dueAt ?? payment.createdAt,
                 )}
               </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Referencia</dt>
-              <dd>{payment.reference ?? "—"}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Referencia</dt>
+              <dd className="text-[13px] text-ink">{payment.reference ?? "—"}</dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Caso</dt>
-              <dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Caso</dt>
+              <dd className="text-[13px] text-ink">
                 {payment.case ? (
                   <Link
                     href={`/crm/casos?id=${payment.case.id}`}
@@ -79,9 +79,9 @@ export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
                 )}
               </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Cotización</dt>
-              <dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Cotización</dt>
+              <dd className="text-[13px] text-ink">
                 {payment.quote ? (
                   <Link
                     href={`/crm/cotizaciones?id=${payment.quote.id}`}
@@ -95,9 +95,9 @@ export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
               </dd>
             </div>
             {payment.receipt ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-text-secondary">Recibo</dt>
-                <dd>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-[12px] text-text-secondary">Recibo</dt>
+                <dd className="text-[13px] text-ink">
                   <a
                     href={`/api/receipts/${payment.receipt.id}/pdf`}
                     className="text-action-primary hover:text-action-secondary"
@@ -107,9 +107,9 @@ export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
                 </dd>
               </div>
             ) : null}
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Registrado por</dt>
-              <dd>{payment.createdBy?.name ?? "—"}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Registrado por</dt>
+              <dd className="text-[13px] text-ink">{payment.createdBy?.name ?? "—"}</dd>
             </div>
           </dl>
           {payment.notes ? (

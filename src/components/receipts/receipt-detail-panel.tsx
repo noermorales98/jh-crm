@@ -45,10 +45,10 @@ export async function ReceiptDetailPanel({ receiptId }: { receiptId: string }) {
       <Card>
         <CardHeader title="Detalle" />
         <CardBody>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Cliente</dt>
-              <dd>
+          <dl className="space-y-2">
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Cliente</dt>
+              <dd className="text-[13px] text-ink">
                 <Link
                   href={`/crm/clientes?id=${receipt.client.id}`}
                   className="text-action-primary hover:text-action-secondary"
@@ -57,24 +57,24 @@ export async function ReceiptDetailPanel({ receiptId }: { receiptId: string }) {
                 </Link>
               </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Monto</dt>
-              <dd className="tabular-nums">
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Monto</dt>
+              <dd className="text-[13px] tabular-nums text-ink">
                 {formatMoney(receipt.amount, receipt.currency)}
               </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Método</dt>
-              <dd>{labelFor(PAYMENT_METHOD_LABELS, receipt.paymentMethod)}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Método</dt>
+              <dd className="text-[13px] text-ink">{labelFor(PAYMENT_METHOD_LABELS, receipt.paymentMethod)}</dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Emitido</dt>
-              <dd>{formatDate(receipt.issuedAt)}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Emitido</dt>
+              <dd className="text-[13px] text-ink">{formatDate(receipt.issuedAt)}</dd>
             </div>
             {receipt.payment?.quote ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-text-secondary">Cotización</dt>
-                <dd>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-[12px] text-text-secondary">Cotización</dt>
+                <dd className="text-[13px] text-ink">
                   <Link
                     href={`/crm/cotizaciones?id=${receipt.payment.quote.id}`}
                     className="font-mono text-action-primary hover:text-action-secondary"
@@ -85,9 +85,9 @@ export async function ReceiptDetailPanel({ receiptId }: { receiptId: string }) {
               </div>
             ) : null}
             {receipt.voidReason ? (
-              <div className="flex justify-between gap-4">
-                <dt className="text-text-secondary">Motivo de anulación</dt>
-                <dd>{receipt.voidReason}</dd>
+              <div className="flex items-baseline justify-between gap-4">
+                <dt className="text-[12px] text-text-secondary">Motivo de anulación</dt>
+                <dd className="text-[13px] text-ink">{receipt.voidReason}</dd>
               </div>
             ) : null}
           </dl>

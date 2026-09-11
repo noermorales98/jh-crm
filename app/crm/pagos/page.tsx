@@ -157,12 +157,12 @@ export default async function PaymentsPage({
               <TR>
                 <TH>Fecha</TH>
                 <TH>Cliente</TH>
-                <TH>Monto</TH>
+                <TH className="text-right">Monto</TH>
                 <TH>Método</TH>
                 <TH>Estado</TH>
                 <TH>Referencia</TH>
                 <TH>Cotización</TH>
-                {canRegister ? <TH>Acciones</TH> : null}
+                {canRegister ? <TH className="text-right">Acciones</TH> : null}
               </TR>
             </THead>
             <TBody>
@@ -185,7 +185,7 @@ export default async function PaymentsPage({
                       {payment.case ? ` · ${payment.case.caseCode}` : ""}
                     </span>
                   </TD>
-                  <TD className="whitespace-nowrap tabular-nums">
+                  <TD className="whitespace-nowrap text-right tabular-nums">
                     {formatMoney(payment.amount, payment.currency)}
                   </TD>
                   <TD>{labelFor(PAYMENT_METHOD_LABELS, payment.method)}</TD>
@@ -213,8 +213,8 @@ export default async function PaymentsPage({
                       </a>
                     ) : null}
                   </TD>
-                  {canRegister ? (
-                    <TD className="whitespace-nowrap">
+                {canRegister ? (
+                    <TD className="whitespace-nowrap text-right">
                       <PaymentRowActions
                         payment={{
                           id: payment.id,

@@ -108,26 +108,26 @@ export async function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
               <THead>
                 <TR>
                   <TH>Descripción</TH>
-                  <TH>Cant.</TH>
-                  <TH>P. unitario</TH>
-                  <TH>Descuento</TH>
-                  <TH>Importe</TH>
+                  <TH className="text-right">Cant.</TH>
+                  <TH className="text-right">P. unitario</TH>
+                  <TH className="text-right">Descuento</TH>
+                  <TH className="text-right">Importe</TH>
                 </TR>
               </THead>
               <TBody>
                 {quote.items.map((item) => (
                   <TR key={item.id}>
                     <TD className="text-ink">{item.description}</TD>
-                    <TD className="tabular-nums">{item.quantity.toString()}</TD>
-                    <TD className="tabular-nums">
+                    <TD className="text-right tabular-nums">{item.quantity.toString()}</TD>
+                    <TD className="text-right tabular-nums">
                       {formatMoney(item.unitPrice, quote.currency)}
                     </TD>
-                    <TD className="tabular-nums">
+                    <TD className="text-right tabular-nums">
                       {Number(item.discountAmount.toString()) > 0
                         ? `−${formatMoney(item.discountAmount, quote.currency)}`
                         : "—"}
                     </TD>
-                    <TD className="tabular-nums">
+                    <TD className="text-right tabular-nums">
                       {formatMoney(item.total, quote.currency)}
                     </TD>
                   </TR>
@@ -204,7 +204,7 @@ export async function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
                 <THead>
                   <TR>
                     <TH>Fecha</TH>
-                    <TH>Monto</TH>
+                    <TH className="text-right">Monto</TH>
                     <TH>Método</TH>
                     <TH>Estado</TH>
                     <TH>Referencia</TH>
@@ -216,7 +216,7 @@ export async function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
                       <TD className="whitespace-nowrap text-text-secondary">
                         {formatDate(payment.receivedAt ?? payment.dueAt ?? payment.createdAt)}
                       </TD>
-                      <TD className="tabular-nums">
+                      <TD className="whitespace-nowrap text-right tabular-nums">
                         {formatMoney(payment.amount, payment.currency)}
                       </TD>
                       <TD>{labelFor(PAYMENT_METHOD_LABELS, payment.method)}</TD>
@@ -236,26 +236,26 @@ export async function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
           <Card>
             <CardHeader title="Resumen" />
             <CardBody>
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Emitida</dt>
-                  <dd>{formatDate(quote.issuedAt)}</dd>
+              <dl className="space-y-2">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Emitida</dt>
+                  <dd className="text-[13px] text-ink">{formatDate(quote.issuedAt)}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Válida hasta</dt>
-                  <dd>{quote.validUntil ? formatDate(quote.validUntil) : "—"}</dd>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Válida hasta</dt>
+                  <dd className="text-[13px] text-ink">{quote.validUntil ? formatDate(quote.validUntil) : "—"}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Creada por</dt>
-                  <dd>{quote.createdBy?.name ?? "—"}</dd>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Creada por</dt>
+                  <dd className="text-[13px] text-ink">{quote.createdBy?.name ?? "—"}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Correo del cliente</dt>
-                  <dd>{quote.client.email ?? "—"}</dd>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Correo del cliente</dt>
+                  <dd className="text-[13px] text-ink">{quote.client.email ?? "—"}</dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Teléfono</dt>
-                  <dd>{quote.client.phone ?? "—"}</dd>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Teléfono</dt>
+                  <dd className="text-[13px] text-ink">{quote.client.phone ?? "—"}</dd>
                 </div>
               </dl>
             </CardBody>
@@ -264,28 +264,28 @@ export async function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
           <Card>
             <CardHeader title="Saldo" />
             <CardBody>
-              <dl className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Total</dt>
-                  <dd className="tabular-nums font-medium">
+              <dl className="space-y-2">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Total</dt>
+                  <dd className="text-[13px] tabular-nums font-medium text-ink">
                     {formatMoney(balance.total, balance.currency)}
                   </dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Recibido</dt>
-                  <dd className="tabular-nums text-success-ink">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Recibido</dt>
+                  <dd className="text-[13px] tabular-nums text-success-ink">
                     {formatMoney(balance.paid, balance.currency)}
                   </dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Pendiente de recibir</dt>
-                  <dd className="tabular-nums text-amber-700">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Pendiente de recibir</dt>
+                  <dd className="text-[13px] tabular-nums text-warning-ink">
                     {formatMoney(balance.pending, balance.currency)}
                   </dd>
                 </div>
-                <div className="flex justify-between border-t border-border-subtle pt-2 font-semibold">
-                  <dt>Saldo</dt>
-                  <dd className="tabular-nums">
+                <div className="flex items-baseline justify-between gap-4 border-t border-border-subtle pt-2 text-[13px] font-semibold">
+                  <dt className="text-ink">Saldo</dt>
+                  <dd className="tabular-nums text-ink">
                     {formatMoney(balance.balance, balance.currency)}
                   </dd>
                 </div>

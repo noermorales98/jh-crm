@@ -112,11 +112,11 @@ export default async function ReceiptsPage({
               <TR>
                 <TH>Folio</TH>
                 <TH>Cliente</TH>
-                <TH>Monto</TH>
+                <TH className="text-right">Monto</TH>
                 <TH>Método</TH>
                 <TH>Emitido</TH>
                 <TH>Estado</TH>
-                <TH>Acciones</TH>
+                <TH className="text-right">Acciones</TH>
               </TR>
             </THead>
             <TBody>
@@ -136,7 +136,7 @@ export default async function ReceiptsPage({
                       {receipt.client.clientCode}
                     </span>
                   </TD>
-                  <TD className="whitespace-nowrap tabular-nums">
+                  <TD className="whitespace-nowrap text-right tabular-nums">
                     {formatMoney(receipt.amount, receipt.currency)}
                   </TD>
                   <TD>{labelFor(PAYMENT_METHOD_LABELS, receipt.paymentMethod)}</TD>
@@ -157,8 +157,8 @@ export default async function ReceiptsPage({
                       </span>
                     )}
                   </TD>
-                  <TD className="whitespace-nowrap">
-                    <div className="flex items-center gap-1">
+                  <TD className="whitespace-nowrap text-right">
+                    <div className="flex items-center justify-end gap-1">
                       <a
                         href={`/api/receipts/${receipt.id}/pdf`}
                         className={buttonClasses("ghost", "sm")}

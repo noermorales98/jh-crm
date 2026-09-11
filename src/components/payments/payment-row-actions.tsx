@@ -86,7 +86,7 @@ export function PaymentRowActions({ payment }: { payment: PaymentRowData }) {
 
   if (payment.status === "PENDING") {
     return (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center justify-end gap-1">
         <Button variant="ghost" size="sm" onClick={openEdit}>
           <Pencil className="size-3.5" aria-hidden />
           Editar

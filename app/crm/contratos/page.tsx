@@ -169,13 +169,13 @@ export default async function ContratosPage() {
                 <TH>Estado</TH>
                 <TH>Creado</TH>
                 <TH>Firmado</TH>
-                {canManage ? <TH>Acciones</TH> : null}
+                {canManage ? <TH className="text-right">Acciones</TH> : null}
               </TR>
             </THead>
             <TBody>
               {items.map((contract) => (
                 <TR key={contract.id}>
-                  <TD>
+                  <TD className="font-medium text-ink">
                     {contract.client.clientCode} ·{" "}
                     {[contract.client.firstName, contract.client.lastName]
                       .filter(Boolean)
@@ -192,12 +192,12 @@ export default async function ContratosPage() {
                       {labelFor(CONTRACT_STATUS_LABELS, contract.status)}
                     </Pill>
                   </TD>
-                  <TD>{formatDate(contract.createdAt)}</TD>
-                  <TD>
+                  <TD className="whitespace-nowrap text-text-secondary">{formatDate(contract.createdAt)}</TD>
+                  <TD className="whitespace-nowrap text-text-secondary">
                     {contract.signedAt ? formatDate(contract.signedAt) : "—"}
                   </TD>
                   {canManage ? (
-                    <TD>
+                    <TD className="text-right">
                       <ContractRowActions
                         contractId={contract.id}
                         status={contract.status}

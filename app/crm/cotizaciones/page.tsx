@@ -123,7 +123,7 @@ export default async function QuotesPage({
               <TR>
                 <TH>Folio</TH>
                 <TH>Cliente</TH>
-                <TH>Total</TH>
+                <TH className="text-right">Total</TH>
                 <TH>Estado</TH>
                 <TH>Emitida</TH>
                 <TH>Válida hasta</TH>
@@ -152,7 +152,7 @@ export default async function QuotesPage({
                       {quote.case ? ` · ${quote.case.caseCode}` : ""}
                     </span>
                   </TD>
-                  <TD className="whitespace-nowrap tabular-nums">
+                  <TD className="whitespace-nowrap text-right tabular-nums">
                     {formatMoney(quote.total, quote.currency)}
                   </TD>
                   <TD>

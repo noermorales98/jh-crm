@@ -49,10 +49,10 @@ export default async function ProcessorsPage() {
               <TR>
                 <TH>Nombre</TH>
                 <TH>Tipo</TH>
-                <TH>Precio / mes</TH>
-                <TH>Comisión</TH>
+                <TH className="text-right">Precio / mes</TH>
+                <TH className="text-right">Comisión</TH>
                 <TH>Estado</TH>
-                {canManage ? <TH>Acciones</TH> : null}
+                {canManage ? <TH className="text-right">Acciones</TH> : null}
               </TR>
             </THead>
             <TBody>
@@ -60,12 +60,12 @@ export default async function ProcessorsPage() {
                 <TR key={row.id} className="transition-colors hover:bg-nav-hover">
                   <TD className="font-medium text-ink">{row.name}</TD>
                   <TD className="text-text-secondary">{row.type}</TD>
-                  <TD className="tabular-nums">
+                  <TD className="whitespace-nowrap text-right tabular-nums">
                     {row.monthlyPrice
                       ? formatMoney(row.monthlyPrice)
                       : "—"}
                   </TD>
-                  <TD className="tabular-nums">
+                  <TD className="whitespace-nowrap text-right tabular-nums">
                     {row.commission ? formatMoney(row.commission) : "—"}
                   </TD>
                   <TD>
@@ -76,7 +76,7 @@ export default async function ProcessorsPage() {
                     )}
                   </TD>
                   {canManage ? (
-                    <TD>
+                    <TD className="whitespace-nowrap text-right">
                       <ProcessorFormButton
                         mode="edit"
                         processorId={row.id}

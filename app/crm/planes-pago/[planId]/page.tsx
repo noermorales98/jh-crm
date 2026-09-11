@@ -114,7 +114,7 @@ export default async function PaymentPlanDetailPage({
             <TR>
               <TH>#</TH>
               <TH>Vence</TH>
-              <TH>Monto</TH>
+              <TH className="text-right">Monto</TH>
               <TH>Cuota</TH>
               <TH>Pago</TH>
             </TR>
@@ -123,8 +123,8 @@ export default async function PaymentPlanDetailPage({
             {plan.installments.map((inst) => (
               <TR key={inst.id}>
                 <TD className="tabular-nums">{inst.sequence}</TD>
-                <TD>{formatDate(inst.dueAt)}</TD>
-                <TD className="tabular-nums">{formatMoney(inst.amount)}</TD>
+                <TD className="whitespace-nowrap text-text-secondary">{formatDate(inst.dueAt)}</TD>
+                <TD className="whitespace-nowrap text-right tabular-nums">{formatMoney(inst.amount)}</TD>
                 <TD>
                   <Pill tone={INST_TONE[inst.status] ?? "slate"}>
                     {labelFor(PAYMENT_INSTALLMENT_STATUS_LABELS, inst.status)}

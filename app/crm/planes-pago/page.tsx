@@ -91,8 +91,8 @@ export default async function PaymentPlansPage() {
             <THead>
               <TR>
                 <TH>Cliente</TH>
-                <TH>Total</TH>
-                <TH>Cuotas</TH>
+                <TH className="text-right">Total</TH>
+                <TH className="text-right">Cuotas</TH>
                 <TH>Frecuencia</TH>
                 <TH>Inicio</TH>
                 <TH>Estado</TH>
@@ -112,12 +112,12 @@ export default async function PaymentPlansPage() {
                         .join(" ")}
                     </Link>
                   </TD>
-                  <TD className="tabular-nums">{formatMoney(plan.totalAmount)}</TD>
-                  <TD className="tabular-nums">{plan.numberOfInstallments}</TD>
+                  <TD className="text-right tabular-nums">{formatMoney(plan.totalAmount)}</TD>
+                  <TD className="text-right tabular-nums">{plan.numberOfInstallments}</TD>
                   <TD>
                     {labelFor(PAYMENT_PLAN_FREQUENCY_LABELS, plan.frequency)}
                   </TD>
-                  <TD>{formatDate(plan.startDate)}</TD>
+                  <TD className="whitespace-nowrap text-text-secondary">{formatDate(plan.startDate)}</TD>
                   <TD>
                     <Pill tone={STATUS_TONE[plan.status] ?? "slate"}>
                       {labelFor(PAYMENT_PLAN_STATUS_LABELS, plan.status)}

@@ -18,7 +18,7 @@ import type { LucideIcon } from "lucide-react";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { getDashboardSummary } from "@/src/server/dashboard";
 import { clientFullName } from "@/src/server/page-helpers";
-import { ButtonLink, EmptyState, PageHeader } from "@/src/components/ui";
+import { ButtonLink, EmptyState, PageHeader, Pill } from "@/src/components/ui";
 import { DashboardSpotlightField } from "@/src/components/search/dashboard-spotlight-field";
 import { DashboardSuggestedChats } from "@/src/components/ai/dashboard-suggested-chats";
 import { buildSuggestedChats } from "@/src/lib/ai/suggested-chats";
@@ -284,7 +284,7 @@ export default async function DashboardPage() {
         <div className="flex items-baseline justify-between gap-3 px-0.5">
           <h2
             id="today-attention-heading"
-            className="text-[15px] font-semibold tracking-[-0.01em] text-ink"
+            className="text-[13px] font-semibold text-text-secondary-strong"
           >
             Para hacer hoy
             {attention.length > 0 ? (
@@ -320,16 +320,22 @@ export default async function DashboardPage() {
             <ul role="list">
               {attention.map((item, index) => {
                 const Icon = item.icon;
+                const badgeTone =
+                  item.tone === "danger"
+                    ? "red"
+                    : item.tone === "warning"
+                      ? "amber"
+                      : "slate";
                 return (
                   <li key={item.id}>
                     <Link
                       href={item.href}
-                      className={`group flex min-h-14 items-center gap-3.5 px-4 py-3 transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none sm:px-5 ${
+                      className={`group flex min-h-14 items-center gap-3 px-4 py-2.5 transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none sm:px-5 ${
                         index > 0 ? "border-t border-border-subtle/60" : ""
                       }`}
                     >
                       <span
-                        className={`flex size-11 shrink-0 items-center justify-center rounded-full ${
+                        className={`flex size-9 shrink-0 items-center justify-center rounded-full ${
                           item.tone === "danger"
                             ? "bg-danger-soft text-danger-ink"
                             : item.tone === "warning"
@@ -338,31 +344,21 @@ export default async function DashboardPage() {
                         }`}
                         aria-hidden
                       >
-                        <Icon className="size-[18px]" strokeWidth={1.75} />
+                        <Icon className="size-4" strokeWidth={1.75} />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-[15px] font-medium tracking-[-0.01em] text-ink">
-                            {item.title}
-                          </p>
-                          {item.badge ? (
-                            <span
-                              className={`inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                                item.tone === "danger"
-                                  ? "bg-danger-soft text-danger-ink"
-                                  : "bg-surface-panel text-text-secondary-strong"
-                              }`}
-                            >
-                              {item.badge}
-                            </span>
-                          ) : null}
-                        </div>
-                        <p className="mt-0.5 truncate text-[13px] leading-snug text-text-secondary">
+                        <p className="truncate text-[14px] font-medium text-ink">
+                          {item.title}
+                        </p>
+                        <p className="mt-0.5 truncate text-[12px] leading-snug text-text-secondary">
                           {item.detail}
                         </p>
                       </div>
+                      {item.badge ? (
+                        <Pill tone={badgeTone}>{item.badge}</Pill>
+                      ) : null}
                       <ChevronRight
-                        className="size-5 shrink-0 text-text-secondary/70 transition-transform duration-200 group-hover:translate-x-0.5 group-hover:text-text-secondary-strong motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                        className="size-4 shrink-0 text-text-secondary transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                         aria-hidden
                       />
                       <span className="sr-only">Abrir</span>
@@ -380,7 +376,7 @@ export default async function DashboardPage() {
         <section aria-labelledby="summary-heading" className="space-y-3">
           <h2
             id="summary-heading"
-            className="px-0.5 text-[15px] font-semibold tracking-[-0.01em] text-ink"
+            className="px-0.5 text-[13px] font-semibold text-text-secondary-strong"
           >
             Resumen
           </h2>
@@ -397,10 +393,10 @@ export default async function DashboardPage() {
                     <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[22px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-ink">
+                    <p className="text-[22px] font-bold leading-none tracking-[-0.02em] tabular-nums text-ink">
                       {item.value}
                     </p>
-                    <p className="mt-1.5 text-[13px] leading-snug text-text-secondary">
+                    <p className="mt-1.5 text-[12px] leading-snug text-text-secondary">
                       {item.label}
                     </p>
                   </div>

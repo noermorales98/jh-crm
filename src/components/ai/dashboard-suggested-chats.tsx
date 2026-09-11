@@ -35,11 +35,11 @@ export function DashboardSuggestedChats({
         <div className="min-w-0">
           <h2
             id="chats-heading"
-            className="text-[15px] font-semibold tracking-[-0.01em] text-ink"
+            className="text-[13px] font-semibold text-text-secondary-strong"
           >
             Chats sugeridos
           </h2>
-          <p className="mt-0.5 text-[13px] text-text-secondary">
+          <p className="mt-0.5 text-[12px] text-text-secondary">
             Ideas según lo pendiente hoy · cambian con tus datos
           </p>
         </div>
@@ -66,26 +66,26 @@ export function DashboardSuggestedChats({
               <button
                 type="button"
                 onClick={() => openSuggestion(item.prompt)}
-                className={`group flex min-h-14 w-full items-center gap-3.5 px-4 py-3 text-left transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none sm:px-5 ${
+                className={`group flex min-h-14 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none sm:px-5 ${
                   index > 0 ? "border-t border-border-subtle/60" : ""
                 }`}
               >
                 <ChatBlobatar
                   name={chatBlobatarName(item.id)}
-                  size={40}
+                  size={36}
                   className="shrink-0"
                   title={item.title}
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[15px] font-medium tracking-[-0.01em] text-ink">
+                  <span className="block truncate text-[14px] font-medium text-ink">
                     {item.title}
                   </span>
-                  <span className="mt-0.5 block truncate text-[13px] text-text-secondary">
+                  <span className="mt-0.5 block truncate text-[12px] text-text-secondary">
                     {item.subtitle}
                   </span>
                 </span>
                 <ChevronRight
-                  className="size-5 shrink-0 text-text-secondary/70 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="size-4 shrink-0 text-text-secondary transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
                   aria-hidden
                 />
               </button>

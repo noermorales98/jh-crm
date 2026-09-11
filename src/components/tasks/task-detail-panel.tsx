@@ -31,7 +31,7 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
   return (
     <div className="space-y-4 p-4">
       <div>
-        <h2 className="text-lg font-semibold text-ink">{task.title}</h2>
+        <h2 className="text-[17px] font-semibold tracking-[-0.01em] text-ink">{task.title}</h2>
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <StatusPill domain="taskStatus" value={task.status} />
           <StatusPill domain="taskPriority" value={task.priority} />
@@ -41,7 +41,7 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
       <Card>
         <CardHeader title="Detalle" />
         <CardBody>
-          <dl className="space-y-2 text-sm">
+          <dl className="space-y-2 text-[13px]">
             <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Tipo</dt>
               <dd>{labelFor(TASK_TYPE_LABELS, task.type)}</dd>
@@ -93,7 +93,7 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
             </div>
           </dl>
           {task.description ? (
-            <p className="mt-4 whitespace-pre-wrap text-sm text-text-secondary-strong">
+            <p className="mt-4 whitespace-pre-wrap text-[13px] text-text-secondary-strong">
               {task.description}
             </p>
           ) : null}

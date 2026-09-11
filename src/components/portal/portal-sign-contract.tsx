@@ -110,7 +110,7 @@ export function PortalSignContractButton({
       <label className="flex items-start gap-2 text-sm text-ink">
         <input
           type="checkbox"
-          className="mt-1"
+          className="mt-1 size-4 rounded border-border-subtle text-action-primary"
           checked={accepted}
           onChange={(e) => setAccepted(e.target.checked)}
           required

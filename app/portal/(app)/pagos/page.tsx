@@ -74,7 +74,9 @@ export default async function PortalPagosPage() {
                     </Pill>
                   </TD>
                   <TD>{labelFor(PAYMENT_METHOD_LABELS, p.method)}</TD>
-                  <TD>{formatDate(p.receivedAt ?? p.createdAt)}</TD>
+                  <TD className="tabular-nums">
+                    {formatDate(p.receivedAt ?? p.createdAt)}
+                  </TD>
                   <TD>
                     {p.receipt?.folio ? (
                       <span className="text-sm">{p.receipt.folio}</span>

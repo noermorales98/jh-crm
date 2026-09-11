@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import type { Prisma } from "@prisma/client";
-import Link from "next/link";
 import {
+  ButtonLink,
+  buttonClasses,
   Card,
   CardBody,
   CardHeader,
@@ -241,15 +242,12 @@ export default async function PortalProgresoPage() {
               </div>
 
               <div className="flex flex-wrap gap-2">
-                <Link
-                  href={`/portal/reportes/${latest.id}`}
-                  className="inline-flex min-h-10 items-center rounded-control bg-action-primary px-3 text-sm font-semibold text-action-primary-foreground hover:bg-action-secondary"
-                >
+                <ButtonLink href={`/portal/reportes/${latest.id}`}>
                   Ver reporte completo
-                </Link>
+                </ButtonLink>
                 <a
                   href={`/api/progress-reports/${latest.id}/pdf`}
-                  className="inline-flex min-h-10 items-center rounded-control bg-surface-panel px-3 text-sm font-medium text-ink hover:bg-nav-active"
+                  className={buttonClasses("secondary")}
                 >
                   Descargar PDF
                 </a>

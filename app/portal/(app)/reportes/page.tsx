@@ -56,8 +56,8 @@ export default async function PortalReportesPage() {
                   <TD className="font-medium">{r.caseCode}</TD>
                   <TD>{r.periodLabel}</TD>
                   <TD>{r.roundLabel}</TD>
-                  <TD>{formatDate(r.reportDate)}</TD>
-                  <TD>
+                  <TD className="tabular-nums">{formatDate(r.reportDate)}</TD>
+                  <TD className="tabular-nums">
                     {r.nextReviewAt ? formatDate(r.nextReviewAt) : "—"}
                   </TD>
                   <TD>

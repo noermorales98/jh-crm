@@ -370,7 +370,7 @@ export function IntakeForm({ token }: { token: string }) {
             >
               <input
                 type="checkbox"
-                className="size-4 rounded border-border-subtle"
+                className="size-4 rounded border-border-subtle text-action-primary"
                 checked={Boolean(flags[key])}
                 onChange={(e) =>
                   setFlags((prev) => ({ ...prev, [key]: e.target.checked }))
@@ -395,7 +395,7 @@ export function IntakeForm({ token }: { token: string }) {
         <label className="flex items-end gap-2 pb-2 text-sm text-ink">
           <input
             type="checkbox"
-            className="size-4 rounded border-border-subtle"
+            className="size-4 rounded border-border-subtle text-action-primary"
             checked={hasRecentReportAccess}
             onChange={(e) => setHasRecentReportAccess(e.target.checked)}
           />
@@ -466,7 +466,7 @@ export function IntakeForm({ token }: { token: string }) {
         <label className="flex items-start gap-3 text-sm text-ink">
           <input
             type="checkbox"
-            className="mt-1 size-4 rounded border-border-subtle"
+            className="mt-1 size-4 rounded border-border-subtle text-action-primary"
             checked={consentAccepted}
             onChange={(e) => setConsentAccepted(e.target.checked)}
             required

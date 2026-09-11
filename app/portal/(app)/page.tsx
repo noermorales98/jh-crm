@@ -111,7 +111,7 @@ export default async function PortalHomePage() {
                     {activeCase.scores.map((s) => (
                       <div
                         key={s.bureau}
-                        className="rounded-surface bg-surface-elevated px-3 py-2"
+                        className="rounded-surface bg-surface-app px-3 py-2"
                       >
                         <p className="text-xs text-text-secondary">
                           {labelFor(CREDIT_BUREAU_LABELS, s.bureau)}

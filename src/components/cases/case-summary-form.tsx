@@ -83,7 +83,7 @@ export function CaseSummaryForm({
       </Field>
       <div className="flex justify-end">
         <Button type="submit" disabled={pending}>
-          {pending ? "Guardando…" : "Guardar"}
+          {pending ? "Guardando…" : "Guardar cambios"}
         </Button>
       </div>
     </form>

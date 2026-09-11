@@ -208,7 +208,7 @@ export function AddCreditItemButton({ reportId }: { reportId: string }) {
               type="checkbox"
               checked={isNegative}
               onChange={(e) => setIsNegative(e.target.checked)}
-              className="size-4 rounded border-border-subtle"
+              className="size-4 rounded border-border-subtle text-action-primary"
             />
             Marcar como negativo
           </label>

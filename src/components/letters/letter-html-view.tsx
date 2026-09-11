@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { Download } from "lucide-react";
+import { buttonClasses } from "@/src/components/ui";
 import { formatForPdf } from "@/src/lib/format/dates";
 
 export function LetterHtmlView({
@@ -42,15 +44,13 @@ export function LetterHtmlView({
         >
           ← Volver a la ronda
         </Link>
-        <a
-          href={downloadHref}
-          className="inline-flex items-center rounded-control bg-action-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-action-secondary"
-        >
+        <a href={downloadHref} className={buttonClasses("primary", "sm")}>
+          <Download className="size-4" aria-hidden />
           Descargar PDF
         </a>
       </div>
 
-      <article className="rounded-control border border-border-subtle bg-surface-panel px-8 py-10 shadow-sm">
+      <article className="rounded-control border border-border-subtle bg-surface-panel px-8 py-10">
         <header className="border-b border-border-subtle pb-6">
           <p className="text-lg font-semibold text-ink">{organizationName}</p>
           {organizationContact ? (

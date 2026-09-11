@@ -53,51 +53,57 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
       <Card>
         <CardHeader title="Detalle" />
         <CardBody>
-          <dl className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Caso</dt>
-              <dd>
+          <dl className="space-y-2.5">
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Caso</dt>
+              <dd className="text-[13px]">
                 <Link
                   href={`/crm/casos/${round.case.id}/rondas`}
-                  className="text-action-primary hover:text-action-secondary"
+                  className="font-medium text-action-primary hover:text-action-secondary"
                 >
                   {round.case.caseCode}
                 </Link>
               </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Cliente</dt>
-              <dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Cliente</dt>
+              <dd className="text-[13px]">
                 <Link
                   href={`/crm/clientes?id=${round.case.client.id}`}
-                  className="text-action-primary hover:text-action-secondary"
+                  className="font-medium text-action-primary hover:text-action-secondary"
                 >
                   {clientFullName(round.case.client)}
                 </Link>
               </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Creada</dt>
-              <dd>{formatDate(round.startedAt)}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Creada</dt>
+              <dd className="text-[13px] text-ink">{formatDate(round.startedAt)}</dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Enviada</dt>
-              <dd>{round.sentAt ? formatDate(round.sentAt) : "—"}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Enviada</dt>
+              <dd className="text-[13px] text-ink">
+                {round.sentAt ? formatDate(round.sentAt) : "—"}
+              </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Revisión esperada</dt>
-              <dd className={overdue ? "font-medium text-danger-ink" : ""}>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Revisión esperada</dt>
+              <dd
+                className={`text-[13px] ${overdue ? "font-medium text-danger-ink" : "text-ink"}`}
+              >
                 {round.expectedReviewAt ? formatDate(round.expectedReviewAt) : "—"}
                 {overdue ? " · vencida" : ""}
               </dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Cartas</dt>
-              <dd>{round.lettersCount}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Cartas</dt>
+              <dd className="text-[13px] tabular-nums text-ink">{round.lettersCount}</dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Ítems disputados</dt>
-              <dd>{round.disputedItemsCount}</dd>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Ítems disputados</dt>
+              <dd className="text-[13px] tabular-nums text-ink">
+                {round.disputedItemsCount}
+              </dd>
             </div>
           </dl>
           {round.notes ? (

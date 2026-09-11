@@ -111,7 +111,7 @@ export function AddDisputeItemsButton({
               >
                 <input
                   type="checkbox"
-                  className="mt-1 size-4"
+                  className="mt-1 size-4 rounded border-border-subtle text-action-primary"
                   checked={selected.has(item.id)}
                   onChange={() => toggle(item.id)}
                 />

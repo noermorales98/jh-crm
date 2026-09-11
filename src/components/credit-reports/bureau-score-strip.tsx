@@ -58,8 +58,8 @@ export function BureauScoreStrip({
           </p>
           <div className="mt-0.5 flex items-baseline gap-2">
             <p
-              className={`font-semibold tabular-nums text-ink ${
-                compact ? "text-xl" : "text-2xl"
+              className={`font-semibold tracking-[-0.01em] tabular-nums text-ink ${
+                compact ? "text-xl" : "text-[28px] leading-8"
               }`}
             >
               {row.score ?? "—"}

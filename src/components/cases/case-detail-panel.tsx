@@ -81,19 +81,23 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
                 )}
               </div>
 
-              <dl className="grid gap-3 text-sm">
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Apertura</dt>
-                  <dd className="text-ink">{formatDate(creditCase.openedAt)}</dd>
+              <dl className="grid gap-3">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Apertura</dt>
+                  <dd className="text-[13px] text-ink">
+                    {formatDate(creditCase.openedAt)}
+                  </dd>
                 </div>
-                <div className="flex justify-between">
-                  <dt className="text-text-secondary">Cierre</dt>
-                  <dd className="text-ink">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Cierre</dt>
+                  <dd className="text-[13px] text-ink">
                     {creditCase.closedAt ? formatDate(creditCase.closedAt) : "—"}
                   </dd>
                 </div>
-                <div className="flex items-start justify-between gap-4 rounded-control bg-surface-panel px-3 py-2.5">
-                  <dt className="font-medium text-ink">Próxima acción</dt>
+                <div className="flex items-center justify-between gap-4 rounded-control bg-surface-panel px-3 py-2.5">
+                  <dt className="text-[12px] font-medium text-text-secondary">
+                    Próxima acción
+                  </dt>
                   <dd>
                     {creditCase.serviceCase.nextActionAt ? (
                       new Date(creditCase.serviceCase.nextActionAt) < new Date() && isOpen ? (

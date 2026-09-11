@@ -23,9 +23,9 @@ export type ScorePointEvent = {
 };
 
 const SERIES: { bureau: CreditBureau; color: string }[] = [
-  { bureau: "EXPERIAN", color: "var(--color-action-primary, #4f46e5)" },
-  { bureau: "EQUIFAX", color: "var(--color-success-ink, #15803d)" },
-  { bureau: "TRANSUNION", color: "var(--color-warning-ink, #b45309)" },
+  { bureau: "EXPERIAN", color: "var(--color-action-primary)" },
+  { bureau: "EQUIFAX", color: "var(--color-success-ink)" },
+  { bureau: "TRANSUNION", color: "var(--color-warning-ink)" },
 ];
 
 /**

@@ -171,10 +171,11 @@ export function CreateLetterButton({
               bureauItems.map((item) => (
                 <label
                   key={item.id}
-                  className="flex cursor-pointer gap-2 rounded px-2 py-1.5 text-sm hover:bg-surface-panel"
+                  className="flex cursor-pointer gap-2 rounded-control px-2 py-1.5 text-sm hover:bg-surface-panel"
                 >
                   <input
                     type="checkbox"
+                    className="mt-0.5 size-4 rounded border-border-subtle text-action-primary"
                     checked={selected.has(item.id)}
                     onChange={() => toggle(item.id)}
                   />

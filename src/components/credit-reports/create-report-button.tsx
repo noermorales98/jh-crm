@@ -166,7 +166,7 @@ export function CreateCreditReportButton({ caseId }: { caseId: string }) {
               Cancelar
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Guardando…" : "Guardar"}
+              {pending ? "Guardando…" : "Guardar reporte"}
             </Button>
           </div>
         </form>

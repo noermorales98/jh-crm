@@ -99,7 +99,7 @@ export default async function CreditReportDetailPage({
                 <p className="text-xs font-medium uppercase tracking-wide text-text-secondary">
                   {CREDIT_BUREAU_LABELS[bureau]}
                 </p>
-                <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">
+                <p className="mt-1 text-[28px] leading-8 font-semibold tracking-[-0.01em] tabular-nums text-ink">
                   {snap?.score ?? "—"}
                 </p>
                 {snap ? (

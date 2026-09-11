@@ -63,10 +63,10 @@ const MAIL_FOLDERS: readonly {
 const MAIL_HREF = "/crm/mails?folder=inbox";
 
 const linkClass = (active: boolean, extra = "") =>
-  `flex min-h-11 items-center gap-3 rounded-[10px] px-3 py-2.5 text-[15px] tracking-[-0.01em] transition-colors duration-200 motion-reduce:transition-none ${
+  `flex min-h-11 lg:min-h-10 items-center gap-3 rounded-control px-3 py-2 text-[14px] font-medium tracking-[-0.01em] transition-colors duration-200 motion-reduce:transition-none ${
     active
-      ? "bg-nav-active font-semibold text-action-primary"
-      : "font-medium text-ink hover:bg-nav-hover"
+      ? "bg-nav-active text-action-primary"
+      : "text-ink hover:bg-nav-hover"
   } ${extra}`;
 
 export function SidebarNav() {
@@ -140,7 +140,7 @@ export function SidebarNav() {
                         href={folder.href}
                         aria-current={folderActive ? "page" : undefined}
                         data-cuelume-hover="tick"
-                        className={linkClass(folderActive, "min-h-10 py-1.5 text-[13px]")}
+                        className={linkClass(folderActive, "min-h-9 py-1.5 text-[13px]")}
                       >
                         <FolderIcon className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
                         {folder.label}

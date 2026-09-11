@@ -276,7 +276,7 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
       >
         <Search className="size-4 shrink-0 text-text-secondary-strong" aria-hidden />
         <span className="min-w-0 flex-1 truncate">Buscar o preguntar…</span>
-        <kbd className="hidden rounded-full bg-surface-elevated px-2 py-0.5 text-[11px] font-medium text-text-secondary-strong sm:inline">
+        <kbd className="hidden rounded-md border border-border-subtle bg-surface-panel px-1.5 py-0.5 text-[11px] font-medium text-text-secondary sm:inline">
           {shortcut}
         </kbd>
       </button>

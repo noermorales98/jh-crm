@@ -162,9 +162,20 @@ export function MoreNavPanel({
           aria-label="Más"
         >
           <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
-            {MORE_NAV_GROUPS.map((group) => (
-              <div key={group.label}>
-                <p className="mb-2 px-1 text-[12px] font-semibold uppercase tracking-[0.04em] text-text-secondary">
+            {MORE_NAV_GROUPS.map((group, index) => (
+              <div
+                key={group.label}
+                className={`${
+                  index > 0
+                    ? "max-sm:border-t max-sm:border-border-subtle/60 max-sm:pt-5"
+                    : ""
+                } ${
+                  index > 1
+                    ? "sm:border-t sm:border-border-subtle/60 sm:pt-5"
+                    : ""
+                }`}
+              >
+                <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-text-secondary">
                   {group.label}
                 </p>
                 <ul className="space-y-1">
@@ -177,17 +188,17 @@ export function MoreNavPanel({
                           href={href}
                           onClick={onClose}
                           aria-current={active ? "page" : undefined}
-                          className={`flex min-h-12 items-center gap-3 rounded-[12px] px-3 text-[15px] tracking-[-0.01em] transition-colors ${
+                          className={`flex min-h-12 items-center gap-3 rounded-surface px-3 text-[15px] tracking-[-0.01em] transition-colors ${
                             active
                               ? "bg-nav-active font-semibold text-action-primary"
                               : "font-medium text-ink hover:bg-nav-hover"
                           }`}
                         >
                           <span
-                            className={`flex size-9 shrink-0 items-center justify-center rounded-[10px] ${
+                            className={`flex size-9 shrink-0 items-center justify-center rounded-control ${
                               active
                                 ? "bg-action-primary text-action-primary-foreground"
-                                : "bg-surface-panel text-text-secondary-strong"
+                                : "bg-nav-hover text-text-secondary-strong"
                             }`}
                           >
                             <Icon

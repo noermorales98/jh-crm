@@ -233,7 +233,7 @@ export function CrmHeader({
           />
         ) : null}
         <p
-          className={`truncate text-[17px] font-semibold tracking-[-0.02em] text-ink ${
+          className={`truncate text-[15px] font-semibold tracking-[-0.01em] text-ink ${
             showTitle ? "" : "hidden"
           }`}
         >

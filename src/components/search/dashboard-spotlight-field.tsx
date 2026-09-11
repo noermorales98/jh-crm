@@ -41,7 +41,7 @@ export function DashboardSpotlightField() {
         <span className="min-w-0 flex-1 truncate text-[15px] font-medium tracking-[-0.01em] text-text-secondary">
           Clientes, casos, pagos…
         </span>
-        <kbd className="hidden shrink-0 rounded-[8px] bg-surface-panel px-2 py-1 text-[11px] font-medium tabular-nums text-text-secondary-strong sm:inline">
+        <kbd className="hidden shrink-0 rounded-md border border-border-subtle bg-surface-panel px-2 py-1 text-[11px] font-medium tabular-nums text-text-secondary sm:inline">
           {shortcut}
         </kbd>
       </button>

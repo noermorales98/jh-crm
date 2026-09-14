@@ -23,7 +23,7 @@ export function DashboardSpotlightField() {
     <section aria-labelledby="dashboard-search-heading" className="space-y-3">
       <h2
         id="dashboard-search-heading"
-        className="px-0.5 text-[15px] font-semibold tracking-[-0.01em] text-ink"
+        className="px-0.5 text-[13px] font-semibold text-text-secondary-strong"
       >
         Buscar
       </h2>

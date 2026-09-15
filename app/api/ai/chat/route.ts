@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { createOpenRouterModel, isOpenRouterConfigured } from "@/src/lib/ai/openrouter";
 import { buildSystemPrompt } from "@/src/lib/ai/prompt";
+import { sanitizeTextForAI } from "@/src/lib/ai/sanitize";
 import { apiErrorResponse } from "@/src/server/http";
 import { requireApiOrganization } from "@/src/server/auth/guards";
 import { getCompanySnapshot } from "@/src/server/ai/queries";
@@ -46,7 +47,17 @@ export async function POST(request: Request) {
 
     const body = (await request.json()) as { id?: string; messages?: UIMessage[] };
     const chatId = typeof body.id === "string" && body.id.trim() ? body.id.trim() : null;
-    const uiMessages = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
+    const rawMessages = Array.isArray(body.messages) ? body.messages.slice(-20) : [];
+    // AI-002: el texto que escribe el staff también se enmascara antes de
+    // salir hacia OpenRouter (SSN/ITIN tecleados o pegados en el chat).
+    const uiMessages = rawMessages.map((message) => ({
+      ...message,
+      parts: message.parts?.map((part) =>
+        part.type === "text" && typeof part.text === "string"
+          ? { ...part, text: sanitizeTextForAI(part.text) }
+          : part,
+      ),
+    }));
     const tools = buildCrmTools(ctx);
     const company = await getCompanySnapshot(ctx);
     const modelMessages = await convertToModelMessages(uiMessages, {

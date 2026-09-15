@@ -1,4 +1,4 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { authConfig } from "./auth.config";
@@ -9,11 +9,23 @@ import {
   isTokenSessionCurrent,
   loadAuthTokenState,
 } from "@/src/server/auth/session";
+import { verifyMfaLogin } from "@/src/server/mfa";
 import {
   authenticatePortal,
   loadPortalTokenState,
 } from "@/src/server/portal";
 import { clientFullName } from "@/src/server/page-helpers";
+
+/**
+ * MFA en login (T-SEC): errores con `code` propio para que el LoginForm
+ * muestre el paso de código (mfa_required / mfa_invalid).
+ */
+class MfaRequiredError extends CredentialsSignin {
+  code = "mfa_required";
+}
+class MfaInvalidError extends CredentialsSignin {
+  code = "mfa_invalid";
+}
 
 /**
  * NextAuth v5 — dual Credentials:
@@ -35,6 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       credentials: {
         email: { label: "Correo electrónico", type: "email" },
         password: { label: "Contraseña", type: "password" },
+        mfaCode: { label: "Código MFA", type: "text" },
       },
       async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials);
@@ -57,6 +70,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           user.passwordHash,
         );
         if (!valid) return null;
+
+        // Enforcement MFA: con mfaEnabled la contraseña no basta.
+        // verifyMfaLogin aplica lockout (5 fallos → 15 min) y recovery codes.
+        if (user.mfaEnabled) {
+          const mfaCode =
+            typeof credentials?.mfaCode === "string"
+              ? credentials.mfaCode.trim()
+              : "";
+          if (!mfaCode) throw new MfaRequiredError();
+          const mfaOk = await verifyMfaLogin(user.id, mfaCode);
+          if (!mfaOk) throw new MfaInvalidError();
+        }
 
         const membership = user.memberships[0] ?? null;
 

@@ -419,6 +419,8 @@ BUSINESS_DOCUMENT
 OTHER
 ```
 
+**Estado:** DONE (2026-09-15) con las categorías del enum actual (sin migración): `src/server/documents/checklist.ts` define requeridos/opcionales por `Service.code` (CREDIT_REPAIR: IDENTITY, PROOF_OF_ADDRESS, SSN_DOCUMENT, CREDIT_REPORT) y la página de documentos del caso muestra la card «Checklist del servicio». Cuenta docs del caso + docs de cliente sin caso; excluye soft-deleted. Smoke: `scripts/smoke/dc-005-checklist.ts`. Las categorías nuevas (CONTRACT, INVOICE…) requieren migración del enum y quedan pendientes.
+
 ---
 
 # EPIC 6 — Reparación de crédito
@@ -678,6 +680,8 @@ Nunca publicar automáticamente.
 
 # EPIC 10 — Seguridad y auditoría
 
+> **MFA login (2026-09-15):** enforcement TOTP activo — `authorize` de `auth.ts` exige código cuando `mfaEnabled=true` (errores `mfa_required`/`mfa_invalid` que el LoginForm ya maneja; lockout 5 fallos → 15 min; recovery codes de un solo uso). Smoke: `scripts/smoke/mfa-login-enforcement.ts` (9/9).
+
 ## SEC-001 — Roles
 **Prioridad:** P0
 
@@ -756,6 +760,8 @@ Listado priorizado de expedientes con acciones vencidas o próximas.
 
 ## AI-002 — Sanitización de datos
 **Prioridad:** P0 antes de activar IA
+
+**Estado:** DONE (2026-09-15). `sanitizeForAI()` en `src/lib/ai/sanitize.ts`: elimina SSN/ITIN (completo, last4, cifrado), *Encrypted, DOB, dirección, números de cuenta y enmascara patrones 123-45-6789 / 9 dígitos en texto libre. Aplicado en todas las tools del chat (`src/server/ai/tools.ts`), en los mensajes del staff (`app/api/ai/chat/route.ts`) y en la traducción de correos. Smoke: `scripts/smoke/ai-sanitize.ts` (22/22).
 
 ## AI-003 — Resumen de expediente
 **Prioridad:** P2

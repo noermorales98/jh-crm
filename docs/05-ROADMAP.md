@@ -126,4 +126,6 @@ Después del MVP estable: email, webhook, SMS, WhatsApp, pagos online.
 
 ## Fase 8 — IA
 
+**Progreso (2026-09-15):** `sanitizeForAI()` DONE (AI-002, P0) — aplicado en tools del chat, mensajes del staff y traducción de correos.
+
 Después de `sanitizeForAI()`: resumen de expediente, siguiente acción sugerida, extracción de tareas, búsqueda asistida.

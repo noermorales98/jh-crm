@@ -1,0 +1,97 @@
+import type { DocumentCategory } from "@prisma/client";
+import { prisma } from "@/src/lib/db";
+import { DomainError } from "@/src/server/errors";
+import type { OrganizationContext } from "@/src/server/auth/guards";
+
+/**
+ * DC-005 — Checklist de documentos por servicio (vertical).
+ *
+ * Config en código (sin migración): usa las categorías del enum
+ * DocumentCategory existente. Cuando el backlog añada categorías nuevas
+ * (CONTRACT, INVOICE, RECEIPT, BANK_DOCUMENT…) se extiende aquí.
+ *
+ * Cuenta documentos del cliente ligados al caso o al cliente sin caso
+ * (p.ej. la ID se sube una sola vez a nivel ficha).
+ */
+
+interface ChecklistSpec {
+  required: DocumentCategory[];
+  optional: DocumentCategory[];
+}
+
+const CHECKLISTS: Record<string, ChecklistSpec> = {
+  CREDIT_REPAIR: {
+    required: ["IDENTITY", "PROOF_OF_ADDRESS", "SSN_DOCUMENT", "CREDIT_REPORT"],
+    optional: ["DISPUTE_LETTER", "UPDATE_REPORT", "PAYMENT_PROOF"],
+  },
+};
+
+const DEFAULT_CHECKLIST: ChecklistSpec = {
+  required: ["IDENTITY"],
+  optional: [],
+};
+
+export function getChecklistForService(
+  serviceCode: string | null | undefined,
+): ChecklistSpec {
+  if (serviceCode && CHECKLISTS[serviceCode]) return CHECKLISTS[serviceCode];
+  return DEFAULT_CHECKLIST;
+}
+
+export interface DocumentChecklistRow {
+  category: DocumentCategory;
+  required: boolean;
+  count: number;
+  present: boolean;
+}
+
+export async function getCaseDocumentChecklist(
+  ctx: OrganizationContext,
+  caseId: string,
+) {
+  const creditCase = await prisma.creditCase.findFirst({
+    where: { id: caseId, organizationId: ctx.organizationId },
+    select: {
+      id: true,
+      clientId: true,
+      serviceCase: {
+        select: { service: { select: { code: true, name: true } } },
+      },
+    },
+  });
+  if (!creditCase) throw new DomainError("Caso no encontrado.");
+
+  const spec = getChecklistForService(creditCase.serviceCase?.service?.code);
+
+  const grouped = await prisma.document.groupBy({
+    by: ["category"],
+    where: {
+      organizationId: ctx.organizationId,
+      clientId: creditCase.clientId,
+      deletedAt: null,
+      hardDeletedAt: null,
+      OR: [{ caseId: creditCase.id }, { caseId: null }],
+    },
+    _count: { _all: true },
+  });
+  const countByCategory = new Map<DocumentCategory, number>(
+    grouped.map((row) => [row.category, row._count._all]),
+  );
+
+  const ordered: Array<{ category: DocumentCategory; required: boolean }> = [
+    ...spec.required.map((category) => ({ category, required: true })),
+    ...spec.optional.map((category) => ({ category, required: false })),
+  ];
+
+  const rows: DocumentChecklistRow[] = ordered.map(({ category, required }) => {
+    const count = countByCategory.get(category) ?? 0;
+    return { category, required, count, present: count > 0 };
+  });
+
+  return {
+    serviceCode: creditCase.serviceCase?.service?.code ?? null,
+    serviceName: creditCase.serviceCase?.service?.name ?? null,
+    rows,
+    missingRequired: rows.filter((row) => row.required && !row.present),
+  };
+}

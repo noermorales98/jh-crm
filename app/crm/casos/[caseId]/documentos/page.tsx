@@ -6,9 +6,11 @@ import * as caseService from "@/src/server/cases";
 import * as documentService from "@/src/server/documents";
 import { isStorageConfigured } from "@/src/lib/storage/s3";
 import { DomainError } from "@/src/server/errors";
-import { Alert, Card, CardBody, CardHeader } from "@/src/components/ui";
+import { Alert, Card, CardBody, CardHeader, Pill } from "@/src/components/ui";
 import { DocumentUploader } from "@/src/components/documents/document-uploader";
 import { DocumentTable } from "@/src/components/documents/document-table";
+import { getCaseDocumentChecklist } from "@/src/server/documents/checklist";
+import { DOCUMENT_CATEGORY_LABELS, labelFor } from "@/src/lib/labels";
 import { CaseHeader } from "../case-header";
 
 export const metadata: Metadata = {
@@ -35,15 +37,58 @@ export default async function CaseDocumentsPage({
   const canUpload = can(ctx.role, "documents.upload");
   const storageReady = isStorageConfigured();
 
-  const documents = await documentService.listDocuments(ctx, {
-    clientId: creditCase.client.id,
-    caseId: creditCase.id,
-    limit: 50,
-  });
+  const [documents, checklist] = await Promise.all([
+    documentService.listDocuments(ctx, {
+      clientId: creditCase.client.id,
+      caseId: creditCase.id,
+      limit: 50,
+    }),
+    getCaseDocumentChecklist(ctx, creditCase.id),
+  ]);
 
   return (
     <div>
       <CaseHeader creditCase={creditCase} />
+
+      <Card>
+        <CardHeader
+          title="Checklist del servicio"
+          description={
+            checklist.serviceName
+              ? `Documentos requeridos para ${checklist.serviceName}.`
+              : "Documentos requeridos para este servicio."
+          }
+          compact
+        />
+        <CardBody className="px-4 py-3">
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {checklist.rows.map((row) => (
+              <li
+                key={row.category}
+                className="flex items-center justify-between gap-3 rounded-control bg-surface-panel px-3 py-2"
+              >
+                <span className="text-[13px] text-ink">
+                  {labelFor(DOCUMENT_CATEGORY_LABELS, row.category)}
+                  {row.required ? null : (
+                    <span className="ml-1.5 text-[11px] text-text-secondary">
+                      opcional
+                    </span>
+                  )}
+                </span>
+                {row.present ? (
+                  <Pill tone="green">
+                    Recibido{row.count > 1 ? ` · ${row.count}` : ""}
+                  </Pill>
+                ) : (
+                  <Pill tone={row.required ? "red" : "slate"}>
+                    {row.required ? "Pendiente" : "Sin archivo"}
+                  </Pill>
+                )}
+              </li>
+            ))}
+          </ul>
+        </CardBody>
+      </Card>
 
       <Card>
         <CardHeader

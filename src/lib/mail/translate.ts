@@ -3,6 +3,7 @@ import {
   createOpenRouterModel,
   isOpenRouterConfigured,
 } from "@/src/lib/ai/openrouter";
+import { sanitizeTextForAI } from "@/src/lib/ai/sanitize";
 
 const MAX_BODY_CHARS = 8_000;
 const MYMEMORY_CHUNK = 420;
@@ -116,8 +117,13 @@ export async function translateEnglishToSpanish(input: {
   subject: string;
   body: string;
 }): Promise<TranslatedMail> {
-  const subject = input.subject.trim() || "(Sin asunto)";
-  const body = clip(input.body.replace(/\s+\n/g, "\n").trim() || "(Sin contenido)", MAX_BODY_CHARS);
+  // AI-002: enmascarar SSN/ITIN antes de enviar a servicios externos
+  // (OpenRouter y el fallback MyMemory son terceros).
+  const subject = sanitizeTextForAI(input.subject.trim() || "(Sin asunto)");
+  const body = clip(
+    sanitizeTextForAI(input.body.replace(/\s+\n/g, "\n").trim() || "(Sin contenido)"),
+    MAX_BODY_CHARS,
+  );
 
   if (isOpenRouterConfigured()) {
     try {

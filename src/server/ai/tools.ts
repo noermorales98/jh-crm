@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { tool } from "@ai-sdk/provider-utils";
 import type { OrganizationContext } from "@/src/server/auth/guards";
+import { sanitizeForAI } from "@/src/lib/ai/sanitize";
 import {
   getCaseBrief,
   getCatalogSnapshot,
@@ -21,7 +22,12 @@ import {
 /**
  * Herramientas de solo lectura, siempre scopeadas a organizationId.
  * Nunca exponen SSN descifrado, API keys ni SQL.
+ * AI-002: todo resultado pasa por sanitizeForAI() antes de llegar al modelo.
  */
+function scrub<T>(value: Promise<T> | T): Promise<T> {
+  return Promise.resolve(value).then((result) => sanitizeForAI(result));
+}
+
 export function buildCrmTools(ctx: OrganizationContext) {
   return {
     getCompanyInfo: tool({
@@ -33,7 +39,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .optional()
           .describe("Si true, incluye los términos por defecto de las cotizaciones."),
       }),
-      execute: async () => getCompanySnapshot(ctx),
+      execute: async () => scrub(getCompanySnapshot(ctx)),
     }),
     listCrm: tool({
       description:
@@ -63,7 +69,8 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .optional()
           .describe("Filtro opcional por nombre, código, folio o correo."),
       }),
-      execute: async ({ entity, status, q }) => listCrm(ctx, entity, { status, q }),
+      execute: async ({ entity, status, q }) =>
+        scrub(listCrm(ctx, entity, { status, q })),
     }),
     searchCrm: tool({
       description:
@@ -76,7 +83,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .max(120)
           .describe("Texto a buscar: nombre, código, folio, correo o teléfono."),
       }),
-      execute: async ({ query }) => searchCrm(ctx, query),
+      execute: async ({ query }) => scrub(searchCrm(ctx, query)),
     }),
     getDashboard: tool({
       description:
@@ -84,7 +91,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
       inputSchema: z.object({
         reason: z.string().optional().describe("Por qué se pide el dashboard."),
       }),
-      execute: async () => getDashboardSnapshot(ctx),
+      execute: async () => scrub(getDashboardSnapshot(ctx)),
     }),
     getClient: tool({
       description:
@@ -92,7 +99,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
       inputSchema: z.object({
         clientId: z.string().min(1).describe("Id interno del cliente."),
       }),
-      execute: async ({ clientId }) => getClientBrief(ctx, clientId),
+      execute: async ({ clientId }) => scrub(getClientBrief(ctx, clientId)),
     }),
     getCase: tool({
       description:
@@ -100,7 +107,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
       inputSchema: z.object({
         caseId: z.string().min(1).describe("Id interno del caso."),
       }),
-      execute: async ({ caseId }) => getCaseBrief(ctx, caseId),
+      execute: async ({ caseId }) => scrub(getCaseBrief(ctx, caseId)),
     }),
     getCreditCaseDetail: tool({
       description:
@@ -108,7 +115,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
       inputSchema: z.object({
         caseId: z.string().min(1).describe("Id interno del caso de crédito."),
       }),
-      execute: async ({ caseId }) => getCreditCaseDetail(ctx, caseId),
+      execute: async ({ caseId }) => scrub(getCreditCaseDetail(ctx, caseId)),
     }),
     listCreditAttention: tool({
       description:
@@ -116,7 +123,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
       inputSchema: z.object({
         reason: z.string().optional().describe("Por qué se pide la lista."),
       }),
-      execute: async () => listCreditAttention(ctx),
+      execute: async () => scrub(listCreditAttention(ctx)),
     }),
     searchCreditProgress: tool({
       description:
@@ -129,7 +136,8 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .max(120)
           .describe("Nombre o código del cliente."),
       }),
-      execute: async ({ clientName }) => searchCreditProgress(ctx, clientName),
+      execute: async ({ clientName }) =>
+        scrub(searchCreditProgress(ctx, clientName)),
     }),
     getCatalog: tool({
       description:
@@ -137,7 +145,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
       inputSchema: z.object({
         reason: z.string().optional(),
       }),
-      execute: async () => getCatalogSnapshot(ctx),
+      execute: async () => scrub(getCatalogSnapshot(ctx)),
     }),
     getHowTo: tool({
       description:
@@ -150,7 +158,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
             "Tema: cliente, caso, ronda, tarea, cotización, pago, recibo, documento, usuario, etapa, configuración, crédito, portal, contratos, correo, mails.",
           ),
       }),
-      execute: async ({ topic }) => getRoutesAndHowTo(topic),
+      execute: async ({ topic }) => scrub(getRoutesAndHowTo(topic)),
     }),
     listMails: tool({
       description:
@@ -173,7 +181,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .describe("Cuántos correos devolver (máx 30)."),
       }),
       execute: async ({ folder, q, limit }) =>
-        listMailsSnapshot(ctx, { folder, q, limit }),
+        scrub(listMailsSnapshot(ctx, { folder, q, limit })),
     }),
     getMail: tool({
       description:
@@ -181,7 +189,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
       inputSchema: z.object({
         mailId: z.string().min(1).describe("Id interno del correo."),
       }),
-      execute: async ({ mailId }) => getMailSnapshot(ctx, mailId),
+      execute: async ({ mailId }) => scrub(getMailSnapshot(ctx, mailId)),
     }),
     draftMail: tool({
       description:
@@ -209,7 +217,7 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .optional()
           .describe("Id del correo al que se responde."),
       }),
-      execute: async (input) => draftMailHelp(ctx, input),
+      execute: async (input) => scrub(draftMailHelp(ctx, input)),
     }),
   };
 }

@@ -35,6 +35,8 @@ Un prospecto llega desde Instagram: se registra como Client + Opportunity, se pr
 
 ## Fase 2 — Operación diaria
 
+**Estado:** DONE (2026-09-15). Tabla `Note` (cliente + ServiceCase), `ServiceCaseStageHistory`, `ServiceCase.nextActionAt` canónico, Task/Document/Payment/Quote ligados a `serviceCaseId`.
+
 Ya existe Tasks / Documents / Activity / dashboard. Completar:
 
 - tabla `Note` (sin backfill de ActivityLog.NOTE);
@@ -87,6 +89,8 @@ Finalizar
 ---
 
 ## Fase 4 — Ventas y cobranza
+
+**Estado:** DONE (2026-09-15). `agreedAmount`/`quotedAmount` editables + balance a nivel ServiceCase (`serviceCaseBalance`, card «Dinero del expediente», resumen en pagos del caso); `wonServiceCaseId` como único enlace WON (`wonCaseId` sin escritura, lectura legacy). Smoke: `scripts/smoke/fase4-balance-notes.ts` + `mark-won-br012.ts` actualizado.
 
 Ya hay Quotes / Payments / Receipts / Plans / Contracts.
 

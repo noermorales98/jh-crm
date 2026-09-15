@@ -81,6 +81,43 @@ export async function updateCreditCase(
   }
 }
 
+const caseAmountsSchema = z.object({
+  quotedAmount: z
+    .string()
+    .trim()
+    .regex(/^\d{1,10}(\.\d{1,2})?$/, "Monto inválido (máx. 2 decimales).")
+    .nullish(),
+  agreedAmount: z
+    .string()
+    .trim()
+    .regex(/^\d{1,10}(\.\d{1,2})?$/, "Monto inválido (máx. 2 decimales).")
+    .nullish(),
+});
+
+/** PY-002 / Fase 4 — montos del expediente (balance a nivel ServiceCase). */
+export async function updateCaseAmounts(
+  caseId: string,
+  input: unknown,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const ctx = await requirePermission("cases.manage");
+    const id = cuidSchema.parse(caseId);
+    const data = caseAmountsSchema.parse(input);
+    const updated = await caseService.updateCaseAmounts(ctx, id, {
+      quotedAmount:
+        data.quotedAmount === undefined ? undefined : data.quotedAmount || null,
+      agreedAmount:
+        data.agreedAmount === undefined ? undefined : data.agreedAmount || null,
+    });
+    revalidateCases(updated.clientId, updated.id);
+    revalidatePath(`/crm/casos/${updated.id}/pagos`);
+    return actionOk({ id: updated.id });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
 export async function moveCaseToStage(
   caseId: string,
   stageId: string,

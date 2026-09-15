@@ -599,6 +599,64 @@ export async function quoteBalance(ctx: OrganizationContext, quoteId: string) {
   };
 }
 
+/**
+ * PY-002 / Fase 4 — Balance a nivel expediente (ServiceCase).
+ * balance = agreedAmount − Σ pagos RECEIVED del expediente.
+ * Sin agreedAmount no hay balance canónico (el de Quote sigue en quoteBalance).
+ */
+export async function serviceCaseBalance(
+  ctx: OrganizationContext,
+  serviceCaseId: string,
+) {
+  const serviceCase = await prisma.serviceCase.findFirst({
+    where: { id: serviceCaseId, organizationId: ctx.organizationId },
+    select: {
+      id: true,
+      caseNumber: true,
+      quotedAmount: true,
+      agreedAmount: true,
+    },
+  });
+  if (!serviceCase) throw new DomainError("Expediente no encontrado.");
+
+  const [received, pending] = await Promise.all([
+    prisma.payment.aggregate({
+      where: {
+        organizationId: ctx.organizationId,
+        serviceCaseId: serviceCase.id,
+        status: "RECEIVED",
+      },
+      _sum: { amount: true },
+    }),
+    prisma.payment.aggregate({
+      where: {
+        organizationId: ctx.organizationId,
+        serviceCaseId: serviceCase.id,
+        status: "PENDING",
+      },
+      _sum: { amount: true },
+    }),
+  ]);
+
+  const paid = money(received._sum.amount ?? new Prisma.Decimal(0));
+  const pendingAmount = money(pending._sum.amount ?? new Prisma.Decimal(0));
+  const agreed = serviceCase.agreedAmount
+    ? money(serviceCase.agreedAmount)
+    : null;
+  return {
+    serviceCaseId: serviceCase.id,
+    caseNumber: serviceCase.caseNumber,
+    currency: "USD",
+    quotedAmount: serviceCase.quotedAmount
+      ? money(serviceCase.quotedAmount)
+      : null,
+    agreedAmount: agreed,
+    paid,
+    pending: pendingAmount,
+    balance: agreed ? money(agreed.sub(paid)) : null,
+  };
+}
+
 /** Suma de pagos pendientes (PENDING) de la organización, para el tablero de /pagos. */
 export async function sumPendingPayments(ctx: OrganizationContext) {
   const agg = await prisma.payment.aggregate({

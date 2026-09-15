@@ -7,6 +7,7 @@ import { DomainError } from "@/src/server/errors";
 import {
   ButtonLink,
   Card,
+  CardBody,
   CardHeader,
   EmptyState,
   StatusPill,
@@ -41,7 +42,7 @@ export default async function CasePaymentsPage({
     throw error;
   }
 
-  const { case: creditCase, payments } = detail;
+  const { case: creditCase, payments, caseBalance } = detail;
 
   return (
     <div>
@@ -57,6 +58,37 @@ export default async function CasePaymentsPage({
           </ButtonLink>
         }
       />
+
+      <div className="mb-6 grid gap-3 sm:grid-cols-3">
+        <Card>
+          <CardBody>
+            <p className="text-[12px] text-text-secondary">Monto acordado</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-ink">
+              {caseBalance.agreedAmount
+                ? formatMoney(caseBalance.agreedAmount, caseBalance.currency)
+                : "—"}
+            </p>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody>
+            <p className="text-[12px] text-text-secondary">Recibido</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-ink">
+              {formatMoney(caseBalance.paid, caseBalance.currency)}
+            </p>
+          </CardBody>
+        </Card>
+        <Card>
+          <CardBody>
+            <p className="text-[12px] text-text-secondary">Balance del expediente</p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-ink">
+              {caseBalance.balance
+                ? formatMoney(caseBalance.balance, caseBalance.currency)
+                : "Sin monto acordado"}
+            </p>
+          </CardBody>
+        </Card>
+      </div>
 
       <Card>
         <CardHeader

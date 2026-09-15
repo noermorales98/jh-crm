@@ -97,3 +97,51 @@ export async function listClientNotes(
     take: limit,
   });
 }
+
+/**
+ * NT-001 — Nota humana en el expediente (ServiceCase).
+ * `caseId` es el CreditCase visible en la UI; la nota cuelga de su ServiceCase.
+ */
+export async function createServiceCaseNote(
+  ctx: OrganizationContext,
+  data: {
+    caseId: string;
+    body: string;
+  },
+) {
+  const body = data.body.trim();
+  if (!body) throw new DomainError("Escribe una nota.");
+
+  const creditCase = await prisma.creditCase.findFirst({
+    where: { id: data.caseId, organizationId: ctx.organizationId },
+    select: { id: true, clientId: true, serviceCaseId: true, caseCode: true },
+  });
+  if (!creditCase) throw new DomainError("Caso no encontrado.");
+
+  const note = await prisma.note.create({
+    data: {
+      organizationId: ctx.organizationId,
+      clientId: creditCase.clientId,
+      serviceCaseId: creditCase.serviceCaseId,
+      authorUserId: ctx.userId,
+      body,
+    },
+    select: {
+      id: true,
+      body: true,
+      createdAt: true,
+      author: { select: { id: true, name: true } },
+    },
+  });
+
+  await writeActivityLog(toActivityContext(ctx), {
+    type: "NOTE",
+    description: `Nota en expediente ${creditCase.caseCode}: ${body.length > 120 ? `${body.slice(0, 120)}…` : body}`,
+    clientId: creditCase.clientId,
+    caseId: creditCase.id,
+    serviceCaseId: creditCase.serviceCaseId,
+    metadata: { noteId: note.id, source: "service_case_note" },
+  });
+
+  return note;
+}

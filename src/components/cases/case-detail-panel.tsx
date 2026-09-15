@@ -14,9 +14,12 @@ import {
   StagePill,
 } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
+import { formatMoney } from "@/src/lib/format/money";
 import { CaseStageSelect } from "@/src/components/cases/case-stage-select";
 import { CaseStateActions } from "@/src/components/cases/case-state-actions";
 import { CaseSummaryForm } from "@/src/components/cases/case-summary-form";
+import { CaseAmountsForm } from "@/src/components/cases/case-amounts-form";
+import { CaseNoteForm } from "@/src/components/cases/case-note-form";
 import { CaseNextActionForm } from "@/src/components/cases/case-review-form";
 import { CaseNextStepsCard } from "@/src/components/cases/case-next-steps-card";
 import { CaseHeader } from "@/app/crm/casos/[caseId]/case-header";
@@ -32,7 +35,7 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
     throw error;
   }
 
-  const { case: creditCase, timeline, stageHistory } = detail;
+  const { case: creditCase, timeline, stageHistory, notes, caseBalance } = detail;
   const canManage = can(ctx.role, "cases.manage");
   const isOpen = creditCase.state === "OPEN";
   const nextSteps = await getCaseNextSteps(ctx, caseId);
@@ -185,6 +188,85 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
                   </p>
                 </div>
               )}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader
+              title="Dinero del expediente"
+              description="Balance = monto acordado − pagos recibidos."
+            />
+            <CardBody className="space-y-5">
+              <dl className="grid gap-3">
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Acordado</dt>
+                  <dd className="text-[13px] tabular-nums text-ink">
+                    {caseBalance.agreedAmount
+                      ? formatMoney(caseBalance.agreedAmount, caseBalance.currency)
+                      : "—"}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Recibido</dt>
+                  <dd className="text-[13px] tabular-nums text-ink">
+                    {formatMoney(caseBalance.paid, caseBalance.currency)}
+                  </dd>
+                </div>
+                <div className="flex items-baseline justify-between gap-4">
+                  <dt className="text-[12px] text-text-secondary">Pendiente de cobro</dt>
+                  <dd className="text-[13px] tabular-nums text-ink">
+                    {formatMoney(caseBalance.pending, caseBalance.currency)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-4 rounded-control bg-surface-panel px-3 py-2.5">
+                  <dt className="text-[12px] font-medium text-text-secondary">Balance</dt>
+                  <dd className="text-[15px] font-semibold tabular-nums text-ink">
+                    {caseBalance.balance
+                      ? formatMoney(caseBalance.balance, caseBalance.currency)
+                      : "Sin monto acordado"}
+                  </dd>
+                </div>
+              </dl>
+
+              {canManage ? (
+                <div className="border-t border-border-subtle pt-4">
+                  <CaseAmountsForm
+                    caseId={creditCase.id}
+                    initialQuoted={caseBalance.quotedAmount?.toString() ?? ""}
+                    initialAgreed={caseBalance.agreedAmount?.toString() ?? ""}
+                  />
+                </div>
+              ) : null}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader title="Notas" />
+            <CardBody className="space-y-4">
+              {notes.length === 0 ? (
+                <p className="text-sm text-text-secondary">
+                  Sin notas en este expediente.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {notes.slice(0, 10).map((note) => (
+                    <li key={note.id}>
+                      <p className="whitespace-pre-wrap text-sm text-text-secondary-strong">
+                        {note.body}
+                      </p>
+                      <p className="mt-0.5 text-xs text-text-secondary">
+                        {formatDate(note.createdAt)}
+                        {note.author?.name ? ` · ${note.author.name}` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {canManage ? (
+                <div className="border-t border-border-subtle pt-4">
+                  <CaseNoteForm caseId={creditCase.id} />
+                </div>
+              ) : null}
             </CardBody>
           </Card>
 

@@ -119,7 +119,13 @@ const OPPORTUNITY_INCLUDE = {
   owner: { select: { id: true, name: true } },
   wonCase: { select: { id: true, caseCode: true, serviceCaseId: true } },
   wonServiceCase: {
-    select: { id: true, caseNumber: true, status: true, serviceId: true },
+    select: {
+      id: true,
+      caseNumber: true,
+      status: true,
+      serviceId: true,
+      creditCase: { select: { id: true, caseCode: true } },
+    },
   },
 } satisfies Prisma.OpportunityInclude;
 
@@ -517,11 +523,12 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
     }
 
     // BR-011: no tocamos source / leadChannel / attribution — solo status si LEAD.
+    // Fase 4 / D5: wonServiceCaseId es el único enlace WON nuevo;
+    // wonCaseId queda sin escritura (solo lectura legacy).
     const updated = await tx.opportunity.update({
       where: { id: opp.id },
       data: {
         stage: "WON",
-        wonCaseId: creditCase.id,
         wonServiceCaseId: creditCase.serviceCaseId,
         lostReason: null,
         nextFollowUpAt: null,

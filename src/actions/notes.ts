@@ -8,8 +8,42 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
-import { leadMessageCreateSchema } from "@/src/lib/validation/notes";
+import { leadMessageCreateSchema, serviceCaseNoteCreateSchema } from "@/src/lib/validation/notes";
 import * as notes from "@/src/server/notes";
+
+/** NT-001 — Nota humana en la ficha del expediente (ServiceCase). */
+export async function addServiceCaseNoteAction(
+  input: unknown,
+): Promise<
+  ActionResult<{
+    id: string;
+    body: string;
+    createdAt: string;
+    authorName: string | null;
+  }>
+> {
+  try {
+    const ctx = await requirePermission("cases.manage");
+    const data = serviceCaseNoteCreateSchema.parse(input);
+    const note = await notes.createServiceCaseNote(ctx, {
+      caseId: data.caseId,
+      body: data.body,
+    });
+
+    revalidatePath(`/crm/casos/${data.caseId}`);
+    revalidatePath(`/crm/casos/${data.caseId}/actividad`);
+
+    return actionOk({
+      id: note.id,
+      body: note.body,
+      createdAt: note.createdAt.toISOString(),
+      authorName: note.author.name,
+    });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
 
 export async function addLeadMessageAction(
   input: unknown,

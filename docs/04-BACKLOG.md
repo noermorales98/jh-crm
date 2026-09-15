@@ -203,6 +203,8 @@ Usar `OpportunityStage` existente (o mapear labels de UI). Restaurar la pantalla
 
 **Estado:** DONE (2026-09-10). `markWon` transaccional (BR-012): ServiceCase+CreditCase, `wonServiceCaseId`/`wonCaseId`, LEAD→ACTIVE, Activity, sin tocar source. UI confirmación + smoke `scripts/smoke/mark-won-br012.ts`.
 
+**Actualización Fase 4 (2026-09-15):** `wonServiceCaseId` es el único enlace WON nuevo; `markWon` ya no escribe `wonCaseId` (solo lectura legacy; UI y actions resuelven el CreditCase vía `wonServiceCase.creditCase`).
+
 Transacción (BR-012):
 
 1. Client ya existe (no duplicar persona);
@@ -365,7 +367,7 @@ Tabla `Note` para notas humanas nuevas, separadas de Activity.
 - crear/listar notas en cliente y/o ServiceCase;
 - no backfill automático desde `ActivityLog.NOTE`.
 
-**Estado:** PARCIAL (2026-09-10). Crear/listar en lead (Client) desde modal de Leads; ServiceCase pendiente.
+**Estado:** DONE (2026-09-15). Notas en lead/Client (modal Leads) y en ServiceCase (`createServiceCaseNote` + card «Notas» en ficha del caso). Smoke: `scripts/smoke/fase4-balance-notes.ts`.
 
 ---
 
@@ -595,6 +597,8 @@ agreedAmount
 - sum(payments)
 = balance
 ```
+
+**Estado:** DONE (2026-09-15). Balance canónico a nivel expediente: `ServiceCase.agreedAmount/quotedAmount` editables (card «Dinero del expediente»), `serviceCaseBalance()` = agreed − Σ pagos RECEIVED del serviceCase; visible en ficha y en `/pagos` del caso. Smoke: `scripts/smoke/fase4-balance-notes.ts`.
 
 ---
 

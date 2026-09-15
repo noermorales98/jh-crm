@@ -157,12 +157,14 @@ export async function markOpportunityWonAction(
     const ctx = await requirePermission("opportunities.manage");
     const id = cuidSchema.parse(opportunityId);
     const opp = await opportunities.markWon(ctx, id);
-    revalidateOpportunities(opp.clientId, opp.wonCaseId ?? undefined);
+    // Fase 4: el enlace canónico es wonServiceCase; wonCase es legacy.
+    const wonCreditCase = opp.wonCase ?? opp.wonServiceCase?.creditCase ?? null;
+    revalidateOpportunities(opp.clientId, wonCreditCase?.id ?? undefined);
     return actionOk({
       id: opp.id,
-      caseId: opp.wonCaseId,
+      caseId: wonCreditCase?.id ?? null,
       serviceCaseId: opp.wonServiceCaseId,
-      caseCode: opp.wonCase?.caseCode ?? null,
+      caseCode: wonCreditCase?.caseCode ?? null,
     });
   } catch (error) {
     if (isNextControlError(error)) throw error;

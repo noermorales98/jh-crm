@@ -1,4 +1,5 @@
-import type { CaseState, Prisma, ServiceCaseStatus } from "@prisma/client";
+import { Prisma } from "@prisma/client";
+import type { CaseState, ServiceCaseStatus } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { DomainError } from "@/src/server/errors";
 import { nextCaseCode } from "@/src/server/folios";
@@ -272,6 +273,70 @@ export async function updateCreditCase(
   });
 }
 
+export interface CaseAmountsData {
+  quotedAmount?: Prisma.Decimal | number | string | null;
+  agreedAmount?: Prisma.Decimal | number | string | null;
+}
+
+/**
+ * PY-002 / Fase 4 — montos del expediente (fuente del balance de ServiceCase).
+ * Escribe solo en ServiceCase; CreditCase no guarda dinero.
+ */
+export async function updateCaseAmounts(
+  ctx: OrganizationContext,
+  caseId: string,
+  data: CaseAmountsData,
+) {
+  const creditCase = await getCaseOrThrow(ctx, caseId);
+
+  const toMoney = (v: Prisma.Decimal | number | string | null | undefined) =>
+    v === undefined
+      ? undefined
+      : v === null
+        ? null
+        : new Prisma.Decimal(v).toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
+
+  const quoted = toMoney(data.quotedAmount);
+  const agreed = toMoney(data.agreedAmount);
+  for (const [label, value] of [
+    ["cotizado", quoted],
+    ["acordado", agreed],
+  ] as const) {
+    if (value && value.lt(0)) {
+      throw new DomainError(`El monto ${label} no puede ser negativo.`);
+    }
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const serviceCase = await tx.serviceCase.update({
+      where: { id: creditCase.serviceCaseId },
+      data: {
+        ...(quoted !== undefined ? { quotedAmount: quoted } : {}),
+        ...(agreed !== undefined ? { agreedAmount: agreed } : {}),
+      },
+      select: { id: true, quotedAmount: true, agreedAmount: true },
+    });
+
+    await writeActivityLog(
+      toActivityContext(ctx),
+      {
+        type: "NOTE",
+        description: `Montos del expediente ${creditCase.caseCode} actualizados (cotizado: ${serviceCase.quotedAmount?.toString() ?? "—"}, acordado: ${serviceCase.agreedAmount?.toString() ?? "—"}).`,
+        clientId: creditCase.clientId,
+        caseId: creditCase.id,
+        serviceCaseId: creditCase.serviceCaseId,
+        metadata: {
+          quotedAmount: serviceCase.quotedAmount?.toString() ?? null,
+          agreedAmount: serviceCase.agreedAmount?.toString() ?? null,
+        },
+      },
+      tx,
+    );
+
+    return { id: creditCase.id, clientId: creditCase.clientId, serviceCase };
+  });
+}
+
 export async function moveCaseToStage(
   ctx: OrganizationContext,
   caseId: string,
@@ -517,13 +582,15 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
           stageId: true,
           status: true,
           nextActionAt: true,
+          quotedAmount: true,
+          agreedAmount: true,
         },
       },
     },
   });
   if (!creditCase) throw new DomainError("Caso no encontrado.");
 
-  const [rounds, openTasks, documents, quotes, payments, timeline, stageHistory] =
+  const [rounds, openTasks, documents, quotes, payments, timeline, stageHistory, notes, paymentsReceived, paymentsPending] =
     await Promise.all([
       prisma.creditRound.findMany({
         where: { caseId, organizationId: ctx.organizationId },
@@ -618,7 +685,50 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
         orderBy: { changedAt: "desc" },
         take: 15,
       }),
+      // NT-001: notas humanas del expediente (tabla Note, no ActivityLog).
+      prisma.note.findMany({
+        where: {
+          organizationId: ctx.organizationId,
+          serviceCaseId: creditCase.serviceCaseId,
+        },
+        select: {
+          id: true,
+          body: true,
+          createdAt: true,
+          author: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      }),
+      // PY-002 / Fase 4: balance del expediente (agreedAmount − RECEIVED).
+      prisma.payment.aggregate({
+        where: {
+          organizationId: ctx.organizationId,
+          serviceCaseId: creditCase.serviceCaseId,
+          status: "RECEIVED",
+        },
+        _sum: { amount: true },
+      }),
+      prisma.payment.aggregate({
+        where: {
+          organizationId: ctx.organizationId,
+          serviceCaseId: creditCase.serviceCaseId,
+          status: "PENDING",
+        },
+        _sum: { amount: true },
+      }),
     ]);
+
+  const agreed = creditCase.serviceCase.agreedAmount;
+  const paid = paymentsReceived._sum.amount ?? new Prisma.Decimal(0);
+  const caseBalance = {
+    currency: "USD",
+    quotedAmount: creditCase.serviceCase.quotedAmount,
+    agreedAmount: agreed,
+    paid,
+    pending: paymentsPending._sum.amount ?? new Prisma.Decimal(0),
+    balance: agreed ? agreed.sub(paid) : null,
+  };
 
   return {
     case: creditCase,
@@ -629,5 +739,7 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
     payments,
     timeline,
     stageHistory,
+    notes,
+    caseBalance,
   };
 }

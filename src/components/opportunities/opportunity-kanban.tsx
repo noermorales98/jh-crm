@@ -115,6 +115,7 @@ export type OppCard = {
     caseNumber: string;
     status: string;
     serviceId: string;
+    creditCase?: { id: string; caseCode: string } | null;
   } | null;
 };
 
@@ -1002,14 +1003,19 @@ export function OpportunityKanban({
               )}
             </div>
 
-            {selected.wonCase ? (
-              <Link
-                href={`/crm/casos/${selected.wonCase.id}`}
-                className="inline-flex text-sm font-medium text-action-primary hover:text-action-secondary"
-              >
-                Caso {selected.wonCase.caseCode}
-              </Link>
-            ) : null}
+            {(() => {
+              // Fase 4: enlace canónico wonServiceCase; wonCase es legacy.
+              const wonCreditCase =
+                selected.wonCase ?? selected.wonServiceCase?.creditCase ?? null;
+              return wonCreditCase ? (
+                <Link
+                  href={`/crm/casos/${wonCreditCase.id}`}
+                  className="inline-flex text-sm font-medium text-action-primary hover:text-action-secondary"
+                >
+                  Caso {wonCreditCase.caseCode}
+                </Link>
+              ) : null;
+            })()}
 
             {canManage &&
             selected.stage !== "WON" &&

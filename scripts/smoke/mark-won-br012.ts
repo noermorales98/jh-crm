@@ -63,12 +63,12 @@ async function main() {
 
     const won = await opportunities.markWon(ctx, created.opportunity.id);
     opportunityId = won.id;
-    wonCaseId = won.wonCaseId;
     wonServiceCaseId = won.wonServiceCaseId;
 
     check("stage WON", won.stage === "WON");
-    check("wonCaseId set", Boolean(won.wonCaseId));
     check("wonServiceCaseId set", Boolean(won.wonServiceCaseId));
+    // Fase 4 / D5: wonServiceCaseId es el único enlace WON nuevo.
+    check("wonCaseId ya no se escribe", won.wonCaseId == null);
     check("nextFollowUp cleared", won.nextFollowUpAt == null);
 
     const clientAfter = await prisma.client.findUniqueOrThrow({
@@ -83,23 +83,27 @@ async function main() {
     });
     check("no duplicate client", clientsAfter === 1);
 
-    const creditCase = await prisma.creditCase.findUniqueOrThrow({
-      where: { id: won.wonCaseId! },
-    });
-    check("CreditCase exists", Boolean(creditCase.id));
-    check(
-      "CreditCase.serviceCaseId == wonServiceCaseId",
-      creditCase.serviceCaseId === won.wonServiceCaseId,
-    );
-
     const serviceCase = await prisma.serviceCase.findUniqueOrThrow({
       where: { id: won.wonServiceCaseId! },
+      include: { creditCase: true },
     });
+    const creditCase = serviceCase.creditCase;
+    wonCaseId = creditCase?.id ?? null;
+    check("CreditCase exists (1:1 vía ServiceCase)", Boolean(creditCase));
+    check(
+      "CreditCase.serviceCaseId == wonServiceCaseId",
+      creditCase?.serviceCaseId === won.wonServiceCaseId,
+    );
+    check(
+      "include expone creditCase vía wonServiceCase",
+      won.wonServiceCase?.creditCase?.id === creditCase?.id,
+    );
+
     check("ServiceCase OPEN", serviceCase.status === "OPEN");
     check("ServiceCase same client", serviceCase.clientId === created.client.id);
     check(
       "caseNumber == caseCode",
-      serviceCase.caseNumber === creditCase.caseCode,
+      serviceCase.caseNumber === creditCase?.caseCode,
     );
 
     const oppStill = await prisma.opportunity.findUniqueOrThrow({
@@ -132,7 +136,7 @@ async function main() {
           opportunityId: won.id,
           wonCaseId,
           wonServiceCaseId,
-          caseCode: creditCase.caseCode,
+          caseCode: creditCase?.caseCode ?? null,
         },
         null,
         2,

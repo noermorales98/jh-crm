@@ -439,6 +439,11 @@ model Organization {
   contractTemplates  ContractTemplate[]
   clientContracts    ClientContract[]
   metaLeadEvents     MetaLeadEvent[]
+  homeBuyerCases     HomeBuyerCase[]
+  fundingCases       FundingCase[]
+  fundingApplications FundingApplication[]
+  personalLoanCases  PersonalLoanCase[]
+  projectCases       ProjectCase[]
 }
 
 model OrganizationSettings {
@@ -743,6 +748,10 @@ model ServiceCase {
   stage        WorkflowStage @relation(fields: [stageId], references: [id], onDelete: Restrict)
   assignedTo   User?         @relation("ServiceCaseAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
   creditCase   CreditCase?
+  homeBuyerCase    HomeBuyerCase?
+  fundingCase      FundingCase?
+  personalLoanCase PersonalLoanCase?
+  projectCase      ProjectCase?
   stageHistory ServiceCaseStageHistory[]
   notesList    Note[]
   documents    Document[]
@@ -776,6 +785,121 @@ model ServiceCaseStageHistory {
 
   @@index([serviceCaseId, changedAt])
   @@index([toStageId])
+}
+
+/**
+ * Fase 5 — Verticales secundarios: extensión 1:1 de ServiceCase.
+ * Mismo patrón que CreditCase: se crean junto al ServiceCase de su vertical,
+ * nunca sueltos. Sin estados propios: status/stage viven en ServiceCase.
+ */
+
+/** HB-001 — Compra de casa (Service.code = HOME_BUYER). */
+model HomeBuyerCase {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  serviceCaseId      String   @unique
+  budgetMin          Decimal? @db.Decimal(12, 2)
+  budgetMax          Decimal? @db.Decimal(12, 2)
+  targetArea         String?
+  preApproved        Boolean  @default(false)
+  preApprovalAmount  Decimal? @db.Decimal(12, 2)
+  referralPartner    String?
+  summary            String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceCase  ServiceCase  @relation(fields: [serviceCaseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+/** FD-001 — Financiamiento de negocio (Service.code = BUSINESS_CREDIT). */
+model FundingCase {
+  id                String   @id @default(cuid())
+  organizationId    String
+  serviceCaseId     String   @unique
+  businessName      String?
+  businessAgeMonths Int?
+  requestedAmount   Decimal? @db.Decimal(12, 2)
+  purpose           String?
+  summary           String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceCase  ServiceCase         @relation(fields: [serviceCaseId], references: [id], onDelete: Cascade)
+  applications FundingApplication[]
+
+  @@index([organizationId])
+}
+
+enum FundingApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  DENIED
+  FUNDED
+  WITHDRAWN
+}
+
+/** FD-002 — Aplicación concreta a un prestamista dentro de un FundingCase. */
+model FundingApplication {
+  id              String                    @id @default(cuid())
+  organizationId  String
+  fundingCaseId   String
+  lenderName      String
+  requestedAmount Decimal?                  @db.Decimal(12, 2)
+  approvedAmount  Decimal?                  @db.Decimal(12, 2)
+  status          FundingApplicationStatus  @default(DRAFT)
+  submittedAt     DateTime?
+  decisionAt      DateTime?
+  notes           String?                   @db.Text
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  fundingCase  FundingCase  @relation(fields: [fundingCaseId], references: [id], onDelete: Cascade)
+
+  @@index([fundingCaseId, status])
+  @@index([organizationId, status])
+}
+
+/** PL-001 — Préstamo personal (Service.code = PERSONAL_LOAN). */
+model PersonalLoanCase {
+  id              String   @id @default(cuid())
+  organizationId  String
+  serviceCaseId   String   @unique
+  requestedAmount Decimal? @db.Decimal(12, 2)
+  purpose         String?
+  termMonths      Int?
+  summary         String?  @db.Text
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceCase  ServiceCase  @relation(fields: [serviceCaseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+/** PJ-001 — Proyecto web/CRM (Service.code = WEB_DEVELOPMENT | CRM_DEVELOPMENT). */
+model ProjectCase {
+  id             String   @id @default(cuid())
+  organizationId String
+  serviceCaseId  String   @unique
+  projectType    String?
+  scopeSummary   String?  @db.Text
+  deliveryUrl    String?
+  repositoryUrl  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  serviceCase  ServiceCase  @relation(fields: [serviceCaseId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
 }
 
 /** Notas humanas nuevas (sin backfill desde ActivityLog.NOTE). */

@@ -103,6 +103,8 @@ Completar:
 
 ## Fase 5 — Servicios secundarios
 
+**Estado:** DONE (2026-09-15). Migración aplicada con `migrate deploy` + `prisma generate`; ficha genérica en `/crm/expedientes/[serviceCaseId]`; alta desde la ficha del cliente con selector de servicio. Smoke: `scripts/smoke/fase5-verticals.ts` (17/17) + regresiones Fase 4 / SC-003 / CL-003 / BR-012 en verde.
+
 Nuevos `WorkflowStage` por Service + extensión 1:1:
 
 - HomeBuyerCase

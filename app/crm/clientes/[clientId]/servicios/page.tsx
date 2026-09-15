@@ -5,7 +5,7 @@ import { Briefcase } from "lucide-react";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import * as clientService from "@/src/server/clients";
-import * as configService from "@/src/server/config";
+import { listVerticalServiceOptions } from "@/src/server/services/verticals";
 import { listMemberOptions } from "@/src/server/page-helpers";
 import { DomainError } from "@/src/server/errors";
 import {
@@ -52,8 +52,11 @@ export default async function ClientServicesPage({
   const { client, serviceCases, cases } = detail;
   const canManage = can(ctx.role, "cases.manage");
 
-  const [stages, members] = canManage
-    ? await Promise.all([configService.listStages(ctx), listMemberOptions(ctx)])
+  const [services, members] = canManage
+    ? await Promise.all([
+        listVerticalServiceOptions(ctx.organizationId),
+        listMemberOptions(ctx),
+      ])
     : [[], []];
 
   const linkedCreditIds = new Set(
@@ -71,7 +74,7 @@ export default async function ClientServicesPage({
           canManage && client.status !== "ARCHIVED" ? (
             <CreateCaseButton
               clientId={client.id}
-              stages={stages}
+              services={services}
               members={members}
             />
           ) : null
@@ -92,7 +95,7 @@ export default async function ClientServicesPage({
               canManage && client.status !== "ARCHIVED" ? (
                 <CreateCaseButton
                   clientId={client.id}
-                  stages={stages}
+                  services={services}
                   members={members}
                 />
               ) : null
@@ -114,7 +117,7 @@ export default async function ClientServicesPage({
               {serviceCases.map((sc) => {
                 const href = sc.creditCase
                   ? `/crm/casos/${sc.creditCase.id}`
-                  : undefined;
+                  : `/crm/expedientes/${sc.id}`;
                 return (
                   <TR
                     key={sc.id}
@@ -131,16 +134,12 @@ export default async function ClientServicesPage({
                       ) : null}
                     </TD>
                     <TD>
-                      {href ? (
-                        <Link
-                          href={href}
-                          className="font-medium text-action-primary hover:text-action-secondary"
-                        >
-                          {sc.caseNumber}
-                        </Link>
-                      ) : (
-                        <span className="font-mono text-sm">{sc.caseNumber}</span>
-                      )}
+                      <Link
+                        href={href}
+                        className="font-medium text-action-primary hover:text-action-secondary"
+                      >
+                        {sc.caseNumber}
+                      </Link>
                     </TD>
                     <TD>
                       <StagePill name={sc.stage.name} color={sc.stage.color} />

@@ -8,6 +8,8 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
 import { resolveAssigneeForOrg } from "@/src/server/users";
 import { ensureCreditRepairService } from "@/src/server/services";
+import { ensureVerticalService } from "@/src/server/services/verticals";
+import type { ServiceCode } from "@/src/server/services/codes";
 
 /**
  * Crear expediente = ServiceCase + CreditCase 1:1 (CREDIT_REPAIR).
@@ -23,6 +25,11 @@ export interface CaseCreateData {
   nextActionAt?: Date | null;
   /** @deprecated Compatibilidad de llamadas internas previas a SC-003. */
   nextReviewAt?: Date | null;
+}
+
+/** Fase 5: expediente de cualquier vertical (default CREDIT_REPAIR). */
+export interface ServiceCaseCreateData extends CaseCreateData {
+  serviceCode?: ServiceCode;
 }
 
 export interface CaseUpdateData {
@@ -88,14 +95,6 @@ async function getCaseOrThrow(ctx: OrganizationContext, caseId: string) {
   return creditCase;
 }
 
-async function getCreditRepairServiceId(
-  organizationId: string,
-  tx?: Prisma.TransactionClient,
-) {
-  const service = await ensureCreditRepairService(organizationId, tx);
-  return service.id;
-}
-
 async function getActiveStageOrThrow(
   ctx: OrganizationContext,
   stageId: string,
@@ -116,14 +115,19 @@ async function getActiveStageOrThrow(
 }
 
 /**
- * Crea ServiceCase + CreditCase en la misma transacción.
+ * Crea ServiceCase + extensión 1:1 del vertical en la misma transacción.
+ * CREDIT_REPAIR → CreditCase; HOME_BUYER → HomeBuyerCase;
+ * BUSINESS_CREDIT → FundingCase; PERSONAL_LOAN → PersonalLoanCase;
+ * WEB/CRM_DEVELOPMENT → ProjectCase.
  * Si se pasa `tx`, se usa esa transacción (p.ej. markWon).
  */
-export async function createCreditCase(
+export async function createServiceCase(
   ctx: OrganizationContext,
-  data: CaseCreateData,
+  data: ServiceCaseCreateData,
   tx?: Prisma.TransactionClient,
 ) {
+  const serviceCode: ServiceCode = data.serviceCode ?? "CREDIT_REPAIR";
+
   const run = async (client: Prisma.TransactionClient) => {
     const found = await client.client.findFirst({
       where: { id: data.clientId, organizationId: ctx.organizationId },
@@ -154,20 +158,24 @@ export async function createCreditCase(
       }
     }
 
-    const serviceId = await getCreditRepairServiceId(ctx.organizationId, client);
+    const service =
+      serviceCode === "CREDIT_REPAIR"
+        ? await ensureCreditRepairService(ctx.organizationId, client)
+        : await ensureVerticalService(ctx.organizationId, serviceCode, client);
+
     const stage = data.stageId
       ? await client.workflowStage.findFirst({
           where: {
             id: data.stageId,
             organizationId: ctx.organizationId,
-            serviceId,
+            serviceId: service.id,
             isActive: true,
           },
         })
       : await client.workflowStage.findFirst({
           where: {
             organizationId: ctx.organizationId,
-            serviceId,
+            serviceId: service.id,
             isActive: true,
           },
           orderBy: { order: "asc" },
@@ -180,6 +188,9 @@ export async function createCreditCase(
       );
     }
 
+    const foundId = found.id;
+    const stageId = stage.id;
+
     const { code } = await nextCaseCode(client, ctx.organizationId);
     const nextActionAt = data.nextActionAt ?? data.nextReviewAt ?? null;
 
@@ -187,7 +198,7 @@ export async function createCreditCase(
       data: {
         organizationId: ctx.organizationId,
         clientId: found.id,
-        serviceId,
+        serviceId: service.id,
         caseNumber: code,
         status: "OPEN",
         stageId: stage.id,
@@ -206,45 +217,116 @@ export async function createCreditCase(
       },
     });
 
-    const creditCase = await client.creditCase.create({
-      data: {
-        organizationId: ctx.organizationId,
-        clientId: found.id,
-        serviceCaseId: serviceCase.id,
-        caseCode: code,
-        stageId: stage.id,
-        assignedToId: assigneeId,
-        summary: data.summary ?? null,
-      },
-      include: { stage: { select: { id: true, name: true, color: true } } },
-    });
+    // Extensión 1:1 del vertical (D2 / D9).
+    let creditCase: Awaited<ReturnType<typeof createCreditExtension>> | null =
+      null;
+
+    async function createCreditExtension() {
+      return client.creditCase.create({
+        data: {
+          organizationId: ctx.organizationId,
+          clientId: foundId,
+          serviceCaseId: serviceCase.id,
+          caseCode: code,
+          stageId: stageId,
+          assignedToId: assigneeId,
+          summary: data.summary ?? null,
+        },
+        include: { stage: { select: { id: true, name: true, color: true } } },
+      });
+    }
+
+    switch (serviceCode) {
+      case "CREDIT_REPAIR":
+        creditCase = await createCreditExtension();
+        break;
+      case "HOME_BUYER":
+        await client.homeBuyerCase.create({
+          data: {
+            organizationId: ctx.organizationId,
+            serviceCaseId: serviceCase.id,
+            summary: data.summary ?? null,
+          },
+        });
+        break;
+      case "BUSINESS_CREDIT":
+        await client.fundingCase.create({
+          data: {
+            organizationId: ctx.organizationId,
+            serviceCaseId: serviceCase.id,
+            summary: data.summary ?? null,
+          },
+        });
+        break;
+      case "PERSONAL_LOAN":
+        await client.personalLoanCase.create({
+          data: {
+            organizationId: ctx.organizationId,
+            serviceCaseId: serviceCase.id,
+            summary: data.summary ?? null,
+          },
+        });
+        break;
+      case "WEB_DEVELOPMENT":
+      case "CRM_DEVELOPMENT":
+        await client.projectCase.create({
+          data: {
+            organizationId: ctx.organizationId,
+            serviceCaseId: serviceCase.id,
+            scopeSummary: data.summary ?? null,
+          },
+        });
+        break;
+      default:
+        throw new DomainError(`Vertical no soportada: ${serviceCode}`);
+    }
 
     await writeActivityLog(
       toActivityContext(ctx),
       {
         type: "CREATED",
-        description: `Expediente ${creditCase.caseCode} creado en etapa "${stage.name}".`,
+        description: `Expediente ${code} creado en etapa "${stage.name}".`,
         clientId: found.id,
-        caseId: creditCase.id,
+        caseId: creditCase?.id ?? null,
         serviceCaseId: serviceCase.id,
         metadata: {
-          caseCode: creditCase.caseCode,
+          caseCode: creditCase?.caseCode ?? code,
           caseNumber: serviceCase.caseNumber,
           stageKey: stage.key,
           serviceCaseId: serviceCase.id,
-          serviceId,
-          serviceCode: "CREDIT_REPAIR",
+          serviceId: service.id,
+          serviceCode,
           status: "OPEN",
         },
       },
       client,
     );
 
-    return creditCase;
+    return { serviceCase, creditCase };
   };
 
   if (tx) return run(tx);
   return prisma.$transaction((client) => run(client));
+}
+
+/**
+ * Crear expediente CREDIT_REPAIR = ServiceCase + CreditCase 1:1 (wrap, D9).
+ * Devuelve el CreditCase (contrato histórico de la UI y los smokes).
+ */
+export async function createCreditCase(
+  ctx: OrganizationContext,
+  data: CaseCreateData,
+  tx?: Prisma.TransactionClient,
+) {
+  const result = await createServiceCase(
+    ctx,
+    { ...data, serviceCode: "CREDIT_REPAIR" },
+    tx,
+  );
+  if (!result.creditCase) {
+    throw new DomainError("No se creó el CreditCase del expediente de crédito.");
+  }
+  return result.creditCase;
 }
 
 export async function updateCreditCase(

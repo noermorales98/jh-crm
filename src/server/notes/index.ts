@@ -100,29 +100,59 @@ export async function listClientNotes(
 
 /**
  * NT-001 — Nota humana en el expediente (ServiceCase).
- * `caseId` es el CreditCase visible en la UI; la nota cuelga de su ServiceCase.
+ * Acepta `caseId` (CreditCase visible en la UI de crédito) o `serviceCaseId`
+ * directo (verticales sin CreditCase, Fase 5).
  */
 export async function createServiceCaseNote(
   ctx: OrganizationContext,
   data: {
-    caseId: string;
+    caseId?: string;
+    serviceCaseId?: string;
     body: string;
   },
 ) {
   const body = data.body.trim();
   if (!body) throw new DomainError("Escribe una nota.");
 
-  const creditCase = await prisma.creditCase.findFirst({
-    where: { id: data.caseId, organizationId: ctx.organizationId },
-    select: { id: true, clientId: true, serviceCaseId: true, caseCode: true },
-  });
-  if (!creditCase) throw new DomainError("Caso no encontrado.");
+  let clientId: string;
+  let serviceCaseId: string;
+  let caseNumber: string;
+  let creditCaseId: string | null = null;
+
+  if (data.serviceCaseId) {
+    const serviceCase = await prisma.serviceCase.findFirst({
+      where: { id: data.serviceCaseId, organizationId: ctx.organizationId },
+      select: {
+        id: true,
+        clientId: true,
+        caseNumber: true,
+        creditCase: { select: { id: true } },
+      },
+    });
+    if (!serviceCase) throw new DomainError("Expediente no encontrado.");
+    clientId = serviceCase.clientId;
+    serviceCaseId = serviceCase.id;
+    caseNumber = serviceCase.caseNumber;
+    creditCaseId = serviceCase.creditCase?.id ?? null;
+  } else if (data.caseId) {
+    const creditCase = await prisma.creditCase.findFirst({
+      where: { id: data.caseId, organizationId: ctx.organizationId },
+      select: { id: true, clientId: true, serviceCaseId: true, caseCode: true },
+    });
+    if (!creditCase) throw new DomainError("Caso no encontrado.");
+    clientId = creditCase.clientId;
+    serviceCaseId = creditCase.serviceCaseId;
+    caseNumber = creditCase.caseCode;
+    creditCaseId = creditCase.id;
+  } else {
+    throw new DomainError("Indica el expediente de la nota.");
+  }
 
   const note = await prisma.note.create({
     data: {
       organizationId: ctx.organizationId,
-      clientId: creditCase.clientId,
-      serviceCaseId: creditCase.serviceCaseId,
+      clientId,
+      serviceCaseId,
       authorUserId: ctx.userId,
       body,
     },
@@ -136,10 +166,10 @@ export async function createServiceCaseNote(
 
   await writeActivityLog(toActivityContext(ctx), {
     type: "NOTE",
-    description: `Nota en expediente ${creditCase.caseCode}: ${body.length > 120 ? `${body.slice(0, 120)}…` : body}`,
-    clientId: creditCase.clientId,
-    caseId: creditCase.id,
-    serviceCaseId: creditCase.serviceCaseId,
+    description: `Nota en expediente ${caseNumber}: ${body.length > 120 ? `${body.slice(0, 120)}…` : body}`,
+    clientId,
+    caseId: creditCaseId,
+    serviceCaseId,
     metadata: { noteId: note.id, source: "service_case_note" },
   });
 

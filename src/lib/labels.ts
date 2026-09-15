@@ -26,6 +26,16 @@ export const SERVICE_CASE_STATUS_LABELS: Record<string, string> = {
   CANCELED: "Cancelado",
 };
 
+export const FUNDING_APPLICATION_STATUS_LABELS: Record<string, string> = {
+  DRAFT: "Borrador",
+  SUBMITTED: "Enviada",
+  UNDER_REVIEW: "En revisión",
+  APPROVED: "Aprobada",
+  DENIED: "Denegada",
+  FUNDED: "Fondeada",
+  WITHDRAWN: "Retirada",
+};
+
 export const ROUND_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Borrador",
   PREPARING: "En preparación",

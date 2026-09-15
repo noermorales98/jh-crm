@@ -622,8 +622,10 @@ No automatizar cobros contractuales sin validación legal/compliance.
 
 # EPIC 8 — Servicios secundarios
 
+**Estado:** DONE (2026-09-15). Migración `20260915180000_fase5_secondary_verticals` (migrate deploy); `createServiceCase` genérico (ServiceCase + extensión 1:1 por código, `createCreditCase` delega); `ensureVerticalService` idempotente con pipelines por defecto; Server Actions + `CreateCaseButton` multi-vertical; ficha genérica `/crm/expedientes/[serviceCaseId]` (etapa, estado, montos/balance, notas, historial). Smoke: `scripts/smoke/fase5-verticals.ts`.
+
 ## HB-001 — HomeBuyerCase
-**Prioridad:** P1
+**Prioridad:** P1 — **Estado:** DONE (2026-09-15)
 
 Pipeline:
 
@@ -641,20 +643,20 @@ COMPLETADO
 ---
 
 ## FD-001 — FundingCase
-**Prioridad:** P1
+**Prioridad:** P1 — **Estado:** DONE (2026-09-15)
 
 ## FD-002 — FundingApplication
-**Prioridad:** P1
+**Prioridad:** P1 — **Estado:** DONE (2026-09-15, modelo + lectura en ficha; alta de aplicaciones por UI pendiente)
 
 ---
 
 ## PL-001 — PersonalLoanCase
-**Prioridad:** P1
+**Prioridad:** P1 — **Estado:** DONE (2026-09-15)
 
 ---
 
 ## PJ-001 — ProjectCase
-**Prioridad:** P1
+**Prioridad:** P1 — **Estado:** DONE (2026-09-15)
 
 Para web/CRM.
 

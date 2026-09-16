@@ -28,6 +28,7 @@ import {
   FUNDING_APPLICATION_STATUS_LABELS,
   labelFor,
 } from "@/src/lib/labels";
+import { FundingApplicationButton } from "@/src/components/funding/funding-application-button";
 import { ServiceCaseStageSelect } from "@/src/components/service-cases/service-case-stage-select";
 import { ServiceCaseStateActions } from "@/src/components/service-cases/service-case-state-actions";
 import { ServiceCaseAmountsForm } from "@/src/components/service-cases/service-case-amounts-form";
@@ -275,7 +276,8 @@ export default async function ServiceCasePage({
             <Card>
               <CardHeader
                 title="Financiamiento de negocio"
-                description="FD-001 / FD-002 — aplicaciones a prestamistas."
+                description="Seguimiento de aplicaciones a prestamistas."
+                actions={canManage && isOpen ? <FundingApplicationButton serviceCaseId={serviceCase.id} /> : undefined}
               />
               <CardBody className="space-y-5">
                 <dl className="grid gap-3">
@@ -309,6 +311,8 @@ export default async function ServiceCasePage({
                           <TH>Estado</TH>
                           <TH>Solicitado</TH>
                           <TH>Aprobado</TH>
+                          <TH>Fechas</TH>
+                          {canManage && isOpen ? <TH>Acciones</TH> : null}
                         </TR>
                       </THead>
                       <TBody>
@@ -333,6 +337,19 @@ export default async function ServiceCasePage({
                                 ? formatMoney(app.approvedAmount, "USD")
                                 : "—"}
                             </TD>
+                            <TD>
+                              <div className="space-y-1 text-xs text-text-secondary">
+                                <p>Envío: {app.submittedAt ? formatDate(app.submittedAt) : "—"}</p>
+                                <p>Decisión: {app.decisionAt ? formatDate(app.decisionAt) : "—"}</p>
+                                {app.notes ? <p className="max-w-xs whitespace-pre-wrap">{app.notes}</p> : null}
+                              </div>
+                            </TD>
+                            {canManage && isOpen ? <TD><FundingApplicationButton serviceCaseId={serviceCase.id} initial={{
+                              id: app.id, lenderName: app.lenderName, status: app.status,
+                              requestedAmount: app.requestedAmount?.toString() ?? null, approvedAmount: app.approvedAmount?.toString() ?? null,
+                              submittedAt: app.submittedAt?.toISOString() ?? null, decisionAt: app.decisionAt?.toISOString() ?? null,
+                              notes: app.notes, updatedAt: app.updatedAt.toISOString(),
+                            }} /></TD> : null}
                           </TR>
                         ))}
                       </TBody>

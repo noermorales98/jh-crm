@@ -10,8 +10,9 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
  * DocumentCategory existente. Cuando el backlog añada categorías nuevas
  * (CONTRACT, INVOICE, RECEIPT, BANK_DOCUMENT…) se extiende aquí.
  *
- * Cuenta documentos del cliente ligados al caso o al cliente sin caso
- * (p.ej. la ID se sube una sola vez a nivel ficha).
+ * Cuenta documentos del CreditCase, del ServiceCase del expediente, o
+ * generales del cliente (caseId y serviceCaseId null — p.ej. la ID en ficha).
+ * No cuenta docs con caseId null ligados a otro ServiceCase.
  */
 
 interface ChecklistSpec {
@@ -54,6 +55,7 @@ export async function getCaseDocumentChecklist(
     select: {
       id: true,
       clientId: true,
+      serviceCaseId: true,
       serviceCase: {
         select: { service: { select: { code: true, name: true } } },
       },
@@ -63,6 +65,8 @@ export async function getCaseDocumentChecklist(
 
   const spec = getChecklistForService(creditCase.serviceCase?.service?.code);
 
+  // Caso legacy (caseId), generales del cliente (ambos null) y docs del
+  // propio ServiceCase. No contar docs de otro expediente con caseId null.
   const grouped = await prisma.document.groupBy({
     by: ["category"],
     where: {
@@ -70,7 +74,11 @@ export async function getCaseDocumentChecklist(
       clientId: creditCase.clientId,
       deletedAt: null,
       hardDeletedAt: null,
-      OR: [{ caseId: creditCase.id }, { caseId: null }],
+      OR: [
+        { caseId: creditCase.id },
+        { caseId: null, serviceCaseId: null },
+        { caseId: null, serviceCaseId: creditCase.serviceCaseId },
+      ],
     },
     _count: { _all: true },
   });

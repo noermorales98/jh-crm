@@ -5,7 +5,7 @@
  * Uso: npx tsx --env-file=.env.local scripts/smoke/dc-005-checklist.ts
  */
 import { PrismaClient } from "@prisma/client";
-import { createCreditCase } from "../../src/server/cases";
+import { createCreditCase, createServiceCase } from "../../src/server/cases";
 import {
   getCaseDocumentChecklist,
   getChecklistForService,
@@ -24,6 +24,7 @@ async function main() {
   let clientId: string | null = null;
   let caseId: string | null = null;
   let serviceCaseId: string | null = null;
+  let otherServiceCaseId: string | null = null;
 
   try {
     const member = await prisma.organizationMember.findFirst({
@@ -78,12 +79,13 @@ async function main() {
       empty.missingRequired.length === 4,
     );
 
-    // ID a nivel cliente (caseId null) debe contar para el checklist.
+    // ID a nivel cliente (caseId null, serviceCaseId null) debe contar.
     await prisma.document.create({
       data: {
         organizationId: ctx.organizationId,
         clientId: client.id,
         caseId: null,
+        serviceCaseId: null,
         category: "IDENTITY",
         sensitivity: "HIGHLY_SENSITIVE",
         originalName: "id.pdf",
@@ -140,6 +142,40 @@ async function main() {
         "PROOF_OF_ADDRESS,SSN_DOCUMENT",
     );
 
+    // Regresión: doc de otro ServiceCase con caseId null no debe contar.
+    const other = await createServiceCase(ctx, {
+      clientId: client.id,
+      serviceCode: "BUSINESS_CREDIT",
+      assignedToId: member.userId,
+      summary: `Smoke DC-005 other ${MARK}`,
+    });
+    otherServiceCaseId = other.serviceCase.id;
+    await prisma.document.create({
+      data: {
+        organizationId: ctx.organizationId,
+        clientId: client.id,
+        caseId: null,
+        serviceCaseId: otherServiceCaseId,
+        category: "PROOF_OF_ADDRESS",
+        sensitivity: "CONFIDENTIAL",
+        originalName: "domicilio-otro.pdf",
+        mimeType: "application/pdf",
+        sizeBytes: 100,
+        storageKey: `smoke/${MARK}/domicilio-otro.pdf`,
+      },
+    });
+    const isolated = await getCaseDocumentChecklist(ctx, caseId);
+    check(
+      "doc de otro ServiceCase (caseId null) no cuenta",
+      isolated.rows.find((r) => r.category === "PROOF_OF_ADDRESS")?.present ===
+        false,
+    );
+    check(
+      "siguen faltando domicilio y SSN",
+      isolated.missingRequired.map((r) => r.category).join(",") ===
+        "PROOF_OF_ADDRESS,SSN_DOCUMENT",
+    );
+
     console.log(JSON.stringify({ ok: true, caseId }, null, 2));
   } finally {
     console.log("\n[cleanup]");
@@ -151,11 +187,19 @@ async function main() {
     if (caseId) {
       await prisma.creditCase.deleteMany({ where: { id: caseId } }).catch(() => undefined);
     }
-    if (serviceCaseId) {
-      await prisma.serviceCaseStageHistory
-        .deleteMany({ where: { serviceCaseId } })
+    const serviceCaseIds = [serviceCaseId, otherServiceCaseId].filter(
+      (id): id is string => Boolean(id),
+    );
+    if (serviceCaseIds.length) {
+      await prisma.fundingCase
+        .deleteMany({ where: { serviceCaseId: { in: serviceCaseIds } } })
         .catch(() => undefined);
-      await prisma.serviceCase.deleteMany({ where: { id: serviceCaseId } }).catch(() => undefined);
+      await prisma.serviceCaseStageHistory
+        .deleteMany({ where: { serviceCaseId: { in: serviceCaseIds } } })
+        .catch(() => undefined);
+      await prisma.serviceCase
+        .deleteMany({ where: { id: { in: serviceCaseIds } } })
+        .catch(() => undefined);
     }
     if (clientId) {
       await prisma.client.deleteMany({ where: { id: clientId } }).catch(() => undefined);

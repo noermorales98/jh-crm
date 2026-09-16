@@ -419,7 +419,7 @@ BUSINESS_DOCUMENT
 OTHER
 ```
 
-**Estado:** DONE (2026-09-15) con las categorías del enum actual (sin migración): `src/server/documents/checklist.ts` define requeridos/opcionales por `Service.code` (CREDIT_REPAIR: IDENTITY, PROOF_OF_ADDRESS, SSN_DOCUMENT, CREDIT_REPORT) y la página de documentos del caso muestra la card «Checklist del servicio». Cuenta docs del caso + docs de cliente sin caso; excluye soft-deleted. Smoke: `scripts/smoke/dc-005-checklist.ts`. Las categorías nuevas (CONTRACT, INVOICE…) requieren migración del enum y quedan pendientes.
+**Estado:** DONE (2026-09-15; filtro multi-expediente 2026-09-16) con las categorías del enum actual (sin migración): `src/server/documents/checklist.ts` define requeridos/opcionales por `Service.code` (CREDIT_REPAIR: IDENTITY, PROOF_OF_ADDRESS, SSN_DOCUMENT, CREDIT_REPORT) y la página de documentos del caso muestra la card «Checklist del servicio». Cuenta docs del CreditCase, del propio `serviceCaseId` y generales del cliente (`caseId` + `serviceCaseId` null); no cuenta docs con `caseId` null ligados a otro ServiceCase; excluye soft-deleted. Smoke: `scripts/smoke/dc-005-checklist.ts`. Las categorías nuevas (CONTRACT, INVOICE…) requieren migración del enum y quedan pendientes.
 
 ---
 
@@ -646,7 +646,7 @@ COMPLETADO
 **Prioridad:** P1 — **Estado:** DONE (2026-09-15)
 
 ## FD-002 — FundingApplication
-**Prioridad:** P1 — **Estado:** DONE (2026-09-15, modelo + lectura en ficha; alta de aplicaciones por UI pendiente)
+**Prioridad:** P1 — **Estado:** DONE (2026-09-16). Modelo + lectura en ficha; alta/edición por UI (`FundingApplicationButton` en `/crm/expedientes/[serviceCaseId]`); server actions + dominio con concurrencia optimista, auditoría y activity log. Smoke: `scripts/smoke/funding-applications.ts`.
 
 ---
 

@@ -211,6 +211,7 @@ export async function markRoundSent(
           organizationId: ctx.organizationId,
           clientId: round.case.clientId,
           caseId: round.caseId,
+          serviceCaseId: round.case.serviceCaseId,
           roundId: round.id,
           title: `Revisar actualización de la ronda ${round.roundNumber} (${round.case.caseCode})`,
           type: "CREDIT_UPDATE",

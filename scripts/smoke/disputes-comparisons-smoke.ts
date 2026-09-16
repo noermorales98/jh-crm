@@ -248,16 +248,20 @@ async function main() {
     const itemA = initialDetail.items.find((i) => i.creditorName === "ABC Collect")!;
     const itemB = initialDetail.items.find((i) => i.creditorName === "Bank Late")!;
 
-    await disputes.addDisputeItem(ctx, {
+    const dItemA = await disputes.addDisputeItem(ctx, {
       roundId: round.id,
       creditItemId: itemA.id,
       disputeReason: "No es mi cuenta",
+      action: "Eliminar",
     });
-    await disputes.addDisputeItem(ctx, {
+    const dItemB = await disputes.addDisputeItem(ctx, {
       roundId: round.id,
       creditItemId: itemB.id,
       disputeReason: "Información inexacta",
+      action: "Disputar",
     });
+    check("dispute A action", dItemA.action === "Eliminar");
+    check("dispute B action", dItemB.action === "Disputar");
 
     const roundAfter = await prisma.creditRound.findUniqueOrThrow({
       where: { id: round.id },

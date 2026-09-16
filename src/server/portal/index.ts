@@ -528,6 +528,7 @@ async function validatePortalUpload(
   if (data.sensitivity === "HIGHLY_SENSITIVE") {
     throw new DomainError("No puedes subir documentos altamente sensibles.");
   }
+  let serviceCaseId: string | null = null;
   if (data.caseId) {
     const creditCase = await prisma.creditCase.findFirst({
       where: {
@@ -535,12 +536,14 @@ async function validatePortalUpload(
         clientId: portal.clientId,
         organizationId: portal.organizationId,
       },
-      select: { id: true },
+      select: { id: true, serviceCaseId: true },
     });
     if (!creditCase) {
       throw new DomainError("El caso enlazado no existe o no te pertenece.");
     }
+    serviceCaseId = creditCase.serviceCaseId;
   }
+  return { serviceCaseId };
 }
 
 export async function requestPortalUpload(
@@ -573,7 +576,7 @@ export async function confirmPortalUpload(
 ) {
   assertPortalEnabled();
   assertStorage();
-  await validatePortalUpload(portal, data);
+  const { serviceCaseId } = await validatePortalUpload(portal, data);
   assertFileAllowed(data.mimeType, data.sizeBytes);
 
   const expectedPrefix = `org/${portal.organizationId}/documents/`;
@@ -589,6 +592,7 @@ export async function confirmPortalUpload(
         organizationId: portal.organizationId,
         clientId: portal.clientId,
         caseId: data.caseId ?? null,
+        serviceCaseId,
         category: data.category,
         sensitivity: data.sensitivity ?? "CONFIDENTIAL",
         originalName: data.originalName.slice(0, 255),
@@ -608,6 +612,7 @@ export async function confirmPortalUpload(
         description: `Documento subido desde el portal: ${document.displayName ?? document.originalName}.`,
         clientId: portal.clientId,
         caseId: data.caseId ?? null,
+        serviceCaseId,
         metadata: {
           documentId: document.id,
           category: data.category,

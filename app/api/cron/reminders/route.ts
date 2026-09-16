@@ -230,6 +230,21 @@ export async function GET(request: Request) {
     );
   }
 
+  // 9. Correos automáticos al cliente (AU-001)
+  let clientEmails = { scanned: 0, sent: 0, skipped: 0 };
+  try {
+    const { sendClientEmailsAllOrgs } = await import(
+      "@/src/server/notifications/client-emails"
+    );
+    clientEmails = await sendClientEmailsAllOrgs(now);
+  } catch (error) {
+    errors.push(
+      error instanceof Error
+        ? `clientEmails: ${error.message}`
+        : "clientEmails: error",
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     data: {
@@ -242,6 +257,7 @@ export async function GET(request: Request) {
         overdueInstallments,
         intakeFollowUps,
         docsPending,
+        clientEmails,
       },
       notificationsWritten: created,
       errors,

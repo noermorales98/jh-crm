@@ -170,6 +170,10 @@ async function main() {
     taxRate: 0,
   });
   check("folio de cotización Q-YYYY-####", /^Q-\d{4}-\d{4}$/.test(quote.folio), quote.folio);
+  check(
+    "quote.serviceCaseId dual-write",
+    quote.serviceCaseId === creditCase.serviceCaseId,
+  );
   check("subtotal = 1248.00", quote.subtotal.equals(new Prisma.Decimal("1248.00")), quote.subtotal.toString());
   check("discountTotal = 10.00", quote.discountTotal.equals(new Prisma.Decimal("10.00")));
   check("total = 1238.00", quote.total.equals(new Prisma.Decimal("1238.00")), quote.total.toString());

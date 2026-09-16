@@ -27,6 +27,7 @@ export const addDisputeItemSchema = z.object({
   roundId: cuidSchema,
   creditItemId: cuidSchema,
   disputeReason: z.string().trim().min(1, "Indica el motivo de disputa.").max(200),
+  action: z.string().trim().min(1, "Indica la acción.").max(100),
   disputeDetails: z.string().trim().max(5000).optional().nullable().or(z.literal("")),
   bureau: creditBureauSchema.optional(),
   notes: z.string().trim().max(5000).optional().nullable().or(z.literal("")),
@@ -37,11 +38,13 @@ export const addDisputeItemsBulkSchema = z.object({
   roundId: cuidSchema,
   creditItemIds: z.array(cuidSchema).min(1).max(100),
   disputeReason: z.string().trim().min(1, "Indica el motivo de disputa.").max(200),
+  action: z.string().trim().min(1, "Indica la acción.").max(100),
   disputeDetails: z.string().trim().max(5000).optional().nullable().or(z.literal("")),
 });
 
 export const updateDisputeItemSchema = z.object({
   disputeReason: z.string().trim().min(1).max(200).optional(),
+  action: z.string().trim().min(1).max(100).optional(),
   disputeDetails: z.string().trim().max(5000).optional().nullable().or(z.literal("")),
   status: disputeItemStatusSchema.optional(),
   outcome: disputeOutcomeSchema.optional().nullable(),

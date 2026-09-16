@@ -1,28 +1,36 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Button, ConfirmDialog } from "@/src/components/ui";
+import { useState } from "react";
+import { Button, ButtonLink, ConfirmDialog } from "@/src/components/ui";
 import { transitionServiceCaseAction } from "@/src/actions/service-cases";
 
 /**
- * Fase 5 — acciones de estado del expediente genérico (ServiceCaseStatus):
- * OPEN → pausar / completar; ON_HOLD → reabrir / completar;
- * COMPLETED/CANCELED → reabrir.
+ * Acciones de estado del expediente genérico (ServiceCaseStatus).
+ * SC-004: al completar, ofrece solicitar testimonio.
  */
 export function ServiceCaseStateActions({
   serviceCaseId,
+  clientId,
   status,
 }: {
   serviceCaseId: string;
+  clientId: string;
   status: string;
 }) {
   const router = useRouter();
+  const [askTestimonial, setAskTestimonial] = useState(false);
 
   async function run(target: string): Promise<string | void> {
     const result = await transitionServiceCaseAction(serviceCaseId, target);
     if (!result.ok) return result.error;
+    if (target === "COMPLETED") {
+      setAskTestimonial(true);
+    }
     router.refresh();
   }
+
+  const testimoniosHref = `/crm/clientes/${clientId}/testimonios`;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -42,7 +50,7 @@ export function ServiceCaseStateActions({
       {status === "OPEN" || status === "ON_HOLD" ? (
         <ConfirmDialog
           title="Completar expediente"
-          message="El expediente se marcará como completado y se cerrará. Podrás reabrirlo si es necesario."
+          message="El expediente se marcará como completado. Después podrás solicitar un testimonio al cliente."
           confirmLabel="Completar"
           trigger={
             <Button variant="primary" size="sm">
@@ -51,6 +59,11 @@ export function ServiceCaseStateActions({
           }
           onConfirm={() => run("COMPLETED")}
         />
+      ) : null}
+      {status === "COMPLETED" || askTestimonial ? (
+        <ButtonLink href={testimoniosHref} variant="secondary" size="sm">
+          Solicitar testimonio
+        </ButtonLink>
       ) : null}
       {status !== "OPEN" ? (
         <ConfirmDialog

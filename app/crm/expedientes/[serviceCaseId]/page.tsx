@@ -118,6 +118,7 @@ export default async function ServiceCasePage({
           canManage ? (
             <ServiceCaseStateActions
               serviceCaseId={serviceCase.id}
+              clientId={serviceCase.client.id}
               status={serviceCase.status}
             />
           ) : null

@@ -215,6 +215,14 @@ export async function submitIntake(
 
     // Documentos subidos vía upload-url del intake (storageKey de la org).
     const expectedPrefix = `org/${orgId}/documents/`;
+    let intakeServiceCaseId: string | null = null;
+    if (link.caseId) {
+      const creditCase = await tx.creditCase.findFirst({
+        where: { id: link.caseId, organizationId: orgId },
+        select: { serviceCaseId: true },
+      });
+      intakeServiceCaseId = creditCase?.serviceCaseId ?? null;
+    }
     for (const doc of data.documents ?? []) {
       if (!doc.storageKey.startsWith(expectedPrefix)) continue;
       await tx.document.create({
@@ -222,6 +230,7 @@ export async function submitIntake(
           organizationId: orgId,
           clientId,
           caseId: link.caseId,
+          serviceCaseId: intakeServiceCaseId,
           category: doc.category ?? "OTHER",
           sensitivity: "CONFIDENTIAL",
           originalName: doc.originalName.slice(0, 255),

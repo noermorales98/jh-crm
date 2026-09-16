@@ -35,6 +35,7 @@ export function AddDisputeItemsButton({
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reason, setReason] = useState("");
+  const [action, setAction] = useState("Disputar");
   const [details, setDetails] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -60,6 +61,7 @@ export function AddDisputeItemsButton({
         roundId,
         creditItemIds: [...selected],
         disputeReason: reason,
+        action,
         ...(details.trim() ? { disputeDetails: details.trim() } : {}),
       });
       if (!result.ok) {
@@ -71,6 +73,7 @@ export function AddDisputeItemsButton({
       setOpen(false);
       setSelected(new Set());
       setReason("");
+      setAction("Disputar");
       setDetails("");
       router.refresh();
     });
@@ -102,6 +105,20 @@ export function AddDisputeItemsButton({
               maxLength={200}
               placeholder="No es mi cuenta, información inexacta…"
             />
+          </Field>
+          <Field label="Acción" htmlFor="dispute-action" required>
+            <select
+              id="dispute-action"
+              required
+              value={action}
+              onChange={(e) => setAction(e.target.value)}
+              className="w-full rounded-control border border-border-subtle bg-surface-panel px-3 py-2 text-sm text-ink"
+            >
+              <option value="Disputar">Disputar</option>
+              <option value="Verificar">Verificar</option>
+              <option value="Eliminar">Eliminar</option>
+              <option value="Actualizar">Actualizar</option>
+            </select>
           </Field>
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-control border border-border-subtle p-2">
             {eligible.map((item) => (

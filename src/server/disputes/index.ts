@@ -49,6 +49,7 @@ export interface AddDisputeItemData {
   roundId: string;
   creditItemId: string;
   disputeReason: string;
+  action: string;
   disputeDetails?: string | null;
   bureau?: "EXPERIAN" | "EQUIFAX" | "TRANSUNION";
   notes?: string | null;
@@ -59,6 +60,10 @@ export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeI
   const round = await getRoundOrThrow(ctx, data.roundId);
   if (round.status === "CANCELLED" || round.status === "COMPLETED") {
     throw new DomainError("No se pueden añadir elementos a una ronda cerrada.");
+  }
+  const action = data.action.trim();
+  if (!action || action.length > 100) {
+    throw new DomainError("Indica la acción (máximo 100 caracteres).");
   }
 
   const creditItem = await prisma.creditItem.findFirst({
@@ -88,6 +93,7 @@ export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeI
         data: {
           bureau: data.bureau ?? creditItem.bureau,
           disputeReason: data.disputeReason.trim(),
+          action,
           disputeDetails: emptyToNull(data.disputeDetails),
           status: data.status ?? "SELECTED",
           outcome: null,
@@ -102,6 +108,7 @@ export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeI
           creditItemId: creditItem.id,
           bureau: data.bureau ?? creditItem.bureau,
           disputeReason: data.disputeReason.trim(),
+          action,
           disputeDetails: emptyToNull(data.disputeDetails),
           status: data.status ?? "SELECTED",
           notes: emptyToNull(data.notes),
@@ -139,6 +146,7 @@ export async function addDisputeItemsBulk(
     roundId: string;
     creditItemIds: string[];
     disputeReason: string;
+    action: string;
     disputeDetails?: string | null;
   },
 ) {
@@ -149,6 +157,7 @@ export async function addDisputeItemsBulk(
         roundId: data.roundId,
         creditItemId,
         disputeReason: data.disputeReason,
+        action: data.action,
         disputeDetails: data.disputeDetails,
       }),
     );
@@ -158,6 +167,7 @@ export async function addDisputeItemsBulk(
 
 export interface UpdateDisputeItemData {
   disputeReason?: string;
+  action?: string;
   disputeDetails?: string | null;
   status?: DisputeItemStatus;
   outcome?: DisputeOutcome | null;
@@ -191,6 +201,7 @@ export async function updateDisputeItem(
         ...(data.disputeReason !== undefined
           ? { disputeReason: data.disputeReason.trim() }
           : {}),
+        ...(data.action !== undefined ? { action: data.action.trim() } : {}),
         ...(data.disputeDetails !== undefined
           ? { disputeDetails: emptyToNull(data.disputeDetails) }
           : {}),
@@ -275,6 +286,7 @@ export type RoundDisputeSummary = {
     status: DisputeItemStatus;
     outcome: DisputeOutcome | null;
     disputeReason: string;
+    action: string | null;
     disputeDetails: string | null;
     notes: string | null;
     bureau: string;

@@ -18,6 +18,11 @@ import {
   searchCreditProgress,
   searchCrm,
 } from "./queries";
+import {
+  extractNoteActions,
+  suggestNextAction,
+  summarizeCase,
+} from "./tasks";
 
 /**
  * Herramientas de solo lectura, siempre scopeadas a organizationId.
@@ -218,6 +223,40 @@ export function buildCrmTools(ctx: OrganizationContext) {
           .describe("Id del correo al que se responde."),
       }),
       execute: async (input) => scrub(draftMailHelp(ctx, input)),
+    }),
+    summarizeCase: tool({
+      description:
+        "AI-003: genera un resumen del expediente (caso de crédito) a partir de datos reales sanitizados. Úsala cuando pidan resumen, situación actual o overview del caso. No inventa resultados.",
+      inputSchema: z.object({
+        caseId: z.string().min(1).describe("Id interno del caso de crédito."),
+      }),
+      execute: async ({ caseId }) => scrub(summarizeCase(ctx, caseId)),
+    }),
+    suggestNextAction: tool({
+      description:
+        "AI-004: sugiere UNA siguiente acción humana para el caso. Es solo sugerencia (nunca se aplica sola). Úsala cuando pregunten qué sigue o qué hacer ahora.",
+      inputSchema: z.object({
+        caseId: z.string().min(1).describe("Id interno del caso de crédito."),
+      }),
+      execute: async ({ caseId }) => scrub(suggestNextAction(ctx, caseId)),
+    }),
+    extractNoteActions: tool({
+      description:
+        "AI-005: extrae propuestas de tareas/actividades desde el texto de una nota. NO las crea: el humano debe confirmar en la UI. Pasa el texto completo de la nota.",
+      inputSchema: z.object({
+        noteText: z
+          .string()
+          .trim()
+          .min(1)
+          .max(8000)
+          .describe("Texto de la nota del staff."),
+        caseId: z
+          .string()
+          .optional()
+          .describe("Id del caso si la nota está ligada a un expediente."),
+      }),
+      execute: async ({ noteText, caseId }) =>
+        scrub(extractNoteActions(ctx, noteText, caseId)),
     }),
   };
 }

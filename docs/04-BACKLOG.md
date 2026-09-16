@@ -324,7 +324,7 @@ Testimonios
 ---
 
 ## SC-004 — Completar expediente
-**Prioridad:** P0
+**Prioridad:** P0 — **Estado:** DONE (2026-09-16). `transitionServiceCase` → COMPLETED + `completedAt` + Activity; UI «Solicitar testimonio» tras completar (`ServiceCaseStateActions` → `/crm/clientes/[id]/testimonios`).
 
 **Acceptance Criteria:**
 
@@ -496,7 +496,7 @@ Estados: los de `RoundStatus` actual (`DRAFT`, `PREPARING`, `SENT`, `WAITING_UPD
 ---
 
 ## CR-006 — Agregar items a ronda
-**Prioridad:** P0
+**Prioridad:** P0 — **Estado:** DONE (2026-09-16). `DisputeItem.action` (motivo + acción); UI de alta con selector; smoke `disputes-comparisons-smoke.ts`.
 
 **Acceptance Criteria:**
 
@@ -766,7 +766,7 @@ Listado priorizado de expedientes con acciones vencidas o próximas.
 # EPIC 13 — IA con OpenRouter
 
 ## AI-001 — Wrapper central de OpenRouter
-**Prioridad:** P2
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). `src/lib/ai/openrouter.ts` (rotación de keys, modelo free router).
 
 ## AI-002 — Sanitización de datos
 **Prioridad:** P0 antes de activar IA
@@ -774,34 +774,32 @@ Listado priorizado de expedientes con acciones vencidas o próximas.
 **Estado:** DONE (2026-09-15). `sanitizeForAI()` en `src/lib/ai/sanitize.ts`: elimina SSN/ITIN (completo, last4, cifrado), *Encrypted, DOB, dirección, números de cuenta y enmascara patrones 123-45-6789 / 9 dígitos en texto libre. Aplicado en todas las tools del chat (`src/server/ai/tools.ts`), en los mensajes del staff (`app/api/ai/chat/route.ts`) y en la traducción de correos. Smoke: `scripts/smoke/ai-sanitize.ts` (22/22).
 
 ## AI-003 — Resumen de expediente
-**Prioridad:** P2
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). `summarizeCase` + tool de chat; datos vía `getCaseBrief` + sanitize.
 
 ## AI-004 — Siguiente acción sugerida
-**Prioridad:** P2
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). `suggestNextAction` etiquetada «Sugerencia de IA»; no se aplica sola.
 
 ## AI-005 — Extraer acciones desde nota
-**Prioridad:** P2
-
-Nunca enviar SSN/ITIN completos a modelos externos si no es imprescindible y aprobado.
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). `extractNoteActions` propone task/activity; el humano confirma en la UI (sin auto-write).
 
 ---
 
 # EPIC 14 — Automatizaciones futuras
 
 ## AU-001 — Email automático
-**Prioridad:** P2
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). `src/server/notifications/client-emails.ts`: 6 toggles `emailClient*`, envío texto plano vía SMTP, dedupe `email:client:…` en Notification OWNER, wiring en cron reminders y `markQuoteSent`. Smoke: `scripts/smoke/client-emails-smoke.ts`. Sin WhatsApp/SMS a clientes.
 
 ## AU-002 — Website Lead Webhook
-**Prioridad:** P2
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). Canal canónico: `POST /api/public/contact` → Client LEAD + Opportunity + notificación staff + `onNewLead`. Meta Lead Ads (`/api/public/meta/leads`) permanece retirado (410).
 
 ## AU-003 — SMS
-**Prioridad:** P2
+**Prioridad:** P2 — aplazado.
 
 ## AU-004 — WhatsApp
-**Prioridad:** P2
+**Prioridad:** P2 — aplazado (CallMeBot solo equipo interno).
 
 ## AU-005 — Online Payments
-**Prioridad:** P2
+**Prioridad:** P2 — aplazado.
 
 ## AU-006 — Integraciones de crédito
 **Prioridad:** P3

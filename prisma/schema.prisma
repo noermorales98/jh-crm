@@ -1760,6 +1760,8 @@ model DisputeItem {
   creditItemId    String
   bureau          CreditBureau
   disputeReason   String
+  /** Acción pedida al buró (p.ej. Disputar, Verificar, Eliminar). CR-006. */
+  action          String?
   disputeDetails  String?           @db.Text
   status          DisputeItemStatus @default(SELECTED)
   outcome         DisputeOutcome?

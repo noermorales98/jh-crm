@@ -57,6 +57,14 @@ function assertStorage() {
   }
 }
 
+/** Resuelve y valida enlaces; expone serviceCaseId para dual-write (y smokes). */
+export async function resolveDocumentLinks(
+  ctx: OrganizationContext,
+  data: RequestUploadData,
+) {
+  return validateLinks(ctx, data);
+}
+
 async function validateLinks(ctx: OrganizationContext, data: RequestUploadData) {
   const client = await prisma.client.findFirst({
     where: { id: data.clientId, organizationId: ctx.organizationId },
@@ -64,36 +72,43 @@ async function validateLinks(ctx: OrganizationContext, data: RequestUploadData) 
   });
   if (!client) throw new DomainError("Cliente no encontrado.");
 
+  let serviceCaseId: string | null = null;
+
   if (data.caseId) {
     const creditCase = await prisma.creditCase.findFirst({
       where: { id: data.caseId, organizationId: ctx.organizationId, clientId: client.id },
-      select: { id: true },
+      select: { id: true, serviceCaseId: true },
     });
     if (!creditCase) throw new DomainError("El caso enlazado no existe o no pertenece al cliente.");
+    serviceCaseId = creditCase.serviceCaseId;
   }
   if (data.roundId) {
     const round = await prisma.creditRound.findFirst({
       where: { id: data.roundId, organizationId: ctx.organizationId },
-      select: { id: true, caseId: true },
+      select: { id: true, caseId: true, case: { select: { serviceCaseId: true } } },
     });
     if (!round) throw new DomainError("La ronda enlazada no existe.");
     if (data.caseId && round.caseId !== data.caseId) {
       throw new DomainError("La ronda no pertenece al caso enlazado.");
     }
+    serviceCaseId = serviceCaseId ?? round.case.serviceCaseId;
   }
   if (data.paymentId) {
     const payment = await prisma.payment.findFirst({
       where: { id: data.paymentId, organizationId: ctx.organizationId, clientId: client.id },
-      select: { id: true },
+      select: { id: true, serviceCaseId: true },
     });
     if (!payment) throw new DomainError("El pago enlazado no existe o no pertenece al cliente.");
+    serviceCaseId = serviceCaseId ?? payment.serviceCaseId;
   }
+
+  return { serviceCaseId };
 }
 
 /** Genera storageKey sin PII y URL firmada PUT de corta duración. */
 export async function requestUpload(ctx: OrganizationContext, data: RequestUploadData) {
   assertStorage();
-  await validateLinks(ctx, data);
+  await validateLinks(ctx, data); // valida enlaces; el dual-write ocurre en confirmUpload
   assertFileAllowed(data.mimeType, data.sizeBytes);
 
   const storageKey = buildStorageKey(ctx.organizationId, crypto.randomUUID());
@@ -114,7 +129,7 @@ export async function requestUpload(ctx: OrganizationContext, data: RequestUploa
 /** Crea el registro Document tras un upload confirmado por el browser. */
 export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploadData) {
   assertStorage();
-  await validateLinks(ctx, data);
+  const { serviceCaseId } = await validateLinks(ctx, data);
   assertFileAllowed(data.mimeType, data.sizeBytes);
 
   // El storageKey debe pertenecer a la organización (prefijo org/<orgId>/).
@@ -129,6 +144,7 @@ export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploa
         organizationId: ctx.organizationId,
         clientId: data.clientId,
         caseId: data.caseId ?? null,
+        serviceCaseId,
         roundId: data.roundId ?? null,
         paymentId: data.paymentId ?? null,
         category: data.category,
@@ -150,6 +166,7 @@ export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploa
         description: `Documento subido: ${document.displayName ?? document.originalName} (${data.category}).`,
         clientId: data.clientId,
         caseId: data.caseId ?? null,
+        serviceCaseId,
         roundId: data.roundId ?? null,
         metadata: { documentId: document.id, category: data.category, sensitivity: document.sensitivity },
       },

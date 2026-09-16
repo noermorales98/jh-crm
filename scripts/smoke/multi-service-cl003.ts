@@ -4,10 +4,11 @@
  */
 import { PrismaClient } from "@prisma/client";
 import { createCreditCase, moveCaseToStage } from "../../src/server/cases";
-import { createTask } from "../../src/server/tasks";
-import { registerPayment } from "../../src/server/payments";
-import { listTasks } from "../../src/server/tasks";
-import { listPayments } from "../../src/server/payments";
+import { createTask, listTasks } from "../../src/server/tasks";
+import { registerPayment, listPayments } from "../../src/server/payments";
+import { createQuote } from "../../src/server/quotes";
+import { confirmUpload, resolveDocumentLinks } from "../../src/server/documents";
+import { isStorageConfigured } from "../../src/lib/storage/s3";
 import { getClientOverview } from "../../src/server/clients/overview";
 import type { OrganizationContext } from "../../src/server/auth/guards";
 
@@ -25,6 +26,8 @@ async function main() {
   const serviceCaseIds: string[] = [];
   const taskIds: string[] = [];
   const paymentIds: string[] = [];
+  const quoteIds: string[] = [];
+  const documentIds: string[] = [];
 
   try {
     const member = await prisma.organizationMember.findFirst({
@@ -179,6 +182,69 @@ async function main() {
         !paysB.items.some((p) => p.id === payA.payment.id),
     );
 
+    // Fase 2: Quote dual-write serviceCaseId
+    const quoteA = await createQuote(ctx, {
+      clientId: client.id,
+      caseId: a.id,
+      items: [{ kind: "manual", description: `Q-A ${MARK}`, quantity: 1, unitPrice: "10.00" }],
+      taxRate: 0,
+    });
+    const quoteB = await createQuote(ctx, {
+      clientId: client.id,
+      caseId: b.id,
+      items: [{ kind: "manual", description: `Q-B ${MARK}`, quantity: 1, unitPrice: "20.00" }],
+      taxRate: 0,
+    });
+    quoteIds.push(quoteA.id, quoteB.id);
+    check("quote A serviceCaseId", quoteA.serviceCaseId === a.serviceCaseId);
+    check("quote B serviceCaseId", quoteB.serviceCaseId === b.serviceCaseId);
+
+    // Fase 2: Document dual-write (resolve siempre; confirmUpload si hay storage)
+    const linksA = await resolveDocumentLinks(ctx, {
+      clientId: client.id,
+      caseId: a.id,
+      category: "OTHER",
+      originalName: "x.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 100,
+    });
+    const linksB = await resolveDocumentLinks(ctx, {
+      clientId: client.id,
+      caseId: b.id,
+      category: "OTHER",
+      originalName: "y.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 100,
+    });
+    check("resolve doc A → serviceCaseId", linksA.serviceCaseId === a.serviceCaseId);
+    check("resolve doc B → serviceCaseId", linksB.serviceCaseId === b.serviceCaseId);
+
+    if (isStorageConfigured()) {
+      const docA = await confirmUpload(ctx, {
+        clientId: client.id,
+        caseId: a.id,
+        category: "OTHER",
+        originalName: `doc-a-${MARK}.pdf`,
+        mimeType: "application/pdf",
+        sizeBytes: 100,
+        storageKey: `org/${ctx.organizationId}/documents/smoke-${MARK}-a.pdf`,
+      });
+      const docB = await confirmUpload(ctx, {
+        clientId: client.id,
+        caseId: b.id,
+        category: "OTHER",
+        originalName: `doc-b-${MARK}.pdf`,
+        mimeType: "application/pdf",
+        sizeBytes: 100,
+        storageKey: `org/${ctx.organizationId}/documents/smoke-${MARK}-b.pdf`,
+      });
+      documentIds.push(docA.id, docB.id);
+      check("document A serviceCaseId", docA.serviceCaseId === a.serviceCaseId);
+      check("document B serviceCaseId", docB.serviceCaseId === b.serviceCaseId);
+    } else {
+      console.log("  · skip document confirmUpload (storage no configurado)");
+    }
+
     const overviewA = await getClientOverview(ctx, client.id, {
       caseId: a.id,
     });
@@ -219,6 +285,22 @@ async function main() {
     );
   } finally {
     console.log("\n[cleanup]");
+    if (documentIds.length) {
+      await prisma.document
+        .deleteMany({ where: { id: { in: documentIds } } })
+        .catch(() => undefined);
+    }
+    if (quoteIds.length) {
+      await prisma.quoteEvent
+        .deleteMany({ where: { quoteId: { in: quoteIds } } })
+        .catch(() => undefined);
+      await prisma.quoteItem
+        .deleteMany({ where: { quoteId: { in: quoteIds } } })
+        .catch(() => undefined);
+      await prisma.quote
+        .deleteMany({ where: { id: { in: quoteIds } } })
+        .catch(() => undefined);
+    }
     if (paymentIds.length) {
       await prisma.receipt
         .deleteMany({ where: { paymentId: { in: paymentIds } } })

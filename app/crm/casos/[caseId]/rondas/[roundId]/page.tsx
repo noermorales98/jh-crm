@@ -207,6 +207,7 @@ export default async function RoundDetailPage({
                 <TH>Acreedor</TH>
                 <TH>Buró</TH>
                 <TH>Motivo</TH>
+                <TH>Acción</TH>
                 <TH>Estado</TH>
                 <TH>Resultado</TH>
                 {canManageDisputes ? <TH /> : null}
@@ -229,6 +230,9 @@ export default async function RoundDetailPage({
                   <TD>{CREDIT_BUREAU_LABELS[item.bureau] ?? item.bureau}</TD>
                   <TD className="max-w-[14rem] text-sm text-text-secondary-strong">
                     {item.disputeReason}
+                  </TD>
+                  <TD className="text-sm text-text-secondary-strong">
+                    {item.action ?? "—"}
                   </TD>
                   <TD>
                     <Pill tone="slate">

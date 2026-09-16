@@ -1,35 +1,34 @@
 # Pendientes de implementación
 
-Resumen operativo tras FD-002 (UI + smoke), endurecimiento de tareas ops con `serviceCaseId`, y corrección del filtro DC-005 (2026-09-16).
+Actualizado 2026-09-16 tras cerrar Fases 2–3, AU-001/002, AI-003…005 y SC-004.
 
 ## Pendientes confirmados
 
-- **Fase 7 / AU-001…007:** email automático, webhook de leads, SMS, WhatsApp, pagos online, integraciones de crédito, afiliados.
-- **DC-005 categorías nuevas:** `CONTRACT`, `INVOICE`, `RECEIPT`, `BANK_DOCUMENT`, etc. (requieren migración del enum `DocumentCategory`).
-- **SC-004** completar expediente y cierres de backlog sin `Estado: DONE`.
-- **AI post–sanitize:** resumen de expediente, siguiente acción sugerida, extracción de tareas, búsqueda asistida.
-- **ARC-003 Deploy 2:** lecturas UI que aún pasan por `CreditCase` en lugar de `ServiceCase` canónico.
-- **Upload de documentos:** `createDocument` aún no dual-escribe siempre `serviceCaseId` (el checklist ya lo contempla cuando está presente).
+- **AU-003…005:** SMS, WhatsApp a clientes, pagos online (aplazados a petición).
+- **AU-006/007:** integraciones buró y afiliados/comisiones (P3).
+- **DC-005 categorías nuevas:** `CONTRACT`, `INVOICE`, etc. (migración enum).
+- **ARC-003 Deploy 2:** UI crédito aún CreditCase-first en `/crm/casos/[caseId]`.
+- **Fase 8 polish:** búsqueda asistida dedicada (parcialmente cubierta por `searchCrm`); UI de confirmación para aplicar propuestas de AI-005.
 
 ## Funcionalidades ya existentes
 
-- **FD-001 / FD-002:** `FundingCase` + `FundingApplication` con create/update, concurrencia optimista, auditoría, UI en `/crm/expedientes/[serviceCaseId]`, smoke `scripts/smoke/funding-applications.ts`.
-- **Verticales Fase 5:** HomeBuyer / Funding / PersonalLoan / ProjectCase + ficha genérica.
-- **Ops tasks con `serviceCaseId`:** `onRoundSent`, `onCreditReportCreated`, `ensureDocsPendingTask`, intake follow-up; smoke `scripts/smoke/operations-pending.ts`.
-- **DC-005 checklist:** por `Service.code`; cuenta caso legacy, docs del `ServiceCase` y generales del cliente (`caseId` + `serviceCaseId` null); no cuenta docs de otro expediente.
-- **Fases 4 y 6:** balance/notas WON; testimonios con consentimiento/aprobación/publicación.
-- **AI-002:** `sanitizeForAI` + MFA en login.
+- **Fases 0–6** (con dual-write Document/Quote, FD-002 UI, testimonios).
+- **Fase 3:** wrap + `DisputeItem.action` + tarea de revisión única.
+- **Fase 7 AU-001/002:** correos cliente + contacto público.
+- **Fase 8 AI-001…005:** wrapper, sanitize, resumen, sugerencia, extracción (tools).
+- **SC-004:** completar + CTA testimonio.
+- **Ops `serviceCaseId`** + checklist DC-005 aislado.
 
 ## Prioridades siguientes
 
-1. Dual-write `serviceCaseId` en upload de documentos (cierra el hueco del checklist multi-expediente).
-2. Completar SC-004 / cierres de expediente si el MVP lo necesita antes de Fase 7.
-3. Fase 7 automatizaciones de salida (email/webhook) cuando el MVP esté estable.
-4. Extender enum de categorías DC-005 solo con migración explícita.
+1. ARC-003 Deploy 2 (si se quiere UI canónica ServiceCase).
+2. Confirm-UI para aplicar propuestas AI-005.
+3. Enum DC-005 con migrate.
+4. AU-003…005 solo si el negocio los pide.
 
 ## Riesgos técnicos reales
 
-- **`scanIncompleteIntakeFollowUps` en cron** sigue siendo global (sin `organizationId`); el filtro opcional existe para smokes/llamadas acotadas.
-- **Checklist depende del dual FK** `caseId` / `serviceCaseId`; uploads antiguos o sin `serviceCaseId` pueden clasificarse solo como “generales” si ambos son null.
-- **`ensureDocsPendingTask` / intake** crean tareas en cualquier caso/link elegible del alcance; smokes deben usar org temporal o `organizationId` acotado.
-- No hacer migración Prisma ni bump de Next solo por avisos stale tras regenerar el client.
+- Cron `scanIncompleteIntakeFollowUps` sigue global por defecto.
+- Checklist depende de dual FK; uploads antiguos pueden quedar solo como generales.
+- Correos cliente requieren SMTP + toggles; sin SMTP el cron no falla.
+- AI tools llaman OpenRouter: sin API key fallan con DomainError limpio.

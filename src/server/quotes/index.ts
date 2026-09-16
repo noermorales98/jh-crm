@@ -214,15 +214,17 @@ export async function createQuote(ctx: OrganizationContext, data: QuoteCreateDat
   });
   if (!client) throw new DomainError("Cliente no encontrado.");
 
+  let linkedServiceCaseId: string | null = null;
   if (data.caseId) {
     const creditCase = await prisma.creditCase.findFirst({
       where: { id: data.caseId, organizationId: ctx.organizationId },
-      select: { id: true, clientId: true },
+      select: { id: true, clientId: true, serviceCaseId: true },
     });
     if (!creditCase) throw new DomainError("El caso enlazado no existe.");
     if (creditCase.clientId !== client.id) {
       throw new DomainError("El caso no pertenece al cliente de la cotización.");
     }
+    linkedServiceCaseId = creditCase.serviceCaseId;
   }
 
   const items = await resolveItems(ctx, data.items);
@@ -244,6 +246,7 @@ export async function createQuote(ctx: OrganizationContext, data: QuoteCreateDat
         organizationId: ctx.organizationId,
         clientId: client.id,
         caseId: data.caseId ?? null,
+        serviceCaseId: linkedServiceCaseId,
         folioNumber,
         folio,
         currency: settings.currency ?? "USD",
@@ -280,6 +283,7 @@ export async function createQuote(ctx: OrganizationContext, data: QuoteCreateDat
         description: `Cotización ${folio} creada por ${totals.total.toString()} ${quote.currency}.`,
         clientId: client.id,
         caseId: data.caseId ?? null,
+        serviceCaseId: linkedServiceCaseId,
         metadata: { quoteId: quote.id, folio, total: totals.total.toString() },
       },
       tx,
@@ -413,8 +417,25 @@ async function transitionQuote(
   });
 }
 
-export function markQuoteSent(ctx: OrganizationContext, quoteId: string) {
-  return transitionQuote(ctx, quoteId, ["DRAFT"], "SENT", "SENT", "Solo se puede enviar una cotización en borrador.", { sentAt: new Date() });
+export async function markQuoteSent(ctx: OrganizationContext, quoteId: string) {
+  const updated = await transitionQuote(
+    ctx,
+    quoteId,
+    ["DRAFT"],
+    "SENT",
+    "SENT",
+    "Solo se puede enviar una cotización en borrador.",
+    { sentAt: new Date() },
+  );
+  await import("@/src/server/notifications/client-emails")
+    .then((m) => m.notifyClientQuoteSent(ctx.organizationId, quoteId))
+    .catch((error) => {
+      console.error(
+        "[quotes] correo cliente no enviado:",
+        error instanceof Error ? error.message : "error",
+      );
+    });
+  return updated;
 }
 
 export function markQuoteAccepted(ctx: OrganizationContext, quoteId: string) {

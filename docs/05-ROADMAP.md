@@ -35,7 +35,7 @@ Un prospecto llega desde Instagram: se registra como Client + Opportunity, se pr
 
 ## Fase 2 — Operación diaria
 
-**Estado:** DONE (2026-09-15). Tabla `Note` (cliente + ServiceCase), `ServiceCaseStageHistory`, `ServiceCase.nextActionAt` canónico, Task/Document/Payment/Quote ligados a `serviceCaseId`.
+**Estado:** DONE (2026-09-15; dual-write Document/Quote 2026-09-16). Tabla `Note` (cliente + ServiceCase), `ServiceCaseStageHistory`, `ServiceCase.nextActionAt` canónico, Task/Document/Payment/Quote ligados a `serviceCaseId` en create (upload CRM/portal/intake y `createQuote` resuelven desde `CreditCase`). Smoke: `multi-service-cl003.ts` + `domain-smoke.ts`.
 
 Ya existe Tasks / Documents / Activity / dashboard. Completar:
 
@@ -55,6 +55,8 @@ Al abrir un expediente, Hugo debe saber en pocos segundos:
 ---
 
 ## Fase 3 — Reparación de crédito
+
+**Estado:** DONE (2026-09-16). Wrap CreditCase 1:1 (ARC-003 Deploy 1); balance a nivel ServiceCase (Fase 4); tarea de revisión canónica única (`markRoundSent` + `onRoundSent` dedupe, smoke ops); `DisputeItem.action` (CR-006) con UI y smoke. Lecturas UI crédito siguen en `/crm/casos/[caseId]` — **ARC-003 Deploy 2** queda pendiente (fuera del wrap).
 
 **El módulo ya existe.** No reconstruir.
 
@@ -122,12 +124,14 @@ Nuevos `WorkflowStage` por Service + extensión 1:1:
 
 ## Fase 7 — Automatizaciones
 
+**Estado:** PARTIAL (2026-09-16). **AU-001** correos a cliente (toggles + cron reminders + `markQuoteSent`) DONE; **AU-002** webhook de leads = `POST /api/public/contact` DONE (Meta Lead Ads permanece 410). Aplazados: SMS, WhatsApp a clientes, pagos online (AU-003…005); AU-006/007 P3.
+
 Después del MVP estable: email, webhook, SMS, WhatsApp, pagos online.
 
 ---
 
 ## Fase 8 — IA
 
-**Progreso (2026-09-15):** `sanitizeForAI()` DONE (AI-002, P0) — aplicado en tools del chat, mensajes del staff y traducción de correos.
+**Estado:** PARTIAL (2026-09-16). AI-001 wrapper + AI-002 sanitize DONE; AI-003 resumen, AI-004 siguiente acción y AI-005 extracción de nota expuestos como tools del chat (`src/server/ai/tasks.ts`) — solo lectura / propuestas, sin auto-aplicar. Smoke: `scripts/smoke/ai-fase8-tasks.ts`.
 
 Después de `sanitizeForAI()`: resumen de expediente, siguiente acción sugerida, extracción de tareas, búsqueda asistida.

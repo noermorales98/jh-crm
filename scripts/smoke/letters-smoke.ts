@@ -95,6 +95,7 @@ async function main() {
       roundId: round.id,
       creditItemId: detail.items[0].id,
       disputeReason: "Not mine",
+      action: "Disputar",
     });
     const summary = await disputes.getRoundDisputeSummary(ctx, round.id);
 

@@ -270,6 +270,7 @@ async function main() {
         item.negativeType === "HARD_INQUIRY"
           ? "Consulta no autorizada"
           : "Información inexacta / no reconocida",
+      action: item.negativeType === "HARD_INQUIRY" ? "Eliminar" : "Disputar",
       disputeDetails: "Cliente solicita investigación conforme a FCRA.",
     });
   }

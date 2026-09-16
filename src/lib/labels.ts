@@ -335,3 +335,9 @@ export const MAIL_FOLDER_LABELS: Record<string, string> = {
 export function labelFor(map: Record<string, string>, value: string): string {
   return map[value] ?? value;
 }
+
+export const TESTIMONIAL_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pendiente de revisión",
+  APPROVED: "Aprobado",
+  REJECTED: "Rechazado",
+};

@@ -444,6 +444,7 @@ model Organization {
   fundingApplications FundingApplication[]
   personalLoanCases  PersonalLoanCase[]
   projectCases       ProjectCase[]
+  testimonials     Testimonial[]
 }
 
 model OrganizationSettings {
@@ -640,6 +641,8 @@ model Client {
   portalAccess    ClientPortalAccess?
   contracts       ClientContract[]
 
+  testimonials     Testimonial[]
+
   @@unique([organizationId, clientCode])
   @@index([organizationId, status])
   @@index([organizationId, assignedToId])
@@ -760,6 +763,8 @@ model ServiceCase {
   quotes       Quote[]
   payments     Payment[]
   wonOpportunities Opportunity[] @relation("OpportunityWonServiceCase")
+
+  testimonials     Testimonial[]
 
   @@unique([organizationId, caseNumber])
   @@index([clientId, status])
@@ -1981,4 +1986,44 @@ model MailMessage {
   @@index([clientId])
   @@index([createdById])
   @@index([inReplyToId])
+}
+
+/** BR-080: consentimiento, aprobación y publicación son decisiones separadas. */
+enum TestimonialStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Testimonial {
+  id                  String @id @default(cuid())
+  organizationId      String
+  clientId            String
+  serviceCaseId       String?
+  displayName         String @db.VarChar(120)
+  body                String @db.Text
+  rating              Int?
+  status              TestimonialStatus @default(PENDING)
+  consentGrantedAt    DateTime?
+  consentRevokedAt    DateTime?
+  consentSignerName   String? @db.VarChar(120)
+  consentEvidence     String? @db.Text
+  consentVersion      String?
+  consentText         String? @db.Text
+  consentContentHash  String?
+  consentRecordedById String?
+  reviewedAt          DateTime?
+  reviewedById        String?
+  publishedAt         DateTime?
+  deletedAt           DateTime?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  serviceCase ServiceCase? @relation(fields: [serviceCaseId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, status, publishedAt])
+  @@index([clientId, createdAt])
+  @@index([serviceCaseId])
 }

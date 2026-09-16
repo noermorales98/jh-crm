@@ -1,28 +1,23 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { MessageSquareQuote } from "lucide-react";
-import { requireOrganization } from "@/src/server/auth/guards";
+import { requirePermission } from "@/src/server/auth/guards";
+import { can } from "@/src/server/auth/permissions";
 import * as clientService from "@/src/server/clients";
 import { DomainError } from "@/src/server/errors";
-import { Card, CardHeader, EmptyState } from "@/src/components/ui";
+import { Card, CardHeader, CardBody } from "@/src/components/ui";
+import { TestimonialForm } from "@/src/components/testimonials/testimonial-form";
+import { TestimonialList } from "@/src/components/testimonials/testimonial-list";
+import { testimonialPageData } from "@/src/server/testimonials/page-data";
 import { ClientHeader } from "../client-header";
 
-export const metadata: Metadata = {
-  title: "Testimonios del cliente",
-};
-
-/**
- * CL-002 tab presente; captura/aprobación/publicación es Epic 9 (P1).
- * Sin tabla testimonials en schema v1.
- */
+export const metadata: Metadata = { title: "Testimonios del cliente" };
 export default async function ClientTestimonialsPage({
   params,
 }: {
   params: Promise<{ clientId: string }>;
 }) {
   const { clientId } = await params;
-  const ctx = await requireOrganization();
-
+  const ctx = await requirePermission("testimonials.view");
   let detail: Awaited<ReturnType<typeof clientService.getClientDetail>>;
   try {
     detail = await clientService.getClientDetail(ctx, clientId);
@@ -30,24 +25,32 @@ export default async function ClientTestimonialsPage({
     if (error instanceof DomainError) notFound();
     throw error;
   }
-
-  const { client } = detail;
-
+  const { rows, cases } = await testimonialPageData(ctx, clientId);
+  const manage = can(ctx.role, "testimonials.manage");
   return (
     <div>
-      <ClientHeader client={client} />
-
-      <Card>
-        <CardHeader
-          title="Testimonios"
-          description="Solicitud, aprobación y publicación (Epic 9)."
-        />
-        <EmptyState
-          icon={MessageSquareQuote}
-          title="Próximamente"
-          description="Los testimonios no se publican solos. Cuando el módulo esté listo, podrás solicitar y aprobar testimonios desde esta ficha."
-        />
-      </Card>
+      <ClientHeader client={detail.client} />
+      {manage ? (
+        <Card className="mb-4">
+          <CardHeader
+            title="Nuevo testimonio"
+            description="Registra las palabras del cliente. El consentimiento, la aprobación y la publicación se completan por separado."
+          />
+          <CardBody>
+            <TestimonialForm
+              clientId={clientId}
+              defaultName={detail.client.firstName}
+              cases={cases}
+            />
+          </CardBody>
+        </Card>
+      ) : null}
+      <TestimonialList
+        rows={rows}
+        cases={cases}
+        manage={manage}
+        publish={can(ctx.role, "testimonials.publish")}
+      />
     </div>
   );
 }

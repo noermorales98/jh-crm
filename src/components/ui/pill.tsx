@@ -1,4 +1,5 @@
 import {
+  TESTIMONIAL_STATUS_LABELS,
   CLIENT_STATUS_LABELS,
   CASE_STATE_LABELS,
   CONSULTATION_STATUS_LABELS,
@@ -54,6 +55,7 @@ export function Pill({
 }
 
 export type PillDomain =
+  | "testimonial"
   | "client"
   | "case"
   | "serviceCase"
@@ -65,6 +67,7 @@ export type PillDomain =
   | "payment";
 
 const DOMAIN_LABELS: Record<PillDomain, Record<string, string>> = {
+  testimonial: TESTIMONIAL_STATUS_LABELS,
   client: CLIENT_STATUS_LABELS,
   case: CASE_STATE_LABELS,
   serviceCase: SERVICE_CASE_STATUS_LABELS,
@@ -77,6 +80,7 @@ const DOMAIN_LABELS: Record<PillDomain, Record<string, string>> = {
 };
 
 const DOMAIN_TONES: Record<PillDomain, Record<string, PillTone>> = {
+  testimonial: { PENDING: "amber", APPROVED: "green", REJECTED: "red" },
   client: {
     LEAD: "blue",
     ACTIVE: "green",

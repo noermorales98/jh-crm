@@ -245,7 +245,7 @@ Mostrar:
 ## CL-002 — Ficha de Cliente
 **Prioridad:** P0
 
-**Estado:** DONE (2026-09-10). Tabs: Resumen · Servicios · Actividad · Tareas · Documentos · Pagos · Notas · Testimonios. `/casos` redirige a `/servicios`. Expediente (datos/perfil) queda como enlace secundario. Testimonios = placeholder Epic 9 (sin schema v1).
+**Estado:** DONE (2026-09-10). Tabs: Resumen · Servicios · Actividad · Tareas · Documentos · Pagos · Notas · Testimonios. `/casos` redirige a `/servicios`. Expediente (datos/perfil) queda como enlace secundario. Testimonios implementados en Fase 6 (2026-09-15): captura, consentimiento y revisión/publicación manual.
 
 Tabs:
 
@@ -667,14 +667,22 @@ Para web/CRM.
 ## TM-001 — Crear Testimonial
 **Prioridad:** P1
 
+**Estado:** DONE (2026-09-15). Modelo `Testimonial` ligado a Client y opcionalmente ServiceCase; CRUD con soft delete en ficha del cliente, cola `/crm/testimonios`, captura y edición propias en `/portal/testimonios`. Migración `20260915200000_fase6_testimonials` aplicada en DEV (Hostinger) con `migrate diff` + `migrate deploy` + `prisma generate`.
+
 ## TM-002 — Consentimiento
 **Prioridad:** P1
+
+**Estado:** DONE (2026-09-15). Consentimiento explícito versionado: fecha, firmante, texto, evidencia (manual o portal), actor y huella de contenido. Editar invalida consentimiento/aprobación y retira publicación; revocar desde CRM/portal retira inmediatamente. Auditoría y Activity transaccionales.
 
 ## TM-003 — Aprobar/Publicar
 **Prioridad:** P1
 
+**Estado:** DONE (2026-09-15). Aprobación/rechazo y publicación separados y manuales (BR-080). STAFF/SPECIALIST capturan; ADMIN/OWNER aprueban/publican; VIEWER solo lee. Publicación exige consentimiento vigente y aprobación humana. Bloqueo de fila + versión impiden operar sobre una revisión obsoleta.
+
 ## TM-004 — Endpoint público
 **Prioridad:** P1
+
+**Estado:** DONE (2026-09-15). `GET /api/public/testimonials` anónimo, `Cache-Control: no-store`; solo testimonios aprobados/publicados con consentimiento vigente, sin soft delete ni cliente/expediente archivado. Organización del sitio = primera creada (criterio existente en contacto); máximo 100 por fecha de publicación. Respuesta `{ ok, testimonials: [{ displayName, body, rating, publishedAt }] }`, sin IDs, contactos ni evidencia. Smoke: `scripts/smoke/fase6-testimonials.ts` (39/39).
 
 Nunca publicar automáticamente.
 

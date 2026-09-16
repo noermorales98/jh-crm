@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
 import {
   FileText,
+  MessageSquareQuote,
   Home,
   CreditCard,
   LineChart,
@@ -28,6 +29,7 @@ const NAV = [
   { href: "/portal/documentos", label: "Documentos", icon: FolderOpen },
   { href: "/portal/reportes", label: "Reportes", icon: FileText },
   { href: "/portal/pagos", label: "Pagos", icon: CreditCard },
+  { href: "/portal/testimonios", label: "Testimonios", icon: MessageSquareQuote },
 ] as const;
 
 export default async function PortalAppLayout({

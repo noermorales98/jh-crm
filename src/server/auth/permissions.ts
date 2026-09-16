@@ -35,7 +35,9 @@ export const PERMISSION_ACTIONS = [
   "attribution.view",
   "consultations.view",
   "contracts.view",
+  "testimonials.view",
   // Escritura operativa
+  "testimonials.manage",
   "clients.create",
   "clients.edit",
   "cases.manage",
@@ -59,6 +61,7 @@ export const PERMISSION_ACTIONS = [
   "sensitive.edit",
   "documents.downloadSensitive",
   // Administración
+  "testimonials.publish",
   "receipts.void",
   "users.manage",
   "audit.view",
@@ -70,6 +73,7 @@ export const PERMISSION_ACTIONS = [
 export type PermissionAction = (typeof PERMISSION_ACTIONS)[number];
 
 const ALL_READ: PermissionAction[] = [
+  "testimonials.view",
   "clients.view",
   "cases.view",
   "rounds.view",
@@ -96,6 +100,7 @@ const ALL_READ: PermissionAction[] = [
 const STAFF_PLUS_READ: PermissionAction[] = ["attribution.view"];
 
 const STAFF_WRITE: PermissionAction[] = [
+  "testimonials.manage",
   "clients.create",
   "clients.edit",
   "cases.manage",
@@ -123,6 +128,7 @@ const SENSITIVE: PermissionAction[] = [
 
 /** Catálogo + procesadores + portal: ADMIN/OWNER; SPECIALIST también gestiona procesadores. */
 const ADMIN_ONLY: PermissionAction[] = [
+  "testimonials.publish",
   "receipts.void",
   "users.manage",
   "audit.view",

@@ -116,7 +116,7 @@ Nuevos `WorkflowStage` por Service + extensión 1:1:
 
 ## Fase 6 — Testimonios
 
-CRUD, consentimiento, aprobación, publicación, endpoint público.
+**Estado:** DONE (2026-09-15). TM-001…TM-004: modelo `Testimonial` + migración aditiva aplicada en DEV (Hostinger); CRUD en ficha de cliente, cola `/crm/testimonios` y captura/consentimiento en `/portal/testimonios`. Consentimiento versionado con evidencia y huella del contenido; aprobación y publicación humanas separadas. Editar o retirar consentimiento despublica; control de versión impide revisar contenido obsoleto. Endpoint `GET /api/public/testimonials` con proyección pública y `no-store`, aislado a la organización del sitio. Smoke: `scripts/smoke/fase6-testimonials.ts` (39/39).
 
 ---
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -11,6 +11,7 @@ import {
   Headphones,
   Inbox,
   MessageCircle,
+  MessageSquareQuote,
   Package,
   Receipt,
   RefreshCcw,
@@ -64,6 +65,7 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
   {
     label: "Extra",
     items: [
+      { href: "/crm/testimonios", label: "Testimonios", icon: MessageSquareQuote },
       { href: "/crm/contratos", label: "Contratos", icon: Scale },
       { href: "/crm/procesadores", label: "Procesadores", icon: Cpu },
     ],
@@ -106,6 +108,10 @@ export function isMoreNavPath(pathname: string): boolean {
 /**
  * Popup centrado “Más”: el resto del CRM en un diálogo redondeado.
  */
+const subscribeToMount = () => () => {};
+const clientMounted = () => true;
+const serverMounted = () => false;
+
 export function MoreNavPanel({
   open,
   onClose,
@@ -115,11 +121,7 @@ export function MoreNavPanel({
   onClose: () => void;
   pathname: string;
 }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(subscribeToMount, clientMounted, serverMounted);
 
   if (!open || !mounted) return null;
 

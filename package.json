@@ -20,6 +20,7 @@
     "smoke:sprint7": "tsx --env-file=.env.local scripts/smoke/sprint7-smoke.ts",
     "smoke:sprint8": "tsx --env-file=.env.local scripts/smoke/sprint8-smoke.ts",
     "smoke:fase4": "tsx --env-file=.env.local scripts/smoke/fase4-balance-notes.ts",
+    "smoke:fase6": "tsx --env-file=.env.local scripts/smoke/fase6-testimonials.ts",
     "smoke:fase5": "tsx --env-file=.env.local scripts/smoke/fase5-verticals.ts",
     "smoke:ai-sanitize": "tsx scripts/smoke/ai-sanitize.ts",
     "smoke:mfa-login": "tsx --env-file=.env.local scripts/smoke/mfa-login-enforcement.ts",

@@ -4,7 +4,7 @@ import { PrismaClient } from "@prisma/client";
  * Subir este número cuando se añadan modelos/campos Prisma.
  * Fuerza descartar el singleton de HMR/Turbopack que aún no tiene los delegates.
  */
-const PRISMA_CLIENT_GENERATION = 8;
+const PRISMA_CLIENT_GENERATION = 9;
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -26,6 +26,7 @@ function hasDelegate(client: PrismaClient, name: string): boolean {
 
 /** Modelos añadidos en sprints recientes — si faltan, el client está stale. */
 const REQUIRED_DELEGATES = [
+  "testimonial",
   "consultation",
   "paymentPlan",
   "opportunity",
@@ -69,7 +70,7 @@ function getPrisma(): PrismaClient {
  * un PrismaClient antiguo sin los delegates nuevos).
  */
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
-  get(_target, prop, _receiver) {
+  get(_target, prop) {
     const client = getPrisma();
     const value = Reflect.get(client, prop, client);
     return typeof value === "function" ? value.bind(client) : value;

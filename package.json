@@ -25,6 +25,7 @@
     "smoke:ai-sanitize": "tsx scripts/smoke/ai-sanitize.ts",
     "smoke:mfa-login": "tsx --env-file=.env.local scripts/smoke/mfa-login-enforcement.ts",
     "smoke:dc-005": "tsx --env-file=.env.local scripts/smoke/dc-005-checklist.ts",
+    "smoke:ai-006": "tsx --env-file=.env.local scripts/smoke/ai-006-assist-search.ts",
     "seed:demo-credit": "tsx --env-file=.env.local scripts/seed-demo-credit-case.ts",
     "postinstall": "prisma generate"
   },

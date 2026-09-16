@@ -132,6 +132,6 @@ Después del MVP estable: email, webhook, SMS, WhatsApp, pagos online.
 
 ## Fase 8 — IA
 
-**Estado:** DONE (2026-09-16). AI-001 wrapper + AI-002 sanitize; AI-003 resumen, AI-004 siguiente acción y AI-005 extracción de nota como tools del chat. Confirmación humana AI-005: `applyAiProposalAction` + cards Confirmar/Descartar en `ai-chat-panel`. Smoke: `scripts/smoke/ai-fase8-tasks.ts`.
+**Estado:** DONE (2026-09-16). AI-001 wrapper + AI-002 sanitize; AI-003 resumen, AI-004 siguiente acción, AI-005 extracción de nota + confirm UI; AI-006 búsqueda asistida en spotlight (`assistSearch` + `POST /api/crm/search/assist`). Smokes: `ai-fase8-tasks.ts`, `ai-006-assist-search.ts`.
 
 Después de `sanitizeForAI()`: resumen de expediente, siguiente acción sugerida, extracción de tareas, búsqueda asistida.

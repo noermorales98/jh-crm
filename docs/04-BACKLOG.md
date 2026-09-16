@@ -780,6 +780,9 @@ Listado priorizado de expedientes con acciones vencidas o próximas.
 ## AI-005 — Extraer acciones desde nota
 **Prioridad:** P2 — **Estado:** DONE (2026-09-16). `extractNoteActions` propone task/activity; UI Confirmar/Descartar (`AiProposalCards`) + `applyAiProposalAction`. Descartar no escribe.
 
+## AI-006 — Búsqueda asistida dedicada
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). `assistSearch` clasifica intent (`find`/`list`/`howto`) y ejecuta `searchCrm` / `listCrm` / `getRoutesAndHowTo` sin inventar filas. API `POST /api/crm/search/assist`; spotlight toggle «Asistida» + resumen. Smoke: `scripts/smoke/ai-006-assist-search.ts`.
+
 ---
 
 # EPIC 14 — Automatizaciones futuras

@@ -33,8 +33,8 @@ import { play } from "cuelume";
 import { startAskAiChat } from "@/src/components/ai/ask-ai";
 import {
   aiPromptFromQuery,
-  buildAiHit,
   groupSpotlightHits,
+  isAiIntent,
   matchCatalog,
   mergeSpotlightHits,
   type SpotlightHit,
@@ -128,7 +128,11 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
   const [error, setError] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const [recents, setRecents] = useState<SpotlightHit[]>([]);
+  const [assisted, setAssisted] = useState(false);
+  const [assistSummary, setAssistSummary] = useState<string | null>(null);
   const shortcut = isMac() ? "⌘K" : "Ctrl K";
+
+  const useAssist = assisted || isAiIntent(query);
 
   const localHits = useMemo(() => {
     const q = query.trim();
@@ -147,6 +151,7 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
     setQuery("");
     setRemote([]);
     setError(null);
+    setAssistSummary(null);
     setActive(0);
     setOpen(false);
     dialogRef.current?.close();
@@ -183,41 +188,91 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
   useEffect(() => {
     const q = query.trim();
     if (!open || q.length < 2) {
-      setRemote([]);
-      setLoading(false);
-      setError(null);
-      return;
+      const resetTimer = window.setTimeout(() => {
+        setRemote([]);
+        setLoading(false);
+        setError(null);
+        setAssistSummary(null);
+      }, 0);
+      return () => window.clearTimeout(resetTimer);
     }
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/crm/search?q=${encodeURIComponent(q)}`, {
-          signal: controller.signal,
-          cache: "no-store",
-        });
-        const data = (await res.json()) as { ok?: boolean; hits?: SpotlightHit[]; error?: string };
-        if (!res.ok || !data.ok) {
-          throw new Error(data.error ?? "No se pudo buscar.");
+        if (useAssist) {
+          const res = await fetch("/api/crm/search/assist", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ q }),
+            signal: controller.signal,
+            cache: "no-store",
+          });
+          const data = (await res.json()) as {
+            ok?: boolean;
+            hits?: SpotlightHit[];
+            summary?: string;
+            error?: string;
+          };
+          if (!res.ok || !data.ok) {
+            // Fallback keyword si la IA no está disponible.
+            const kw = await fetch(`/api/crm/search?q=${encodeURIComponent(q)}`, {
+              signal: controller.signal,
+              cache: "no-store",
+            });
+            const kwData = (await kw.json()) as {
+              ok?: boolean;
+              hits?: SpotlightHit[];
+              error?: string;
+            };
+            if (!kw.ok || !kwData.ok) {
+              throw new Error(data.error ?? kwData.error ?? "No se pudo buscar.");
+            }
+            setRemote(kwData.hits ?? []);
+            setActive(0);
+            setAssistSummary(
+              data.error
+                ? `Asistida no disponible (${data.error}). Mostrando coincidencias por texto.`
+                : "Asistida no disponible. Mostrando coincidencias por texto.",
+            );
+            setError(null);
+          } else {
+            setRemote(data.hits ?? []);
+            setActive(0);
+            setAssistSummary(data.summary ?? null);
+            setError(null);
+          }
+        } else {
+          const res = await fetch(`/api/crm/search?q=${encodeURIComponent(q)}`, {
+            signal: controller.signal,
+            cache: "no-store",
+          });
+          const data = (await res.json()) as {
+            ok?: boolean;
+            hits?: SpotlightHit[];
+            error?: string;
+          };
+          if (!res.ok || !data.ok) {
+            throw new Error(data.error ?? "No se pudo buscar.");
+          }
+          setRemote(data.hits ?? []);
+          setActive(0);
+          setAssistSummary(null);
+          setError(null);
         }
-        setRemote(data.hits ?? []);
-        setError(null);
       } catch (err) {
         if ((err as Error).name === "AbortError") return;
         setError(err instanceof Error ? err.message : "No se pudo buscar.");
+        setAssistSummary(null);
       } finally {
         setLoading(false);
       }
-    }, 180);
+    }, useAssist ? 320 : 180);
     return () => {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [open, query]);
-
-  useEffect(() => {
-    setActive(0);
-  }, [query, remote]);
+  }, [open, query, useAssist]);
 
   useEffect(() => {
     const node = listRef.current?.querySelector("[data-active='true']");
@@ -289,6 +344,7 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
           setQuery("");
           setRemote([]);
           setError(null);
+          setAssistSummary(null);
           setActive(0);
           setOpen(false);
         }}
@@ -302,14 +358,15 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
             <input
               ref={overlayInputRef}
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setActive(0);
+              }}
               onKeyDown={onOverlayKey}
               placeholder="Clientes, rondas, cuotas, páginas o una pregunta…"
               aria-label="Buscar en el CRM"
               aria-controls={listId}
               aria-autocomplete="list"
-              aria-expanded={open}
-              aria-activedescendant={activeHit ? `${listId}-${activeHit.id}` : undefined}
               autoComplete="off"
               spellCheck={false}
               className="jh-spotlight-field h-11 min-w-0 flex-1 bg-transparent text-[15px] text-ink placeholder:text-text-placeholder focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0"
@@ -328,10 +385,32 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
               </button>
             ) : null}
             {loading ? (
-              <span className="text-[11px] text-text-secondary">Buscando…</span>
+              <span className="text-[11px] text-text-secondary">
+                {useAssist ? "Asistiendo…" : "Buscando…"}
+              </span>
             ) : (
               <kbd className="hidden text-[11px] text-text-secondary sm:inline">esc</kbd>
             )}
+          </div>
+          <div className="mt-2 flex items-center justify-between gap-2 px-1">
+            <button
+              type="button"
+              onClick={() => setAssisted((value) => !value)}
+              aria-pressed={assisted}
+              className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                useAssist
+                  ? "bg-action-primary text-action-primary-foreground"
+                  : "bg-surface-panel text-text-secondary ring-1 ring-border-subtle/60 hover:bg-nav-hover hover:text-ink"
+              }`}
+            >
+              <Sparkles className="size-3.5" aria-hidden />
+              Asistida
+            </button>
+            <span className="text-[11px] text-text-secondary">
+              {useAssist
+                ? "NL → resultados del CRM"
+                : "Texto exacto · activa Asistida o escribe una pregunta"}
+            </span>
           </div>
         </div>
 
@@ -342,6 +421,12 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
           aria-label="Resultados"
           className="max-h-[min(28rem,62vh)] overflow-y-auto px-2 py-2"
         >
+          {assistSummary ? (
+            <p className="mx-1 mb-2 rounded-[12px] bg-surface-elevated px-3 py-2 text-[13px] text-text-secondary ring-1 ring-border-subtle/50">
+              <span className="font-medium text-ink">Sugerencia de IA · </span>
+              {assistSummary}
+            </p>
+          ) : null}
           {error ? (
             <p className="px-3 py-4 text-sm text-danger-ink">{error}</p>
           ) : null}

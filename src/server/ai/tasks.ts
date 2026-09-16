@@ -97,8 +97,14 @@ export async function extractNoteActions(
     throw new DomainError("La nota debe tener entre 1 y 8000 caracteres.");
   }
   let caseContext: unknown = null;
+  let clientId: string | null = null;
   if (caseId) {
-    caseContext = sanitizeForAI(await getCaseBrief(ctx, caseId));
+    const brief = await getCaseBrief(ctx, caseId);
+    caseContext = sanitizeForAI(brief);
+    const maybeClientId = (
+      brief as { case?: { client?: { id?: string } } } | null
+    )?.case?.client?.id;
+    if (typeof maybeClientId === "string") clientId = maybeClientId;
   }
   const { text } = await generateText({
     model: createOpenRouterModel(),
@@ -111,6 +117,7 @@ export async function extractNoteActions(
   const proposals = Array.isArray(parsed?.proposals) ? parsed.proposals : [];
   return {
     caseId: caseId ?? null,
+    clientId,
     label: "Propuestas de IA — confirmar antes de aplicar",
     proposals,
     raw: proposals.length ? undefined : text.trim(),

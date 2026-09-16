@@ -107,7 +107,46 @@ async function main() {
             String((extracted as { label: string }).label).includes("confirmar"),
         ),
       );
+      check(
+        "extractNoteActions incluye clientId",
+        Boolean(
+          extracted &&
+            typeof extracted === "object" &&
+            "clientId" in extracted &&
+            (extracted as { clientId: string | null }).clientId === clientId,
+        ),
+      );
     }
+
+    // AI-005 apply (domain path — misma lógica que applyAiProposalAction)
+    const { createTask } = await import("../../src/server/tasks");
+    const { writeActivityLog } = await import("../../src/server/activity");
+    const { toActivityContext } = await import("../../src/server/context");
+    const task = await createTask(ctx, {
+      title: `AI5 smoke task ${MARK}`,
+      description: "Aplicada desde propuesta",
+      type: "FOLLOW_UP",
+      clientId,
+      caseId,
+      assignedToId: ctx.userId,
+    });
+    check("apply proposal → task", Boolean(task.id));
+    const activity = await writeActivityLog(toActivityContext(ctx), {
+      type: "NOTE",
+      description: `AI5 smoke note ${MARK}`,
+      clientId,
+      caseId,
+      metadata: { source: "ai_proposal", kind: "activity" },
+    });
+    check("apply proposal → activity", Boolean(activity.id));
+    const taskRow = await prisma.task.findFirst({
+      where: { id: task.id, clientId },
+    });
+    const activityRow = await prisma.activityLog.findFirst({
+      where: { id: activity.id, clientId, type: "NOTE" },
+    });
+    check("task row persistida", Boolean(taskRow));
+    check("activity row persistida", Boolean(activityRow));
 
     console.log(`AI-FASE8: ${checks}/${checks} OK`);
   } finally {

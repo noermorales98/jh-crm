@@ -13,7 +13,7 @@ import { createNotification } from "@/src/server/notifications";
  * Revisa:
  *   - tareas con reminderAt <= now            → task:<id>:due
  *   - tareas vencidas (dueAt < now)           → task:<id>:overdue
- *   - CreditCase.nextReviewAt hoy/vencida     → case:<id>:review:<YYYY-MM-DD>
+ *   - ServiceCase.nextActionAt hoy/vencida   → case:<id>:review:<YYYY-MM-DD>
  *   - CreditRound.expectedReviewAt hoy/vencida → round:<id>:review:<YYYY-MM-DD>
  *   - pagos PENDING con dueAt <= hoy          → payment:<id>:due
  *   - cuotas PENDING vencidas                 → status OVERDUE
@@ -121,24 +121,40 @@ export async function GET(request: Request) {
     }
   }
 
-  // 3. Casos con próxima revisión hoy o vencida
-  const casesToReview = await prisma.creditCase.findMany({
-    where: { state: "OPEN", nextReviewAt: { lte: endOfTodayUtc } },
+  // 3. Expedientes con próxima acción hoy o vencida (ServiceCase.nextActionAt)
+  const casesToReview = await prisma.serviceCase.findMany({
+    where: {
+      status: { in: ["OPEN", "ON_HOLD"] },
+      archivedAt: null,
+      nextActionAt: { lte: endOfTodayUtc },
+    },
     select: {
-      id: true, organizationId: true, caseCode: true, nextReviewAt: true, assignedToId: true,
+      id: true,
+      organizationId: true,
+      caseNumber: true,
+      nextActionAt: true,
+      assignedToId: true,
+      creditCase: { select: { id: true, caseCode: true, assignedToId: true } },
     },
   });
-  for (const creditCase of casesToReview) {
-    const day = ymd(creditCase.nextReviewAt ?? now, tzOf(creditCase.organizationId));
-    for (const userId of await resolveRecipients(creditCase.organizationId, creditCase.assignedToId)) {
+  for (const serviceCase of casesToReview) {
+    const day = ymd(serviceCase.nextActionAt ?? now, tzOf(serviceCase.organizationId));
+    const creditCase = serviceCase.creditCase;
+    const assigneeId = creditCase?.assignedToId ?? serviceCase.assignedToId;
+    const dedupeEntityId = creditCase?.id ?? serviceCase.id;
+    const label = creditCase?.caseCode ?? serviceCase.caseNumber;
+    const link = creditCase
+      ? `/crm/casos/${creditCase.id}`
+      : `/crm/expedientes/${serviceCase.id}`;
+    for (const userId of await resolveRecipients(serviceCase.organizationId, assigneeId)) {
       await notify({
-        organizationId: creditCase.organizationId,
+        organizationId: serviceCase.organizationId,
         userId,
         type: "CASE_REVIEW_DUE",
         title: "Revisión de caso pendiente",
-        body: `El caso ${creditCase.caseCode} requiere revisión.`,
-        link: `/crm/casos/${creditCase.id}`,
-        dedupeKey: `case:${creditCase.id}:review:${day}`,
+        body: `El expediente ${label} requiere revisión.`,
+        link,
+        dedupeKey: `case:${dedupeEntityId}:review:${day}`,
       });
     }
   }

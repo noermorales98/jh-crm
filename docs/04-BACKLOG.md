@@ -109,7 +109,7 @@ Crear entidad y relaciones base. Migración aditiva, dos deploys (`MIGRATION_PLA
 - No rename de CreditCase / CreditRound.
 - No DROP.
 
-**Estado:** DONE (2026-09-10). Schema + backfill DEV + wrap create/move/markWon. Lecturas UI siguen por CreditCase (Deploy 2 pendiente).
+**Estado:** DONE (2026-09-10; Deploy 2 lectura 2026-09-16). Schema + backfill DEV + wrap create/move/markWon. Contract de lectura: operación vía `ServiceCase.nextActionAt` (cron, listCases, atención IA). Workspace crédito permanece en `/crm/casos/[caseId]` (CreditCase id); ficha genérica enlaza a reparación si hay `creditCase`.
 
 ---
 
@@ -419,7 +419,7 @@ BUSINESS_DOCUMENT
 OTHER
 ```
 
-**Estado:** DONE (2026-09-15; filtro multi-expediente 2026-09-16) con las categorías del enum actual (sin migración): `src/server/documents/checklist.ts` define requeridos/opcionales por `Service.code` (CREDIT_REPAIR: IDENTITY, PROOF_OF_ADDRESS, SSN_DOCUMENT, CREDIT_REPORT) y la página de documentos del caso muestra la card «Checklist del servicio». Cuenta docs del CreditCase, del propio `serviceCaseId` y generales del cliente (`caseId` + `serviceCaseId` null); no cuenta docs con `caseId` null ligados a otro ServiceCase; excluye soft-deleted. Smoke: `scripts/smoke/dc-005-checklist.ts`. Las categorías nuevas (CONTRACT, INVOICE…) requieren migración del enum y quedan pendientes.
+**Estado:** DONE (2026-09-16). Checklist por servicio + enum aditivo: `CONTRACT`, `INVOICE`, `RECEIPT`, `BANK_DOCUMENT`, `BUSINESS_DOCUMENT` en `DocumentCategory` (migración `20260916160000_dc005_document_categories`). Labels + optional en CREDIT_REPAIR. Portal upload whitelist sin cambios. Smoke: `scripts/smoke/dc-005-checklist.ts`.
 
 ---
 
@@ -435,9 +435,7 @@ Se crea solamente junto a un ServiceCase CREDIT_REPAIR (1:1).
 ---
 
 ## CR-001b — Deprecar nextReviewAt
-**Prioridad:** P0
-
-Tras el deploy 2, la próxima acción operativa es `ServiceCase.nextActionAt`. Dejar de escribir `CreditCase.nextReviewAt`. No DROP.
+**Prioridad:** P0 — **Estado:** DONE (2026-09-16). Escritura canónica solo en `ServiceCase.nextActionAt`; cron/listados/IA leen `nextActionAt`. `CreditCase.nextReviewAt` legado de solo lectura. No DROP.
 
 ---
 
@@ -780,7 +778,7 @@ Listado priorizado de expedientes con acciones vencidas o próximas.
 **Prioridad:** P2 — **Estado:** DONE (2026-09-16). `suggestNextAction` etiquetada «Sugerencia de IA»; no se aplica sola.
 
 ## AI-005 — Extraer acciones desde nota
-**Prioridad:** P2 — **Estado:** DONE (2026-09-16). `extractNoteActions` propone task/activity; el humano confirma en la UI (sin auto-write).
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). `extractNoteActions` propone task/activity; UI Confirmar/Descartar (`AiProposalCards`) + `applyAiProposalAction`. Descartar no escribe.
 
 ---
 

@@ -132,11 +132,13 @@ Rollback deploy 1: revertir app; columnas nuevas nullable no rompen el binario a
 
 ### Deploy 2 — contract de lectura (sin DROP)
 
+**Estado:** DONE (2026-09-16).
+
 1. UI/API de expediente leen `ServiceCase` (status, stageId, nextActionAt, agreedAmount cuando exista).
 2. Dashboard: follow-up comercial = `Opportunity.nextFollowUpAt`; operación = `ServiceCase.nextActionAt`; tareas = `Task.dueAt`.
-3. Dejar de **escribir** `CreditCase.nextReviewAt` y, en WON nuevo, tratar `wonServiceCaseId` como canónico (`wonCaseId` se rellena solo si hace falta compatibilidad interna puntual, no como API).
+3. Dejar de **escribir** `CreditCase.nextReviewAt`; WON usa `wonServiceCaseId`. Cron/listCases/atención IA leen `nextActionAt`.
 4. `CreditCase.serviceCaseId` ya NOT NULL.
-5. Columnas legado se marcan deprecated en código/docs. **No DROP. No rename.**
+5. Columnas legado deprecated en código/docs. **No DROP. No rename.** Workspace crédito permanece en `/crm/casos/[caseId]`.
 
 Rollback deploy 2: revertir app al deploy 1. Los datos ServiceCase siguen ahí.
 

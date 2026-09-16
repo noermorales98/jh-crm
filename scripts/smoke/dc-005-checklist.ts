@@ -47,6 +47,14 @@ async function main() {
         "IDENTITY,PROOF_OF_ADDRESS,SSN_DOCUMENT,CREDIT_REPORT",
     );
     check(
+      "CREDIT_REPAIR optional incluye categorías DC-005",
+      spec.optional.includes("CONTRACT") &&
+        spec.optional.includes("INVOICE") &&
+        spec.optional.includes("RECEIPT") &&
+        spec.optional.includes("BANK_DOCUMENT") &&
+        spec.optional.includes("BUSINESS_DOCUMENT"),
+    );
+    check(
       "servicio desconocido cae al checklist por defecto",
       getChecklistForService("FUTURE_VERTICAL").required.join(",") === "IDENTITY",
     );

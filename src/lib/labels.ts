@@ -111,6 +111,11 @@ export const DOCUMENT_CATEGORY_LABELS: Record<string, string> = {
   DISPUTE_LETTER: "Carta de disputa",
   UPDATE_REPORT: "Reporte de actualización",
   PAYMENT_PROOF: "Comprobante de pago",
+  CONTRACT: "Contrato",
+  INVOICE: "Factura",
+  RECEIPT: "Recibo",
+  BANK_DOCUMENT: "Documento bancario",
+  BUSINESS_DOCUMENT: "Documento de negocio",
   OTHER: "Otro",
 };
 

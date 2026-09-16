@@ -56,7 +56,7 @@ Al abrir un expediente, Hugo debe saber en pocos segundos:
 
 ## Fase 3 — Reparación de crédito
 
-**Estado:** DONE (2026-09-16). Wrap CreditCase 1:1 (ARC-003 Deploy 1); balance a nivel ServiceCase (Fase 4); tarea de revisión canónica única (`markRoundSent` + `onRoundSent` dedupe, smoke ops); `DisputeItem.action` (CR-006) con UI y smoke. Lecturas UI crédito siguen en `/crm/casos/[caseId]` — **ARC-003 Deploy 2** queda pendiente (fuera del wrap).
+**Estado:** DONE (2026-09-16). Wrap CreditCase 1:1 (ARC-003 Deploy 1+2 contract de lectura); balance a nivel ServiceCase (Fase 4); tarea de revisión canónica única; `DisputeItem.action` (CR-006). Workspace crédito en `/crm/casos/[caseId]`; `nextActionAt` canónico en cron/listados/IA.
 
 **El módulo ya existe.** No reconstruir.
 
@@ -132,6 +132,6 @@ Después del MVP estable: email, webhook, SMS, WhatsApp, pagos online.
 
 ## Fase 8 — IA
 
-**Estado:** PARTIAL (2026-09-16). AI-001 wrapper + AI-002 sanitize DONE; AI-003 resumen, AI-004 siguiente acción y AI-005 extracción de nota expuestos como tools del chat (`src/server/ai/tasks.ts`) — solo lectura / propuestas, sin auto-aplicar. Smoke: `scripts/smoke/ai-fase8-tasks.ts`.
+**Estado:** DONE (2026-09-16). AI-001 wrapper + AI-002 sanitize; AI-003 resumen, AI-004 siguiente acción y AI-005 extracción de nota como tools del chat. Confirmación humana AI-005: `applyAiProposalAction` + cards Confirmar/Descartar en `ai-chat-panel`. Smoke: `scripts/smoke/ai-fase8-tasks.ts`.
 
 Después de `sanitizeForAI()`: resumen de expediente, siguiente acción sugerida, extracción de tareas, búsqueda asistida.

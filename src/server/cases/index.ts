@@ -59,6 +59,7 @@ const CASE_LIST_SELECT = {
   client: { select: { id: true, clientCode: true, firstName: true, lastName: true } },
   stage: { select: { id: true, key: true, name: true, color: true } },
   assignedTo: { select: { id: true, name: true } },
+  serviceCase: { select: { id: true, nextActionAt: true, status: true } },
 } satisfies Prisma.CreditCaseSelect;
 
 function mapCaseStateToServiceStatus(state: CaseState): ServiceCaseStatus {
@@ -618,9 +619,11 @@ export async function listCases(ctx: OrganizationContext, filters: CaseListFilte
     ...(filters.assignedToId ? { assignedToId: filters.assignedToId } : {}),
     ...(filters.reviewFrom || filters.reviewTo
       ? {
-          nextReviewAt: {
-            ...(filters.reviewFrom ? { gte: filters.reviewFrom } : {}),
-            ...(filters.reviewTo ? { lte: filters.reviewTo } : {}),
+          serviceCase: {
+            nextActionAt: {
+              ...(filters.reviewFrom ? { gte: filters.reviewFrom } : {}),
+              ...(filters.reviewTo ? { lte: filters.reviewTo } : {}),
+            },
           },
         }
       : {}),

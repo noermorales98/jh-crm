@@ -16,6 +16,10 @@ import { play } from "cuelume";
 import { takeAskAiSeed } from "@/src/components/ai/ask-ai";
 import { AssistantMessage } from "@/src/components/ai/markdown-text";
 import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
+import {
+  AiProposalCards,
+  proposalsFromToolPart,
+} from "@/src/components/ai/ai-proposal-cards";
 import { chatBlobatarName } from "@/src/lib/ai/blobatar-name";
 
 const SUGGESTIONS = [
@@ -235,7 +239,18 @@ export function AiChatPanel({
           !text &&
           (messageHasTools(message) || (busy && isLast));
         if (message.role !== "user" && message.role !== "assistant") return null;
-        if (!text && !pendingAssistant) return null;
+        const proposalBlocks =
+          message.role === "assistant"
+            ? message.parts
+                .map((part) => proposalsFromToolPart(part as never))
+                .filter(
+                  (
+                    block,
+                  ): block is NonNullable<ReturnType<typeof proposalsFromToolPart>> =>
+                    Boolean(block),
+                )
+            : [];
+        if (!text && !pendingAssistant && proposalBlocks.length === 0) return null;
         const mine = message.role === "user";
         const face = chatId ? chatBlobatarName(chatId) : "jh-asistente";
         const stillWorking = busy && isLast && !mine;
@@ -265,7 +280,16 @@ export function AiChatPanel({
                 <p className="whitespace-pre-wrap text-sm leading-5">{text}</p>
               ) : (
                 <>
-                  <AssistantMessage text={text} />
+                  {text ? <AssistantMessage text={text} /> : null}
+                  {proposalBlocks.map((block, blockIndex) => (
+                    <AiProposalCards
+                      key={`${message.id}-proposals-${blockIndex}`}
+                      messageId={`${message.id}-${blockIndex}`}
+                      proposals={block.proposals}
+                      clientId={block.clientId}
+                      caseId={block.caseId}
+                    />
+                  ))}
                   {stillWorking ? (
                     <div className="mt-2">
                       <WaitingStatus label={waitingLabel(message, true)} />

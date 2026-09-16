@@ -1449,15 +1449,19 @@ export async function listCreditAttention(ctx: OrganizationContext) {
         where: {
           organizationId: orgId,
           state: "OPEN",
-          nextReviewAt: { gte: now, lte: weekEnd },
+          serviceCase: {
+            archivedAt: null,
+            status: { in: ["OPEN", "ON_HOLD"] },
+            nextActionAt: { gte: now, lte: weekEnd },
+          },
         },
         select: {
           id: true,
           caseCode: true,
-          nextReviewAt: true,
           client: { select: { firstName: true, lastName: true } },
+          serviceCase: { select: { nextActionAt: true } },
         },
-        orderBy: { nextReviewAt: "asc" },
+        orderBy: { serviceCase: { nextActionAt: "asc" } },
         take: 15,
       }),
       prisma.creditCase.findMany({
@@ -1504,7 +1508,8 @@ export async function listCreditAttention(ctx: OrganizationContext) {
     })),
     reviewsThisWeek: reviewsThisWeek.map((c) => ({
       caseCode: c.caseCode,
-      nextReviewAt: c.nextReviewAt,
+      nextActionAt: c.serviceCase.nextActionAt,
+      nextReviewAt: c.serviceCase.nextActionAt,
       client: fullName(c.client),
       href: `/crm/casos/${c.id}`,
     })),

@@ -122,6 +122,36 @@ async function main() {
       afterRound.nextActionAt?.getTime() === expectedReviewAt.getTime(),
     );
 
+    // Deploy 2: filtros operativos usan nextActionAt (no nextReviewAt).
+    const dueAt = new Date(Date.now() - 60_000);
+    await prisma.serviceCase.update({
+      where: { id: created.serviceCaseId },
+      data: { nextActionAt: dueAt },
+    });
+    const { listCases } = await import("../../src/server/cases");
+    const listed = await listCases(ctx, {
+      reviewTo: new Date(),
+      limit: 50,
+    });
+    check(
+      "listCases filtra por serviceCase.nextActionAt",
+      listed.items.some((row) => row.id === created.id),
+    );
+    check(
+      "listCases expone nextActionAt canónico",
+      listed.items.find((row) => row.id === created.id)?.serviceCase
+        ?.nextActionAt?.getTime() === dueAt.getTime(),
+    );
+    const cronMatches = await prisma.serviceCase.count({
+      where: {
+        id: created.serviceCaseId,
+        status: { in: ["OPEN", "ON_HOLD"] },
+        archivedAt: null,
+        nextActionAt: { lte: new Date() },
+      },
+    });
+    check("cron where matchea nextActionAt vencido", cronMatches === 1);
+
     console.log(
       JSON.stringify(
         {

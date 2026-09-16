@@ -21,6 +21,7 @@ import {
   TH,
   THead,
   TR,
+  ButtonLink,
 } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
 import { formatMoney } from "@/src/lib/format/money";
@@ -87,6 +88,7 @@ export default async function ServiceCasePage({
   const funding = serviceCase.fundingCase;
   const personalLoan = serviceCase.personalLoanCase;
   const project = serviceCase.projectCase;
+  const creditCase = serviceCase.creditCase;
 
   return (
     <div>
@@ -115,13 +117,24 @@ export default async function ServiceCasePage({
           </>
         }
         actions={
-          canManage ? (
-            <ServiceCaseStateActions
-              serviceCaseId={serviceCase.id}
-              clientId={serviceCase.client.id}
-              status={serviceCase.status}
-            />
-          ) : null
+          <div className="flex flex-wrap items-center gap-2">
+            {creditCase ? (
+              <ButtonLink
+                href={`/crm/casos/${creditCase.id}`}
+                variant="primary"
+                size="sm"
+              >
+                Abrir reparación de crédito
+              </ButtonLink>
+            ) : null}
+            {canManage ? (
+              <ServiceCaseStateActions
+                serviceCaseId={serviceCase.id}
+                clientId={serviceCase.client.id}
+                status={serviceCase.status}
+              />
+            ) : null}
+          </div>
         }
       />
 

@@ -6,9 +6,8 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 /**
  * DC-005 — Checklist de documentos por servicio (vertical).
  *
- * Config en código (sin migración): usa las categorías del enum
- * DocumentCategory existente. Cuando el backlog añada categorías nuevas
- * (CONTRACT, INVOICE, RECEIPT, BANK_DOCUMENT…) se extiende aquí.
+ * Config en código (sin tabla de config): usa DocumentCategory.
+ * Categorías aditivas DC-005 (CONTRACT, INVOICE, …) van en optional.
  *
  * Cuenta documentos del CreditCase, del ServiceCase del expediente, o
  * generales del cliente (caseId y serviceCaseId null — p.ej. la ID en ficha).
@@ -23,7 +22,16 @@ interface ChecklistSpec {
 const CHECKLISTS: Record<string, ChecklistSpec> = {
   CREDIT_REPAIR: {
     required: ["IDENTITY", "PROOF_OF_ADDRESS", "SSN_DOCUMENT", "CREDIT_REPORT"],
-    optional: ["DISPUTE_LETTER", "UPDATE_REPORT", "PAYMENT_PROOF"],
+    optional: [
+      "DISPUTE_LETTER",
+      "UPDATE_REPORT",
+      "PAYMENT_PROOF",
+      "CONTRACT",
+      "INVOICE",
+      "RECEIPT",
+      "BANK_DOCUMENT",
+      "BUSINESS_DOCUMENT",
+    ],
   },
 };
 

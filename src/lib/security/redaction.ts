@@ -21,6 +21,7 @@ export function maskPhone(phone: string): string {
 /** Redacta valores sensibles conocidos dentro de un objeto para logging. */
 const SENSITIVE_KEYS = new Set([
   "ssn",
+  "ssnFull",
   "ssnEncrypted",
   "ssnLast4",
   "dateOfBirth",

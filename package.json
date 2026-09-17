@@ -28,6 +28,7 @@
     "smoke:ai-006": "tsx --env-file=.env.local scripts/smoke/ai-006-assist-search.ts",
     "smoke:client-whatsapp": "tsx --env-file=.env.local scripts/smoke/client-whatsapp-smoke.ts",
     "smoke:au-005": "tsx --env-file=.env.local scripts/smoke/au-005-stripe-smoke.ts",
+    "smoke:credit-pdf-import": "tsx scripts/smoke/credit-pdf-import-smoke.ts",
     "seed:demo-credit": "tsx --env-file=.env.local scripts/seed-demo-credit-case.ts",
     "postinstall": "prisma generate"
   },
@@ -63,6 +64,7 @@
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "stripe": "^17.7.0",
+    "unpdf": "^0.12.1",
     "zod": "^4.5.4"
   },
   "devDependencies": {

@@ -28,6 +28,7 @@ import {
   labelFor,
 } from "@/src/lib/labels";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
+import { AnalyzePdfImportButton } from "@/src/components/credit-reports/analyze-pdf-import";
 import { CreateComparisonButton } from "@/src/components/comparisons/create-comparison-button";
 import { GenerateProgressReportButton } from "@/src/components/letters/generate-progress-report-button";
 import { ScoreEvolutionChart } from "@/src/components/credit-reports/score-evolution-chart";
@@ -97,7 +98,10 @@ export default async function CaseCreditPage({
               />
             ) : null}
             {canManage ? (
-              <CreateCreditReportButton caseId={creditCase.id} />
+              <>
+                <AnalyzePdfImportButton caseId={creditCase.id} />
+                <CreateCreditReportButton caseId={creditCase.id} />
+              </>
             ) : null}
           </div>
         }

@@ -15,6 +15,7 @@ import { SidebarNav } from "./SidebarNav";
 import { CrmHeader, HeaderTitleProvider } from "./CrmHeader";
 import { CrmMain } from "./CrmMain";
 import { CrmChat } from "@/src/components/ai/crm-chat";
+import { CreditPdfImportLockProvider } from "@/src/components/credit-reports/credit-pdf-import-lock";
 
 export const metadata: Metadata = {
   title: {
@@ -57,51 +58,53 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
 
   return (
     <div className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>
-      <HeaderTitleProvider>
-        <CrmShell
-          brand={
-            <Link
-              href="/crm/dashboard"
-              className="brand"
-              aria-label="J&H MultiServices LLC — Inicio"
-            >
-              <span className="brand-mark">
-                J<span>&</span>H
-              </span>
-              <span className="brand-tag">Multiservices LLC</span>
-            </Link>
-          }
-          sidebar={
-            <Suspense fallback={<div className="flex-1" aria-hidden />}>
-              <SidebarNav />
-            </Suspense>
-          }
-          header={
-            <CrmHeader role={session.user.role ?? null}>
-              <NotificationBell
-                unreadCount={unreadCount}
-                items={inbox.map((item) => ({
-                  id: item.id,
-                  type: item.type,
-                  title: item.title,
-                  body: item.body,
-                  link: item.link,
-                  isRead: item.isRead,
-                  createdAt: item.createdAt.toISOString(),
-                }))}
-              />
-              <UserMenu
-                name={userName}
-                email={session.user.email ?? ""}
-                role={session.user.role ?? null}
-              />
-            </CrmHeader>
-          }
-        >
-          <CrmMain>{children}</CrmMain>
-        </CrmShell>
-      </HeaderTitleProvider>
-      <CrmChat />
+      <CreditPdfImportLockProvider>
+        <HeaderTitleProvider>
+          <CrmShell
+            brand={
+              <Link
+                href="/crm/dashboard"
+                className="brand"
+                aria-label="J&H MultiServices LLC — Inicio"
+              >
+                <span className="brand-mark">
+                  J<span>&</span>H
+                </span>
+                <span className="brand-tag">Multiservices LLC</span>
+              </Link>
+            }
+            sidebar={
+              <Suspense fallback={<div className="flex-1" aria-hidden />}>
+                <SidebarNav />
+              </Suspense>
+            }
+            header={
+              <CrmHeader role={session.user.role ?? null}>
+                <NotificationBell
+                  unreadCount={unreadCount}
+                  items={inbox.map((item) => ({
+                    id: item.id,
+                    type: item.type,
+                    title: item.title,
+                    body: item.body,
+                    link: item.link,
+                    isRead: item.isRead,
+                    createdAt: item.createdAt.toISOString(),
+                  }))}
+                />
+                <UserMenu
+                  name={userName}
+                  email={session.user.email ?? ""}
+                  role={session.user.role ?? null}
+                />
+              </CrmHeader>
+            }
+          >
+            <CrmMain>{children}</CrmMain>
+          </CrmShell>
+        </HeaderTitleProvider>
+        <CrmChat />
+      </CreditPdfImportLockProvider>
     </div>
   );
 }

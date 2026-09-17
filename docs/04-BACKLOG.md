@@ -803,7 +803,10 @@ Listado priorizado de expedientes con acciones vencidas o próximas.
 **Prioridad:** P2 — **Estado:** DONE (2026-09-16). Stripe Checkout: cobro diferido de consulta (`Cobrar con Stripe`) + link de pago de cotización; keys cifradas en org; webhook `/api/webhooks/stripe/[organizationId]`. Contacto no cobra. Smoke: `scripts/smoke/au-005-stripe-smoke.ts`.
 
 ## AU-006 — Integraciones de crédito
-**Prioridad:** P3
+**Prioridad:** P3 — API automática burós (futuro).
+
+## CR-PDF-001 — Importación PDF de crédito
+**Prioridad:** P2 — **Estado:** DONE (2026-09-17). Analizar PDF (reporte 3 burós o progress) con OpenRouter + revisión humana → Client + `CreditReport` + `documentId`. UI «Analizar PDF» en ficha crédito. Smoke: `scripts/smoke/credit-pdf-import-smoke.ts`.
 
 ## AU-007 — Afiliados/comisiones
 **Prioridad:** P3

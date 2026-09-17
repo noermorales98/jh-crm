@@ -151,6 +151,22 @@ export async function createPresignedDownloadUrl(input: {
   });
 }
 
+/** Lee bytes del objeto (server-side; p.ej. importación PDF). */
+export async function getObjectBytes(storageKey: string): Promise<Buffer> {
+  const response = await getClient().send(
+    new GetObjectCommand({
+      Bucket: getBucket(),
+      Key: storageKey,
+    }),
+  );
+  const body = response.Body;
+  if (!body) {
+    throw new Error("El objeto S3 no tiene cuerpo.");
+  }
+  const bytes = await body.transformToByteArray();
+  return Buffer.from(bytes);
+}
+
 /** Elimina un objeto del bucket (hard delete / retención). */
 export async function deleteObject(storageKey: string): Promise<void> {
   await getClient().send(

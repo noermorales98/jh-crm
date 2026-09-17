@@ -326,6 +326,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<string, string> = {
   PORTAL_MESSAGE: "Mensaje del portal",
   CONTRACT_READY: "Contrato listo",
   META_LEAD: "Lead de Meta",
+  CREDIT_PDF_IMPORT: "Importación PDF crédito",
 };
 
 export const MAIL_FOLDER_LABELS: Record<string, string> = {

@@ -349,6 +349,14 @@ enum NotificationType {
   PORTAL_MESSAGE
   CONTRACT_READY
   META_LEAD
+  CREDIT_PDF_IMPORT
+}
+
+enum CreditPdfImportJobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
 }
 
 model User {
@@ -392,6 +400,7 @@ model User {
   contractsCreated   ClientContract[]     @relation("ContractCreator")
   notesAuthored      Note[]               @relation("NoteAuthor")
   serviceCaseStageChanges ServiceCaseStageHistory[] @relation("StageHistoryActor")
+  creditPdfImportJobs CreditPdfImportJob[] @relation("CreditPdfImportCreator")
 }
 
 model Organization {
@@ -450,6 +459,7 @@ model Organization {
   personalLoanCases  PersonalLoanCase[]
   projectCases       ProjectCase[]
   testimonials     Testimonial[]
+  creditPdfImportJobs CreditPdfImportJob[]
 }
 
 model OrganizationSettings {
@@ -660,8 +670,8 @@ model Client {
   consultations   Consultation[]
   portalAccess    ClientPortalAccess?
   contracts       ClientContract[]
-
   testimonials     Testimonial[]
+  creditPdfImportJobs CreditPdfImportJob[]
 
   @@unique([organizationId, clientCode])
   @@index([organizationId, status])
@@ -733,6 +743,7 @@ model CreditCase {
   opportunities Opportunity[]
   paymentPlans  PaymentPlan[]
   contracts     ClientContract[]
+  creditPdfImportJobs CreditPdfImportJob[]
 
   @@unique([organizationId, caseCode])
   @@index([organizationId, stageId])
@@ -1012,6 +1023,7 @@ model Document {
   creditReports CreditReport[]
   disputeLetters DisputeLetter[]
   clientContracts ClientContract[]
+  creditPdfImportJobs CreditPdfImportJob[]
 
   @@index([organizationId, clientId, category])
   @@index([caseId, category])
@@ -1707,6 +1719,44 @@ model CreditReport {
   @@index([organizationId, clientId])
   @@index([caseId, reportDate])
   @@index([organizationId, type])
+  @@index([documentId])
+}
+
+/**
+ * Job de análisis PDF de crédito (CR-PDF-001).
+ * La propuesta queda en proposalJson hasta confirmación humana.
+ */
+model CreditPdfImportJob {
+  id                  String                   @id @default(cuid())
+  organizationId      String
+  caseId              String
+  clientId            String
+  documentId          String
+  createdById         String
+  status              CreditPdfImportJobStatus @default(QUEUED)
+  /** download | extract | ai | validate | done */
+  phase               String?
+  progress            Int                      @default(0)
+  fileName            String?
+  errorMessage        String?                  @db.Text
+  proposalJson        Json?
+  extractMode         String?
+  pageCount           Int?
+  suggestedReportType String?
+  currentClientJson   Json?
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  case         CreditCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  document     Document     @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  createdBy    User         @relation("CreditPdfImportCreator", fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([organizationId, createdById, status])
+  @@index([organizationId, caseId, status])
   @@index([documentId])
 }
 

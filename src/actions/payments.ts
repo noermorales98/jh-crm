@@ -121,3 +121,20 @@ export async function refundPaymentRecord(
     return actionFail(error);
   }
 }
+
+export async function startQuoteCheckoutAction(
+  quoteId: string,
+): Promise<ActionResult<{ url: string }>> {
+  try {
+    const ctx = await requirePermission("payments.register");
+    const id = cuidSchema.parse(quoteId);
+    const { startQuoteCheckout } = await import("@/src/server/payments/stripe");
+    const result = await startQuoteCheckout(ctx, id);
+    revalidatePayments();
+    revalidatePath(`/crm/cotizaciones/${id}`);
+    return actionOk({ url: result.url });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}

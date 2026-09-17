@@ -81,3 +81,21 @@ export async function updateConsultationStatusAction(
     return actionFail(error);
   }
 }
+
+export async function startConsultationCheckoutAction(
+  consultationId: string,
+): Promise<ActionResult<{ url: string }>> {
+  try {
+    const ctx = await requirePermission("consultations.manage");
+    const id = cuidSchema.parse(consultationId);
+    const { startConsultationCheckout } = await import(
+      "@/src/server/payments/stripe"
+    );
+    const result = await startConsultationCheckout(ctx, id);
+    revalidateConsultations();
+    return actionOk({ url: result.url });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}

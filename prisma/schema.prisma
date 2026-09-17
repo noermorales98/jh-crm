@@ -518,6 +518,11 @@ model OrganizationSettings {
   whatsappClientQuoteExpiring  Boolean  @default(false)
   whatsappClientCaseReview     Boolean  @default(false)
   whatsappClientRoundReview    Boolean  @default(false)
+  /** AU-005: Stripe Checkout (claves por org). */
+  stripeEnabled                  Boolean  @default(false)
+  stripeSecretKeyEncrypted       String?  @db.Text
+  stripeWebhookSecretEncrypted   String?  @db.Text
+  stripePublishableKey           String?
   /** Días tras soft-delete antes de hard-delete S3 (null = no auto-purge). */
   documentSoftDeleteRetentionDays Int?
   /** Retención máxima desde createdAt (null = sin límite). */
@@ -1208,6 +1213,8 @@ model Payment {
   receivedAt     DateTime?
   notes          String?       @db.Text
   createdById    String?
+  stripeCheckoutSessionId String? @unique
+  stripePaymentIntentId   String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -1320,6 +1327,7 @@ model Consultation {
   currency       String             @default("USD")
   status         ConsultationStatus @default(REQUESTED)
   paymentId      String?            @unique
+  stripeCheckoutSessionId String?   @unique
   notes          String?            @db.Text
   scheduledAt    DateTime?
   requestedAt    DateTime           @default(now())

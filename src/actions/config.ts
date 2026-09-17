@@ -91,6 +91,10 @@ const settingsSchema = z.object({
   whatsappClientQuoteExpiring: z.boolean().optional(),
   whatsappClientCaseReview: z.boolean().optional(),
   whatsappClientRoundReview: z.boolean().optional(),
+  stripeEnabled: z.boolean().optional(),
+  stripeSecretKey: z.string().max(200).optional(),
+  stripeWebhookSecret: z.string().max(200).optional(),
+  stripePublishableKey: z.string().trim().max(200).nullish(),
   documentSoftDeleteRetentionDays: z
     .union([z.coerce.number().int().min(1).max(3650), z.null()])
     .optional(),

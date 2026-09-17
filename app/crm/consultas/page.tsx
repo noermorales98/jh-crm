@@ -26,7 +26,9 @@ export const metadata: Metadata = {
 export default async function ConsultationsPage() {
   const ctx = await requirePermission("consultations.view");
   const canManage = can(ctx.role, "consultations.manage");
-  const paymentConfigured = consultations.isConsultationPaymentConfigured();
+  const paymentConfigured = await consultations.isConsultationPaymentConfigured(
+    ctx.organizationId,
+  );
   const { items } = await consultations.listConsultations(ctx, { limit: 50 });
 
   return (

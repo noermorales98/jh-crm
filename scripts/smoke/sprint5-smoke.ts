@@ -122,8 +122,9 @@ async function main() {
 
     console.log("\n[3] Consultation stays REQUESTED (no fake PAID)");
     check(
-      "gateway not configured",
-      consultations.isConsultationPaymentConfigured() === false,
+      "sin Stripe org → paymentConfigured false",
+      (await consultations.isConsultationPaymentConfigured(ctx.organizationId)) ===
+        false,
     );
     const consultation = await consultations.requestConsultation(ctx, {
       clientId: client.id,

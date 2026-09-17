@@ -89,6 +89,10 @@ export interface SettingsUpdateData {
   whatsappClientQuoteExpiring?: boolean;
   whatsappClientCaseReview?: boolean;
   whatsappClientRoundReview?: boolean;
+  stripeEnabled?: boolean;
+  stripeSecretKey?: string | null;
+  stripeWebhookSecret?: string | null;
+  stripePublishableKey?: string | null;
   documentSoftDeleteRetentionDays?: number | null;
   documentMaxRetentionDays?: number | null;
   emailRecipients?: EmailRecipientInput[];
@@ -180,6 +184,11 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
     whatsappClientQuoteExpiring: settings.whatsappClientQuoteExpiring,
     whatsappClientCaseReview: settings.whatsappClientCaseReview,
     whatsappClientRoundReview: settings.whatsappClientRoundReview,
+    stripeEnabled: settings.stripeEnabled,
+    stripePublishableKey: settings.stripePublishableKey ?? "",
+    stripeSecretConfigured: Boolean(settings.stripeSecretKeyEncrypted),
+    stripeWebhookConfigured: Boolean(settings.stripeWebhookSecretEncrypted),
+    stripeWebhookUrl: `${process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") || ""}/api/webhooks/stripe/${ctx.organizationId}`,
     documentSoftDeleteRetentionDays:
       settings.documentSoftDeleteRetentionDays?.toString() ?? "",
     documentMaxRetentionDays: settings.documentMaxRetentionDays?.toString() ?? "",
@@ -267,6 +276,18 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
     if (!data.whapiToken?.trim() && !current?.whapiTokenEncrypted) {
       throw new DomainError(
         "Pega el token de Whapi para activar WhatsApp a clientes.",
+      );
+    }
+  }
+
+  if (data.stripeEnabled) {
+    const current = await prisma.organizationSettings.findUnique({
+      where: { organizationId: ctx.organizationId },
+      select: { stripeSecretKeyEncrypted: true },
+    });
+    if (!data.stripeSecretKey?.trim() && !current?.stripeSecretKeyEncrypted) {
+      throw new DomainError(
+        "Pega la secret key de Stripe para activar los pagos online.",
       );
     }
   }
@@ -405,6 +426,28 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
             : {}),
           ...(data.whatsappClientRoundReview !== undefined
             ? { whatsappClientRoundReview: data.whatsappClientRoundReview }
+            : {}),
+          ...(data.stripeEnabled !== undefined
+            ? { stripeEnabled: data.stripeEnabled }
+            : {}),
+          ...(data.stripePublishableKey !== undefined
+            ? {
+                stripePublishableKey: data.stripePublishableKey?.trim() || null,
+              }
+            : {}),
+          ...(data.stripeSecretKey?.trim()
+            ? {
+                stripeSecretKeyEncrypted: encrypt(
+                  data.stripeSecretKey.trim(),
+                ),
+              }
+            : {}),
+          ...(data.stripeWebhookSecret?.trim()
+            ? {
+                stripeWebhookSecretEncrypted: encrypt(
+                  data.stripeWebhookSecret.trim(),
+                ),
+              }
             : {}),
           ...(data.documentSoftDeleteRetentionDays !== undefined
             ? {

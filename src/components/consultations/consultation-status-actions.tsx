@@ -3,7 +3,10 @@
 import { useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/src/components/ui";
-import { updateConsultationStatusAction } from "@/src/actions/consultations";
+import {
+  startConsultationCheckoutAction,
+  updateConsultationStatusAction,
+} from "@/src/actions/consultations";
 import { playActionResult } from "@/src/lib/cuelume";
 import type { ConsultationStatus } from "@prisma/client";
 
@@ -33,20 +36,33 @@ export function ConsultationStatusActions({
     });
   }
 
+  function chargeStripe() {
+    startTransition(async () => {
+      const result = await startConsultationCheckoutAction(consultationId);
+      if (!result.ok) {
+        playActionResult(false);
+        window.alert(result.error);
+        return;
+      }
+      playActionResult(true);
+      window.location.href = result.data.url;
+    });
+  }
+
   if (status === "COMPLETED" || status === "CANCELLED") {
     return <span className="text-xs text-text-secondary">—</span>;
   }
 
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {status === "REQUESTED" && paymentConfigured ? (
+      {(status === "REQUESTED" || status === "PAYMENT_PENDING") &&
+      paymentConfigured ? (
         <Button
           size="sm"
-          variant="secondary"
           disabled={pending}
-          onClick={() => run("PAYMENT_PENDING")}
+          onClick={chargeStripe}
         >
-          Pago pendiente
+          Cobrar con Stripe
         </Button>
       ) : null}
       {(status === "REQUESTED" ||

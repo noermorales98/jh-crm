@@ -96,6 +96,11 @@ export interface SettingsFormValues {
   whatsappClientQuoteExpiring: boolean;
   whatsappClientCaseReview: boolean;
   whatsappClientRoundReview: boolean;
+  stripeEnabled: boolean;
+  stripePublishableKey: string;
+  stripeSecretConfigured: boolean;
+  stripeWebhookConfigured: boolean;
+  stripeWebhookUrl: string;
   documentSoftDeleteRetentionDays: string;
   documentMaxRetentionDays: string;
   whatsappRecipients: WhatsappRecipientFormValue[];
@@ -161,6 +166,8 @@ export function SettingsForm({
   const [smtpPassword, setSmtpPassword] = useState("");
   const [whapiToken, setWhapiToken] = useState("");
   const [whapiTestTo, setWhapiTestTo] = useState("");
+  const [stripeSecretKey, setStripeSecretKey] = useState("");
+  const [stripeWebhookSecret, setStripeWebhookSecret] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
@@ -261,6 +268,10 @@ export function SettingsForm({
         whatsappClientQuoteExpiring: values.whatsappClientQuoteExpiring,
         whatsappClientCaseReview: values.whatsappClientCaseReview,
         whatsappClientRoundReview: values.whatsappClientRoundReview,
+        stripeEnabled: values.stripeEnabled,
+        stripeSecretKey: stripeSecretKey.trim() || undefined,
+        stripeWebhookSecret: stripeWebhookSecret.trim() || undefined,
+        stripePublishableKey: values.stripePublishableKey.trim() || null,
         callmebotEnabled: values.callmebotEnabled,
         whatsappRecipients: recipients.map((row) => ({
           id: row.id,
@@ -290,6 +301,17 @@ export function SettingsForm({
       if (whapiToken.trim()) {
         setWhapiToken("");
         setValues((v) => ({ ...v, whapiConfigured: true }));
+      }
+      if (stripeSecretKey.trim() || stripeWebhookSecret.trim()) {
+        setStripeSecretKey("");
+        setStripeWebhookSecret("");
+        setValues((v) => ({
+          ...v,
+          stripeSecretConfigured:
+            v.stripeSecretConfigured || Boolean(stripeSecretKey.trim()),
+          stripeWebhookConfigured:
+            v.stripeWebhookConfigured || Boolean(stripeWebhookSecret.trim()),
+        }));
       }
       setRecipients((rows) =>
         rows.map((row) => ({
@@ -879,6 +901,74 @@ export function SettingsForm({
           >
             Enviar prueba Whapi
           </Button>
+        </div>
+
+        <div className="space-y-3 border-t border-border-subtle pt-4">
+          <h3 className="text-sm font-semibold text-ink">
+            Pagos online (Stripe Checkout)
+          </h3>
+          <p className="text-sm text-text-secondary">
+            Cobro diferido de consultas y link de pago de cotizaciones. En
+            Stripe Dashboard → Webhooks, apunta a esta URL (eventos:{" "}
+            <code className="text-xs">checkout.session.completed</code>):
+          </p>
+          {values.stripeWebhookUrl ? (
+            <p className="break-all rounded-control bg-surface-elevated px-3 py-2 font-mono text-xs text-ink ring-1 ring-border-subtle/50">
+              {values.stripeWebhookUrl}
+            </p>
+          ) : null}
+          <label className="flex items-center gap-2 text-sm text-text-secondary-strong">
+            <input
+              type="checkbox"
+              data-cuelume-toggle="toggle"
+              checked={values.stripeEnabled}
+              onChange={(e) => set("stripeEnabled", e.target.checked)}
+              className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+            />
+            Activar Stripe
+          </label>
+          <Field label="Publishable key (pk_…)" htmlFor="stripePublishableKey">
+            <Input
+              id="stripePublishableKey"
+              value={values.stripePublishableKey}
+              onChange={(e) => set("stripePublishableKey", e.target.value)}
+              placeholder="pk_live_… o pk_test_…"
+            />
+          </Field>
+          <Field label="Secret key (sk_…)" htmlFor="stripeSecretKey">
+            <Input
+              id="stripeSecretKey"
+              type="password"
+              autoComplete="off"
+              value={stripeSecretKey}
+              onChange={(e) => {
+                setStripeSecretKey(e.target.value);
+                setSuccess(false);
+              }}
+              placeholder={
+                values.stripeSecretConfigured
+                  ? "•••••••• (deja vacío para no cambiar)"
+                  : "sk_live_… o sk_test_…"
+              }
+            />
+          </Field>
+          <Field label="Webhook secret (whsec_…)" htmlFor="stripeWebhookSecret">
+            <Input
+              id="stripeWebhookSecret"
+              type="password"
+              autoComplete="off"
+              value={stripeWebhookSecret}
+              onChange={(e) => {
+                setStripeWebhookSecret(e.target.value);
+                setSuccess(false);
+              }}
+              placeholder={
+                values.stripeWebhookConfigured
+                  ? "•••••••• (deja vacío para no cambiar)"
+                  : "whsec_…"
+              }
+            />
+          </Field>
         </div>
       </section>
 

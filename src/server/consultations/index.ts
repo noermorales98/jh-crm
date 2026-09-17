@@ -28,12 +28,13 @@ export interface ConsultationListFilters {
 }
 
 /**
- * Cobro de consulta solo si FEATURE_CONSULTATION_PAYMENTS=true y la
- * pasarela está configurada. Hoy el stub siempre es false → nunca PAID automático.
+ * Cobro de consulta: Stripe org configurado y FEATURE_CONSULTATION_PAYMENTS
+ * no está en "false".
  */
-export function isConsultationPaymentConfigured(): boolean {
-  if (process.env.FEATURE_CONSULTATION_PAYMENTS !== "true") return false;
-  return getConsultationPaymentGateway().isConfigured();
+export async function isConsultationPaymentConfigured(
+  organizationId: string,
+): Promise<boolean> {
+  return getConsultationPaymentGateway().isConfigured(organizationId);
 }
 
 async function notifyConsultationRequested(
@@ -198,13 +199,13 @@ export async function updateConsultationStatus(
     );
   }
 
-  if (status === "PAYMENT_PENDING" && !isConsultationPaymentConfigured()) {
+  if (status === "PAYMENT_PENDING" && !(await isConsultationPaymentConfigured(ctx.organizationId))) {
     throw new DomainError(
       "El cobro de consultas no está configurado. No se puede marcar como pago pendiente.",
     );
   }
 
-  if (status === "PAID" && !isConsultationPaymentConfigured()) {
+  if (status === "PAID" && !(await isConsultationPaymentConfigured(ctx.organizationId))) {
     throw new DomainError(
       "No se puede marcar como pagada sin una pasarela de cobro real.",
     );

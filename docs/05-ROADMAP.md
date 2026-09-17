@@ -124,7 +124,7 @@ Nuevos `WorkflowStage` por Service + extensión 1:1:
 
 ## Fase 7 — Automatizaciones
 
-**Estado:** PARTIAL (2026-09-16). **AU-001** correos a cliente DONE; **AU-002** contacto público DONE; **AU-004** WhatsApp a clientes (Whapi) DONE. Aplazados: SMS (AU-003), pagos online (AU-005); AU-006/007 P3.
+**Estado:** DONE (2026-09-16). **AU-001** correos; **AU-002** contacto; **AU-004** Whapi clientes; **AU-005** Stripe Checkout (consulta diferida + cotización). Aplazado: SMS (AU-003); AU-006/007 P3.
 
 Después del MVP estable: email, webhook, SMS, WhatsApp, pagos online.
 

@@ -15,12 +15,13 @@ import {
   markQuoteRejected,
   markQuoteSent,
 } from "@/src/actions/quotes";
+import { startQuoteCheckoutAction } from "@/src/actions/payments";
 
 /**
  * Acciones de una cotización según su estado:
  * - DRAFT: editar, enviar, aceptar, cancelar.
- * - SENT: aceptar, rechazar, cancelar.
- * - ACCEPTED/PARTIAL: registrar pago, cancelar.
+ * - SENT: aceptar, rechazar, cancelar, link Stripe.
+ * - ACCEPTED/PARTIAL: registrar pago, link Stripe, cancelar.
  * Siempre: descargar PDF.
  */
 export function QuoteActions({
@@ -50,7 +51,22 @@ export function QuoteActions({
     });
   }
 
+  function stripeCheckout() {
+    setError(null);
+    startTransition(async () => {
+      const result = await startQuoteCheckoutAction(quoteId);
+      if (!result.ok) {
+        playActionResult(false);
+        setError(result.error ?? "No se pudo crear el link de Stripe.");
+        return;
+      }
+      playActionResult(true);
+      window.location.href = result.data.url;
+    });
+  }
+
   const canRegisterPayment = ["ACCEPTED", "SENT", "PARTIAL", "DRAFT"].includes(status);
+  const canStripe = ["SENT", "ACCEPTED", "PARTIAL"].includes(status);
 
   return (
     <div className="space-y-2">
@@ -109,6 +125,16 @@ export function QuoteActions({
           >
             Registrar pago
           </ButtonLink>
+        ) : null}
+        {canStripe ? (
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={pending}
+            onClick={stripeCheckout}
+          >
+            Link de pago Stripe
+          </Button>
         ) : null}
         {["DRAFT", "SENT", "ACCEPTED", "PARTIAL"].includes(status) ? (
           <ConfirmDialog

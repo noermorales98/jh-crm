@@ -667,7 +667,14 @@ export async function sendTestWhapiClient(
 ) {
   const settings = await getSettings(ctx);
   if (!settings.whapiTokenEncrypted) {
-    throw new DomainError("Guarda el token de Whapi primero.");
+    throw new DomainError(
+      "Guarda el token de Whapi primero (pega el token y pulsa Guardar cambios).",
+    );
+  }
+  if (!settings.whapiEnabled) {
+    throw new DomainError(
+      "Activa «Activar WhatsApp a clientes (Whapi)» y guarda antes de enviar la prueba.",
+    );
   }
   let token: string;
   try {

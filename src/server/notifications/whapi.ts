@@ -92,10 +92,28 @@ export async function sendWhapiText(
   }
 
   if (status >= 400) {
-    console.error("[whapi] rechazo HTTP", status);
-    throw new DomainError(
-      "Whapi rechazó el envío. Verifica el token, que el canal esté vinculado y el número del cliente.",
-    );
+    let detail = "";
+    try {
+      const parsed = JSON.parse(responseBody) as {
+        message?: string | { text?: string };
+        error?: string | { message?: string };
+        text?: string;
+      };
+      if (typeof parsed.message === "string") detail = parsed.message;
+      else if (parsed.message && typeof parsed.message.text === "string") {
+        detail = parsed.message.text;
+      } else if (typeof parsed.error === "string") detail = parsed.error;
+      else if (parsed.error && typeof parsed.error.message === "string") {
+        detail = parsed.error.message;
+      } else if (typeof parsed.text === "string") detail = parsed.text;
+    } catch {
+      detail = responseBody.slice(0, 200);
+    }
+    console.error("[whapi] rechazo HTTP", status, detail ? "(con detalle)" : "");
+    const suffix = detail.trim()
+      ? ` Detalle: ${detail.trim().slice(0, 280)}`
+      : " Verifica el token, que el canal esté vinculado (QR) y el número con código de país (ej. 17135551234).";
+    throw new DomainError(`Whapi rechazó el envío (HTTP ${status}).${suffix}`);
   }
 
   let messageId: string | undefined;

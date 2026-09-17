@@ -171,6 +171,10 @@ export function SettingsForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [whapiFeedback, setWhapiFeedback] = useState<{
+    tone: "error" | "success";
+    text: string;
+  } | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [testing, startTest] = useTransition();
@@ -879,6 +883,17 @@ export function SettingsForm({
               placeholder="17135551234"
             />
           </Field>
+          <p className="text-xs text-text-secondary">
+            Solo dígitos con código de país, sin + ni espacios (ej. México{" "}
+            <code className="text-xs">521…</code>, US{" "}
+            <code className="text-xs">1…</code>). Guarda el token y marca
+            «Activar» antes de probar. El canal Whapi debe estar vinculado (QR).
+          </p>
+          {whapiFeedback ? (
+            <Alert tone={whapiFeedback.tone === "error" ? "error" : "success"}>
+              {whapiFeedback.text}
+            </Alert>
+          ) : null}
           <Button
             type="button"
             variant="secondary"
@@ -886,15 +901,24 @@ export function SettingsForm({
             disabled={testing || !whapiTestTo.trim()}
             onClick={() => {
               startTest(async () => {
+                setWhapiFeedback(null);
                 setTestMessage(null);
                 setError(null);
                 const result = await sendTestWhapiClient(whapiTestTo);
                 if (!result.ok) {
                   play("error");
+                  setWhapiFeedback({
+                    tone: "error",
+                    text: result.error ?? "No se pudo enviar la prueba Whapi.",
+                  });
                   setError(result.error);
                   return;
                 }
                 play("success");
+                setWhapiFeedback({
+                  tone: "success",
+                  text: result.data.message,
+                });
                 setTestMessage(result.data.message);
               });
             }}

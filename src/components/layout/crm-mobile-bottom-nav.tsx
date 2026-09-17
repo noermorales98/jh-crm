@@ -23,7 +23,7 @@ const BOTTOM_ITEMS: readonly {
   match?: "exact" | "prefix";
 }[] = [
   { href: "/crm/dashboard", label: "Inicio", icon: Home, match: "exact" },
-  { href: "/crm/tareas", label: "Hoy", icon: ClipboardList, match: "prefix" },
+  { href: "/crm/tareas", label: "Pendientes", icon: ClipboardList, match: "prefix" },
   { href: "/crm/clientes", label: "Clientes", icon: Users, match: "prefix" },
   { href: "/crm/casos", label: "Casos", icon: Briefcase, match: "prefix" },
 ];

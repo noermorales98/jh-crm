@@ -28,6 +28,8 @@ export interface QuoteCaseOption {
   caseCode: string;
   clientId: string;
   stateLabel: string;
+  /** Human label for the select (code · service · stage/state). */
+  label: string;
 }
 
 export interface QuoteCatalogOption {
@@ -301,7 +303,7 @@ export function QuoteForm({
                 <option value="">Sin caso</option>
                 {clientCases.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.caseCode} · {c.stateLabel}
+                    {c.label}
                   </option>
                 ))}
               </Select>

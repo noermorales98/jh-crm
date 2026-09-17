@@ -28,7 +28,7 @@ import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
 import { TaskTable } from "@/src/components/tasks/task-table";
 
 export const metadata: Metadata = {
-  title: "Hoy",
+  title: "Pendientes",
 };
 
 const TASK_STATUSES = Object.keys(TASK_STATUS_LABELS) as TaskStatus[];
@@ -74,7 +74,7 @@ export default async function TasksPage({
   return (
     <div>
       <PageHeader
-        title="Hoy"
+        title="Pendientes"
         description="Lo que tienes pendiente: vencidas, de hoy y de esta semana."
         actions={
           canManage ? (

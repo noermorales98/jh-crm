@@ -47,12 +47,23 @@ export default async function NewQuotePage({
 
   const caseOptions = casesResult.items
     .filter((c) => c.state !== "CANCELLED")
-    .map((c) => ({
-      id: c.id,
-      caseCode: c.caseCode,
-      clientId: c.client.id,
-      stateLabel: CASE_STATE_LABELS[c.state] ?? c.state,
-    }));
+    .map((c) => {
+      const stateLabel = CASE_STATE_LABELS[c.state] ?? c.state;
+      const serviceName = c.serviceCase.service?.name?.trim();
+      const stageName = c.stage?.name?.trim();
+      const parts = [
+        c.caseCode,
+        serviceName || null,
+        stageName || stateLabel,
+      ].filter(Boolean);
+      return {
+        id: c.id,
+        caseCode: c.caseCode,
+        clientId: c.client.id,
+        stateLabel,
+        label: parts.join(" · "),
+      };
+    });
 
   const serviceOptions = services.map((s) => ({
     id: s.id,

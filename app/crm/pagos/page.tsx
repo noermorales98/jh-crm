@@ -79,7 +79,7 @@ export default async function PaymentsPage({
     <div>
       <PageHeader
         title="Cobrar"
-        description="Pagos por cobrar y cobros registrados."
+        description="Registra pagos recibidos o genera un link Stripe desde una cotización vinculada."
         actions={
           canRegister ? (
             <ButtonLink href="/crm/pagos/nuevo">
@@ -224,6 +224,9 @@ export default async function PaymentsPage({
                           reference: payment.reference ?? "",
                           dueAt: toDateInputValue(payment.dueAt),
                           notes: payment.notes ?? "",
+                          quoteId: payment.quote?.id ?? null,
+                          quoteStatus: payment.quote?.status ?? null,
+                          clientPhone: payment.client.phone,
                         }}
                       />
                     </TD>

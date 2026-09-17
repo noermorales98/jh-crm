@@ -149,7 +149,28 @@ export async function listByStage(ctx: OrganizationContext) {
     orderBy: [{ updatedAt: "desc" }],
   });
 
-  const columns: Record<OpportunityStage, typeof rows> = {
+  /** Plain JSON-safe cards for Client Components (no Prisma Decimal). */
+  function serialize(row: (typeof rows)[number]) {
+    const { estimatedValue, client, ...rest } = row;
+    return {
+      ...rest,
+      estimatedValue: estimatedValue?.toString() ?? null,
+      client: {
+        ...client,
+        consultations: client.consultations.map((c) => ({
+          id: c.id,
+          notes: c.notes,
+          status: c.status,
+          amount: c.amount?.toString() ?? null,
+          requestedAt: c.requestedAt,
+        })),
+      },
+    };
+  }
+
+  type Serialized = ReturnType<typeof serialize>;
+
+  const columns: Record<OpportunityStage, Serialized[]> = {
     NEW_LEAD: [],
     CONTACTED: [],
     CONSULTATION: [],
@@ -162,7 +183,7 @@ export async function listByStage(ctx: OrganizationContext) {
   };
 
   for (const row of rows) {
-    columns[row.stage].push(row);
+    columns[row.stage].push(serialize(row));
   }
   return columns;
 }

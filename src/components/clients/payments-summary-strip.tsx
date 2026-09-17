@@ -10,21 +10,29 @@ import {
   labelFor,
 } from "@/src/lib/labels";
 import { PaymentPeekModal } from "@/src/components/clients/payment-peek-modal";
+import { QuoteStripeCheckoutActions } from "@/src/components/payments/quote-stripe-checkout-actions";
+import { ButtonLink } from "@/src/components/ui";
 
 export function PaymentsSummaryStrip({
   clientId,
+  clientPhone,
   quoteTotal,
   received,
   pending,
   currency,
   recent,
+  payableQuote,
+  canRegisterPayment,
 }: {
   clientId: string;
+  clientPhone?: string | null;
   quoteTotal: number | null;
   received: number;
   pending: number;
   currency: string;
   recent: PaymentRecentDto[];
+  payableQuote?: { id: string; folio: string; status: string } | null;
+  canRegisterPayment?: boolean;
 }) {
   const [peekId, setPeekId] = useState<string | null>(null);
 
@@ -34,12 +42,23 @@ export function PaymentsSummaryStrip({
         <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
           Pagos
         </p>
-        <Link
-          href={`/crm/pagos?clientId=${clientId}`}
-          className="text-[11px] font-medium text-action-primary hover:text-action-secondary"
-        >
-          Ver todos
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {canRegisterPayment ? (
+            <ButtonLink
+              href={`/crm/pagos/nuevo?clientId=${clientId}`}
+              variant="ghost"
+              size="sm"
+            >
+              Registrar
+            </ButtonLink>
+          ) : null}
+          <Link
+            href={`/crm/pagos?clientId=${clientId}`}
+            className="text-[11px] font-medium text-action-primary hover:text-action-secondary"
+          >
+            Ver todos
+          </Link>
+        </div>
       </div>
       <div className="flex flex-wrap gap-3 text-xs tabular-nums">
         <span>
@@ -61,6 +80,18 @@ export function PaymentsSummaryStrip({
           </span>
         </span>
       </div>
+      {payableQuote ? (
+        <div className="rounded-control bg-surface-panel/50 px-2 py-1.5">
+          <p className="mb-1 text-[11px] text-text-secondary">
+            Link Stripe · {payableQuote.folio}
+          </p>
+          <QuoteStripeCheckoutActions
+            quoteId={payableQuote.id}
+            clientPhone={clientPhone}
+            compact
+          />
+        </div>
+      ) : null}
       {recent.length === 0 ? (
         <p className="text-xs text-text-secondary">Sin pagos registrados.</p>
       ) : (

@@ -69,7 +69,7 @@ export function ConfirmDialog({
 
   return (
     <>
-      <span onClick={() => setOpen(true)} className="inline-flex min-w-0 flex-1">
+      <span onClick={() => setOpen(true)} className="inline-flex shrink-0">
         {trigger}
       </span>
       <Modal

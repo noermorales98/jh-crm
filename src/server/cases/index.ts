@@ -59,7 +59,14 @@ const CASE_LIST_SELECT = {
   client: { select: { id: true, clientCode: true, firstName: true, lastName: true } },
   stage: { select: { id: true, key: true, name: true, color: true } },
   assignedTo: { select: { id: true, name: true } },
-  serviceCase: { select: { id: true, nextActionAt: true, status: true } },
+  serviceCase: {
+    select: {
+      id: true,
+      nextActionAt: true,
+      status: true,
+      service: { select: { id: true, name: true } },
+    },
+  },
 } satisfies Prisma.CreditCaseSelect;
 
 function mapCaseStateToServiceStatus(state: CaseState): ServiceCaseStatus {

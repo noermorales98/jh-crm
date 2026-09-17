@@ -66,7 +66,7 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
               <dd>
                 {task.client ? (
                   <Link
-                    href={`/crm/clientes?id=${task.client.id}`}
+                    href={`/crm/clientes/${task.client.id}`}
                     className="text-action-primary hover:text-action-secondary"
                   >
                     {clientFullName(task.client)}
@@ -81,7 +81,7 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
               <dd>
                 {task.case ? (
                   <Link
-                    href={`/crm/casos?id=${task.case.id}`}
+                    href={`/crm/casos/${task.case.id}`}
                     className="text-action-primary hover:text-action-secondary"
                   >
                     {task.case.caseCode}

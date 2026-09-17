@@ -7,6 +7,7 @@ import { Button } from "@/src/components/ui";
 import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
 import { CreateRoundButton } from "@/src/components/rounds/create-round-button";
+import { QuickAddDocumentButton } from "@/src/components/clients/quick-add-document-button";
 
 type MemberOption = { id: string; name: string };
 
@@ -90,14 +91,12 @@ export function ClientQuickAdd({
             </Link>
           ) : null}
           {canDocument ? (
-            <Link
-              role="menuitem"
-              href={`/crm/clientes/${clientId}/expediente`}
-              className={itemClass}
-              onClick={() => setOpen(false)}
-            >
-              + Documento
-            </Link>
+            <QuickAddDocumentButton
+              clientId={clientId}
+              caseId={caseId}
+              menuItem
+              label="+ Documento"
+            />
           ) : null}
           {canQuote ? (
             <Link

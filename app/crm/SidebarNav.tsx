@@ -37,7 +37,7 @@ type PrimaryItem = {
 /** Navegación diaria: Inicio… Mensajes, Chats, Más. */
 const PRIMARY_ITEMS: readonly PrimaryItem[] = [
   { href: "/crm/dashboard", label: "Inicio", icon: Home },
-  { href: "/crm/tareas", label: "Hoy", icon: ClipboardList },
+  { href: "/crm/tareas", label: "Pendientes", icon: ClipboardList },
   { href: "/crm/oportunidades", label: "Leads", icon: Target },
   { href: "/crm/clientes", label: "Clientes", icon: Users },
   { href: "/crm/casos", label: "Casos", icon: Briefcase },

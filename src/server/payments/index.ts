@@ -66,9 +66,17 @@ const PAYMENT_LIST_SELECT = {
   receivedAt: true,
   notes: true,
   createdAt: true,
-  client: { select: { id: true, clientCode: true, firstName: true, lastName: true } },
+  client: {
+    select: {
+      id: true,
+      clientCode: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+    },
+  },
   case: { select: { id: true, caseCode: true } },
-  quote: { select: { id: true, folio: true } },
+  quote: { select: { id: true, folio: true, status: true } },
   receipt: { select: { id: true, folio: true, status: true } },
 } satisfies Prisma.PaymentSelect;
 
@@ -702,7 +710,15 @@ export async function getPaymentDetail(ctx: OrganizationContext, paymentId: stri
   const payment = await prisma.payment.findFirst({
     where: { id: paymentId, organizationId: ctx.organizationId },
     include: {
-      client: { select: { id: true, clientCode: true, firstName: true, lastName: true } },
+      client: {
+        select: {
+          id: true,
+          clientCode: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+        },
+      },
       case: { select: { id: true, caseCode: true } },
       quote: { select: { id: true, folio: true, total: true, status: true } },
       receipt: true,

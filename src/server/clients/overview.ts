@@ -128,6 +128,8 @@ export type ClientOverviewResult = {
     pending: number;
     currency: string;
     recent: PaymentRecentDto[];
+    /** Cotización abierta para link Stripe (si aplica). */
+    payableQuote: { id: string; folio: string; status: string } | null;
   };
   credit: {
     canView: boolean;
@@ -396,10 +398,10 @@ export async function getClientOverview(
         organizationId: ctx.organizationId,
         clientId,
         ...(activeCase ? { caseId: activeCase.id } : {}),
-        status: { in: ["ACCEPTED", "PAID", "SENT"] },
+        status: { in: ["ACCEPTED", "PAID", "SENT", "PARTIAL"] },
       },
       orderBy: { issuedAt: "desc" },
-      select: { total: true, currency: true },
+      select: { id: true, folio: true, total: true, currency: true, status: true },
     }),
     canViewPayments
       ? prisma.payment.findMany({
@@ -460,6 +462,15 @@ export async function getClientOverview(
       dueAt: p.dueAt,
       reference: p.reference,
     })),
+    payableQuote:
+      latestQuote &&
+      ["SENT", "ACCEPTED", "PARTIAL"].includes(latestQuote.status)
+        ? {
+            id: latestQuote.id,
+            folio: latestQuote.folio,
+            status: latestQuote.status,
+          }
+        : null,
   };
 
   const baseCounts: ClientOverviewCounts = {

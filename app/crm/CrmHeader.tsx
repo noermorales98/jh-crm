@@ -21,7 +21,7 @@ const SECTION_TITLES: Record<string, string> = {
   clientes: "Clientes",
   casos: "Casos",
   rondas: "Rondas",
-  tareas: "Hoy",
+  tareas: "Pendientes",
   servicios: "Servicios",
   cotizaciones: "Cotizaciones",
   pagos: "Cobrar",

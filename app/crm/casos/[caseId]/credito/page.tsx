@@ -122,21 +122,24 @@ export default async function CaseCreditPage({
             }
           />
         ) : (
-          <div className="space-y-6 px-1 pb-2">
-            <BureauScoreStrip
-              rows={overview.current.map((row) => ({
-                bureau: row.bureau,
-                score: row.score,
-                previousScore: row.previousScore,
-                delta: row.delta,
-              }))}
-            />
+          <div className="space-y-6 px-4 pb-4 sm:px-5">
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:items-start">
+              <BureauScoreStrip
+                layout="stackOnDesktop"
+                rows={overview.current.map((row) => ({
+                  bureau: row.bureau,
+                  score: row.score,
+                  previousScore: row.previousScore,
+                  delta: row.delta,
+                }))}
+              />
 
-            {overview.history.some((h) =>
-              Object.values(h.scores).some((s) => s != null),
-            ) ? (
-              <ScoreEvolutionChart history={chartHistory} />
-            ) : null}
+              {overview.history.some((h) =>
+                Object.values(h.scores).some((s) => s != null),
+              ) ? (
+                <ScoreEvolutionChart history={chartHistory} fillDesktop />
+              ) : null}
+            </div>
 
             <Table>
               <THead>

@@ -11,6 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { X } from "lucide-react";
 import {
   getCreditPdfImportJobAction,
   listActiveCreditPdfImportJobsAction,
@@ -18,6 +19,7 @@ import {
 import { Button } from "@/src/components/ui";
 
 const STORAGE_KEY = "jh.creditPdfImport.lock";
+const DISMISSED_READY_KEY = "jh.creditPdfImport.dismissedReady";
 
 type LockState = {
   jobId: string;
@@ -55,6 +57,28 @@ function readStored(): LockState | null {
   }
 }
 
+function readDismissedReady(): Set<string> {
+  try {
+    const raw = sessionStorage.getItem(DISMISSED_READY_KEY);
+    if (!raw) return new Set();
+    const arr = JSON.parse(raw) as string[];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeDismissedReady(ids: Set<string>) {
+  try {
+    sessionStorage.setItem(
+      DISMISSED_READY_KEY,
+      JSON.stringify([...ids].slice(-40)),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * Bloqueo estricto de navegación mientras hay un análisis PDF en curso.
  * - beforeunload al cerrar pestaña/ventana
@@ -70,6 +94,9 @@ export function CreditPdfImportLockProvider({
   const router = useRouter();
   const [lock, setLock] = useState<LockState | null>(null);
   const [warnOpen, setWarnOpen] = useState(false);
+  const [dismissedReady, setDismissedReady] = useState<Set<string>>(
+    () => new Set(),
+  );
   const [chipJobs, setChipJobs] = useState<
     Array<{
       id: string;
@@ -80,6 +107,19 @@ export function CreditPdfImportLockProvider({
       phase: string | null;
     }>
   >([]);
+
+  useEffect(() => {
+    setDismissedReady(readDismissedReady());
+  }, []);
+
+  const dismissReadyChip = useCallback((jobId: string) => {
+    setDismissedReady((prev) => {
+      const next = new Set(prev);
+      next.add(jobId);
+      writeDismissedReady(next);
+      return next;
+    });
+  }, []);
 
   const engageLock = useCallback((next: LockState) => {
     setLock(next);
@@ -241,7 +281,9 @@ export function CreditPdfImportLockProvider({
   const runningChip = chipJobs.find(
     (j) => j.status === "QUEUED" || j.status === "RUNNING",
   );
-  const readyChip = chipJobs.find((j) => j.status === "SUCCEEDED");
+  const readyChip = chipJobs.find(
+    (j) => j.status === "SUCCEEDED" && !dismissedReady.has(j.id),
+  );
 
   return (
     <CreditPdfImportLockContext.Provider value={value}>
@@ -271,7 +313,15 @@ export function CreditPdfImportLockProvider({
             </div>
           ) : null}
           {readyChip && !runningChip ? (
-            <div className="pointer-events-auto rounded-xl bg-surface-elevated px-4 py-3 text-sm text-ink shadow-lg ring-1 ring-border-subtle">
+            <div className="pointer-events-auto relative rounded-xl bg-surface-elevated px-4 py-3 pr-10 text-sm text-ink shadow-lg ring-1 ring-border-subtle">
+              <button
+                type="button"
+                className="absolute right-2 top-2 rounded-md p-1 text-text-secondary hover:bg-nav-hover hover:text-ink"
+                aria-label="Cerrar aviso"
+                onClick={() => dismissReadyChip(readyChip.id)}
+              >
+                <X className="size-4" aria-hidden />
+              </button>
               <p className="font-semibold">Análisis listo</p>
               <p className="mt-0.5 text-xs text-text-secondary">
                 {readyChip.fileName ?? "PDF"} — revisa y confirma
@@ -279,9 +329,13 @@ export function CreditPdfImportLockProvider({
               <Link
                 href={`/crm/casos/${readyChip.caseId}/credito/importaciones/${readyChip.id}`}
                 className="mt-2 inline-block text-xs font-medium text-action-primary underline"
+                onClick={() => dismissReadyChip(readyChip.id)}
               >
                 Revisar propuesta
               </Link>
+              <p className="mt-2 text-[11px] text-text-secondary">
+                Historial también en la campana de notificaciones.
+              </p>
             </div>
           ) : null}
         </div>

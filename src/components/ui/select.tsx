@@ -22,6 +22,18 @@ export type SelectOption = {
   disabled?: boolean;
 };
 
+/** Flatten React children into a single label string (fixes cuid fallback). */
+function textFromChildren(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") return "";
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textFromChildren).join("");
+  if (isValidElement(node)) {
+    const props = node.props as { children?: ReactNode };
+    return textFromChildren(props.children);
+  }
+  return "";
+}
+
 function optionsFromChildren(children: ReactNode): SelectOption[] {
   const out: SelectOption[] = [];
   Children.forEach(children, (child) => {
@@ -33,11 +45,8 @@ function optionsFromChildren(children: ReactNode): SelectOption[] {
       children?: ReactNode;
     }>;
     const value = el.props.value != null ? String(el.props.value) : "";
-    const label =
-      typeof el.props.children === "string" ||
-      typeof el.props.children === "number"
-        ? String(el.props.children)
-        : value;
+    const flattened = textFromChildren(el.props.children).replace(/\s+/g, " ").trim();
+    const label = flattened || value;
     out.push({
       value,
       label,

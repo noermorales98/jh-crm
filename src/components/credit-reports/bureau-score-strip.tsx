@@ -33,24 +33,32 @@ export type BureauScoreStripRow = {
 };
 
 /**
- * Tres burós en fila compacta: score + delta (y opcional inicial).
+ * Tres burós: fila en mobile; en desktop puede apilarse a la izquierda del gráfico.
  */
 export function BureauScoreStrip({
   rows,
   compact = false,
+  layout = "row",
 }: {
   rows: BureauScoreStripRow[];
   compact?: boolean;
+  /** `stackOnDesktop`: 1 col en lg+ (para panel izquierdo). */
+  layout?: "row" | "stackOnDesktop";
 }) {
+  const gridClass =
+    layout === "stackOnDesktop"
+      ? "grid gap-2 sm:grid-cols-3 lg:grid-cols-1"
+      : `grid gap-2 sm:grid-cols-3 ${compact ? "" : "gap-3"}`;
+
   return (
-    <div className={`grid gap-2 sm:grid-cols-3 ${compact ? "" : "gap-3"}`}>
+    <div className={gridClass}>
       {rows.map((row) => (
         <div
           key={row.bureau}
           className={
             compact
-              ? "rounded-control border border-border-subtle bg-surface-panel/50 px-3 py-2"
-              : "rounded-control border border-border-subtle bg-surface-panel/60 px-4 py-3"
+              ? "rounded-control bg-surface-panel/50 px-3 py-2 ring-1 ring-border-subtle/50"
+              : "rounded-control bg-surface-panel/60 px-4 py-3 ring-1 ring-border-subtle/50"
           }
         >
           <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">

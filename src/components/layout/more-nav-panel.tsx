@@ -26,6 +26,7 @@ type MoreItem = {
   href: string;
   label: string;
   icon: LucideIcon;
+  description: string;
 };
 
 type MoreGroup = {
@@ -37,43 +38,115 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
   {
     label: "Diario",
     items: [
-      { href: "/crm/pagos", label: "Cobrar", icon: CreditCard },
-      { href: "/crm/mails?folder=inbox", label: "Mensajes", icon: Inbox },
-      { href: "/crm/chats", label: "Chats", icon: MessageCircle },
+      {
+        href: "/crm/pagos",
+        label: "Cobrar",
+        icon: CreditCard,
+        description: "Registra pagos o genera links Stripe de cotizaciones.",
+      },
+      {
+        href: "/crm/mails?folder=inbox",
+        label: "Mensajes",
+        icon: Inbox,
+        description: "Bandeja de correo del CRM.",
+      },
+      {
+        href: "/crm/chats",
+        label: "Chats",
+        icon: MessageCircle,
+        description: "Conversaciones con el asistente de IA.",
+      },
     ],
   },
   {
     label: "Ventas",
     items: [
-      { href: "/crm/oportunidades", label: "Leads", icon: Target },
-      { href: "/crm/consultas", label: "Consultas", icon: Headphones },
+      {
+        href: "/crm/oportunidades",
+        label: "Leads",
+        icon: Target,
+        description: "Pipeline de oportunidades y seguimiento.",
+      },
+      {
+        href: "/crm/consultas",
+        label: "Consultas",
+        icon: Headphones,
+        description: "Solicitudes de consulta y cobro online.",
+      },
     ],
   },
   {
     label: "Crédito",
-    items: [{ href: "/crm/rondas", label: "Rondas", icon: RefreshCcw }],
+    items: [
+      {
+        href: "/crm/rondas",
+        label: "Rondas",
+        icon: RefreshCcw,
+        description: "Rondas de disputa y seguimiento por buró.",
+      },
+    ],
   },
   {
     label: "Dinero",
     items: [
-      { href: "/crm/planes-pago", label: "Cuotas", icon: CalendarClock },
-      { href: "/crm/recibos", label: "Recibos", icon: Receipt },
-      { href: "/crm/cotizaciones", label: "Cotizaciones", icon: FileText },
-      { href: "/crm/servicios", label: "Servicios", icon: Package },
+      {
+        href: "/crm/planes-pago",
+        label: "Cuotas",
+        icon: CalendarClock,
+        description: "Planes de pago a plazos.",
+      },
+      {
+        href: "/crm/recibos",
+        label: "Recibos",
+        icon: Receipt,
+        description: "Comprobantes emitidos a clientes.",
+      },
+      {
+        href: "/crm/cotizaciones",
+        label: "Cotizaciones",
+        icon: FileText,
+        description: "Propuestas de precio y links de pago.",
+      },
+      {
+        href: "/crm/servicios",
+        label: "Servicios",
+        icon: Package,
+        description: "Catálogo de servicios y paquetes.",
+      },
     ],
   },
   {
     label: "Extra",
     items: [
-      { href: "/crm/testimonios", label: "Testimonios", icon: MessageSquareQuote },
-      { href: "/crm/contratos", label: "Contratos", icon: Scale },
-      { href: "/crm/procesadores", label: "Procesadores", icon: Cpu },
+      {
+        href: "/crm/testimonios",
+        label: "Testimonios",
+        icon: MessageSquareQuote,
+        description: "Opiniones y casos de éxito.",
+      },
+      {
+        href: "/crm/contratos",
+        label: "Contratos",
+        icon: Scale,
+        description: "Acuerdos y documentos contractuales.",
+      },
+      {
+        href: "/crm/procesadores",
+        label: "Procesadores",
+        icon: Cpu,
+        description: "Portales externos (SmartCredit, etc.).",
+      },
     ],
   },
   {
     label: "Sistema",
     items: [
-      { href: "/crm/configuracion", label: "Configuración", icon: Settings },
+      {
+        href: "/crm/configuracion",
+        label: "Configuración",
+        icon: Settings,
+        description: "Org, Stripe, Whapi, notificaciones y más.",
+      },
     ],
   },
 ];
@@ -181,7 +254,7 @@ export function MoreNavPanel({
                   {group.label}
                 </p>
                 <ul className="space-y-1">
-                  {group.items.map(({ href, label, icon: Icon }) => {
+                  {group.items.map(({ href, label, description, icon: Icon }) => {
                     const active =
                       pathname === href || pathname.startsWith(`${href}/`);
                     return (
@@ -190,14 +263,14 @@ export function MoreNavPanel({
                           href={href}
                           onClick={onClose}
                           aria-current={active ? "page" : undefined}
-                          className={`flex min-h-12 items-center gap-3 rounded-surface px-3 text-[15px] tracking-[-0.01em] transition-colors ${
+                          className={`flex min-h-12 items-start gap-3 rounded-surface px-3 py-2 text-[15px] tracking-[-0.01em] transition-colors ${
                             active
                               ? "bg-nav-active font-semibold text-action-primary"
                               : "font-medium text-ink hover:bg-nav-hover"
                           }`}
                         >
                           <span
-                            className={`flex size-9 shrink-0 items-center justify-center rounded-control ${
+                            className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-control ${
                               active
                                 ? "bg-action-primary text-action-primary-foreground"
                                 : "bg-nav-hover text-text-secondary-strong"
@@ -209,7 +282,12 @@ export function MoreNavPanel({
                               aria-hidden
                             />
                           </span>
-                          {label}
+                          <span className="min-w-0 flex-1">
+                            <span className="block leading-snug">{label}</span>
+                            <span className="mt-0.5 block text-[11px] font-normal leading-snug text-text-secondary">
+                              {description}
+                            </span>
+                          </span>
                         </Link>
                       </li>
                     );

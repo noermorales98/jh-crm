@@ -65,7 +65,7 @@ export type OppCard = {
   id: string;
   stage: string;
   createdAt?: Date | string;
-  estimatedValue: { toString(): string } | null;
+  estimatedValue: string | null;
   source: string | null;
   campaign: string | null;
   nextFollowUpAt: Date | string | null;
@@ -87,7 +87,7 @@ export type OppCard = {
       id: string;
       notes: string | null;
       status: string;
-      amount: { toString(): string } | null;
+      amount: string | null;
       requestedAt: Date | string;
     }>;
     activities?: Array<{

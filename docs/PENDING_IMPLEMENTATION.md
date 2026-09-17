@@ -1,6 +1,10 @@
 # Pendientes de implementación
 
-Actualizado 2026-09-17 (UX Stripe: copiar/enviar link).
+Actualizado 2026-09-17 (checklist UX CRM).
+
+## Checklist UX
+
+Completado — ver **[UX_IMPROVEMENTS_2026-09-17.md](./UX_IMPROVEMENTS_2026-09-17.md)** (8 pasos).
 
 ## Pendientes confirmados
 

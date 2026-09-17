@@ -130,6 +130,9 @@ export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
             reference: payment.reference ?? "",
             dueAt: toDateInputValue(payment.dueAt),
             notes: payment.notes ?? "",
+            quoteId: payment.quote?.id ?? null,
+            quoteStatus: payment.quote?.status ?? null,
+            clientPhone: payment.client.phone,
           }}
         />
       ) : null}

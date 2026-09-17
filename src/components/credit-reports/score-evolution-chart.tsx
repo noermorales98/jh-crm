@@ -36,12 +36,15 @@ export function ScoreEvolutionChart({
   history,
   compact = false,
   interactive = false,
+  fillDesktop = false,
   onPointHover,
   onPointClick,
 }: {
   history: ScoreHistoryPoint[];
   compact?: boolean;
   interactive?: boolean;
+  /** En desktop usa todo el ancho del contenedor (sin max-w-3xl). */
+  fillDesktop?: boolean;
   onPointHover?: (point: ScorePointEvent | null) => void;
   onPointClick?: (point: ScorePointEvent) => void;
 }) {
@@ -103,7 +106,9 @@ export function ScoreEvolutionChart({
     <div className="w-full overflow-x-auto">
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className={`h-auto w-full min-w-[280px] ${compact ? "max-w-full" : "max-w-3xl"}`}
+        className={`h-auto w-full min-w-[280px] ${
+          compact || fillDesktop ? "max-w-full" : "max-w-3xl"
+        }`}
         role="img"
         aria-label="Evolución de puntajes por buró"
       >

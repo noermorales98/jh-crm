@@ -111,12 +111,14 @@ export function ClientOverviewPanel({
   overview,
   canManageCredit,
   canManageCases,
+  canRegisterPayment,
   stages,
   members,
 }: {
   overview: Overview;
   canManageCredit: boolean;
   canManageCases: boolean;
+  canRegisterPayment?: boolean;
   stages: { id: string; name: string; color: string }[];
   members: { id: string; name: string }[];
 }) {
@@ -408,11 +410,14 @@ export function ClientOverviewPanel({
 
       <PaymentsSummaryStrip
         clientId={client.id}
+        clientPhone={client.phone}
         quoteTotal={overview.paymentsSummary.quoteTotal}
         received={overview.paymentsSummary.received}
         pending={overview.paymentsSummary.pending}
         currency={overview.paymentsSummary.currency}
         recent={overview.paymentsSummary.recent}
+        payableQuote={overview.paymentsSummary.payableQuote}
+        canRegisterPayment={canRegisterPayment}
       />
 
       {caseHref ? (

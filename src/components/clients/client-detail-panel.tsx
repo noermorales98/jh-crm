@@ -121,6 +121,7 @@ export async function ClientDetailPanel({
         overview={overview}
         canManageCredit={can(ctx.role, "creditReports.manage")}
         canManageCases={canManageCases}
+        canRegisterPayment={can(ctx.role, "payments.register")}
         stages={stages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
         members={members}
       />

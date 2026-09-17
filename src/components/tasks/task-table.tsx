@@ -56,7 +56,7 @@ export function TaskTable({
       <EmptyState
         icon={ClipboardList}
         title="Nada pendiente por aquí"
-        description="Cuando tengas algo que hacer hoy, aparecerá en esta lista."
+        description="Cuando tengas algo pendiente, aparecerá en esta lista."
         action={emptyAction}
       />
     );
@@ -88,15 +88,16 @@ export function TaskTable({
           return (
             <TR key={task.id}>
               <TD className="max-w-72">
-                <span
-                  className={`block truncate font-medium ${
+                <Link
+                  href={`/crm/tareas/${task.id}`}
+                  className={`block truncate font-medium hover:underline ${
                     task.status === "COMPLETED"
                       ? "text-text-secondary line-through"
                       : "text-ink"
                   }`}
                 >
                   {task.title}
-                </span>
+                </Link>
               </TD>
               <TD className="whitespace-nowrap">
                 {labelFor(TASK_TYPE_LABELS, task.type)}

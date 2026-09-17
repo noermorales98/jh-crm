@@ -5,7 +5,7 @@ Actualizado 2026-09-17 (UX Stripe: copiar/enviar link).
 ## Pendientes confirmados
 
 - **AU-003:** SMS a clientes (aplazado).
-- **AU-006:** APIs automáticas de buró (P3; import PDF CR-PDF-001 ya cubre carga asistida).
+- **AU-006:** APIs automáticas de buró — **aplazado a futuro** (requiere proveedor de pago + compliance; no hay opción gratis usable. Mientras tanto: CR-PDF-001).
 - **AU-007:** afiliados/comisiones (P3).
 
 ## Funcionalidades ya existentes
@@ -19,7 +19,7 @@ Actualizado 2026-09-17 (UX Stripe: copiar/enviar link).
 1. Probar en DEV: generar link cotización/consulta → Copiar / Abrir / Enviar WhatsApp.
 2. SMTP de la org (sigue sin configurar si hace falta correo).
 3. Producción: `MIGRATE_DATABASE_URL` con credenciales válidas si aún falla auth MySQL.
-4. AU-003 SMS solo si el negocio lo pide; AU-006/007 P3.
+4. AU-003 SMS solo si el negocio lo pide; AU-007 P3; AU-006 solo si hay presupuesto/proveedor.
 
 ## Riesgos técnicos reales
 

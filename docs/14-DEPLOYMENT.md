@@ -104,3 +104,19 @@ Los documentos privados no deben depender de URLs públicas permanentes.
 [ ] AuditLog activo
 [ ] Rollback disponible
 ```
+
+## Migraciones Prisma en deploy (Vercel)
+
+`git push` **no** aplica schema en MySQL por sí solo. El build de Production corre:
+
+```text
+node scripts/migrate-on-deploy.mjs && next build
+```
+
+- Solo si `VERCEL_ENV=production` (o `RUN_PRISMA_MIGRATE=true`).
+- Preview **no** migra (evita tocar DB con un PR).
+- Requiere `DATABASE_URL` de Production en Vercel apuntando a la DB de prod (distinta de DEV).
+
+**Antes del primer deploy con muchas migraciones pendientes:** backup Hostinger, luego un deploy a Production (o `DATABASE_URL=prod npx prisma migrate deploy` local con aprobación).
+
+Si Preview comparte la URL de Production, **corrígelo ya**: Preview debe usar staging/dev.

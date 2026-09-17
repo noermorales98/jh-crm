@@ -261,6 +261,21 @@ export async function GET(request: Request) {
     );
   }
 
+  // 10. WhatsApp automático al cliente (AU-004 Whapi)
+  let clientWhatsapp = { scanned: 0, sent: 0, skipped: 0 };
+  try {
+    const { sendClientWhatsappAllOrgs } = await import(
+      "@/src/server/notifications/client-whatsapp"
+    );
+    clientWhatsapp = await sendClientWhatsappAllOrgs(now);
+  } catch (error) {
+    errors.push(
+      error instanceof Error
+        ? `clientWhatsapp: ${error.message}`
+        : "clientWhatsapp: error",
+    );
+  }
+
   return NextResponse.json({
     ok: true,
     data: {
@@ -274,6 +289,7 @@ export async function GET(request: Request) {
         intakeFollowUps,
         docsPending,
         clientEmails,
+        clientWhatsapp,
       },
       notificationsWritten: created,
       errors,

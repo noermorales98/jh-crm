@@ -508,6 +508,16 @@ model OrganizationSettings {
   emailClientQuoteExpiring Boolean  @default(false)
   emailClientCaseReview    Boolean  @default(false)
   emailClientRoundReview   Boolean  @default(false)
+  /** AU-004: WhatsApp a clientes vía Whapi.Cloud (no CallMeBot). */
+  whapiEnabled                 Boolean  @default(false)
+  whapiTokenEncrypted          String?  @db.Text
+  whapiBaseUrl                 String?
+  whatsappClientPaymentDue     Boolean  @default(false)
+  whatsappClientDocsPending    Boolean  @default(false)
+  whatsappClientQuoteSent      Boolean  @default(false)
+  whatsappClientQuoteExpiring  Boolean  @default(false)
+  whatsappClientCaseReview     Boolean  @default(false)
+  whatsappClientRoundReview    Boolean  @default(false)
   /** Días tras soft-delete antes de hard-delete S3 (null = no auto-purge). */
   documentSoftDeleteRetentionDays Int?
   /** Retención máxima desde createdAt (null = sin límite). */

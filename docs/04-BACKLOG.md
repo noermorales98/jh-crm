@@ -797,10 +797,10 @@ Listado priorizado de expedientes con acciones vencidas o próximas.
 **Prioridad:** P2 — aplazado.
 
 ## AU-004 — WhatsApp
-**Prioridad:** P2 — aplazado (CallMeBot solo equipo interno).
+**Prioridad:** P2 — **Estado:** DONE (2026-09-16). WhatsApp a **clientes** vía Whapi.Cloud (`whapi.ts` + `client-whatsapp.ts`, toggles `whatsappClient*`, token cifrado). CallMeBot sigue solo para el equipo. Smoke: `scripts/smoke/client-whatsapp-smoke.ts`.
 
 ## AU-005 — Online Payments
-**Prioridad:** P2 — aplazado.
+**Prioridad:** P2 — aplazado (siguiente).
 
 ## AU-006 — Integraciones de crédito
 **Prioridad:** P3

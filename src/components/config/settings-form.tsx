@@ -14,6 +14,7 @@ import {
 } from "@/src/components/ui";
 import {
   sendTestEmail,
+  sendTestWhapiClient,
   sendTestWhatsapp,
   updateSettings,
 } from "@/src/actions/config";
@@ -86,6 +87,15 @@ export interface SettingsFormValues {
   emailClientQuoteExpiring: boolean;
   emailClientCaseReview: boolean;
   emailClientRoundReview: boolean;
+  whapiEnabled: boolean;
+  whapiBaseUrl: string;
+  whapiConfigured: boolean;
+  whatsappClientPaymentDue: boolean;
+  whatsappClientDocsPending: boolean;
+  whatsappClientQuoteSent: boolean;
+  whatsappClientQuoteExpiring: boolean;
+  whatsappClientCaseReview: boolean;
+  whatsappClientRoundReview: boolean;
   documentSoftDeleteRetentionDays: string;
   documentMaxRetentionDays: string;
   whatsappRecipients: WhatsappRecipientFormValue[];
@@ -149,6 +159,8 @@ export function SettingsForm({
     emailDraftsFromValues(initialValues),
   );
   const [smtpPassword, setSmtpPassword] = useState("");
+  const [whapiToken, setWhapiToken] = useState("");
+  const [whapiTestTo, setWhapiTestTo] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [testMessage, setTestMessage] = useState<string | null>(null);
@@ -164,9 +176,12 @@ export function SettingsForm({
     .join("|");
 
   useEffect(() => {
-    setValues(initialValues);
-    setRecipients(draftsFromValues(initialValues));
-    setEmailRecipients(emailDraftsFromValues(initialValues));
+    const timer = window.setTimeout(() => {
+      setValues(initialValues);
+      setRecipients(draftsFromValues(initialValues));
+      setEmailRecipients(emailDraftsFromValues(initialValues));
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [initialValues, recipientsStamp, emailStamp]);
 
   function set<K extends keyof SettingsFormValues>(
@@ -237,6 +252,15 @@ export function SettingsForm({
         emailClientQuoteExpiring: values.emailClientQuoteExpiring,
         emailClientCaseReview: values.emailClientCaseReview,
         emailClientRoundReview: values.emailClientRoundReview,
+        whapiEnabled: values.whapiEnabled,
+        whapiToken: whapiToken.trim() || undefined,
+        whapiBaseUrl: values.whapiBaseUrl.trim() || null,
+        whatsappClientPaymentDue: values.whatsappClientPaymentDue,
+        whatsappClientDocsPending: values.whatsappClientDocsPending,
+        whatsappClientQuoteSent: values.whatsappClientQuoteSent,
+        whatsappClientQuoteExpiring: values.whatsappClientQuoteExpiring,
+        whatsappClientCaseReview: values.whatsappClientCaseReview,
+        whatsappClientRoundReview: values.whatsappClientRoundReview,
         callmebotEnabled: values.callmebotEnabled,
         whatsappRecipients: recipients.map((row) => ({
           id: row.id,
@@ -262,6 +286,10 @@ export function SettingsForm({
       if (smtpPassword.trim()) {
         setSmtpPassword("");
         setValues((v) => ({ ...v, smtpConfigured: true }));
+      }
+      if (whapiToken.trim()) {
+        setWhapiToken("");
+        setValues((v) => ({ ...v, whapiConfigured: true }));
       }
       setRecipients((rows) =>
         rows.map((row) => ({
@@ -741,6 +769,117 @@ export function SettingsForm({
             {label}
           </label>
         ))}
+
+        <div className="space-y-3 border-t border-border-subtle pt-4">
+          <h3 className="text-sm font-semibold text-ink">
+            WhatsApp a clientes (Whapi)
+          </h3>
+          <p className="text-sm text-text-secondary">
+            Canal distinto de CallMeBot (equipo). Vincula un número en{" "}
+            <a
+              href="https://whapi.cloud/es/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-action-primary underline"
+            >
+              Whapi.Cloud
+            </a>{" "}
+            y pega el token. Evita envíos masivos; WhatsApp puede invalidar la
+            sesión vinculada.
+          </p>
+          <label className="flex items-center gap-2 text-sm text-text-secondary-strong">
+            <input
+              type="checkbox"
+              data-cuelume-toggle="toggle"
+              checked={values.whapiEnabled}
+              onChange={(e) => set("whapiEnabled", e.target.checked)}
+              className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+            />
+            Activar WhatsApp a clientes
+          </label>
+          <Field label="Token Whapi" htmlFor="whapiToken">
+            <Input
+              id="whapiToken"
+              type="password"
+              autoComplete="off"
+              value={whapiToken}
+              onChange={(e) => {
+                setWhapiToken(e.target.value);
+                setSuccess(false);
+              }}
+              placeholder={
+                values.whapiConfigured
+                  ? "•••••••• (deja vacío para no cambiar)"
+                  : "Bearer token del panel Whapi"
+              }
+            />
+          </Field>
+          <Field label="Base URL (opcional)" htmlFor="whapiBaseUrl">
+            <Input
+              id="whapiBaseUrl"
+              value={values.whapiBaseUrl}
+              onChange={(e) => set("whapiBaseUrl", e.target.value)}
+              placeholder="https://gate.whapi.cloud"
+            />
+          </Field>
+          <p className="text-[13px] font-semibold text-text-secondary-strong">
+            Eventos al cliente (requiere Whapi activo)
+          </p>
+          {(
+            [
+              ["Pago por cobrar", "whatsappClientPaymentDue"],
+              ["Documentos / formulario pendiente", "whatsappClientDocsPending"],
+              ["Cotización enviada", "whatsappClientQuoteSent"],
+              ["Cotización por vencer", "whatsappClientQuoteExpiring"],
+              ["Revisión de caso", "whatsappClientCaseReview"],
+              ["Revisión de ronda", "whatsappClientRoundReview"],
+            ] as const
+          ).map(([label, key]) => (
+            <label
+              key={key}
+              className="flex items-center gap-2 text-sm text-text-secondary-strong"
+            >
+              <input
+                type="checkbox"
+                data-cuelume-toggle="toggle"
+                checked={values[key]}
+                onChange={(e) => set(key, e.target.checked)}
+                className="size-4 rounded border-border-subtle text-action-primary focus:ring-focus"
+              />
+              {label}
+            </label>
+          ))}
+          <Field label="Teléfono de prueba (con código país)" htmlFor="whapiTestTo">
+            <Input
+              id="whapiTestTo"
+              value={whapiTestTo}
+              onChange={(e) => setWhapiTestTo(e.target.value)}
+              placeholder="17135551234"
+            />
+          </Field>
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            disabled={testing || !whapiTestTo.trim()}
+            onClick={() => {
+              startTest(async () => {
+                setTestMessage(null);
+                setError(null);
+                const result = await sendTestWhapiClient(whapiTestTo);
+                if (!result.ok) {
+                  play("error");
+                  setError(result.error);
+                  return;
+                }
+                play("success");
+                setTestMessage(result.data.message);
+              });
+            }}
+          >
+            Enviar prueba Whapi
+          </Button>
+        </div>
       </section>
 
       <section className="space-y-4 border-t border-border-subtle pt-4">

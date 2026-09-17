@@ -124,7 +124,7 @@ Nuevos `WorkflowStage` por Service + extensión 1:1:
 
 ## Fase 7 — Automatizaciones
 
-**Estado:** PARTIAL (2026-09-16). **AU-001** correos a cliente (toggles + cron reminders + `markQuoteSent`) DONE; **AU-002** webhook de leads = `POST /api/public/contact` DONE (Meta Lead Ads permanece 410). Aplazados: SMS, WhatsApp a clientes, pagos online (AU-003…005); AU-006/007 P3.
+**Estado:** PARTIAL (2026-09-16). **AU-001** correos a cliente DONE; **AU-002** contacto público DONE; **AU-004** WhatsApp a clientes (Whapi) DONE. Aplazados: SMS (AU-003), pagos online (AU-005); AU-006/007 P3.
 
 Después del MVP estable: email, webhook, SMS, WhatsApp, pagos online.
 

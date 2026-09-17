@@ -82,6 +82,15 @@ const settingsSchema = z.object({
   emailClientQuoteExpiring: z.boolean().optional(),
   emailClientCaseReview: z.boolean().optional(),
   emailClientRoundReview: z.boolean().optional(),
+  whapiEnabled: z.boolean().optional(),
+  whapiToken: z.string().max(500).optional(),
+  whapiBaseUrl: z.string().trim().max(200).nullish(),
+  whatsappClientPaymentDue: z.boolean().optional(),
+  whatsappClientDocsPending: z.boolean().optional(),
+  whatsappClientQuoteSent: z.boolean().optional(),
+  whatsappClientQuoteExpiring: z.boolean().optional(),
+  whatsappClientCaseReview: z.boolean().optional(),
+  whatsappClientRoundReview: z.boolean().optional(),
   documentSoftDeleteRetentionDays: z
     .union([z.coerce.number().int().min(1).max(3650), z.null()])
     .optional(),
@@ -137,6 +146,21 @@ export async function sendTestEmail(
     const ctx = await requireRole("OWNER", "ADMIN");
     const recipient = emailSchema.parse(to);
     const result = await configService.sendTestEmail(ctx, recipient);
+    return actionOk(result);
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+export async function sendTestWhapiClient(
+  to: unknown,
+): Promise<ActionResult<{ message: string }>> {
+  try {
+    const ctx = await requireRole("OWNER", "ADMIN");
+    const phone = z.string().trim().min(8).max(20).parse(to);
+    const result = await configService.sendTestWhapiClient(ctx, phone);
+    revalidatePath("/crm/configuracion");
     return actionOk(result);
   } catch (error) {
     if (isNextControlError(error)) throw error;

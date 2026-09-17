@@ -18,6 +18,10 @@ import {
   assertEmailRecipientCount,
 } from "@/src/server/notifications/email-recipients";
 import { isSmtpConfigured, sendSmtpMail } from "@/src/server/notifications/smtp";
+import {
+  formatClientWhatsappMessage,
+  sendWhapiText,
+} from "@/src/server/notifications/whapi";
 import { ensureCreditRepairService } from "@/src/server/services";
 
 /**
@@ -76,6 +80,15 @@ export interface SettingsUpdateData {
   emailClientQuoteExpiring?: boolean;
   emailClientCaseReview?: boolean;
   emailClientRoundReview?: boolean;
+  whapiEnabled?: boolean;
+  whapiToken?: string | null;
+  whapiBaseUrl?: string | null;
+  whatsappClientPaymentDue?: boolean;
+  whatsappClientDocsPending?: boolean;
+  whatsappClientQuoteSent?: boolean;
+  whatsappClientQuoteExpiring?: boolean;
+  whatsappClientCaseReview?: boolean;
+  whatsappClientRoundReview?: boolean;
   documentSoftDeleteRetentionDays?: number | null;
   documentMaxRetentionDays?: number | null;
   emailRecipients?: EmailRecipientInput[];
@@ -158,6 +171,15 @@ export async function getSettingsFormValues(ctx: OrganizationContext) {
     emailClientQuoteExpiring: settings.emailClientQuoteExpiring,
     emailClientCaseReview: settings.emailClientCaseReview,
     emailClientRoundReview: settings.emailClientRoundReview,
+    whapiEnabled: settings.whapiEnabled,
+    whapiBaseUrl: settings.whapiBaseUrl ?? "",
+    whapiConfigured: Boolean(settings.whapiTokenEncrypted),
+    whatsappClientPaymentDue: settings.whatsappClientPaymentDue,
+    whatsappClientDocsPending: settings.whatsappClientDocsPending,
+    whatsappClientQuoteSent: settings.whatsappClientQuoteSent,
+    whatsappClientQuoteExpiring: settings.whatsappClientQuoteExpiring,
+    whatsappClientCaseReview: settings.whatsappClientCaseReview,
+    whatsappClientRoundReview: settings.whatsappClientRoundReview,
     documentSoftDeleteRetentionDays:
       settings.documentSoftDeleteRetentionDays?.toString() ?? "",
     documentMaxRetentionDays: settings.documentMaxRetentionDays?.toString() ?? "",
@@ -233,6 +255,18 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
     if (!hasReady) {
       throw new DomainError(
         "Añade al menos un número de WhatsApp con su API key para activar las notificaciones.",
+      );
+    }
+  }
+
+  if (data.whapiEnabled) {
+    const current = await prisma.organizationSettings.findUnique({
+      where: { organizationId: ctx.organizationId },
+      select: { whapiTokenEncrypted: true },
+    });
+    if (!data.whapiToken?.trim() && !current?.whapiTokenEncrypted) {
+      throw new DomainError(
+        "Pega el token de Whapi para activar WhatsApp a clientes.",
       );
     }
   }
@@ -340,6 +374,37 @@ export async function updateSettings(ctx: OrganizationContext, data: SettingsUpd
             : {}),
           ...(data.emailClientRoundReview !== undefined
             ? { emailClientRoundReview: data.emailClientRoundReview }
+            : {}),
+          ...(data.whapiEnabled !== undefined
+            ? { whapiEnabled: data.whapiEnabled }
+            : {}),
+          ...(data.whapiBaseUrl !== undefined
+            ? {
+                whapiBaseUrl: data.whapiBaseUrl?.trim()
+                  ? data.whapiBaseUrl.trim().replace(/\/$/, "")
+                  : null,
+              }
+            : {}),
+          ...(data.whapiToken?.trim()
+            ? { whapiTokenEncrypted: encrypt(data.whapiToken.trim()) }
+            : {}),
+          ...(data.whatsappClientPaymentDue !== undefined
+            ? { whatsappClientPaymentDue: data.whatsappClientPaymentDue }
+            : {}),
+          ...(data.whatsappClientDocsPending !== undefined
+            ? { whatsappClientDocsPending: data.whatsappClientDocsPending }
+            : {}),
+          ...(data.whatsappClientQuoteSent !== undefined
+            ? { whatsappClientQuoteSent: data.whatsappClientQuoteSent }
+            : {}),
+          ...(data.whatsappClientQuoteExpiring !== undefined
+            ? { whatsappClientQuoteExpiring: data.whatsappClientQuoteExpiring }
+            : {}),
+          ...(data.whatsappClientCaseReview !== undefined
+            ? { whatsappClientCaseReview: data.whatsappClientCaseReview }
+            : {}),
+          ...(data.whatsappClientRoundReview !== undefined
+            ? { whatsappClientRoundReview: data.whatsappClientRoundReview }
             : {}),
           ...(data.documentSoftDeleteRetentionDays !== undefined
             ? {
@@ -550,6 +615,48 @@ export async function sendTestWhatsapp(
     skipWhatsapp: true,
   });
   return result;
+}
+
+/** AU-004: prueba Whapi hacia un teléfono de cliente (no CallMeBot). */
+export async function sendTestWhapiClient(
+  ctx: OrganizationContext,
+  to: string,
+) {
+  const settings = await getSettings(ctx);
+  if (!settings.whapiTokenEncrypted) {
+    throw new DomainError("Guarda el token de Whapi primero.");
+  }
+  let token: string;
+  try {
+    token = decrypt(settings.whapiTokenEncrypted);
+  } catch {
+    throw new DomainError(
+      "No se pudo leer el token de Whapi. Vuelve a pegarlo y guarda.",
+    );
+  }
+  const legalName = settings.legalName || "J&H Multiservices LLC";
+  await sendWhapiText({
+    token,
+    baseUrl: settings.whapiBaseUrl,
+    to,
+    body: formatClientWhatsappMessage({
+      legalName,
+      firstName: null,
+      body: "Mensaje de prueba: WhatsApp a clientes de J&H CRM está activo (Whapi).",
+      companyPhone: settings.phone,
+    }),
+  });
+  await createNotification({
+    organizationId: ctx.organizationId,
+    userId: ctx.userId,
+    type: "SYSTEM",
+    title: "Prueba Whapi",
+    body: `Se envió un WhatsApp de prueba a ${to}.`,
+    link: "/crm/configuracion",
+    skipWhatsapp: true,
+    skipEmail: true,
+  });
+  return { message: `Prueba enviada a ${to}.` };
 }
 
 export async function sendTestEmail(ctx: OrganizationContext, to: string) {

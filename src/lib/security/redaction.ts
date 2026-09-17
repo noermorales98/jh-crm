@@ -38,6 +38,8 @@ const SENSITIVE_KEYS = new Set([
   "callmebotApiKey",
   "callmebotApiKeyEncrypted",
   "apiKeyEncrypted",
+  "whapiToken",
+  "whapiTokenEncrypted",
   "mfaSecret",
   "mfaSecretEncrypted",
   "mfaRecoveryCodes",

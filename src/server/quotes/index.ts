@@ -435,6 +435,14 @@ export async function markQuoteSent(ctx: OrganizationContext, quoteId: string) {
         error instanceof Error ? error.message : "error",
       );
     });
+  await import("@/src/server/notifications/client-whatsapp")
+    .then((m) => m.notifyClientQuoteSentWhatsapp(ctx.organizationId, quoteId))
+    .catch((error) => {
+      console.error(
+        "[quotes] WhatsApp cliente no enviado:",
+        error instanceof Error ? error.message : "error",
+      );
+    });
   return updated;
 }
 

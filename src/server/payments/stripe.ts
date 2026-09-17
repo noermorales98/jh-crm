@@ -243,6 +243,140 @@ export async function startQuoteCheckout(
   return { url: session.url, sessionId: session.id };
 }
 
+/**
+ * Genera Checkout de cotización y envía el link al WhatsApp del cliente (Whapi).
+ */
+export async function sendQuoteCheckoutWhatsapp(
+  ctx: OrganizationContext,
+  quoteId: string,
+): Promise<{ url: string; to: string }> {
+  const quote = await prisma.quote.findFirst({
+    where: { id: quoteId, organizationId: ctx.organizationId },
+    include: {
+      client: {
+        select: { id: true, phone: true, firstName: true, lastName: true },
+      },
+    },
+  });
+  if (!quote) throw new DomainError("Cotización no encontrada.");
+  if (!quote.client.phone?.trim()) {
+    throw new DomainError(
+      "El cliente no tiene teléfono. Añádelo en la ficha y vuelve a intentar.",
+    );
+  }
+
+  const orgSettings = await prisma.organizationSettings.findUnique({
+    where: { organizationId: ctx.organizationId },
+    select: {
+      whapiEnabled: true,
+      whapiTokenEncrypted: true,
+      whapiBaseUrl: true,
+      legalName: true,
+      phone: true,
+    },
+  });
+  const { isWhapiConfigured, sendWhapiText, formatClientWhatsappMessage } =
+    await import("@/src/server/notifications/whapi");
+  if (!orgSettings || !isWhapiConfigured(orgSettings)) {
+    throw new DomainError(
+      "Whapi no está configurado. Actívalo en Configuración → Notificaciones.",
+    );
+  }
+  const { decrypt } = await import("@/src/lib/security/encryption");
+  let token: string;
+  try {
+    token = decrypt(orgSettings.whapiTokenEncrypted!);
+  } catch {
+    throw new DomainError(
+      "No se pudo leer el token de Whapi. Vuelve a pegarlo en Configuración.",
+    );
+  }
+
+  const { url } = await startQuoteCheckout(ctx, quoteId);
+  const legalName = orgSettings.legalName || "J&H Multiservices LLC";
+  const body = formatClientWhatsappMessage({
+    legalName,
+    firstName: quote.client.firstName,
+    body: `Tu link de pago para la cotización ${quote.folio}:\n${url}\n\nSi ya pagaste, ignora este mensaje.`,
+    companyPhone: orgSettings.phone,
+  });
+  await sendWhapiText({
+    token,
+    baseUrl: orgSettings.whapiBaseUrl,
+    to: quote.client.phone,
+    body,
+  });
+
+  return { url, to: quote.client.phone };
+}
+
+/**
+ * Genera Checkout de consulta y envía el link al WhatsApp del cliente.
+ */
+export async function sendConsultationCheckoutWhatsapp(
+  ctx: OrganizationContext,
+  consultationId: string,
+): Promise<{ url: string; to: string }> {
+  const consultation = await prisma.consultation.findFirst({
+    where: { id: consultationId, organizationId: ctx.organizationId },
+    include: {
+      client: {
+        select: { id: true, phone: true, firstName: true },
+      },
+    },
+  });
+  if (!consultation) throw new DomainError("Consulta no encontrada.");
+  if (!consultation.client.phone?.trim()) {
+    throw new DomainError(
+      "El cliente no tiene teléfono. Añádelo en la ficha y vuelve a intentar.",
+    );
+  }
+
+  const orgSettings = await prisma.organizationSettings.findUnique({
+    where: { organizationId: ctx.organizationId },
+    select: {
+      whapiEnabled: true,
+      whapiTokenEncrypted: true,
+      whapiBaseUrl: true,
+      legalName: true,
+      phone: true,
+    },
+  });
+  const { isWhapiConfigured, sendWhapiText, formatClientWhatsappMessage } =
+    await import("@/src/server/notifications/whapi");
+  if (!orgSettings || !isWhapiConfigured(orgSettings)) {
+    throw new DomainError(
+      "Whapi no está configurado. Actívalo en Configuración → Notificaciones.",
+    );
+  }
+  const { decrypt } = await import("@/src/lib/security/encryption");
+  let token: string;
+  try {
+    token = decrypt(orgSettings.whapiTokenEncrypted!);
+  } catch {
+    throw new DomainError(
+      "No se pudo leer el token de Whapi. Vuelve a pegarlo en Configuración.",
+    );
+  }
+
+  const { url } = await startConsultationCheckout(ctx, consultationId);
+  const legalName = orgSettings.legalName || "J&H Multiservices LLC";
+  const body = formatClientWhatsappMessage({
+    legalName,
+    firstName: consultation.client.firstName,
+    body: `Tu link de pago de consulta:\n${url}\n\nSi ya pagaste, ignora este mensaje.`,
+    companyPhone: orgSettings.phone,
+  });
+  await sendWhapiText({
+    token,
+    baseUrl: orgSettings.whapiBaseUrl,
+    to: consultation.client.phone,
+    body,
+  });
+
+  return { url, to: consultation.client.phone };
+}
+
 export async function handleStripeWebhook(
   organizationId: string,
   rawBody: string,

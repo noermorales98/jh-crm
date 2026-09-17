@@ -155,7 +155,13 @@ export async function listConsultations(
     where,
     include: {
       client: {
-        select: { id: true, clientCode: true, firstName: true, lastName: true },
+        select: {
+          id: true,
+          clientCode: true,
+          firstName: true,
+          lastName: true,
+          phone: true,
+        },
       },
       payment: { select: { id: true, status: true } },
     },

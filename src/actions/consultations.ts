@@ -99,3 +99,21 @@ export async function startConsultationCheckoutAction(
     return actionFail(error);
   }
 }
+
+export async function sendConsultationCheckoutWhatsappAction(
+  consultationId: string,
+): Promise<ActionResult<{ url: string; to: string }>> {
+  try {
+    const ctx = await requirePermission("consultations.manage");
+    const id = cuidSchema.parse(consultationId);
+    const { sendConsultationCheckoutWhatsapp } = await import(
+      "@/src/server/payments/stripe"
+    );
+    const result = await sendConsultationCheckoutWhatsapp(ctx, id);
+    revalidateConsultations();
+    return actionOk(result);
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}

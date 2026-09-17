@@ -1,6 +1,6 @@
 # Pendientes de implementación
 
-Actualizado 2026-09-17 (CR-PDF-001 cerrado).
+Actualizado 2026-09-17 (UX Stripe: copiar/enviar link).
 
 ## Pendientes confirmados
 
@@ -11,16 +11,18 @@ Actualizado 2026-09-17 (CR-PDF-001 cerrado).
 ## Funcionalidades ya existentes
 
 - **CR-PDF-001:** Analizar PDF → propuesta IA → confirm → CreditReport + cliente.
-- **AU-005 Stripe**, **AU-004 Whapi**, Deploy 2, AI-005/006, DC-005, Fases 0–7.
+- **AU-005 Stripe** (Checkout + webhook; generar link, copiar/abrir sin salir del CRM, enviar por Whapi).
+- **AU-004 Whapi**, Deploy 2, AI-005/006, DC-005, Fases 0–7.
 
-## Prioridades siguientes
+## Prioridades siguientes (ops)
 
-1. Configurar Stripe/Whapi/SMTP en la org y probar cobros/mensajes.
-2. AU-003 SMS solo si el negocio lo pide.
-3. AU-006/007 P3.
+1. Probar en DEV: generar link cotización/consulta → Copiar / Abrir / Enviar WhatsApp.
+2. SMTP de la org (sigue sin configurar si hace falta correo).
+3. Producción: `MIGRATE_DATABASE_URL` con credenciales válidas si aún falla auth MySQL.
+4. AU-003 SMS solo si el negocio lo pide; AU-006/007 P3.
 
 ## Riesgos técnicos reales
 
 - Import PDF: job en segundo plano + bloqueo de navegación; requiere `OPENROUTER_API_KEY` + S3; siempre revisión humana.
-- Stripe: webhook URL por org y whsec.
-- Whapi: sesión vinculada / ritmo.
+- Stripe: webhook URL por org y whsec; en localhost usar Stripe CLI.
+- Whapi: sesión vinculada / ritmo; el cliente debe tener teléfono en la ficha.

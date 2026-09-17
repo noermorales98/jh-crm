@@ -85,6 +85,7 @@ export default async function ConsultationsPage() {
                         consultationId={row.id}
                         status={row.status}
                         paymentConfigured={paymentConfigured}
+                        clientPhone={row.client.phone}
                       />
                     </TD>
                   ) : null}

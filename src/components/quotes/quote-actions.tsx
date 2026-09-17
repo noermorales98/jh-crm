@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { MessageCircle } from "lucide-react";
 import {
   Alert,
   Button,
@@ -15,7 +16,11 @@ import {
   markQuoteRejected,
   markQuoteSent,
 } from "@/src/actions/quotes";
-import { startQuoteCheckoutAction } from "@/src/actions/payments";
+import {
+  sendQuoteCheckoutWhatsappAction,
+  startQuoteCheckoutAction,
+} from "@/src/actions/payments";
+import { StripeCheckoutLinkBar } from "@/src/components/payments/stripe-checkout-link-bar";
 
 /**
  * Acciones de una cotización según su estado:
@@ -28,17 +33,23 @@ export function QuoteActions({
   quoteId,
   status,
   clientId,
+  clientPhone,
 }: {
   quoteId: string;
   status: string;
   clientId: string;
+  clientPhone?: string | null;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const hasPhone = Boolean(clientPhone?.trim());
 
   function run(action: () => Promise<{ ok: boolean; error?: string }>) {
     setError(null);
+    setSuccess(null);
     startTransition(async () => {
       const result = await action();
       if (!result.ok) {
@@ -53,6 +64,7 @@ export function QuoteActions({
 
   function stripeCheckout() {
     setError(null);
+    setSuccess(null);
     startTransition(async () => {
       const result = await startQuoteCheckoutAction(quoteId);
       if (!result.ok) {
@@ -61,16 +73,35 @@ export function QuoteActions({
         return;
       }
       playActionResult(true);
-      window.location.href = result.data.url;
+      setCheckoutUrl(result.data.url);
     });
   }
 
-  const canRegisterPayment = ["ACCEPTED", "SENT", "PARTIAL", "DRAFT"].includes(status);
+  function sendStripeWhatsapp() {
+    setError(null);
+    setSuccess(null);
+    startTransition(async () => {
+      const result = await sendQuoteCheckoutWhatsappAction(quoteId);
+      if (!result.ok) {
+        playActionResult(false);
+        setError(result.error ?? "No se pudo enviar el link por WhatsApp.");
+        return;
+      }
+      playActionResult(true);
+      setCheckoutUrl(result.data.url);
+      setSuccess(`Link enviado por WhatsApp a ${result.data.to}.`);
+    });
+  }
+
+  const canRegisterPayment = ["ACCEPTED", "SENT", "PARTIAL", "DRAFT"].includes(
+    status,
+  );
   const canStripe = ["SENT", "ACCEPTED", "PARTIAL"].includes(status);
 
   return (
     <div className="space-y-2">
       {error ? <Alert tone="error">{error}</Alert> : null}
+      {success ? <Alert tone="success">{success}</Alert> : null}
       <div className="flex flex-wrap items-center gap-2">
         <ButtonLink
           href={`/api/quotes/${quoteId}/pdf`}
@@ -127,14 +158,30 @@ export function QuoteActions({
           </ButtonLink>
         ) : null}
         {canStripe ? (
-          <Button
-            size="sm"
-            variant="secondary"
-            disabled={pending}
-            onClick={stripeCheckout}
-          >
-            Link de pago Stripe
-          </Button>
+          <>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={pending}
+              onClick={stripeCheckout}
+            >
+              Generar link Stripe
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              disabled={pending || !hasPhone}
+              title={
+                hasPhone
+                  ? "Genera el link y lo envía al WhatsApp del cliente"
+                  : "El cliente no tiene teléfono"
+              }
+              onClick={sendStripeWhatsapp}
+            >
+              <MessageCircle className="size-3.5" aria-hidden />
+              Enviar link por WhatsApp
+            </Button>
+          </>
         ) : null}
         {["DRAFT", "SENT", "ACCEPTED", "PARTIAL"].includes(status) ? (
           <ConfirmDialog
@@ -155,6 +202,15 @@ export function QuoteActions({
           />
         ) : null}
       </div>
+      {checkoutUrl ? (
+        <StripeCheckoutLinkBar
+          url={checkoutUrl}
+          onClear={() => {
+            setCheckoutUrl(null);
+            setSuccess(null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

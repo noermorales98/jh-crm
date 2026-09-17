@@ -95,6 +95,7 @@ export async function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
               quoteId={quote.id}
               status={quote.status}
               clientId={quote.client.id}
+              clientPhone={quote.client.phone}
             />
           ) : null
         }

@@ -5,6 +5,7 @@ import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
 import { serviceCaseBalance } from "@/src/server/payments";
+import { ensureTaskForServiceNextAction } from "@/src/server/automations";
 
 /**
  * Fase 5 — Operaciones directas sobre ServiceCase (expediente genérico).
@@ -148,6 +149,13 @@ export async function setServiceCaseNextActionAt(
       tx,
     );
 
+    return updated;
+  }).then(async (updated) => {
+    try {
+      await ensureTaskForServiceNextAction(ctx, updated.id);
+    } catch (error) {
+      console.error("[service-cases] ensureTaskForServiceNextAction:", error);
+    }
     return updated;
   });
 }

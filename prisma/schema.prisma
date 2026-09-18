@@ -1050,6 +1050,8 @@ model Task {
   dueAt          DateTime?
   reminderAt     DateTime?
   completedAt    DateTime?
+  /** Clave estable de señal CRM (payment:…, opportunity:…:followup, …). Idempotencia. */
+  externalKey    String?
   assignedToId   String
   createdById    String?
   createdAt      DateTime     @default(now())
@@ -1063,6 +1065,7 @@ model Task {
   assignedTo   User         @relation("TaskAssignee", fields: [assignedToId], references: [id], onDelete: Restrict)
   createdBy    User?        @relation("TaskCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
+  @@unique([organizationId, externalKey])
   @@index([organizationId, status, dueAt])
   @@index([assignedToId, status, dueAt])
   @@index([clientId, status])
@@ -1070,6 +1073,7 @@ model Task {
   @@index([serviceCaseId, status])
   @@index([roundId, status])
   @@index([organizationId, reminderAt])
+  @@index([organizationId, type, status])
 }
 
 model Service {

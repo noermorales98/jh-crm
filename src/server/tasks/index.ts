@@ -36,6 +36,8 @@ export interface TaskUpdateData {
 
 export type TaskDueFilter = "overdue" | "today" | "week";
 
+const OPEN_TASK_STATUSES: TaskStatus[] = ["PENDING", "IN_PROGRESS"];
+
 export interface TaskListFilters {
   status?: TaskStatus;
   type?: TaskType;
@@ -59,7 +61,14 @@ const TASK_LIST_SELECT = {
   completedAt: true,
   createdAt: true,
   client: { select: { id: true, clientCode: true, firstName: true, lastName: true } },
-  case: { select: { id: true, caseCode: true } },
+  case: {
+    select: {
+      id: true,
+      caseCode: true,
+      summary: true,
+      stage: { select: { id: true, name: true } },
+    },
+  },
   round: { select: { id: true, roundNumber: true } },
   assignedTo: { select: { id: true, name: true } },
 } satisfies Prisma.TaskSelect;
@@ -289,7 +298,8 @@ export async function listTasks(ctx: OrganizationContext, filters: TaskListFilte
     if (filters.due === "overdue") {
       dueFilter = {
         dueAt: { lt: new Date() },
-        status: filters.status ?? { in: ["PENDING", "IN_PROGRESS"] },
+        // Vencidas solo cuentan si siguen abiertas (salvo filtro explícito).
+        ...(!filters.status ? { status: { in: OPEN_TASK_STATUSES } } : {}),
       };
     } else if (filters.due === "today") {
       dueFilter = { dueAt: { gte: start, lt: end } };
@@ -303,7 +313,10 @@ export async function listTasks(ctx: OrganizationContext, filters: TaskListFilte
 
   const where: Prisma.TaskWhereInput = {
     organizationId: ctx.organizationId,
-    ...(filters.status ? { status: filters.status } : {}),
+    // Por defecto: solo abiertas. Completadas viven en ?status=COMPLETED.
+    ...(filters.status
+      ? { status: filters.status }
+      : { status: { in: OPEN_TASK_STATUSES } }),
     ...(filters.type ? { type: filters.type } : {}),
     ...(filters.assignedToId ? { assignedToId: filters.assignedToId } : {}),
     ...(filters.clientId ? { clientId: filters.clientId } : {}),
@@ -323,7 +336,8 @@ export async function listTasks(ctx: OrganizationContext, filters: TaskListFilte
   const rows = await prisma.task.findMany({
     where,
     select: TASK_LIST_SELECT,
-    orderBy: [{ dueAt: "asc" }, { createdAt: "desc" }, { id: "asc" }],
+    // Enum MySQL: PENDING → IN_PROGRESS → COMPLETED → CANCELLED
+    orderBy: [{ status: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }, { id: "asc" }],
     ...(filters.cursor ? { cursor: { id: filters.cursor }, skip: 1 } : {}),
     take: limit + 1,
   });
@@ -331,4 +345,136 @@ export async function listTasks(ctx: OrganizationContext, filters: TaskListFilte
   const hasMore = rows.length > limit;
   const items = hasMore ? rows.slice(0, limit) : rows;
   return { items, nextCursor: hasMore ? items[items.length - 1].id : null };
+}
+
+/** Cuenta tareas completadas de la organización (para el pie de /crm/tareas). */
+export async function countCompletedTasks(ctx: OrganizationContext) {
+  return prisma.task.count({
+    where: {
+      organizationId: ctx.organizationId,
+      status: "COMPLETED",
+    },
+  });
+}
+
+/** Cuenta tareas abiertas por tipo (catálogo en /crm/tareas). */
+export async function countOpenTasksByType(ctx: OrganizationContext) {
+  const rows = await prisma.task.groupBy({
+    by: ["type"],
+    where: {
+      organizationId: ctx.organizationId,
+      status: { in: OPEN_TASK_STATUSES },
+    },
+    _count: { _all: true },
+  });
+  return Object.fromEntries(
+    rows.map((r) => [r.type, r._count._all]),
+  ) as Partial<Record<TaskType, number>>;
+}
+
+export type AttentionTaskBadge =
+  | "Urgente"
+  | "Hoy"
+  | "Cobrar"
+  | "Docs"
+  | "Lead"
+  | "Próxima"
+  | "Pendiente";
+
+/**
+ * Cola unificada para dashboard «Para hacer»: solo Tasks abiertas, ordenadas.
+ */
+export async function listAttentionTasks(
+  ctx: OrganizationContext,
+  opts?: { take?: number; timezone?: string },
+) {
+  const take = Math.min(opts?.take ?? 12, 40);
+  const timezone = opts?.timezone ?? "America/Chicago";
+  const now = new Date();
+  const { start: todayStart, end: todayEnd } = zonedDayRange(now, timezone);
+
+  const rows = await prisma.task.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      status: { in: OPEN_TASK_STATUSES },
+    },
+    select: {
+      ...TASK_LIST_SELECT,
+      description: true,
+      externalKey: true,
+    },
+    orderBy: [
+      { priority: "desc" },
+      { dueAt: "asc" },
+      { createdAt: "desc" },
+      { id: "asc" },
+    ],
+    take: take * 3,
+  });
+
+  function badgeFor(task: (typeof rows)[number]): AttentionTaskBadge {
+    const due = task.dueAt ? new Date(task.dueAt) : null;
+    const overdue = due != null && due.getTime() < now.getTime();
+    const today =
+      due != null && due.getTime() >= todayStart.getTime() && due.getTime() < todayEnd.getTime();
+    if (task.type === "REQUEST_PAYMENT") return overdue ? "Urgente" : "Cobrar";
+    if (task.type === "REQUEST_DOCUMENT") return "Docs";
+    if (
+      task.externalKey?.startsWith("opportunity:") ||
+      task.title.startsWith("Contactar")
+    ) {
+      return overdue ? "Urgente" : "Lead";
+    }
+    if (task.description?.includes("nextAction") || task.title.startsWith("Próxima acción")) {
+      return overdue ? "Urgente" : "Próxima";
+    }
+    if (overdue) return "Urgente";
+    if (today) return "Hoy";
+    return "Pendiente";
+  }
+
+  function urgencyRank(task: (typeof rows)[number]): number {
+    const b = badgeFor(task);
+    if (b === "Urgente") return 0;
+    if (b === "Hoy") return 1;
+    if (b === "Cobrar" || b === "Docs" || b === "Lead") return 2;
+    if (b === "Próxima") return 3;
+    return 4;
+  }
+
+  const sorted = [...rows].sort((a, b) => {
+    const ur = urgencyRank(a) - urgencyRank(b);
+    if (ur !== 0) return ur;
+    const aDue = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
+    const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
+    return aDue - bDue;
+  });
+
+  return sorted.slice(0, take).map((task) => {
+    const badge = badgeFor(task);
+    return {
+      id: task.id,
+      title: task.title,
+      detail: [
+        task.client
+          ? [task.client.firstName, task.client.lastName].filter(Boolean).join(" ")
+          : null,
+        task.case?.caseCode ?? null,
+        task.dueAt ? `vence` : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      href: `/crm/tareas/${task.id}`,
+      tone: (badge === "Urgente"
+        ? "danger"
+        : badge === "Hoy" || badge === "Cobrar" || badge === "Docs" || badge === "Lead"
+          ? "warning"
+          : "neutral") as "danger" | "warning" | "neutral",
+      badge,
+      type: task.type,
+      dueAt: task.dueAt,
+      client: task.client,
+      case: task.case,
+    };
+  });
 }

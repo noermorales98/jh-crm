@@ -14,7 +14,18 @@ import { createCreditCase } from "@/src/server/cases";
 import { resolveAssigneeForOrg } from "@/src/server/users";
 import { OPPORTUNITY_STAGES } from "@/src/lib/validation/opportunities";
 import { labelFor, OPPORTUNITY_STAGE_LABELS } from "@/src/lib/labels";
+import { ensureTaskForOpportunityFollowUp } from "@/src/server/automations";
 
+async function syncOpportunityWorkQueue(
+  ctx: OrganizationContext,
+  opportunityId: string,
+) {
+  try {
+    await ensureTaskForOpportunityFollowUp(ctx, opportunityId);
+  } catch (error) {
+    console.error("[opportunities] ensureTaskForOpportunityFollowUp:", error);
+  }
+}
 export const KANBAN_STAGES = OPPORTUNITY_STAGES;
 
 export interface OpportunityCreateData {
@@ -364,12 +375,11 @@ export async function updateLead(
     );
 
     return { client, opportunity: opp };
+  }).then(async (result) => {
+    await syncOpportunityWorkQueue(ctx, result.opportunity.id);
+    return result;
   });
 }
-
-/**
- * LD-004 — Oportunidades abiertas con seguimiento vencido o próximo (7 días).
- */
 export async function listFollowUpsDue(
   ctx: OrganizationContext,
   opts?: { withinDays?: number; take?: number },
@@ -447,6 +457,9 @@ export async function createOpportunity(
       tx,
     );
 
+    return opp;
+  }).then(async (opp) => {
+    await syncOpportunityWorkQueue(ctx, opp.id);
     return opp;
   });
 }
@@ -577,6 +590,9 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
     );
 
     return updated;
+  }).then(async (updated) => {
+    await syncOpportunityWorkQueue(ctx, updated.id);
+    return updated;
   });
 }
 
@@ -618,6 +634,9 @@ export async function markLost(
       tx,
     );
 
+    return updated;
+  }).then(async (updated) => {
+    await syncOpportunityWorkQueue(ctx, updated.id);
     return updated;
   });
 }

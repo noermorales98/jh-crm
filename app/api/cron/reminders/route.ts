@@ -233,16 +233,22 @@ export async function GET(request: Request) {
     );
   }
 
-  // 8. Casos DOCUMENTS_PENDING sin tarea REQUEST_DOCUMENT
-  let docsPending = { scanned: 0, created: 0 };
+  // 8. Cola inteligente: materializa pagos / leads / nextAction / docs
+  let workQueue = {
+    payments: 0,
+    opportunities: 0,
+    serviceCases: 0,
+    docs: { scanned: 0, created: 0, closed: 0 },
+    ensured: 0,
+  };
   try {
-    const { ensureDocsPendingTask } = await import("@/src/server/automations");
-    docsPending = await ensureDocsPendingTask();
+    const { reconcileWorkQueueTasks } = await import("@/src/server/automations");
+    workQueue = await reconcileWorkQueueTasks();
   } catch (error) {
     errors.push(
       error instanceof Error
-        ? `docsPending: ${error.message}`
-        : "docsPending: error",
+        ? `workQueue: ${error.message}`
+        : "workQueue: error",
     );
   }
 
@@ -287,7 +293,7 @@ export async function GET(request: Request) {
         duePayments: duePayments.length,
         overdueInstallments,
         intakeFollowUps,
-        docsPending,
+        workQueue,
         clientEmails,
         clientWhatsapp,
       },

@@ -7,7 +7,15 @@ import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { syncInstallmentOnPaymentReceived } from "@/src/server/payment-plans";
+import { ensureTaskForPayment } from "@/src/server/automations";
 
+async function syncPaymentWorkQueue(ctx: OrganizationContext, paymentId: string) {
+  try {
+    await ensureTaskForPayment(ctx, paymentId);
+  } catch (error) {
+    console.error("[payments] ensureTaskForPayment:", error);
+  }
+}
 /**
  * Pagos y recibos. Flujo de pago RECIBIDO (una sola transacción):
  *   Payment(RECEIVED) → recálculo de Quote (PARTIAL/PAID) → Receipt
@@ -243,6 +251,7 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
       serviceCaseId: linkedServiceCaseId,
       metadata: { paymentId: payment.id, amount: amount.toString(), pending: true },
     });
+    await syncPaymentWorkQueue(ctx, payment.id);
     return { payment, receipt: null, quoteStatus: quote?.status ?? null };
   }
 
@@ -438,6 +447,9 @@ export async function receivePendingPayment(
     await syncInstallmentOnPaymentReceived(payment.id, tx);
 
     return { payment, receipt, quoteStatus };
+  }).then(async (result) => {
+    await syncPaymentWorkQueue(ctx, result.payment.id);
+    return result;
   });
 }
 
@@ -464,6 +476,9 @@ export async function updatePendingPayment(
       ...(data.dueAt !== undefined ? { dueAt: data.dueAt } : {}),
       ...(data.notes !== undefined ? { notes: data.notes } : {}),
     },
+  }).then(async (updated) => {
+    await syncPaymentWorkQueue(ctx, updated.id);
+    return updated;
   });
 }
 
@@ -505,6 +520,9 @@ export async function cancelPayment(ctx: OrganizationContext, paymentId: string,
       },
       tx,
     );
+    return updated;
+  }).then(async (updated) => {
+    await syncPaymentWorkQueue(ctx, updated.id);
     return updated;
   });
 }

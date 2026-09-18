@@ -299,15 +299,26 @@ export async function ensureDocsPendingTask(organizationId?: string) {
 
   let created = 0;
   for (const creditCase of cases) {
+    const externalKey = `case:${creditCase.id}:docs`;
     const existing = await prisma.task.findFirst({
       where: {
         organizationId: creditCase.organizationId,
-        caseId: creditCase.id,
-        type: "REQUEST_DOCUMENT",
         status: { in: ["PENDING", "IN_PROGRESS"] },
+        OR: [
+          { externalKey },
+          { caseId: creditCase.id, type: "REQUEST_DOCUMENT" },
+        ],
       },
     });
-    if (existing) continue;
+    if (existing) {
+      if (!existing.externalKey) {
+        await prisma.task.update({
+          where: { id: existing.id },
+          data: { externalKey },
+        });
+      }
+      continue;
+    }
 
     const assignedToId = await resolveTaskAssignee(
       creditCase.organizationId,
@@ -316,7 +327,7 @@ export async function ensureDocsPendingTask(organizationId?: string) {
     if (!assignedToId) continue;
 
     const dueAt = new Date();
-    dueAt.setUTCDate(dueAt.getUTCDate() + 3);
+    dueAt.setUTCDate(dueAt.getUTCDate() + 2);
 
     await prisma.task.create({
       data: {
@@ -324,7 +335,8 @@ export async function ensureDocsPendingTask(organizationId?: string) {
         clientId: creditCase.clientId,
         caseId: creditCase.id,
         serviceCaseId: creditCase.serviceCaseId,
-        title: `Solicitar documentos — ${creditCase.caseCode}`,
+        externalKey,
+        title: `Documentos pendientes · ${creditCase.caseCode}`,
         description: "El caso está en etapa Documentos pendientes.",
         type: "REQUEST_DOCUMENT",
         priority: "HIGH",
@@ -336,5 +348,400 @@ export async function ensureDocsPendingTask(organizationId?: string) {
     created += 1;
   }
 
-  return { scanned: cases.length, created };
+  // Cierra tareas de docs si el caso ya no está en DOCUMENTS_PENDING.
+  const openDocTasks = await prisma.task.findMany({
+    where: {
+      type: "REQUEST_DOCUMENT",
+      status: { in: ["PENDING", "IN_PROGRESS"] },
+      ...(organizationId ? { organizationId } : {}),
+    },
+    select: {
+      id: true,
+      case: { select: { state: true, stage: { select: { key: true } } } },
+    },
+    take: 300,
+  });
+  const staleIds = openDocTasks
+    .filter(
+      (t) =>
+        !t.case ||
+        t.case.state !== "OPEN" ||
+        t.case.stage.key !== "DOCUMENTS_PENDING",
+    )
+    .map((t) => t.id);
+  if (staleIds.length) {
+    await prisma.task.updateMany({
+      where: { id: { in: staleIds } },
+      data: { status: "COMPLETED", completedAt: new Date() },
+    });
+  }
+
+  return { scanned: cases.length, created, closed: staleIds.length };
+}
+
+function clientLabel(c: {
+  firstName: string;
+  lastName: string | null;
+  clientCode?: string;
+}) {
+  const name = [c.firstName, c.lastName].filter(Boolean).join(" ").trim();
+  return c.clientCode ? `${name} (${c.clientCode})` : name;
+}
+
+/** Completa o cancela la Task abierta ligada a externalKey. */
+export async function resolveWorkQueueTask(
+  organizationId: string,
+  externalKey: string,
+  outcome: "COMPLETED" | "CANCELLED" = "COMPLETED",
+) {
+  const task = await prisma.task.findFirst({
+    where: {
+      organizationId,
+      externalKey,
+      status: { in: ["PENDING", "IN_PROGRESS"] },
+    },
+  });
+  if (!task) return null;
+  return prisma.task.update({
+    where: { id: task.id },
+    data: {
+      status: outcome,
+      completedAt: outcome === "COMPLETED" ? new Date() : null,
+    },
+  });
+}
+
+/**
+ * Pago PENDING → Task REQUEST_PAYMENT. Si deja de ser PENDING, se completa.
+ */
+export async function ensureTaskForPayment(
+  ctx: OrgIdOrCtx,
+  paymentId: string,
+) {
+  const organizationId = orgIdOf(ctx);
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId, organizationId },
+    select: {
+      id: true,
+      status: true,
+      amount: true,
+      currency: true,
+      dueAt: true,
+      clientId: true,
+      caseId: true,
+      serviceCaseId: true,
+      client: {
+        select: {
+          firstName: true,
+          lastName: true,
+          clientCode: true,
+          assignedToId: true,
+        },
+      },
+    },
+  });
+  if (!payment) return null;
+
+  const externalKey = `payment:${payment.id}`;
+  if (payment.status !== "PENDING") {
+    return resolveWorkQueueTask(organizationId, externalKey, "COMPLETED");
+  }
+
+  const assignedToId = await resolveTaskAssignee(
+    organizationId,
+    payment.client.assignedToId ?? actorOf(ctx),
+  );
+  if (!assignedToId) return null;
+
+  const title = `Cobrar · ${clientLabel(payment.client)}`;
+  const dueAt = payment.dueAt ?? new Date();
+  const overdue = dueAt.getTime() < Date.now();
+  const existing = await prisma.task.findFirst({
+    where: {
+      organizationId,
+      OR: [
+        { externalKey },
+        {
+          type: "REQUEST_PAYMENT",
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          description: { contains: `payment:${payment.id}` },
+        },
+      ],
+    },
+  });
+  if (existing) {
+    return prisma.task.update({
+      where: { id: existing.id },
+      data: {
+        externalKey,
+        title,
+        dueAt,
+        priority: overdue ? "URGENT" : "HIGH",
+        clientId: payment.clientId,
+        caseId: payment.caseId,
+        serviceCaseId: payment.serviceCaseId,
+        description: `Cobrar pago pendiente. (payment:${payment.id})`,
+      },
+    });
+  }
+
+  return prisma.task.create({
+    data: {
+      organizationId,
+      externalKey,
+      clientId: payment.clientId,
+      caseId: payment.caseId,
+      serviceCaseId: payment.serviceCaseId,
+      title,
+      description: `Cobrar pago pendiente. (payment:${payment.id})`,
+      type: "REQUEST_PAYMENT",
+      priority: overdue ? "URGENT" : "HIGH",
+      status: "PENDING",
+      dueAt,
+      assignedToId,
+      createdById: actorOf(ctx),
+    },
+  });
+}
+
+/**
+ * Opportunity con nextFollowUpAt (no WON/LOST) → Task FOLLOW_UP de contacto.
+ */
+export async function ensureTaskForOpportunityFollowUp(
+  ctx: OrgIdOrCtx,
+  opportunityId: string,
+) {
+  const organizationId = orgIdOf(ctx);
+  const opp = await prisma.opportunity.findFirst({
+    where: { id: opportunityId, organizationId },
+    select: {
+      id: true,
+      stage: true,
+      nextFollowUpAt: true,
+      ownerId: true,
+      clientId: true,
+      client: {
+        select: {
+          firstName: true,
+          lastName: true,
+          clientCode: true,
+          assignedToId: true,
+        },
+      },
+    },
+  });
+  if (!opp) return null;
+
+  const externalKey = `opportunity:${opp.id}:followup`;
+  if (
+    opp.stage === "WON" ||
+    opp.stage === "LOST" ||
+    !opp.nextFollowUpAt
+  ) {
+    return resolveWorkQueueTask(organizationId, externalKey, "COMPLETED");
+  }
+
+  const assignedToId = await resolveTaskAssignee(
+    organizationId,
+    opp.ownerId ?? opp.client.assignedToId ?? actorOf(ctx),
+  );
+  if (!assignedToId) return null;
+
+  const overdue = opp.nextFollowUpAt.getTime() < Date.now();
+  const title = `Contactar · ${clientLabel(opp.client)}`;
+  const existing = await prisma.task.findFirst({
+    where: {
+      organizationId,
+      OR: [
+        { externalKey },
+        {
+          type: "FOLLOW_UP",
+          clientId: opp.clientId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          description: { contains: `opportunity:${opp.id}` },
+        },
+      ],
+    },
+  });
+  if (existing) {
+    return prisma.task.update({
+      where: { id: existing.id },
+      data: {
+        externalKey,
+        title,
+        dueAt: opp.nextFollowUpAt,
+        priority: overdue ? "URGENT" : "HIGH",
+        description: `Seguimiento de lead. (opportunity:${opp.id})`,
+      },
+    });
+  }
+
+  return prisma.task.create({
+    data: {
+      organizationId,
+      externalKey,
+      clientId: opp.clientId,
+      title,
+      description: `Seguimiento de lead. (opportunity:${opp.id})`,
+      type: "FOLLOW_UP",
+      priority: overdue ? "URGENT" : "HIGH",
+      status: "PENDING",
+      dueAt: opp.nextFollowUpAt,
+      assignedToId,
+      createdById: actorOf(ctx),
+    },
+  });
+}
+
+/**
+ * ServiceCase.nextActionAt → Task FOLLOW_UP “Próxima acción”.
+ */
+export async function ensureTaskForServiceNextAction(
+  ctx: OrgIdOrCtx,
+  serviceCaseId: string,
+) {
+  const organizationId = orgIdOf(ctx);
+  const serviceCase = await prisma.serviceCase.findFirst({
+    where: { id: serviceCaseId, organizationId },
+    select: {
+      id: true,
+      caseNumber: true,
+      nextActionAt: true,
+      status: true,
+      archivedAt: true,
+      clientId: true,
+      assignedToId: true,
+      creditCase: { select: { id: true, caseCode: true } },
+      client: {
+        select: { firstName: true, lastName: true, clientCode: true },
+      },
+    },
+  });
+  if (!serviceCase) return null;
+
+  const externalKey = `serviceCase:${serviceCase.id}:nextAction`;
+  if (
+    !serviceCase.nextActionAt ||
+    serviceCase.archivedAt ||
+    serviceCase.status === "COMPLETED" ||
+    serviceCase.status === "CANCELED"
+  ) {
+    return resolveWorkQueueTask(organizationId, externalKey, "COMPLETED");
+  }
+
+  const assignedToId = await resolveTaskAssignee(
+    organizationId,
+    serviceCase.assignedToId ?? actorOf(ctx),
+  );
+  if (!assignedToId) return null;
+
+  const code =
+    serviceCase.creditCase?.caseCode ?? serviceCase.caseNumber;
+  const overdue = serviceCase.nextActionAt.getTime() < Date.now();
+  const title = `Próxima acción · ${code}`;
+  const existing = await prisma.task.findFirst({
+    where: {
+      organizationId,
+      OR: [
+        { externalKey },
+        {
+          serviceCaseId: serviceCase.id,
+          type: "FOLLOW_UP",
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          description: { contains: "nextAction" },
+        },
+      ],
+    },
+  });
+  if (existing) {
+    return prisma.task.update({
+      where: { id: existing.id },
+      data: {
+        externalKey,
+        title,
+        dueAt: serviceCase.nextActionAt,
+        priority: overdue ? "URGENT" : "NORMAL",
+        caseId: serviceCase.creditCase?.id ?? null,
+        description: `Próxima acción del expediente. (nextAction:${serviceCase.id})`,
+      },
+    });
+  }
+
+  return prisma.task.create({
+    data: {
+      organizationId,
+      externalKey,
+      clientId: serviceCase.clientId,
+      caseId: serviceCase.creditCase?.id ?? null,
+      serviceCaseId: serviceCase.id,
+      title,
+      description: `Próxima acción del expediente. (nextAction:${serviceCase.id})`,
+      type: "FOLLOW_UP",
+      priority: overdue ? "URGENT" : "NORMAL",
+      status: "PENDING",
+      dueAt: serviceCase.nextActionAt,
+      assignedToId,
+      createdById: actorOf(ctx),
+    },
+  });
+}
+
+/**
+ * Reconcile de seguridad (cron): materializa señales huérfanas.
+ */
+export async function reconcileWorkQueueTasks(organizationId?: string) {
+  const orgFilter = organizationId ? { organizationId } : {};
+
+  const [payments, opportunities, serviceCases, docs] = await Promise.all([
+    prisma.payment.findMany({
+      where: { ...orgFilter, status: "PENDING" },
+      select: { id: true, organizationId: true },
+      take: 200,
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.opportunity.findMany({
+      where: {
+        ...orgFilter,
+        stage: { notIn: ["WON", "LOST"] },
+        nextFollowUpAt: { not: null },
+      },
+      select: { id: true, organizationId: true },
+      take: 200,
+      orderBy: { updatedAt: "desc" },
+    }),
+    prisma.serviceCase.findMany({
+      where: {
+        ...orgFilter,
+        archivedAt: null,
+        status: { in: ["OPEN", "ON_HOLD"] },
+        nextActionAt: { not: null },
+      },
+      select: { id: true, organizationId: true },
+      take: 200,
+      orderBy: { updatedAt: "desc" },
+    }),
+    ensureDocsPendingTask(organizationId),
+  ]);
+
+  let ensured = 0;
+  for (const p of payments) {
+    const t = await ensureTaskForPayment(p.organizationId, p.id);
+    if (t) ensured += 1;
+  }
+  for (const o of opportunities) {
+    const t = await ensureTaskForOpportunityFollowUp(o.organizationId, o.id);
+    if (t) ensured += 1;
+  }
+  for (const s of serviceCases) {
+    const t = await ensureTaskForServiceNextAction(s.organizationId, s.id);
+    if (t) ensured += 1;
+  }
+
+  return {
+    payments: payments.length,
+    opportunities: opportunities.length,
+    serviceCases: serviceCases.length,
+    docs,
+    ensured,
+  };
 }

@@ -12,19 +12,28 @@ import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
 import { formatDate } from "@/src/lib/format";
 
 /**
- * Cards de buró clickeables: historial desde scoreHistory precargado.
+ * Scores por buró: en compact, fila tipográfica sin cajas (Apple HIG).
+ * Clic abre historial en popover.
  */
 export function BureauScoreInteractive({
   bureaus,
   scoreHistory,
+  compact = false,
 }: {
   bureaus: BureauProgress[];
   scoreHistory: ScoreHistoryPointDto[];
+  compact?: boolean;
 }) {
   const [openBureau, setOpenBureau] = useState<CreditBureau | null>(null);
 
   return (
-    <div className="grid gap-2 sm:grid-cols-3">
+    <div
+      className={
+        compact
+          ? "grid grid-cols-3 gap-2 sm:gap-6"
+          : "grid gap-1.5 sm:grid-cols-3"
+      }
+    >
       {bureaus.map((b) => {
         const history = scoreHistory
           .map((h) => ({
@@ -55,29 +64,43 @@ export function BureauScoreInteractive({
               <button
                 type="button"
                 title={tip}
-                className="w-full rounded-control border border-border-subtle bg-surface-panel/50 px-3 py-2 text-left transition-colors hover:border-action-primary/40"
+                className={
+                  compact
+                    ? "flex min-h-11 w-full flex-col justify-center rounded-control px-1 py-1 text-left transition-colors hover:bg-nav-hover/40 motion-reduce:transition-none"
+                    : "w-full rounded-control border border-border-subtle/50 bg-surface-panel/50 px-3 py-2 text-left transition-colors hover:border-action-primary/30"
+                }
               >
-                <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+                <p
+                  className={`font-medium uppercase tracking-wide text-text-secondary ${
+                    compact ? "text-[10px]" : "text-[10px]"
+                  }`}
+                >
                   {CREDIT_BUREAU_LABELS[b.bureau]}
                 </p>
-                <div className="mt-0.5 flex items-baseline gap-2">
-                  <p className="text-xl font-semibold tabular-nums text-ink">
+                <div className="mt-0.5 flex items-baseline gap-1.5">
+                  <p
+                    className={`font-semibold tabular-nums tracking-[-0.02em] text-ink ${
+                      compact ? "text-xl" : "text-xl"
+                    }`}
+                  >
                     {b.current ?? "—"}
                   </p>
                   <ScoreDelta
                     value={b.deltaFromInitial ?? b.deltaFromPrevious}
                   />
                 </div>
-                <p className="mt-0.5 text-xs text-text-secondary">
-                  Inicial{" "}
-                  <span className="tabular-nums">{b.initial ?? "—"}</span>
-                  {b.reportDate ? (
-                    <>
-                      {" · "}
-                      {formatDate(b.reportDate)}
-                    </>
-                  ) : null}
-                </p>
+                {!compact ? (
+                  <p className="mt-0.5 text-xs text-text-secondary">
+                    Inicial{" "}
+                    <span className="tabular-nums">{b.initial ?? "—"}</span>
+                    {b.reportDate ? (
+                      <>
+                        {" · "}
+                        {formatDate(b.reportDate)}
+                      </>
+                    ) : null}
+                  </p>
+                ) : null}
               </button>
             }
           >

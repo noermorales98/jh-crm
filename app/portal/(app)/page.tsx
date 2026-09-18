@@ -138,7 +138,7 @@ export default async function PortalHomePage() {
           <CardBody>
             <ul className="space-y-4">
               {pendingContracts.map((c) => (
-                <li key={c.id} className="border-b border-border-subtle pb-4 last:border-0 last:pb-0">
+                <li key={c.id} className=" pb-4 last:border-0 last:pb-0">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div>
                       <p className="text-sm font-medium text-ink">{c.title}</p>

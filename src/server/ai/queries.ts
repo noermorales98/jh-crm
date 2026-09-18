@@ -16,10 +16,13 @@ import {
   CASE_STATE_LABELS,
   CLIENT_STATUS_LABELS,
   COMPARISON_RESULT_LABELS,
+  CONSULTATION_STATUS_LABELS,
   CREDIT_BUREAU_LABELS,
   DISPUTE_ITEM_STATUS_LABELS,
   DISPUTE_OUTCOME_LABELS,
+  OPPORTUNITY_STAGE_LABELS,
   PAYMENT_METHOD_LABELS,
+  PAYMENT_PLAN_STATUS_LABELS,
   PAYMENT_STATUS_LABELS,
   QUOTE_STATUS_LABELS,
   RECEIPT_STATUS_LABELS,
@@ -37,7 +40,7 @@ import * as clientService from "@/src/server/clients";
 import * as caseService from "@/src/server/cases";
 import * as serviceCatalog from "@/src/server/services";
 
-const SEARCH_LIMIT = 8;
+const SEARCH_LIMIT = 12;
 const LIST_LIMIT = 50;
 
 export const CRM_LIST_ENTITIES = [
@@ -54,6 +57,42 @@ export type CrmListEntity = (typeof CRM_LIST_ENTITIES)[number];
 
 function contains(q: string) {
   return { contains: q };
+}
+
+/** Variantes de texto para buscar teléfonos (E.164, dígitos, últimos 10). */
+function phoneContainsOr(q: string): Array<{ phone: { contains: string } }> {
+  const digits = q.replace(/\D/g, "");
+  const variants = new Set<string>([q]);
+  if (digits.length >= 3) {
+    variants.add(digits);
+    if (digits.length >= 10) variants.add(digits.slice(-10));
+    if (digits.length >= 7) variants.add(digits.slice(-7));
+  }
+  return [...variants].map((v) => ({ phone: contains(v) }));
+}
+
+function clientTextOr(q: string) {
+  return [
+    { firstName: contains(q) },
+    { lastName: contains(q) },
+    { email: contains(q) },
+    { clientCode: contains(q) },
+    { city: contains(q) },
+    { source: contains(q) },
+    { addressLine1: contains(q) },
+    { serviceRequested: contains(q) },
+    ...phoneContainsOr(q),
+  ];
+}
+
+function clientRelationOr(q: string) {
+  return [
+    { client: { firstName: contains(q) } },
+    { client: { lastName: contains(q) } },
+    { client: { clientCode: contains(q) } },
+    { client: { email: contains(q) } },
+    ...phoneContainsOr(q).map((clause) => ({ client: clause })),
+  ];
 }
 
 function deny(action: string) {
@@ -808,19 +847,26 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
   }
 
   const orgId = ctx.organizationId;
-  const [clients, cases, quotes, payments, tasks, rounds, receipts] =
-    await Promise.all([
+  const [
+    clients,
+    cases,
+    quotes,
+    payments,
+    tasks,
+    rounds,
+    receipts,
+    opportunities,
+    plans,
+    consultations,
+    contracts,
+    testimonials,
+    processors,
+  ] = await Promise.all([
       can(ctx.role, "clients.view")
         ? prisma.client.findMany({
             where: {
               organizationId: orgId,
-              OR: [
-                { firstName: contains(q) },
-                { lastName: contains(q) },
-                { email: contains(q) },
-                { phone: contains(q) },
-                { clientCode: contains(q) },
-              ],
+              OR: clientTextOr(q),
             },
             select: {
               id: true,
@@ -829,6 +875,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               lastName: true,
               email: true,
               phone: true,
+              city: true,
               status: true,
             },
             take: SEARCH_LIMIT,
@@ -842,9 +889,8 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               OR: [
                 { caseCode: contains(q) },
                 { summary: contains(q) },
-                { client: { firstName: contains(q) } },
-                { client: { lastName: contains(q) } },
-                { client: { clientCode: contains(q) } },
+                { stage: { name: contains(q) } },
+                ...clientRelationOr(q),
               ],
             },
             select: {
@@ -854,7 +900,14 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               nextReviewAt: true,
               stage: { select: { name: true } },
               client: {
-                select: { id: true, firstName: true, lastName: true, clientCode: true },
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  clientCode: true,
+                  email: true,
+                  phone: true,
+                },
               },
             },
             take: SEARCH_LIMIT,
@@ -865,12 +918,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
         ? prisma.quote.findMany({
             where: {
               organizationId: orgId,
-              OR: [
-                { folio: contains(q) },
-                { client: { firstName: contains(q) } },
-                { client: { lastName: contains(q) } },
-                { client: { clientCode: contains(q) } },
-              ],
+              OR: [{ folio: contains(q) }, ...clientRelationOr(q)],
             },
             select: {
               id: true,
@@ -890,9 +938,9 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               organizationId: orgId,
               OR: [
                 { reference: contains(q) },
-                { client: { firstName: contains(q) } },
-                { client: { lastName: contains(q) } },
+                { notes: contains(q) },
                 { quote: { folio: contains(q) } },
+                ...clientRelationOr(q),
               ],
             },
             select: {
@@ -916,8 +964,8 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               OR: [
                 { title: contains(q) },
                 { description: contains(q) },
-                { client: { firstName: contains(q) } },
-                { client: { lastName: contains(q) } },
+                { case: { caseCode: contains(q) } },
+                ...clientRelationOr(q),
               ],
             },
             select: {
@@ -942,6 +990,11 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
                 { case: { caseCode: contains(q) } },
                 { case: { client: { firstName: contains(q) } } },
                 { case: { client: { lastName: contains(q) } } },
+                { case: { client: { clientCode: contains(q) } } },
+                { case: { client: { email: contains(q) } } },
+                ...phoneContainsOr(q).map((clause) => ({
+                  case: { client: clause },
+                })),
               ],
             },
             select: {
@@ -965,11 +1018,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
         ? prisma.receipt.findMany({
             where: {
               organizationId: orgId,
-              OR: [
-                { folio: contains(q) },
-                { client: { firstName: contains(q) } },
-                { client: { lastName: contains(q) } },
-              ],
+              OR: [{ folio: contains(q) }, ...clientRelationOr(q)],
             },
             select: {
               id: true,
@@ -981,6 +1030,146 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
             },
             take: SEARCH_LIMIT,
             orderBy: { issuedAt: "desc" },
+          })
+        : Promise.resolve(null),
+      can(ctx.role, "opportunities.view")
+        ? prisma.opportunity.findMany({
+            where: {
+              organizationId: orgId,
+              OR: [
+                { source: contains(q) },
+                { campaign: contains(q) },
+                { lostReason: contains(q) },
+                ...clientRelationOr(q),
+              ],
+            },
+            select: {
+              id: true,
+              stage: true,
+              source: true,
+              campaign: true,
+              nextFollowUpAt: true,
+              client: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  clientCode: true,
+                  email: true,
+                  phone: true,
+                },
+              },
+            },
+            take: SEARCH_LIMIT,
+            orderBy: { updatedAt: "desc" },
+          })
+        : Promise.resolve(null),
+      can(ctx.role, "payments.view")
+        ? prisma.paymentPlan.findMany({
+            where: {
+              organizationId: orgId,
+              OR: [
+                { notes: contains(q) },
+                { quote: { folio: contains(q) } },
+                { case: { caseCode: contains(q) } },
+                ...clientRelationOr(q),
+              ],
+            },
+            select: {
+              id: true,
+              status: true,
+              totalAmount: true,
+              currency: true,
+              numberOfInstallments: true,
+              client: { select: { firstName: true, lastName: true } },
+            },
+            take: SEARCH_LIMIT,
+            orderBy: { updatedAt: "desc" },
+          })
+        : Promise.resolve(null),
+      can(ctx.role, "consultations.view")
+        ? prisma.consultation.findMany({
+            where: {
+              organizationId: orgId,
+              OR: [{ notes: contains(q) }, ...clientRelationOr(q)],
+            },
+            select: {
+              id: true,
+              status: true,
+              amount: true,
+              currency: true,
+              scheduledAt: true,
+              client: { select: { firstName: true, lastName: true, email: true } },
+            },
+            take: SEARCH_LIMIT,
+            orderBy: { requestedAt: "desc" },
+          })
+        : Promise.resolve(null),
+      can(ctx.role, "contracts.view")
+        ? prisma.clientContract.findMany({
+            where: {
+              organizationId: orgId,
+              OR: [
+                { title: contains(q) },
+                { signerName: contains(q) },
+                { version: contains(q) },
+                ...clientRelationOr(q),
+              ],
+            },
+            select: {
+              id: true,
+              title: true,
+              status: true,
+              version: true,
+              signerName: true,
+              client: { select: { firstName: true, lastName: true } },
+            },
+            take: SEARCH_LIMIT,
+            orderBy: { updatedAt: "desc" },
+          })
+        : Promise.resolve(null),
+      can(ctx.role, "testimonials.view")
+        ? prisma.testimonial.findMany({
+            where: {
+              organizationId: orgId,
+              deletedAt: null,
+              OR: [
+                { displayName: contains(q) },
+                { body: contains(q) },
+                ...clientRelationOr(q),
+              ],
+            },
+            select: {
+              id: true,
+              displayName: true,
+              status: true,
+              rating: true,
+              client: { select: { firstName: true, lastName: true } },
+            },
+            take: SEARCH_LIMIT,
+            orderBy: { updatedAt: "desc" },
+          })
+        : Promise.resolve(null),
+      can(ctx.role, "processors.view")
+        ? prisma.creditProcessor.findMany({
+            where: {
+              organizationId: orgId,
+              OR: [
+                { name: contains(q) },
+                { type: contains(q) },
+                { websiteUrl: contains(q) },
+                { instructions: contains(q) },
+              ],
+            },
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              websiteUrl: true,
+              active: true,
+            },
+            take: SEARCH_LIMIT,
+            orderBy: { name: "asc" },
           })
         : Promise.resolve(null),
     ]);
@@ -1034,7 +1223,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       dueAt: row.dueAt,
       client: row.client ? fullName(row.client) : null,
       caseCode: row.case?.caseCode ?? null,
-      href: row.case ? `/crm/casos/${row.case.id}/tareas` : "/crm/tareas",
+      href: `/crm/tareas/${row.id}`,
     })),
     rounds: rounds?.map((row) => ({
       id: row.id,
@@ -1054,6 +1243,61 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       amount: formatMoney(row.amount, row.currency),
       client: fullName(row.client),
       href: "/crm/recibos",
+    })),
+    opportunities: opportunities?.map((row) => ({
+      id: row.id,
+      stage: row.stage,
+      stageLabel: labelFor(OPPORTUNITY_STAGE_LABELS, row.stage),
+      source: row.source,
+      campaign: row.campaign,
+      client: fullName(row.client),
+      clientCode: row.client.clientCode,
+      email: row.client.email,
+      phone: row.client.phone,
+      href: `/crm/clientes/${row.client.id}`,
+    })),
+    plans: plans?.map((row) => ({
+      id: row.id,
+      status: row.status,
+      statusLabel: labelFor(PAYMENT_PLAN_STATUS_LABELS, row.status),
+      total: formatMoney(row.totalAmount, row.currency),
+      installments: row.numberOfInstallments,
+      client: fullName(row.client),
+      href: `/crm/planes-pago/${row.id}`,
+    })),
+    consultations: consultations?.map((row) => ({
+      id: row.id,
+      status: row.status,
+      statusLabel: labelFor(CONSULTATION_STATUS_LABELS, row.status),
+      amount: formatMoney(row.amount, row.currency),
+      client: fullName(row.client),
+      email: row.client.email,
+      href: "/crm/consultas",
+    })),
+    contracts: contracts?.map((row) => ({
+      id: row.id,
+      title: row.title,
+      status: row.status,
+      version: row.version,
+      signerName: row.signerName,
+      client: fullName(row.client),
+      href: "/crm/contratos",
+    })),
+    testimonials: testimonials?.map((row) => ({
+      id: row.id,
+      displayName: row.displayName,
+      status: row.status,
+      rating: row.rating,
+      client: fullName(row.client),
+      href: "/crm/testimonios",
+    })),
+    processors: processors?.map((row) => ({
+      id: row.id,
+      name: row.name,
+      type: row.type,
+      websiteUrl: row.websiteUrl,
+      active: row.active,
+      href: "/crm/procesadores",
     })),
   });
 }

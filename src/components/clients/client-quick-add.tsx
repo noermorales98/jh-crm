@@ -2,17 +2,24 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import {
+  CreditCard,
+  FileText,
+  NotebookPen,
+  Package,
+  Plus,
+  RefreshCcw,
+} from "lucide-react";
 import { Button } from "@/src/components/ui";
 import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
 import { CreateRoundButton } from "@/src/components/rounds/create-round-button";
-import { QuickAddDocumentButton } from "@/src/components/clients/quick-add-document-button";
+import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
 
 type MemberOption = { id: string; name: string };
 
 const itemClass =
-  "block w-full px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover";
+  "flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover";
 
 /**
  * Menú compacto de acciones rápidas en el Resumen del cliente.
@@ -78,7 +85,7 @@ export function ClientQuickAdd({
       {open ? (
         <div
           role="menu"
-          className="absolute right-0 z-40 mt-1 min-w-[12.5rem] overflow-hidden rounded-control border border-border-subtle bg-surface-panel py-1 shadow-md"
+          className="absolute right-0 z-40 mt-1 min-w-[13.5rem] overflow-hidden rounded-control border border-border-subtle bg-surface-panel py-1"
         >
           {canNote ? (
             <Link
@@ -87,15 +94,16 @@ export function ClientQuickAdd({
               className={itemClass}
               onClick={() => setOpen(false)}
             >
-              + Nota / actividad
+              <NotebookPen className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
+              Nota / actividad
             </Link>
           ) : null}
           {canDocument ? (
-            <QuickAddDocumentButton
+            <UploadDocumentButton
               clientId={clientId}
               caseId={caseId}
               menuItem
-              label="+ Documento"
+              label="Documento"
             />
           ) : null}
           {canQuote ? (
@@ -107,7 +115,8 @@ export function ClientQuickAdd({
               className={itemClass}
               onClick={() => setOpen(false)}
             >
-              + Cotización
+              <FileText className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
+              Cotización
             </Link>
           ) : null}
           {canPayment ? (
@@ -119,6 +128,7 @@ export function ClientQuickAdd({
               className={itemClass}
               onClick={() => setOpen(false)}
             >
+              <CreditCard className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
               Registrar pago
             </Link>
           ) : null}
@@ -137,18 +147,24 @@ export function ClientQuickAdd({
           ) : null}
           {canReport && caseId ? (
             <div
-              className="px-2 py-1.5 [&_button]:w-full [&_button]:justify-start"
+              className="flex items-center gap-2 px-2 py-1.5 [&_button]:w-full [&_button]:justify-start"
               onClick={() => setOpen(false)}
             >
-              <CreateCreditReportButton caseId={caseId} />
+              <Package className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <CreateCreditReportButton caseId={caseId} />
+              </div>
             </div>
           ) : null}
           {canRound && caseId ? (
             <div
-              className="px-2 py-1.5 [&_button]:w-full [&_button]:justify-start"
+              className="flex items-center gap-2 px-2 py-1.5 [&_button]:w-full [&_button]:justify-start"
               onClick={() => setOpen(false)}
             >
-              <CreateRoundButton caseId={caseId} />
+              <RefreshCcw className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
+              <div className="min-w-0 flex-1">
+                <CreateRoundButton caseId={caseId} />
+              </div>
             </div>
           ) : null}
         </div>

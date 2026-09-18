@@ -5,6 +5,8 @@
 
 export const CRM_ROUTES = [
   { href: "/crm/dashboard", label: "Inicio", how: "Resumen operativo: clientes activos, casos abiertos, tareas y pagos." },
+  { href: "/crm/tareas", label: "Pendientes", how: "Tareas con vencimiento y asignación. También se crean desde el caso o el cliente." },
+  { href: "/crm/oportunidades", label: "Leads", how: "Pipeline comercial de oportunidades. Seguimiento y conversión a cliente/caso." },
   { href: "/crm/clientes", label: "Clientes", how: "Lista y filtros de clientes. Alta en /crm/clientes/nuevo." },
   { href: "/crm/clientes/nuevo", label: "Nuevo cliente", how: "Formulario de alta: nombre, contacto, dirección, fuente y responsable. Los datos sensibles se capturan después en el expediente." },
   { href: "/crm/clientes/{id}", label: "Ficha de cliente", how: "Resumen del cliente. Pestañas: expediente, casos y actividad." },
@@ -23,8 +25,9 @@ export const CRM_ROUTES = [
   { href: "/crm/rondas", label: "Rondas", how: "Rondas de disputa ligadas a un caso. Crear desde /crm/casos/{id}/rondas." },
   { href: "/crm/consultas", label: "Consultas", how: "Consultas de $1 desde el sitio (REQUESTED). No marcar PAID sin pasarela." },
   { href: "/crm/contratos", label: "Contratos", how: "Plantillas y contratos de cliente; firma desde el portal." },
+  { href: "/crm/testimonios", label: "Testimonios", how: "Reseñas de clientes con consentimiento." },
+  { href: "/crm/procesadores", label: "Procesadores", how: "Monitores y afiliados de crédito (Credit Karma, etc.)." },
   { href: "/portal", label: "Portal del cliente", how: "Acceso del cliente (FEATURE_CLIENT_PORTAL). Progreso, documentos, pagos." },
-  { href: "/crm/tareas", label: "Tareas", how: "Tareas con vencimiento y asignación. También se crean desde el caso o el cliente." },
   { href: "/crm/servicios", label: "Servicios", how: "Catálogo de servicios. Paquetes en /crm/servicios/paquetes." },
   { href: "/crm/servicios/paquetes", label: "Paquetes", how: "Paquetes armados a partir de servicios del catálogo." },
   { href: "/crm/cotizaciones", label: "Cotizaciones", how: "Lista de cotizaciones. Nueva en /crm/cotizaciones/nueva." },
@@ -32,6 +35,7 @@ export const CRM_ROUTES = [
   { href: "/crm/cotizaciones/{id}", label: "Detalle de cotización", how: "Ítems, totales, envío y PDF." },
   { href: "/crm/pagos", label: "Pagos", how: "Pagos pendientes y recibidos. Registrar en /crm/pagos/nuevo." },
   { href: "/crm/pagos/nuevo", label: "Registrar pago", how: "Cliente, cotización opcional, monto, método (Zelle, Stripe, efectivo, transferencia)." },
+  { href: "/crm/planes-pago", label: "Cuotas", how: "Planes de pago e installments por cliente." },
   { href: "/crm/recibos", label: "Recibos", how: "Recibos emitidos al confirmar un pago. Se pueden anular (admin)." },
   { href: "/crm/chats", label: "Chats", how: "Historial de conversaciones con el asistente. Crear un chat nuevo o continuar uno reciente." },
   { href: "/crm/mails", label: "Correos", how: "Bandeja de la organización: ver, enviar, archivar, traducir al español y eliminar correos. Redactar en /crm/mails/nuevo. cron-job.org llama /api/cron/mails-sync cada minuto para IMAP y avisos." },

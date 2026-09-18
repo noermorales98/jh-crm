@@ -10,7 +10,7 @@ import { isStorageConfigured } from "@/src/lib/storage/s3";
 import { Alert, Card, CardBody, CardHeader, StatusPill } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
 import { RoundActions } from "@/src/components/rounds/round-actions";
-import { DocumentUploader } from "@/src/components/documents/document-uploader";
+import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
 import { DocumentTable } from "@/src/components/documents/document-table";
 
 export async function RoundDetailPanel({ roundId }: { roundId: string }) {
@@ -123,7 +123,7 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
         <CardBody className="space-y-3 px-4 py-3">
           {storageReady ? (
             canUpload ? (
-              <DocumentUploader
+              <UploadDocumentButton
                 clientId={round.case.client.id}
                 caseId={round.case.id}
                 roundId={round.id}

@@ -63,7 +63,7 @@ const MAIL_FOLDERS: readonly {
 const MAIL_HREF = "/crm/mails?folder=inbox";
 
 const linkClass = (active: boolean, extra = "") =>
-  `flex min-h-11 lg:min-h-10 items-center gap-3 rounded-control px-3 py-2 text-[14px] font-medium tracking-[-0.01em] transition-colors duration-200 motion-reduce:transition-none ${
+  `flex min-h-11 lg:min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-[14px] font-medium tracking-[-0.01em] transition-[color,background-color,box-shadow] duration-200 motion-reduce:transition-none ${
     active
       ? "bg-nav-active text-action-primary"
       : "text-ink hover:bg-nav-hover"

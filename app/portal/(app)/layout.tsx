@@ -45,7 +45,7 @@ export default async function PortalAppLayout({
 
   return (
     <div className="min-h-screen bg-surface-app">
-      <header className="sticky top-0 z-sticky border-b border-border-subtle bg-surface-elevated pt-[env(safe-area-inset-top)]">
+      <header className="sticky top-0 z-sticky  bg-surface-elevated pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
             <AppIcon size="sm" />

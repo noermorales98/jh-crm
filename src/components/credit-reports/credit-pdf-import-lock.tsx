@@ -19,7 +19,8 @@ import {
 import { Button } from "@/src/components/ui";
 
 const STORAGE_KEY = "jh.creditPdfImport.lock";
-const DISMISSED_READY_KEY = "jh.creditPdfImport.dismissedReady";
+/** Persistente entre sesiones: un “Análisis listo” aceptado/cerrado no debe volver. */
+const DISMISSED_READY_KEY = "jh.creditPdfImport.dismissedReady.v1";
 
 type LockState = {
   jobId: string;
@@ -32,6 +33,7 @@ type Ctx = {
   lock: LockState | null;
   engageLock: (lock: LockState) => void;
   releaseLock: () => void;
+  dismissReadyChip: (jobId: string) => void;
   isLocked: boolean;
 };
 
@@ -59,7 +61,9 @@ function readStored(): LockState | null {
 
 function readDismissedReady(): Set<string> {
   try {
-    const raw = sessionStorage.getItem(DISMISSED_READY_KEY);
+    const raw =
+      localStorage.getItem(DISMISSED_READY_KEY) ??
+      sessionStorage.getItem(DISMISSED_READY_KEY);
     if (!raw) return new Set();
     const arr = JSON.parse(raw) as string[];
     return new Set(Array.isArray(arr) ? arr : []);
@@ -70,10 +74,10 @@ function readDismissedReady(): Set<string> {
 
 function writeDismissedReady(ids: Set<string>) {
   try {
-    sessionStorage.setItem(
-      DISMISSED_READY_KEY,
-      JSON.stringify([...ids].slice(-40)),
-    );
+    const payload = JSON.stringify([...ids].slice(-80));
+    localStorage.setItem(DISMISSED_READY_KEY, payload);
+    // Limpia el almacenamiento de sesión antiguo (no persistía al reabrir).
+    sessionStorage.removeItem(DISMISSED_READY_KEY);
   } catch {
     /* ignore */
   }
@@ -273,9 +277,10 @@ export function CreditPdfImportLockProvider({
       lock,
       engageLock,
       releaseLock,
+      dismissReadyChip,
       isLocked: Boolean(lock),
     }),
-    [lock, engageLock, releaseLock],
+    [lock, engageLock, releaseLock, dismissReadyChip],
   );
 
   const runningChip = chipJobs.find(
@@ -292,7 +297,7 @@ export function CreditPdfImportLockProvider({
       {(runningChip || readyChip) && (
         <div className="pointer-events-none fixed bottom-20 right-4 z-[80] flex max-w-sm flex-col gap-2 sm:bottom-6">
           {runningChip ? (
-            <div className="pointer-events-auto rounded-xl bg-ink px-4 py-3 text-sm text-white shadow-lg ring-1 ring-white/10">
+            <div className="pointer-events-auto rounded-xl bg-ink px-4 py-3 text-sm text-white ring-1 ring-white/10">
               <p className="font-semibold">Analizando PDF…</p>
               <p className="mt-0.5 text-xs text-white/80">
                 {runningChip.fileName ?? "reporte.pdf"} · {runningChip.progress}
@@ -313,7 +318,7 @@ export function CreditPdfImportLockProvider({
             </div>
           ) : null}
           {readyChip && !runningChip ? (
-            <div className="pointer-events-auto relative rounded-xl bg-surface-elevated px-4 py-3 pr-10 text-sm text-ink shadow-lg ring-1 ring-border-subtle">
+            <div className="pointer-events-auto relative rounded-xl bg-surface-elevated px-4 py-3 pr-10 text-sm text-ink ring-1 ring-border-subtle">
               <button
                 type="button"
                 className="absolute right-2 top-2 rounded-md p-1 text-text-secondary hover:bg-nav-hover hover:text-ink"
@@ -348,7 +353,7 @@ export function CreditPdfImportLockProvider({
           aria-modal="true"
           aria-labelledby="pdf-lock-title"
         >
-          <div className="w-full max-w-md rounded-xl bg-surface-elevated p-5 shadow-xl ring-1 ring-border-subtle">
+          <div className="w-full max-w-md rounded-xl bg-surface-elevated p-5 ring-1 ring-border-subtle">
             <h2 id="pdf-lock-title" className="text-lg font-semibold text-ink">
               No puedes salir ahora
             </h2>

@@ -14,7 +14,7 @@ export const contactFormSchema = z.object({
   phone: z
     .string()
     .trim()
-    .regex(/^[\d\s()+.-]{7,20}$/, "Teléfono inválido."),
+    .regex(/^\+?[\d\s()+.-]{8,22}$/, "Teléfono inválido."),
   message: z
     .string()
     .trim()

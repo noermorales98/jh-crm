@@ -101,7 +101,7 @@ export function Modal({
             className={
               fullscreen
                 ? "flex h-10 shrink-0 items-center justify-between gap-3 border-b border-black/8 px-3"
-                : "flex shrink-0 items-start justify-between gap-4 border-b border-border-subtle px-5 py-4"
+                : "flex shrink-0 items-start justify-between gap-4  px-5 py-4"
             }
           >
             <div className="min-w-0">

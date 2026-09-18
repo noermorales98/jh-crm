@@ -58,10 +58,6 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
               <dd>{task.reminderAt ? formatDate(task.reminderAt) : "—"}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-text-secondary">Responsable</dt>
-              <dd>{task.assignedTo?.name ?? "Sin asignar"}</dd>
-            </div>
-            <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Cliente</dt>
               <dd>
                 {task.client ? (
@@ -84,7 +80,9 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
                     href={`/crm/casos/${task.case.id}`}
                     className="text-action-primary hover:text-action-secondary"
                   >
-                    {task.case.caseCode}
+                    {task.case.summary?.trim() ||
+                      task.case.stage?.name ||
+                      "Sin descripción"}
                   </Link>
                 ) : (
                   "—"

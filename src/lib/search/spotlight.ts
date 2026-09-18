@@ -7,6 +7,7 @@ export type SpotlightKind =
   | "page"
   | "setting"
   | "client"
+  | "opportunity"
   | "case"
   | "round"
   | "task"
@@ -14,7 +15,12 @@ export type SpotlightKind =
   | "package"
   | "quote"
   | "payment"
+  | "plan"
   | "receipt"
+  | "consultation"
+  | "contract"
+  | "testimonial"
+  | "processor"
   | "mail"
   | "user";
 
@@ -32,6 +38,7 @@ export const SPOTLIGHT_GROUP_ORDER: SpotlightKind[] = [
   "page",
   "setting",
   "client",
+  "opportunity",
   "case",
   "round",
   "task",
@@ -39,7 +46,12 @@ export const SPOTLIGHT_GROUP_ORDER: SpotlightKind[] = [
   "package",
   "quote",
   "payment",
+  "plan",
   "receipt",
+  "consultation",
+  "contract",
+  "testimonial",
+  "processor",
   "mail",
   "user",
 ];
@@ -49,6 +61,7 @@ export const SPOTLIGHT_GROUP_LABEL: Record<SpotlightKind, string> = {
   page: "Páginas",
   setting: "Configuración",
   client: "Clientes",
+  opportunity: "Leads",
   case: "Casos",
   round: "Rondas",
   task: "Tareas",
@@ -56,7 +69,12 @@ export const SPOTLIGHT_GROUP_LABEL: Record<SpotlightKind, string> = {
   package: "Paquetes",
   quote: "Cotizaciones",
   payment: "Pagos",
+  plan: "Cuotas",
   receipt: "Recibos",
+  consultation: "Consultas",
+  contract: "Contratos",
+  testimonial: "Testimonios",
+  processor: "Procesadores",
   mail: "Correos",
   user: "Usuarios",
 };
@@ -82,12 +100,30 @@ const CATALOG: CatalogEntry[] = [
     permission: "dashboard.view",
   },
   {
+    id: "page-tareas",
+    kind: "page",
+    title: "Pendientes",
+    subtitle: "Tareas y seguimiento",
+    href: "/crm/tareas",
+    aliases: ["tareas", "to-do", "pendientes", "todo"],
+    permission: "tasks.view",
+  },
+  {
+    id: "page-oportunidades",
+    kind: "page",
+    title: "Leads",
+    subtitle: "Oportunidades y seguimiento comercial",
+    href: "/crm/oportunidades",
+    aliases: ["leads", "oportunidades", "pipeline comercial", "prospectos"],
+    permission: "opportunities.view",
+  },
+  {
     id: "page-clientes",
     kind: "page",
     title: "Clientes",
     subtitle: "Lista y fichas",
     href: "/crm/clientes",
-    aliases: ["clientes", "prospectos", "leads", "contactos"],
+    aliases: ["clientes", "contactos", "fichas"],
     permission: "clients.view",
   },
   {
@@ -114,17 +150,17 @@ const CATALOG: CatalogEntry[] = [
     title: "Rondas",
     subtitle: "Disputas y revisiones",
     href: "/crm/rondas",
-    aliases: ["rondas", "disputas", "cartas"],
+    aliases: ["rondas", "disputas", "cartas", "revisiones"],
     permission: "rounds.view",
   },
   {
-    id: "page-tareas",
+    id: "page-consultas",
     kind: "page",
-    title: "Tareas",
-    subtitle: "Pendientes y seguimiento",
-    href: "/crm/tareas",
-    aliases: ["tareas", "to-do", "pendientes"],
-    permission: "tasks.view",
+    title: "Consultas",
+    subtitle: "Solicitudes de consulta del sitio",
+    href: "/crm/consultas",
+    aliases: ["consultas", "consulta", "agenda"],
+    permission: "consultations.view",
   },
   {
     id: "page-servicios",
@@ -148,18 +184,18 @@ const CATALOG: CatalogEntry[] = [
     id: "page-cotizaciones",
     kind: "page",
     title: "Cotizaciones",
-    subtitle: "Cuotas y presupuestos",
+    subtitle: "Presupuestos",
     href: "/crm/cotizaciones",
-    aliases: ["cotizaciones", "cuotas", "quotes", "presupuestos"],
+    aliases: ["cotizaciones", "quotes", "presupuestos"],
     permission: "quotes.view",
   },
   {
     id: "page-cotizacion-nueva",
     kind: "page",
     title: "Nueva cotización",
-    subtitle: "Crear cuota",
+    subtitle: "Crear presupuesto",
     href: "/crm/cotizaciones/nueva",
-    aliases: ["nueva cotizacion", "nueva cuota"],
+    aliases: ["nueva cotizacion", "nueva cuota", "crear cotizacion"],
     permission: "quotes.manage",
   },
   {
@@ -168,7 +204,7 @@ const CATALOG: CatalogEntry[] = [
     title: "Pagos",
     subtitle: "Pendientes y recibidos",
     href: "/crm/pagos",
-    aliases: ["pagos", "cobros", "zelle", "stripe"],
+    aliases: ["pagos", "cobros", "cobrar", "zelle", "stripe"],
     permission: "payments.view",
   },
   {
@@ -177,8 +213,17 @@ const CATALOG: CatalogEntry[] = [
     title: "Registrar pago",
     subtitle: "Nuevo cobro",
     href: "/crm/pagos/nuevo",
-    aliases: ["registrar pago", "nuevo pago"],
+    aliases: ["registrar pago", "nuevo pago", "nuevo cobro"],
     permission: "payments.register",
+  },
+  {
+    id: "page-planes-pago",
+    kind: "page",
+    title: "Cuotas",
+    subtitle: "Planes de pago e installments",
+    href: "/crm/planes-pago",
+    aliases: ["cuotas", "planes", "planes de pago", "installments", "parcialidades"],
+    permission: "payments.view",
   },
   {
     id: "page-recibos",
@@ -186,7 +231,7 @@ const CATALOG: CatalogEntry[] = [
     title: "Recibos",
     subtitle: "Folios emitidos",
     href: "/crm/recibos",
-    aliases: ["recibos", "folios"],
+    aliases: ["recibos", "folios", "comprobantes"],
     permission: "receipts.view",
   },
   {
@@ -202,8 +247,8 @@ const CATALOG: CatalogEntry[] = [
     kind: "page",
     title: "Correos",
     subtitle: "Bandeja de la organización",
-    href: "/crm/mails",
-    aliases: ["correos", "mails", "inbox", "bandeja"],
+    href: "/crm/mails?folder=inbox",
+    aliases: ["correos", "mails", "inbox", "bandeja", "mensajes"],
     permission: "mails.view",
   },
   {
@@ -212,8 +257,35 @@ const CATALOG: CatalogEntry[] = [
     title: "Redactar correo",
     subtitle: "Nuevo mensaje",
     href: "/crm/mails/nuevo",
-    aliases: ["redactar", "enviar correo"],
+    aliases: ["redactar", "enviar correo", "nuevo correo"],
     permission: "mails.manage",
+  },
+  {
+    id: "page-testimonios",
+    kind: "page",
+    title: "Testimonios",
+    subtitle: "Reseñas de clientes",
+    href: "/crm/testimonios",
+    aliases: ["testimonios", "reseñas", "reviews"],
+    permission: "testimonials.view",
+  },
+  {
+    id: "page-contratos",
+    kind: "page",
+    title: "Contratos",
+    subtitle: "Plantillas y firmas",
+    href: "/crm/contratos",
+    aliases: ["contratos", "firmas", "acuerdos"],
+    permission: "contracts.view",
+  },
+  {
+    id: "page-procesadores",
+    kind: "page",
+    title: "Procesadores",
+    subtitle: "Monitores y afiliados de crédito",
+    href: "/crm/procesadores",
+    aliases: ["procesadores", "monitores", "afiliados", "credit monitor"],
+    permission: "processors.view",
   },
   {
     id: "page-usuarios",
@@ -350,7 +422,7 @@ export function buildAiHit(raw: string): SpotlightHit {
 export function mergeSpotlightHits(
   groups: SpotlightHit[][],
   query: string,
-  limit = 22,
+  limit = 40,
 ): SpotlightHit[] {
   const seen = new Set<string>();
   const merged = groups
@@ -370,11 +442,12 @@ export function mergeSpotlightHits(
 
   const ai = buildAiHit(query);
   const withoutAi = merged.filter((hit) => hit.kind !== "ai");
-  const picked = withoutAi.slice(0, limit - 1);
-  if (isAiIntent(query) || query.trim().length > 0) {
-    return [ai, ...picked];
+  // Sin query: muestra todo el catálogo (páginas + settings) + IA al final.
+  if (!query.trim()) {
+    return [...withoutAi, ai];
   }
-  return [...picked, ai].slice(0, limit);
+  const picked = withoutAi.slice(0, limit - 1);
+  return [ai, ...picked];
 }
 
 export function groupSpotlightHits(hits: SpotlightHit[]): {

@@ -186,28 +186,13 @@ export function CreateLeadButton({
               placeholder="Credit Repair, Home Buyer…"
             />
           </Field>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Responsable" htmlFor="lead-owner">
-              <Select
-                id="lead-owner"
-                value={ownerId}
-                onChange={(e) => setOwnerId(e.target.value)}
-              >
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-            <Field label="Seguimiento" htmlFor="lead-followup">
-              <DateInput
-                id="lead-followup"
-                value={nextFollowUpAt}
-                onChange={(e) => setNextFollowUpAt(e.target.value)}
-              />
-            </Field>
-          </div>
+          <Field label="Seguimiento" htmlFor="lead-followup">
+            <DateInput
+              id="lead-followup"
+              value={nextFollowUpAt}
+              onChange={(e) => setNextFollowUpAt(e.target.value)}
+            />
+          </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Valor estimado (USD)" htmlFor="lead-value">
               <Input

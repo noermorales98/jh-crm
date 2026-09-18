@@ -324,7 +324,79 @@ function hitsFromSearchCrm(result: unknown, scoreBase = 70): SpotlightHit[] {
       score: scoreBase - 4,
     });
   }
-  return hits.slice(0, 18);
+  for (const row of (crm.opportunities as Array<Record<string, unknown>> | undefined) ?? []) {
+    hits.push({
+      id: `opportunity-${String(row.id)}`,
+      kind: "opportunity",
+      title: String(row.client ?? ""),
+      subtitle: [row.stageLabel, row.source, row.email, row.phone]
+        .filter(Boolean)
+        .map(String)
+        .join(" · "),
+      href: typeof row.href === "string" ? row.href : undefined,
+      score: scoreBase - 1,
+    });
+  }
+  for (const row of (crm.plans as Array<Record<string, unknown>> | undefined) ?? []) {
+    hits.push({
+      id: `plan-${String(row.id)}`,
+      kind: "plan",
+      title: `Plan · ${String(row.client ?? "")}`,
+      subtitle: [row.total, row.statusLabel].filter(Boolean).map(String).join(" · "),
+      href: typeof row.href === "string" ? row.href : undefined,
+      score: scoreBase - 3,
+    });
+  }
+  for (const row of (crm.consultations as Array<Record<string, unknown>> | undefined) ?? []) {
+    hits.push({
+      id: `consultation-${String(row.id)}`,
+      kind: "consultation",
+      title: String(row.client ?? ""),
+      subtitle: [row.statusLabel, row.amount, row.email]
+        .filter(Boolean)
+        .map(String)
+        .join(" · "),
+      href: typeof row.href === "string" ? row.href : undefined,
+      score: scoreBase - 3,
+    });
+  }
+  for (const row of (crm.contracts as Array<Record<string, unknown>> | undefined) ?? []) {
+    hits.push({
+      id: `contract-${String(row.id)}`,
+      kind: "contract",
+      title: String(row.title ?? ""),
+      subtitle: [row.client, row.signerName, row.status]
+        .filter(Boolean)
+        .map(String)
+        .join(" · "),
+      href: typeof row.href === "string" ? row.href : undefined,
+      score: scoreBase - 3,
+    });
+  }
+  for (const row of (crm.testimonials as Array<Record<string, unknown>> | undefined) ?? []) {
+    hits.push({
+      id: `testimonial-${String(row.id)}`,
+      kind: "testimonial",
+      title: String(row.displayName ?? ""),
+      subtitle: [row.client, row.status].filter(Boolean).map(String).join(" · "),
+      href: typeof row.href === "string" ? row.href : undefined,
+      score: scoreBase - 4,
+    });
+  }
+  for (const row of (crm.processors as Array<Record<string, unknown>> | undefined) ?? []) {
+    hits.push({
+      id: `processor-${String(row.id)}`,
+      kind: "processor",
+      title: String(row.name ?? ""),
+      subtitle: [row.type, row.active ? "Activo" : "Inactivo"]
+        .filter(Boolean)
+        .map(String)
+        .join(" · "),
+      href: typeof row.href === "string" ? row.href : undefined,
+      score: scoreBase - 4,
+    });
+  }
+  return hits.slice(0, 28);
 }
 
 function hitsFromListCrm(result: unknown, entity: CrmListEntity): SpotlightHit[] {

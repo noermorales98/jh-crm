@@ -204,20 +204,6 @@ export function ClientForm({
             maxLength={100}
           />
         </Field>
-        <Field label="Responsable" htmlFor="assignedToId">
-          <Select
-            id="assignedToId"
-            value={values.assignedToId}
-            onChange={(e) => set("assignedToId", e.target.value)}
-          >
-            <option value="">Sin asignar</option>
-            {members.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
         {mode === "edit" ? (
           <Field label="Estado del cliente" htmlFor="status">
             <Select

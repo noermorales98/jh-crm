@@ -121,14 +121,21 @@ export async function updateCaseAmounts(
 export async function moveCaseToStage(
   caseId: string,
   stageId: string,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<{ id: string; suggestedTaskId?: string | null }>> {
   try {
     const ctx = await requirePermission("cases.manage");
     const id = cuidSchema.parse(caseId);
     const stage = cuidSchema.parse(stageId);
     const creditCase = await caseService.moveCaseToStage(ctx, id, stage);
     revalidateCases(creditCase.clientId, creditCase.id);
-    return actionOk({ id: creditCase.id });
+    revalidatePath("/crm/tareas");
+    if (creditCase.suggestedTaskId) {
+      revalidatePath(`/crm/tareas/${creditCase.suggestedTaskId}`);
+    }
+    return actionOk({
+      id: creditCase.id,
+      suggestedTaskId: creditCase.suggestedTaskId ?? null,
+    });
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

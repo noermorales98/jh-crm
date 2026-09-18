@@ -367,6 +367,16 @@ export async function confirmCreditPdfImport(
     },
   });
 
+  // Marca jobs SUCCEEDED de este PDF como confirmados → deja de mostrar “Análisis listo”.
+  await prisma.creditPdfImportJob.updateMany({
+    where: {
+      organizationId: ctx.organizationId,
+      documentId: document.id,
+      status: "SUCCEEDED",
+    },
+    data: { phase: "confirmed" },
+  });
+
   return {
     reportId: report.id,
     caseId: creditCase.id,

@@ -208,6 +208,95 @@ export async function resolveAssigneeForOrg(
   return resolveAssigneeId(explicit, await findSoleActiveUserId(organizationId));
 }
 
+/** El usuario cambia su propio nombre de visualización. */
+export async function updateOwnName(
+  ctx: OrganizationContext,
+  data: { name: string },
+) {
+  const name = data.name.trim();
+  if (!name) throw new DomainError("El nombre es obligatorio.");
+  if (name.length > 100) {
+    throw new DomainError("El nombre no puede superar 100 caracteres.");
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: ctx.userId },
+    select: { id: true, name: true },
+  });
+  if (!user) throw new DomainError("Usuario no encontrado.");
+
+  if (user.name === name) {
+    throw new DomainError("Ese ya es tu nombre actual.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id: user.id },
+      data: { name },
+      select: { id: true, name: true },
+    });
+    await writeAuditLog(
+      toAuditContext(ctx),
+      {
+        action: "MEMBER_NAME_CHANGED",
+        entityType: "User",
+        entityId: user.id,
+        metadata: { from: user.name, to: name, self: true },
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
+/** OWNER/ADMIN cambia el nombre de un miembro (incluido admin/owner). */
+export async function updateMemberName(
+  ctx: OrganizationContext,
+  userId: string,
+  data: { name: string },
+) {
+  if (ctx.role !== "OWNER" && ctx.role !== "ADMIN") {
+    throw new DomainError("No tienes permiso para cambiar el nombre de otro usuario.");
+  }
+  const member = await getMemberOrThrow(ctx, userId);
+  if (!member.user.isActive) {
+    throw new DomainError("El usuario está desactivado.");
+  }
+
+  const name = data.name.trim();
+  if (!name) throw new DomainError("El nombre es obligatorio.");
+  if (name.length > 100) {
+    throw new DomainError("El nombre no puede superar 100 caracteres.");
+  }
+  if (member.user.name === name) {
+    throw new DomainError("Ese ya es el nombre actual del miembro.");
+  }
+
+  return prisma.$transaction(async (tx) => {
+    const updated = await tx.user.update({
+      where: { id: userId },
+      data: { name },
+      select: { id: true, name: true },
+    });
+    await writeAuditLog(
+      toAuditContext(ctx),
+      {
+        action: "MEMBER_NAME_CHANGED",
+        entityType: "User",
+        entityId: userId,
+        metadata: {
+          from: member.user.name,
+          to: name,
+          self: userId === ctx.userId,
+          targetUserId: userId,
+        },
+      },
+      tx,
+    );
+    return updated;
+  });
+}
+
 /** El usuario cambia su propio correo de login (requiere contraseña actual). */
 export async function updateOwnEmail(
   ctx: OrganizationContext,

@@ -149,20 +149,6 @@ export function CreateCaseButton({
                 </Select>
               </Field>
             ) : null}
-            <Field label="Responsable" htmlFor="case-assignee">
-              <Select
-                id="case-assignee"
-                value={assignedToId}
-                onChange={(e) => setAssignedToId(e.target.value)}
-              >
-                <option value="">Sin asignar</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
             <Field label="Próxima acción" htmlFor="case-next-action">
               <DateInput
                 id="case-next-action"

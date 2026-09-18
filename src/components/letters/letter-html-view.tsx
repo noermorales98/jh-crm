@@ -51,7 +51,7 @@ export function LetterHtmlView({
       </div>
 
       <article className="rounded-control border border-border-subtle bg-surface-panel px-8 py-10">
-        <header className="border-b border-border-subtle pb-6">
+        <header className=" pb-6">
           <p className="text-lg font-semibold text-ink">{organizationName}</p>
           {organizationContact ? (
             <p className="mt-1 text-sm text-text-secondary">{organizationContact}</p>

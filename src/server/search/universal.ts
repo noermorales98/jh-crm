@@ -42,7 +42,7 @@ async function browseCategoryHits(
 
   const jobs: Promise<void>[] = [];
 
-  if (can(ctx.role, "clients.view") && looksLike(q, "cliente", "clientes", "prospecto", "prospectos", "lead")) {
+  if (can(ctx.role, "clients.view") && looksLike(q, "cliente", "clientes", "prospecto", "prospectos", "contacto", "contactos")) {
     jobs.push(
       prisma.client
         .findMany({
@@ -53,6 +53,7 @@ async function browseCategoryHits(
             firstName: true,
             lastName: true,
             email: true,
+            phone: true,
             status: true,
           },
           take: 5,
@@ -64,10 +65,57 @@ async function browseCategoryHits(
               id: `client-${row.id}`,
               kind: "client",
               title: fullName(row),
-              subtitle: [row.clientCode, labelFor(CLIENT_STATUS_LABELS, row.status), row.email]
+              subtitle: [
+                row.clientCode,
+                labelFor(CLIENT_STATUS_LABELS, row.status),
+                row.email,
+                row.phone,
+              ]
                 .filter(Boolean)
                 .join(" · "),
               href: `/crm/clientes/${row.id}`,
+              score,
+            });
+          }
+        }),
+    );
+  }
+
+  if (
+    can(ctx.role, "opportunities.view") &&
+    looksLike(q, "lead", "leads", "oportunidad", "oportunidades")
+  ) {
+    jobs.push(
+      prisma.opportunity
+        .findMany({
+          where: { organizationId: orgId },
+          select: {
+            id: true,
+            stage: true,
+            source: true,
+            client: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                phone: true,
+              },
+            },
+          },
+          take: 5,
+          orderBy: { updatedAt: "desc" },
+        })
+        .then((rows) => {
+          for (const row of rows) {
+            hits.push({
+              id: `opportunity-${row.id}`,
+              kind: "opportunity",
+              title: fullName(row.client),
+              subtitle: [row.stage, row.source, row.client.email, row.client.phone]
+                .filter(Boolean)
+                .join(" · "),
+              href: `/crm/clientes/${row.client.id}`,
               score,
             });
           }
@@ -212,6 +260,7 @@ type SearchCrmOk = {
     clientCode: string;
     statusLabel: string;
     email: string | null;
+    phone: string | null;
     href: string;
   }>;
   cases?: Array<{
@@ -258,6 +307,53 @@ type SearchCrmOk = {
     statusLabel: string;
     amount: string;
     client: string;
+    href: string;
+  }>;
+  opportunities?: Array<{
+    id: string;
+    client: string;
+    stageLabel: string;
+    source: string | null;
+    email: string | null;
+    phone: string | null;
+    href: string;
+  }>;
+  plans?: Array<{
+    id: string;
+    client: string;
+    total: string;
+    statusLabel: string;
+    installments: number;
+    href: string;
+  }>;
+  consultations?: Array<{
+    id: string;
+    client: string;
+    statusLabel: string;
+    amount: string;
+    email: string | null;
+    href: string;
+  }>;
+  contracts?: Array<{
+    id: string;
+    title: string;
+    client: string;
+    status: string;
+    signerName: string | null;
+    href: string;
+  }>;
+  testimonials?: Array<{
+    id: string;
+    displayName: string;
+    client: string;
+    status: string;
+    href: string;
+  }>;
+  processors?: Array<{
+    id: string;
+    name: string;
+    type: string;
+    active: boolean;
     href: string;
   }>;
 };
@@ -360,9 +456,36 @@ export async function universalSearch(
         id: `client-${row.id}`,
         kind: "client",
         title: row.name,
-        subtitle: [row.clientCode, row.statusLabel, row.email].filter(Boolean).join(" · "),
+        subtitle: [row.clientCode, row.statusLabel, row.email, row.phone]
+          .filter(Boolean)
+          .join(" · "),
         href: row.href,
-        score: scoreText(q, row.name, row.clientCode, row.email ?? ""),
+        score: scoreText(
+          q,
+          row.name,
+          row.clientCode,
+          row.email ?? "",
+          row.phone ?? "",
+        ),
+      });
+    }
+    for (const row of crm.opportunities ?? []) {
+      recordHits.push({
+        id: `opportunity-${row.id}`,
+        kind: "opportunity",
+        title: row.client,
+        subtitle: [row.stageLabel, row.source, row.email, row.phone]
+          .filter(Boolean)
+          .join(" · "),
+        href: row.href,
+        score: scoreText(
+          q,
+          row.client,
+          row.stageLabel,
+          row.source ?? "",
+          row.email ?? "",
+          row.phone ?? "",
+        ),
       });
     }
     for (const row of crm.cases ?? []) {
@@ -415,6 +538,22 @@ export async function universalSearch(
         score: scoreText(q, row.client, row.amount, row.statusLabel),
       });
     }
+    for (const row of crm.plans ?? []) {
+      recordHits.push({
+        id: `plan-${row.id}`,
+        kind: "plan",
+        title: `Plan · ${row.client}`,
+        subtitle: [
+          row.total,
+          `${row.installments} cuotas`,
+          row.statusLabel,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        href: row.href,
+        score: scoreText(q, row.client, row.total, row.statusLabel),
+      });
+    }
     for (const row of crm.receipts ?? []) {
       recordHits.push({
         id: `receipt-${row.id}`,
@@ -423,6 +562,46 @@ export async function universalSearch(
         subtitle: [row.client, row.amount, row.statusLabel].filter(Boolean).join(" · "),
         href: row.href,
         score: scoreText(q, row.folio, row.client),
+      });
+    }
+    for (const row of crm.consultations ?? []) {
+      recordHits.push({
+        id: `consultation-${row.id}`,
+        kind: "consultation",
+        title: row.client,
+        subtitle: [row.statusLabel, row.amount, row.email].filter(Boolean).join(" · "),
+        href: row.href,
+        score: scoreText(q, row.client, row.email ?? "", row.statusLabel),
+      });
+    }
+    for (const row of crm.contracts ?? []) {
+      recordHits.push({
+        id: `contract-${row.id}`,
+        kind: "contract",
+        title: row.title,
+        subtitle: [row.client, row.signerName, row.status].filter(Boolean).join(" · "),
+        href: row.href,
+        score: scoreText(q, row.title, row.client, row.signerName ?? ""),
+      });
+    }
+    for (const row of crm.testimonials ?? []) {
+      recordHits.push({
+        id: `testimonial-${row.id}`,
+        kind: "testimonial",
+        title: row.displayName,
+        subtitle: [row.client, row.status].filter(Boolean).join(" · "),
+        href: row.href,
+        score: scoreText(q, row.displayName, row.client),
+      });
+    }
+    for (const row of crm.processors ?? []) {
+      recordHits.push({
+        id: `processor-${row.id}`,
+        kind: "processor",
+        title: row.name,
+        subtitle: [row.type, row.active ? "Activo" : "Inactivo"].join(" · "),
+        href: row.href,
+        score: scoreText(q, row.name, row.type),
       });
     }
   }

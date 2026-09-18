@@ -44,6 +44,8 @@ const AUDIT_ACTION_LABELS: Record<string, string> = {
   MEMBER_INVITED: "Miembro invitado",
   MEMBER_ROLE_CHANGED: "Rol de miembro cambiado",
   MEMBER_DEACTIVATED: "Miembro desactivado",
+  MEMBER_EMAIL_CHANGED: "Correo de miembro cambiado",
+  MEMBER_NAME_CHANGED: "Nombre de miembro cambiado",
   INTAKE_SUBMITTED: "Formulario enviado",
   CONTRACT_CREATED: "Contrato creado",
 };

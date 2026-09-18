@@ -210,7 +210,7 @@ export function MoreNavPanel({
         onClick={onClose}
       />
       <div
-        className="jh-overlay-shadow relative z-10 flex max-h-[min(36rem,85dvh)] w-full max-w-2xl flex-col overflow-hidden rounded-[22px] bg-surface-elevated"
+        className="jh-overlay-shadow relative z-10 flex max-h-[min(92dvh,56rem)] w-full max-w-5xl flex-col overflow-hidden rounded-[22px] bg-surface-elevated"
         role="dialog"
         aria-modal="true"
         aria-labelledby="more-nav-title"
@@ -236,24 +236,13 @@ export function MoreNavPanel({
           className="flex-1 overflow-y-auto px-4 pb-5 sm:px-5 sm:pb-6"
           aria-label="Más"
         >
-          <div className="grid gap-5 sm:grid-cols-2 sm:gap-6">
-            {MORE_NAV_GROUPS.map((group, index) => (
-              <div
-                key={group.label}
-                className={`${
-                  index > 0
-                    ? "max-sm:border-t max-sm:border-border-subtle/60 max-sm:pt-5"
-                    : ""
-                } ${
-                  index > 1
-                    ? "sm:border-t sm:border-border-subtle/60 sm:pt-5"
-                    : ""
-                }`}
-              >
-                <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-text-secondary">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
+            {MORE_NAV_GROUPS.map((group) => (
+              <div key={group.label}>
+                <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-text-secondary">
                   {group.label}
                 </p>
-                <ul className="space-y-1">
+                <ul className="space-y-0.5">
                   {group.items.map(({ href, label, description, icon: Icon }) => {
                     const active =
                       pathname === href || pathname.startsWith(`${href}/`);
@@ -263,28 +252,28 @@ export function MoreNavPanel({
                           href={href}
                           onClick={onClose}
                           aria-current={active ? "page" : undefined}
-                          className={`flex min-h-12 items-start gap-3 rounded-surface px-3 py-2 text-[15px] tracking-[-0.01em] transition-colors ${
+                          className={`flex min-h-11 items-start gap-2.5 rounded-surface px-2.5 py-1.5 text-[14px] tracking-[-0.01em] transition-colors ${
                             active
                               ? "bg-nav-active font-semibold text-action-primary"
                               : "font-medium text-ink hover:bg-nav-hover"
                           }`}
                         >
                           <span
-                            className={`mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-control ${
+                            className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-control ${
                               active
                                 ? "bg-action-primary text-action-primary-foreground"
                                 : "bg-nav-hover text-text-secondary-strong"
                             }`}
                           >
                             <Icon
-                              className="size-[18px]"
+                              className="size-4"
                               strokeWidth={1.75}
                               aria-hidden
                             />
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="block leading-snug">{label}</span>
-                            <span className="mt-0.5 block text-[11px] font-normal leading-snug text-text-secondary">
+                            <span className="mt-0.5 line-clamp-1 block text-[10px] font-normal leading-snug text-text-secondary">
                               {description}
                             </span>
                           </span>

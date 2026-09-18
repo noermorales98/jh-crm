@@ -8,7 +8,6 @@ import * as clientService from "@/src/server/clients";
 import {
   clientFullName,
   firstParam,
-  listMemberOptions,
   parseEnumParam,
   type SearchParams,
 } from "@/src/server/page-helpers";
@@ -77,10 +76,12 @@ export default async function ClientsPage({
   const assignedToId = firstParam(sp, "assignedTo");
   const cursor = firstParam(sp, "cursor");
 
-  const [result, members] = await Promise.all([
-    clientService.listClients(ctx, { q, status, assignedToId, cursor }),
-    listMemberOptions(ctx),
-  ]);
+  const result = await clientService.listClients(ctx, {
+    q,
+    status,
+    assignedToId,
+    cursor,
+  });
 
   const now = Date.now();
 
@@ -116,11 +117,6 @@ export default async function ClientsPage({
                 label: CLIENT_STATUS_LABELS[s],
               }))}
             />
-            <FilterSelect
-              name="assignedTo"
-              label="Responsable"
-              options={members.map((m) => ({ value: m.id, label: m.name }))}
-            />
           </FilterBar>
         }
       />
@@ -154,7 +150,6 @@ export default async function ClientsPage({
                 <TH>Nombre</TH>
                 <TH>Contacto</TH>
                 <TH>Origen</TH>
-                <TH>Responsable</TH>
                 <TH>Servicios activos</TH>
                 <TH>Próxima acción</TH>
                 <TH>Estado</TH>
@@ -206,11 +201,6 @@ export default async function ClientsPage({
                         </span>
                       ) : (
                         <span className="text-text-secondary">—</span>
-                      )}
-                    </TD>
-                    <TD className="whitespace-nowrap">
-                      {client.assignedTo?.name ?? (
-                        <span className="text-text-secondary">Sin asignar</span>
                       )}
                     </TD>
                     <TD>

@@ -6,6 +6,11 @@ import {
   invalidateContactChallenge,
   loadContactChallenge,
 } from "./contact-challenge";
+import {
+  composeInternationalPhone,
+  DEFAULT_PHONE_DIAL_CODE,
+  PHONE_DIAL_OPTIONS,
+} from "@/src/lib/phone-dial";
 
 type Challenge = { token: string };
 
@@ -83,13 +88,18 @@ function answerFromToken(token: string): string | null {
   return String(a + b);
 }
 
-function readDraft(form: HTMLFormElement, variant: "hero" | "full"): Draft {
+function readDraft(
+  form: HTMLFormElement,
+  variant: "hero" | "full",
+  dialCode: string,
+): Draft {
   const fields = new FormData(form);
   const rawMessage = String(fields.get("message") ?? "").trim();
+  const national = String(fields.get("phoneNational") ?? "").trim();
   return {
     name: String(fields.get("name") ?? "").trim(),
     email: String(fields.get("email") ?? "").trim(),
-    phone: String(fields.get("phone") ?? "").trim(),
+    phone: composeInternationalPhone(dialCode, national),
     message:
       variant === "hero"
         ? rawMessage.length >= 10
@@ -107,7 +117,10 @@ function validateDraft(draft: Draft, variant: "hero" | "full"): string | null {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(draft.email)) {
     return "Ingresa un correo electrónico válido.";
   }
-  if (!/^[\d\s()+.-]{7,20}$/.test(draft.phone)) return "Teléfono inválido.";
+  const compact = draft.phone.replace(/[\s()-]/g, "");
+  if (!/^\+\d{8,18}$/.test(compact)) {
+    return "Teléfono inválido.";
+  }
   if (variant === "full" && draft.message.length < 10) {
     return "Cuéntanos un poco más (mínimo 10 caracteres).";
   }
@@ -132,6 +145,7 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
   const [fieldInvalid, setFieldInvalid] = useState(false);
   const [attribution, setAttribution] =
     useState<AttributionFields>(emptyAttribution);
+  const [dialCode, setDialCode] = useState(DEFAULT_PHONE_DIAL_CODE);
 
   const loadChallenge = useCallback(async (opts?: { fresh?: boolean }) => {
     if (opts?.fresh) invalidateContactChallenge();
@@ -161,7 +175,7 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
   function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!challenge || status === "sending" || status === "confirm") return;
-    const draft = readDraft(event.currentTarget, variant);
+    const draft = readDraft(event.currentTarget, variant, dialCode);
     const invalid = validateDraft(draft, variant);
     if (invalid) {
       setStatus("error");
@@ -178,7 +192,7 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
     const form = formRef.current;
     if (!form || !challenge || sendingRef.current) return;
     sendingRef.current = true;
-    const draft = readDraft(form, variant);
+    const draft = readDraft(form, variant, dialCode);
     const invalid = validateDraft(draft, variant);
     const answer = answerFromToken(challenge.token);
     if (invalid || !answer) {
@@ -208,6 +222,7 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
       }
       setStatus("ok");
       form.reset();
+      setDialCode(DEFAULT_PHONE_DIAL_CODE);
       await loadChallenge({ fresh: true });
     } catch (err) {
       setStatus("error");
@@ -347,21 +362,49 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
               aria-describedby={error ? errorId : undefined}
             />
           </label>
-          <label htmlFor={`${uid}-phone`}>
-            <span className="field-label">Teléfono</span>
-            <input
-              id={`${uid}-phone`}
-              name="phone"
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              required
-              maxLength={20}
-              placeholder="(872) 555-0123"
-              aria-invalid={fieldInvalid}
-              aria-describedby={error ? errorId : undefined}
-            />
-          </label>
+          <div className="phone-field">
+            <span className="field-label" id={`${uid}-phone-label`}>
+              Teléfono
+            </span>
+            <div
+              className="phone-field-row"
+              role="group"
+              aria-labelledby={`${uid}-phone-label`}
+            >
+              <label className="phone-dial-label" htmlFor={`${uid}-dial`}>
+                <span className="sr-only">Código de país</span>
+                <select
+                  id={`${uid}-dial`}
+                  name="phoneDial"
+                  value={dialCode}
+                  onChange={(e) => setDialCode(e.target.value)}
+                  aria-invalid={fieldInvalid}
+                  aria-describedby={error ? errorId : undefined}
+                >
+                  {PHONE_DIAL_OPTIONS.map((opt) => (
+                    <option key={opt.code} value={opt.code}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="phone-national-label" htmlFor={`${uid}-phone`}>
+                <span className="sr-only">Número</span>
+                <input
+                  id={`${uid}-phone`}
+                  name="phoneNational"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel-national"
+                  required
+                  maxLength={20}
+                  placeholder="(872) 555-0123"
+                  aria-invalid={fieldInvalid}
+                  aria-describedby={error ? errorId : undefined}
+                />
+              </label>
+            </div>
+          </div>
 
           {isHero ? null : (
             <label htmlFor={`${uid}-message`}>

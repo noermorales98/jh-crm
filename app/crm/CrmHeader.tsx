@@ -210,6 +210,8 @@ export function CrmHeader({
   const label = override.title ?? title;
 
   const showTitle = Boolean(backHref || override.blobatarName);
+  // En un chat de IA el input de buscar confunde con el del asistente.
+  const hideSpotlight = /^\/crm\/chats\/[^/]+/.test(pathname);
 
   return (
     <header className="jh-toolbar sticky top-0 z-sticky flex h-14 items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top)] lg:h-16 lg:px-6">
@@ -240,7 +242,11 @@ export function CrmHeader({
           {label}
         </p>
       </div>
-      <SpotlightSearch role={role} />
+      {hideSpotlight ? (
+        <div className="min-w-0 flex-1" aria-hidden />
+      ) : (
+        <SpotlightSearch role={role} />
+      )}
       <div className="flex shrink-0 items-center gap-1">{children}</div>
     </header>
   );

@@ -22,6 +22,7 @@ import { useCuelumeMute } from "@/src/components/cuelume/cuelume-provider";
 import { useTheme } from "@/src/components/theme/theme-provider";
 import { THEME_OPTIONS } from "@/src/components/theme/theme";
 import { ChangeEmailDialog } from "@/src/components/users/change-email-dialog";
+import { ChangeNameDialog } from "@/src/components/users/change-name-dialog";
 import { useOverlayCoords } from "./use-overlay-coords";
 
 /**
@@ -180,7 +181,13 @@ export function UserMenu({
             {roleLabel ? (
               <p className="mt-0.5 text-xs text-text-secondary">{roleLabel}</p>
             ) : null}
-            <div className="mt-2">
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+              <ChangeNameDialog
+                mode="own"
+                currentName={name}
+                triggerClassName="text-xs font-medium text-action-primary hover:underline"
+                triggerLabel="Cambiar nombre"
+              />
               <ChangeEmailDialog
                 mode="own"
                 currentEmail={email}
@@ -215,7 +222,7 @@ export function UserMenu({
                     onClick={() => setTheme(option.value)}
                     className={`flex min-h-8 items-center justify-center gap-1 rounded-[8px] px-1.5 text-[13px] font-medium transition-colors duration-200 motion-reduce:transition-none ${
                       selected
-                        ? "bg-surface-elevated text-ink shadow-sm"
+                        ? "bg-surface-elevated text-ink"
                         : "text-text-secondary hover:text-ink"
                     }`}
                   >

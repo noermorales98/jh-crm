@@ -79,7 +79,8 @@ export function CreditPdfImportProgressClient({
   initialJob: JobView;
 }) {
   const router = useRouter();
-  const { engageLock, releaseLock, isLocked } = useCreditPdfImportLock();
+  const { engageLock, releaseLock, dismissReadyChip, isLocked } =
+    useCreditPdfImportLock();
   const [job, setJob] = useState(initialJob);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -214,6 +215,7 @@ export function CreditPdfImportProgressClient({
         return;
       }
       playActionResult(true);
+      dismissReadyChip(jobId);
       releaseLock();
       router.push(
         `/crm/casos/${caseId}/credito/reportes/${result.data.reportId}`,

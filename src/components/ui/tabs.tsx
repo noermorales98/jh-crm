@@ -39,8 +39,8 @@ export function Tabs({
   }
 
   return (
-    <nav aria-label="Secciones" className="mb-6 border-b border-border-subtle">
-      <div className="-mb-px flex gap-1 overflow-x-auto">
+    <nav aria-label="Secciones" className="mb-6">
+      <div className="flex gap-1 overflow-x-auto p-0.5">
         {items.map((item) => {
           const active = item.href === activeHref;
           return (
@@ -49,10 +49,10 @@ export function Tabs({
               href={item.href}
               aria-current={active ? "page" : undefined}
               data-cuelume-hover="tick"
-              className={`whitespace-nowrap border-b-2 px-3 py-2.5 text-sm min-h-11 inline-flex items-center transition-colors duration-200 motion-reduce:transition-none ${
+              className={`inline-flex min-h-11 items-center whitespace-nowrap rounded-full px-3.5 py-2 text-sm transition-[color,background-color,box-shadow] duration-200 motion-reduce:transition-none ${
                 active
-                  ? "border-action-primary font-semibold text-action-primary"
-                  : "border-transparent font-medium text-text-secondary hover:border-border-subtle hover:text-ink"
+                  ? "bg-surface-elevated font-semibold text-ink"
+                  : "font-medium text-text-secondary hover:bg-nav-hover hover:text-ink"
               }`}
             >
               {item.label}

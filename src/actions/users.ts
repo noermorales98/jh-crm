@@ -119,3 +119,47 @@ export async function changeMemberEmail(
     return actionFail(error);
   }
 }
+
+const changeOwnNameSchema = z.object({
+  name: z.string().trim().min(1, "El nombre es obligatorio.").max(100),
+});
+
+/** Cualquier miembro activo cambia su propio nombre. */
+export async function changeOwnName(
+  input: unknown,
+): Promise<ActionResult<{ name: string }>> {
+  try {
+    const ctx = await requireOrganization();
+    const data = changeOwnNameSchema.parse(input);
+    const user = await userService.updateOwnName(ctx, data);
+    revalidatePath("/crm", "layout");
+    revalidatePath("/crm/usuarios");
+    return actionOk({ name: user.name ?? data.name });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+const changeMemberNameSchema = z.object({
+  name: z.string().trim().min(1, "El nombre es obligatorio.").max(100),
+});
+
+/** OWNER/ADMIN cambia el nombre de un miembro. */
+export async function changeMemberName(
+  userId: string,
+  input: unknown,
+): Promise<ActionResult<{ name: string }>> {
+  try {
+    const ctx = await requireRole("OWNER", "ADMIN");
+    const id = cuidSchema.parse(userId);
+    const data = changeMemberNameSchema.parse(input);
+    const user = await userService.updateMemberName(ctx, id, data);
+    revalidatePath("/crm", "layout");
+    revalidatePath("/crm/usuarios");
+    return actionOk({ name: user.name ?? data.name });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}

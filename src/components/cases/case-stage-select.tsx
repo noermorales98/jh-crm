@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/src/components/ui";
 import { moveCaseToStage } from "@/src/actions/cases";
@@ -24,6 +25,7 @@ export function CaseStageSelect({
   const router = useRouter();
   const [value, setValue] = useState(currentStageId);
   const [error, setError] = useState<string | null>(null);
+  const [suggestedHref, setSuggestedHref] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export function CaseStageSelect({
             const previous = value;
             setValue(next);
             setError(null);
+            setSuggestedHref(null);
             startTransition(async () => {
               const result = await moveCaseToStage(caseId, next);
               if (!result.ok) {
@@ -60,6 +63,9 @@ export function CaseStageSelect({
                 return;
               }
               playActionResult(true);
+              if (result.data.suggestedTaskId) {
+                setSuggestedHref(`/crm/tareas/${result.data.suggestedTaskId}`);
+              }
               router.refresh();
             });
           }}
@@ -78,6 +84,19 @@ export function CaseStageSelect({
       {error ? (
         <div className="mt-2">
           <Alert tone="error">{error}</Alert>
+        </div>
+      ) : null}
+      {suggestedHref ? (
+        <div className="mt-2">
+          <Alert tone="success">
+            Siguiente paso sugerido.{" "}
+            <Link
+              href={suggestedHref}
+              className="font-medium underline underline-offset-2"
+            >
+              Abrir tarea
+            </Link>
+          </Alert>
         </div>
       ) : null}
     </div>

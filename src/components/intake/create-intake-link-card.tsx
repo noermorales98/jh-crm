@@ -146,7 +146,7 @@ export function CreateIntakeLinkCard({
         type="button"
         variant="primary"
         size="sm"
-        className={compact ? "w-full border border-transparent shadow-sm" : ""}
+        className={compact ? "w-full border border-transparent" : ""}
         onClick={create}
         disabled={pending}
       >

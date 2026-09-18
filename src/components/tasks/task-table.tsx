@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { ClipboardList } from "lucide-react";
 import {
   EmptyState,
+  Pill,
   StatusPill,
   Table,
   TBody,
@@ -29,8 +30,44 @@ export interface TaskRow {
     firstName: string;
     lastName: string | null;
   } | null;
-  case: { id: string; caseCode: string } | null;
-  assignedTo: { id: string; name: string | null } | null;
+  case: {
+    id: string;
+    caseCode: string;
+    summary?: string | null;
+    stage?: { id: string; name: string } | null;
+  } | null;
+  assignedTo?: { id: string; name: string | null } | null;
+}
+
+
+function workBadge(task: TaskRow): { label: string; tone: "red" | "amber" | "slate" | "green" } | null {
+  const now = new Date();
+  const due = task.dueAt ? new Date(task.dueAt) : null;
+  const overdue =
+    due != null &&
+    due.getTime() < now.getTime() &&
+    (task.status === "PENDING" || task.status === "IN_PROGRESS");
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+  const end = new Date(start);
+  end.setDate(end.getDate() + 1);
+  const today =
+    due != null && due.getTime() >= start.getTime() && due.getTime() < end.getTime();
+
+  if (overdue) return { label: "Urgente", tone: "red" };
+  if (task.type === "REQUEST_PAYMENT") return { label: "Cobrar", tone: "amber" };
+  if (task.type === "REQUEST_DOCUMENT") return { label: "Docs", tone: "amber" };
+  if (task.title.startsWith("Contactar")) return { label: "Lead", tone: "amber" };
+  if (task.title.startsWith("Próxima acción")) return { label: "Próxima", tone: "slate" };
+  if (today) return { label: "Hoy", tone: "amber" };
+  return null;
+}
+
+function caseLabel(c: NonNullable<TaskRow["case"]>) {
+  const summary = c.summary?.trim();
+  if (summary) return summary;
+  if (c.stage?.name) return c.stage.name;
+  return "Sin descripción";
 }
 
 /**
@@ -43,12 +80,14 @@ export function TaskTable({
   members,
   canManage,
   showLinks = true,
+  showWorkBadges = false,
   emptyAction,
 }: {
   tasks: TaskRow[];
   members: { id: string; name: string }[];
   canManage: boolean;
   showLinks?: boolean;
+  showWorkBadges?: boolean;
   emptyAction?: ReactNode;
 }) {
   if (tasks.length === 0) {
@@ -72,7 +111,6 @@ export function TaskTable({
           <TH>Tipo</TH>
           <TH>Prioridad</TH>
           {showLinks ? <TH>Cliente / Caso</TH> : null}
-          <TH>Responsable</TH>
           <TH>Vencimiento</TH>
           <TH>Estado</TH>
           {canManage ? <TH className="text-right">Acciones</TH> : null}
@@ -88,16 +126,24 @@ export function TaskTable({
           return (
             <TR key={task.id}>
               <TD className="max-w-72">
-                <Link
-                  href={`/crm/tareas/${task.id}`}
-                  className={`block truncate font-medium hover:underline ${
-                    task.status === "COMPLETED"
-                      ? "text-text-secondary line-through"
-                      : "text-ink"
-                  }`}
-                >
-                  {task.title}
-                </Link>
+                <div className="flex min-w-0 items-center gap-2">
+                  <Link
+                    href={`/crm/tareas/${task.id}`}
+                    className={`min-w-0 flex-1 truncate font-medium hover:underline ${
+                      task.status === "COMPLETED"
+                        ? "text-text-secondary line-through"
+                        : "text-ink"
+                    }`}
+                  >
+                    {task.title}
+                  </Link>
+                  {showWorkBadges
+                    ? (() => {
+                        const badge = workBadge(task);
+                        return badge ? <Pill tone={badge.tone}>{badge.label}</Pill> : null;
+                      })()
+                    : null}
+                </div>
               </TD>
               <TD className="whitespace-nowrap">
                 {labelFor(TASK_TYPE_LABELS, task.type)}
@@ -106,7 +152,7 @@ export function TaskTable({
                 <StatusPill domain="taskPriority" value={task.priority} />
               </TD>
               {showLinks ? (
-                <TD className="whitespace-nowrap">
+                <TD className="max-w-56">
                   <div className="text-xs">
                     {task.client ? (
                       <Link
@@ -121,19 +167,15 @@ export function TaskTable({
                     {task.case ? (
                       <Link
                         href={`/crm/casos/${task.case.id}`}
-                        className="block text-text-secondary hover:text-ink"
+                        className="block truncate text-text-secondary hover:text-ink"
+                        title={caseLabel(task.case)}
                       >
-                        {task.case.caseCode}
+                        {caseLabel(task.case)}
                       </Link>
                     ) : null}
                   </div>
                 </TD>
               ) : null}
-              <TD className="whitespace-nowrap">
-                {task.assignedTo?.name ?? (
-                  <span className="text-text-secondary">Sin asignar</span>
-                )}
-              </TD>
               <TD
                 className={`whitespace-nowrap ${overdue ? "font-medium text-danger-ink" : "text-text-secondary"}`}
               >

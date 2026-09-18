@@ -70,7 +70,7 @@ export function CreditScoreChart({
         onPointClick={(ev) => setSelectedIdx(ev.index)}
       />
       {hover ? (
-        <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[14rem] rounded-control border border-border-subtle bg-surface-elevated px-2 py-1.5 text-[11px] shadow-md">
+        <div className="pointer-events-none absolute left-2 top-2 z-10 max-w-[14rem] rounded-control border border-border-subtle bg-surface-elevated px-2 py-1.5 text-[11px]">
           <p className="font-semibold text-ink">
             {CREDIT_BUREAU_LABELS[hover.bureau]}
           </p>

@@ -148,6 +148,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.currentOrganizationId = user.currentOrganizationId ?? null;
         token.role = user.role ?? null;
         token.sessionVersion = user.sessionVersion;
+        token.name = user.name;
         if (user.portalAudience === "portal") {
           token.portalAudience = "portal";
           token.portalAccessId = user.portalAccessId ?? user.id;
@@ -192,6 +193,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
       token.currentOrganizationId = state.currentOrganizationId;
       token.role = state.role;
+      token.name = state.name;
       if (token.userId && !token.sub) token.sub = String(token.userId);
       return token;
     },
@@ -200,6 +202,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return { ...session, user: { ...session.user, id: "", email: "" } };
       }
       session.user.id = token.userId;
+      session.user.name =
+        typeof token.name === "string" ? token.name : (session.user.name ?? null);
       session.user.currentOrganizationId = token.currentOrganizationId ?? null;
       session.user.role = token.role ?? null;
       if (token.portalAudience === "portal") {

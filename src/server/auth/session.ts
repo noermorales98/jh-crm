@@ -3,6 +3,7 @@ import type { Role } from "@prisma/client";
 
 export type AuthTokenState = {
   userId: string;
+  name: string | null;
   currentOrganizationId: string | null;
   role: Role | null;
   sessionVersion: number;
@@ -18,6 +19,7 @@ export async function loadAuthTokenState(
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: {
+      name: true,
       isActive: true,
       sessionVersion: true,
       memberships: {
@@ -31,6 +33,7 @@ export async function loadAuthTokenState(
   const membership = user.memberships[0] ?? null;
   return {
     userId,
+    name: user.name,
     currentOrganizationId: membership?.organizationId ?? null,
     role: membership?.role ?? null,
     sessionVersion: user.sessionVersion,

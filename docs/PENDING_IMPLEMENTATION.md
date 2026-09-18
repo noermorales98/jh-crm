@@ -2,7 +2,11 @@
 
 Actualizado 2026-09-17 (checklist UX CRM).
 
-## Checklist UX
+## Checklist UX Fondify / Huthy
+
+Ver **[UX_FONDIFY_HUTHY_CHECKLIST.md](./UX_FONDIFY_HUTHY_CHECKLIST.md)** y **[UX_STATE_INTELLIGENCE.md](./UX_STATE_INTELLIGENCE.md)**.
+
+## Checklist UX (2026-09-17)
 
 Completado — ver **[UX_IMPROVEMENTS_2026-09-17.md](./UX_IMPROVEMENTS_2026-09-17.md)** (8 pasos).
 

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Tarjeta base: superficie limpia, borde muy sutil. */
+/** Tarjeta base: superficie plana con borde sutil. */
 export function Card({
   className = "",
   children,
@@ -10,7 +10,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`overflow-hidden rounded-surface border border-border-subtle bg-surface-elevated ${className}`}
+      className={`overflow-hidden rounded-surface border border-border-subtle/35 bg-surface-elevated ${className}`}
     >
       {children}
     </div>
@@ -31,7 +31,7 @@ export function CardHeader({
 }) {
   return (
     <div
-      className={`flex flex-wrap items-start justify-between gap-3 border-b border-border-subtle ${
+      className={`flex flex-wrap items-start justify-between gap-3  ${
         compact ? "px-4 py-2.5" : "px-5 py-3.5"
       }`}
     >

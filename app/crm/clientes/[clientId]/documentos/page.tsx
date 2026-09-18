@@ -7,7 +7,7 @@ import * as documentService from "@/src/server/documents";
 import { isStorageConfigured } from "@/src/lib/storage/s3";
 import { DomainError } from "@/src/server/errors";
 import { Alert, Card, CardBody, CardHeader } from "@/src/components/ui";
-import { DocumentUploader } from "@/src/components/documents/document-uploader";
+import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
 import { DocumentTable } from "@/src/components/documents/document-table";
 import { ClientHeader } from "../client-header";
 
@@ -51,7 +51,7 @@ export default async function ClientDocumentsPage({
         <CardBody className="space-y-3 px-4 py-3">
           {storageReady ? (
             canUpload ? (
-              <DocumentUploader clientId={client.id} />
+              <UploadDocumentButton clientId={client.id} />
             ) : (
               <Alert tone="info">
                 Tu rol es de solo lectura: no puedes subir documentos.

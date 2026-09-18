@@ -36,7 +36,17 @@ export function MailActions({
   ) {
     const result = await action(mailId);
     if (!result.ok) return result.error;
-    router.push(nextFolder ? `/crm/mails?folder=${nextFolder}` : "/crm/mails");
+    if (nextFolder) {
+      router.push(`/crm/mails?folder=${nextFolder}`);
+    } else {
+      router.push("/crm/mails");
+    }
+    router.refresh();
+  }
+
+  async function softDeleteStay() {
+    const result = await trashMail(mailId);
+    if (!result.ok) return result.error;
     router.refresh();
   }
 
@@ -165,7 +175,7 @@ export function MailActions({
           onConfirm={() =>
             folder === "DRAFTS"
               ? run(deleteMailPermanently)
-              : run(trashMail, "trash")
+              : softDeleteStay()
           }
         />
       ) : null}

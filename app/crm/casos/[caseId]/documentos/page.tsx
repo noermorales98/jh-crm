@@ -7,7 +7,7 @@ import * as documentService from "@/src/server/documents";
 import { isStorageConfigured } from "@/src/lib/storage/s3";
 import { DomainError } from "@/src/server/errors";
 import { Alert, Card, CardBody, CardHeader, Pill } from "@/src/components/ui";
-import { DocumentUploader } from "@/src/components/documents/document-uploader";
+import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
 import { DocumentTable } from "@/src/components/documents/document-table";
 import { getCaseDocumentChecklist } from "@/src/server/documents/checklist";
 import { DOCUMENT_CATEGORY_LABELS, labelFor } from "@/src/lib/labels";
@@ -99,7 +99,7 @@ export default async function CaseDocumentsPage({
         <CardBody className="space-y-3 px-4 py-3">
           {storageReady ? (
             canUpload ? (
-              <DocumentUploader clientId={creditCase.client.id} caseId={creditCase.id} />
+              <UploadDocumentButton clientId={creditCase.client.id} caseId={creditCase.id} />
             ) : (
               <Alert tone="info">
                 Tu rol es de solo lectura: no puedes subir documentos.

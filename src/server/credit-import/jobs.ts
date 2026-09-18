@@ -345,6 +345,8 @@ export async function listActiveCreditPdfImportJobs(
         { status: { in: ["QUEUED", "RUNNING"] } },
         {
           status: "SUCCEEDED",
+          // Tras confirmar la propuesta, phase = "confirmed" → ya no avisar.
+          NOT: { phase: "confirmed" },
           finishedAt: { gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
         },
         {

@@ -12,6 +12,7 @@ import { deactivateUser, updateMemberRole } from "@/src/actions/users";
 import { playActionResult } from "@/src/lib/cuelume";
 import { ROLE_LABELS } from "./invite-user-button";
 import { ChangeEmailDialog } from "./change-email-dialog";
+import { ChangeNameDialog } from "./change-name-dialog";
 
 const ALL_ROLES = ["OWNER", "ADMIN", "SPECIALIST", "STAFF", "VIEWER"];
 
@@ -83,20 +84,36 @@ export function MemberRowActions({
           </Button>
         ) : null}
         {isActive ? (
-          isSelf ? (
-            <ChangeEmailDialog
-              mode="own"
-              currentEmail={email}
-              triggerClassName="inline-flex h-8 items-center rounded-control px-2 text-sm font-medium text-action-primary hover:bg-nav-hover"
-            />
-          ) : (
-            <ChangeEmailDialog
-              mode="member"
-              userId={userId}
-              currentEmail={email}
-              triggerClassName="inline-flex h-8 items-center rounded-control px-2 text-sm font-medium text-action-primary hover:bg-nav-hover"
-            />
-          )
+          <>
+            {isSelf ? (
+              <ChangeNameDialog
+                mode="own"
+                currentName={name}
+                triggerClassName="inline-flex h-8 items-center rounded-control px-2 text-sm font-medium text-action-primary hover:bg-nav-hover"
+              />
+            ) : (
+              <ChangeNameDialog
+                mode="member"
+                userId={userId}
+                currentName={name}
+                triggerClassName="inline-flex h-8 items-center rounded-control px-2 text-sm font-medium text-action-primary hover:bg-nav-hover"
+              />
+            )}
+            {isSelf ? (
+              <ChangeEmailDialog
+                mode="own"
+                currentEmail={email}
+                triggerClassName="inline-flex h-8 items-center rounded-control px-2 text-sm font-medium text-action-primary hover:bg-nav-hover"
+              />
+            ) : (
+              <ChangeEmailDialog
+                mode="member"
+                userId={userId}
+                currentEmail={email}
+                triggerClassName="inline-flex h-8 items-center rounded-control px-2 text-sm font-medium text-action-primary hover:bg-nav-hover"
+              />
+            )}
+          </>
         ) : null}
         {isActive && !isSelf ? (
           <ConfirmDialog

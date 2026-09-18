@@ -6,7 +6,6 @@ import {
   Alert,
   Button,
   Field,
-  Select,
   Textarea,
 } from "@/src/components/ui";
 import { updateCreditCase } from "@/src/actions/cases";
@@ -57,20 +56,6 @@ export function CaseSummaryForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {error ? <Alert tone="error">{error}</Alert> : null}
       {success ? <Alert tone="success">Cambios guardados.</Alert> : null}
-      <Field label="Responsable" htmlFor="case-assigned">
-        <Select
-          id="case-assigned"
-          value={assignedToId}
-          onChange={(e) => setAssignedToId(e.target.value)}
-        >
-          <option value="">Sin asignar</option>
-          {members.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.name}
-            </option>
-          ))}
-        </Select>
-      </Field>
       <Field label="Resumen del caso" htmlFor="case-summary-edit">
         <Textarea
           id="case-summary-edit"

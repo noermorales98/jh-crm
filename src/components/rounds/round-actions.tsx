@@ -11,7 +11,6 @@ import {
   DateInput,
   Field,
   Modal,
-  Select,
 } from "@/src/components/ui";
 import {
   cancelRound,
@@ -141,22 +140,6 @@ export function RoundActions({
             />
             Crear tarea de revisión para esa fecha
           </label>
-          {createReviewTask ? (
-            <Field label="Responsable de la tarea" htmlFor="review-assignee" hint="Si no eliges, se asigna al responsable del caso.">
-              <Select
-                id="review-assignee"
-                value={assignedToId}
-                onChange={(e) => setAssignedToId(e.target.value)}
-              >
-                <option value="">Responsable del caso</option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : null}
           <div className="flex justify-end gap-2">
             <Button
               variant="secondary"

@@ -162,23 +162,6 @@ export function CreateTaskButton({
                 onChange={(e) => setReminderAt(e.target.value)}
               />
             </Field>
-            <Field label="Responsable" htmlFor="task-assignee" required>
-              <Select
-                id="task-assignee"
-                value={assignedToId}
-                onChange={(e) => setAssignedToId(e.target.value)}
-                required
-              >
-                <option value="" disabled>
-                  Selecciona…
-                </option>
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </Select>
-            </Field>
             {clients && !fixedClientId ? (
               <Field label="Cliente (opcional)" htmlFor="task-client">
                 <Select

@@ -721,7 +721,7 @@ export function SettingsForm({
         <div className="overflow-x-auto rounded-control border border-border-subtle">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-border-subtle">
+              <tr className="">
                 <th className="px-3 py-2 text-left text-[11px] font-semibold text-text-secondary">Tipo</th>
                 <th className="px-3 py-2 text-left text-[11px] font-semibold text-text-secondary">Correo al equipo</th>
                 <th className="px-3 py-2 text-left text-[11px] font-semibold text-text-secondary">WhatsApp al equipo</th>

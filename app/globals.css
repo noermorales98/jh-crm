@@ -2,7 +2,8 @@
 
 /**
  * Design system J&H CRM — Apple HIG
- * Acento: Índigo J&H (#3545d6). Neutros: escala systemGray de iOS.
+ * Acento: azul de marca / landing (#0071E3), como la ruta "/".
+ * Neutros: escala systemGray de iOS.
  * Superficies agrupadas (systemGroupedBackground): app gris, tarjetas blancas.
  * Apariencia: light-dark() + data-theme (light | dark | auto).
  * Materiales: blur en toolbars/menús; opaco si Reduce Transparency.
@@ -12,20 +13,20 @@
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI",
     Roboto, "Helvetica Neue", Arial, sans-serif;
 
-  /* Marca (fijos: no invierten significado entre apariencias) */
-  --color-brand-indigo: #3545d6;
-  --color-brand-discord: #5363ee;
-  --color-brand-memory: #7f96f9;
+  /* Marca (alineada al azul de la landing) */
+  --color-brand-indigo: #0071e3;
+  --color-brand-discord: #0077ed;
+  --color-brand-memory: #409cff;
   --color-brand-obsidian: #1c1c1e;
   --color-brand-jasmine: #f2f2f7;
   --color-brand-lavender: #e5e5ea;
   --color-brand-silver: light-dark(#8e8e93, #98989d);
 
   /* Roles semánticos — light-dark para Dark Mode del sistema */
-  --color-action-primary: light-dark(#3545d6, #8b97f8);
+  --color-action-primary: light-dark(#0071e3, #0a84ff);
   --color-action-primary-foreground: #ffffff;
-  --color-action-secondary: light-dark(#5363ee, #a5aefa);
-  --color-selection-soft: light-dark(#7f96f9, #9aacfb);
+  --color-action-secondary: light-dark(#0077ed, #409cff);
+  --color-selection-soft: light-dark(#5ac8fa, #64d2ff);
   --color-ink: light-dark(#1c1c1e, #f2f2f7);
   --color-surface-app: light-dark(#f2f2f7, #000000);
   --color-surface-panel: light-dark(#ffffff, #1c1c1e);
@@ -35,9 +36,9 @@
   --color-text-secondary-strong: light-dark(#3a3a3c, #e5e5ea);
   --color-text-placeholder: light-dark(#8e8e93, #636366);
   --color-border-subtle: light-dark(#3c3c432e, #54545880);
-  --color-nav-active: light-dark(#3545d614, #8b97f826);
+  --color-nav-active: light-dark(#0071e314, #0a84ff26);
   --color-nav-hover: light-dark(#3c3c430a, #ffffff14);
-  --color-focus: light-dark(#3545d6, #8b97f8);
+  --color-focus: light-dark(#0071e3, #0a84ff);
 
   --color-danger: light-dark(#d70015, #ff6961);
   --color-danger-hover: light-dark(#b80012, #ff453a);
@@ -61,9 +62,9 @@
   --color-background: light-dark(#f2f2f7, #000000);
   --color-foreground: light-dark(#1c1c1e, #f2f2f7);
 
-  /* Radios: control 10px, superficie 12px, pill 9999px */
-  --radius-control: 10px;
-  --radius-surface: 12px;
+  /* Radios: control 12px, superficie 18px, pill 9999px */
+  --radius-control: 12px;
+  --radius-surface: 18px;
 
   --z-sticky: 30;
   --z-overlay: 40;
@@ -137,11 +138,9 @@ body {
   border-color: transparent;
 }
 
-/* Sombras solo en overlays/dropdowns/modales */
+/* Overlays/dropdowns/modales: sin sombra (borde vía ring/border del componente) */
 .jh-overlay-shadow {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--color-ink) 8%, transparent),
-    0 10px 40px color-mix(in srgb, var(--color-ink) 14%, transparent);
+  box-shadow: none;
 }
 
 .jh-material {
@@ -162,12 +161,20 @@ body {
   margin: auto;
   border: none;
   color: var(--color-ink);
+  /* Blanco claro semitransparente (glass) — override de .jh-material */
+  background: light-dark(
+    color-mix(in srgb, #ffffff 88%, transparent),
+    color-mix(in srgb, #3a3a3c 78%, transparent)
+  );
+  -webkit-backdrop-filter: saturate(180%) blur(40px);
+  backdrop-filter: saturate(180%) blur(40px);
+  transform: translateZ(0);
 }
 
 .jh-spotlight::backdrop {
-  background: color-mix(in srgb, var(--color-ink) 28%, transparent);
-  -webkit-backdrop-filter: saturate(140%) blur(14px);
-  backdrop-filter: saturate(140%) blur(14px);
+  background: color-mix(in srgb, var(--color-ink) 22%, transparent);
+  -webkit-backdrop-filter: saturate(140%) blur(18px);
+  backdrop-filter: saturate(140%) blur(18px);
 }
 
 .jh-skip-link {
@@ -190,15 +197,17 @@ body {
 
 @media (prefers-reduced-transparency: reduce) {
   .jh-material,
-  .jh-toolbar,
   .jh-spotlight {
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 
-  .jh-material,
-  .jh-spotlight {
+  .jh-material {
     background: var(--color-surface-elevated);
+  }
+
+  .jh-spotlight {
+    background: light-dark(#ffffff, #2c2c2e);
   }
 
   .jh-toolbar {
@@ -217,7 +226,7 @@ body {
     --color-text-secondary: light-dark(#3a3a3c, #e5e5ea);
     --color-text-placeholder: light-dark(#3a3a3c, #e5e5ea);
     --color-border-subtle: light-dark(#63636680, #98989d99);
-    --color-focus: light-dark(#1e2bb8, #c5ccff);
+    --color-focus: light-dark(#0071e3, #64d2ff);
   }
 }
 
@@ -278,7 +287,7 @@ body {
 
 .crm-brand .brand-mark span,
 .jh-brand .brand-mark span {
-  color: light-dark(#3545d6, #8b97f8);
+  color: var(--color-action-primary);
 }
 
 .crm-brand .brand-tag,
@@ -307,7 +316,8 @@ body {
   padding: 1in 1.15in;
   background: #fff;
   color: #1a1a1a;
-  box-shadow: 0 0 0 1px rgb(15 23 42 / 0.06), 0 8px 24px rgb(15 23 42 / 0.06);
+  box-shadow: none;
+  border: 1px solid rgb(15 23 42 / 0.08);
 }
 @media (max-width: 767px) {
   .jh-doc-page {
@@ -436,7 +446,7 @@ span.ProseMirror-selectednode .jh-template-var {
 .jh-doc-varbtn:focus-visible,
 .jh-doc-switch-track:focus-visible,
 .jh-doc-title-input:focus-visible {
-  outline: 2px solid #3545d6;
+  outline: 2px solid var(--color-action-primary);
   outline-offset: 2px;
 }
 .jh-doc-icon-btn:hover {
@@ -513,7 +523,7 @@ span.ProseMirror-selectednode .jh-template-var {
   transition: background-color 180ms ease-out;
 }
 .jh-doc-switch-track[aria-checked="true"] {
-  background: #3545d6;
+  background: var(--color-action-primary);
 }
 .jh-doc-switch-thumb {
   position: absolute;
@@ -523,7 +533,7 @@ span.ProseMirror-selectednode .jh-template-var {
   height: 20px;
   border-radius: 999px;
   background: #fff;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.18);
+  box-shadow: none;
   transition: transform 180ms ease-out;
 }
 .jh-doc-switch-track[aria-checked="true"] .jh-doc-switch-thumb {
@@ -536,7 +546,7 @@ span.ProseMirror-selectednode .jh-template-var {
   justify-content: center;
   padding: 0 16px;
   border-radius: 999px;
-  background: #3545d6;
+  background: var(--color-action-primary);
   color: #fff;
   font-size: 15px;
   font-weight: 600;
@@ -595,8 +605,8 @@ span.ProseMirror-selectednode .jh-template-var {
 }
 .jh-doc-toolbtn[aria-pressed="true"] {
   background: #fff;
-  color: #3545d6;
-  box-shadow: 0 0 0 0.5px rgb(60 60 67 / 0.08);
+  color: var(--color-action-primary);
+  box-shadow: none;
 }
 .jh-doc-toolbtn:disabled {
   opacity: 0.35;

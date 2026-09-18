@@ -1,20 +1,105 @@
-import { PrismaClient } from "@prisma/client";
+import { Prisma, PrismaClient } from "@prisma/client";
 
 /**
  * Subir este número cuando se añadan modelos/campos Prisma.
  * Fuerza descartar el singleton de HMR/Turbopack que aún no tiene los delegates.
  */
-const PRISMA_CLIENT_GENERATION = 9;
+const PRISMA_CLIENT_GENERATION = 10;
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
   prismaClientGeneration?: number;
+  prismaReconnect?: Promise<void> | null;
 };
 
-function createPrismaClient() {
-  return new PrismaClient({
+/** Hostinger cuota / max_connections: reintentar empeora el problema. */
+function isConnectionQuotaError(error: unknown): boolean {
+  const msg =
+    error instanceof Error ? error.message.toLowerCase() : String(error).toLowerCase();
+  if (
+    msg.includes("max_connections") ||
+    msg.includes("max_user_connections") ||
+    msg.includes("1226") ||
+    msg.includes("too many connections")
+  ) {
+    return true;
+  }
+  // MySQL SQLSTATE 42000 a menudo acompaña ERROR 1226 en el mensaje.
+  if (msg.includes("42000") && msg.includes("resource")) return true;
+  return false;
+}
+
+function isTransientConnectionError(error: unknown): boolean {
+  if (isConnectionQuotaError(error)) return false;
+
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    return (
+      error.code === "P1017" ||
+      error.code === "P1001" ||
+      error.code === "P1002" ||
+      error.code === "P1008" ||
+      error.code === "P1011"
+    );
+  }
+  if (error instanceof Prisma.PrismaClientInitializationError) {
+    const msg = error.message.toLowerCase();
+    // No reintentar errores de config (p.ej. DATABASE_URL ausente / P1012).
+    return (
+      msg.includes("can't reach") ||
+      msg.includes("timed out") ||
+      msg.includes("econnrefused") ||
+      msg.includes("connection refused") ||
+      msg.includes("server has closed")
+    );
+  }
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    return (
+      msg.includes("server has closed the connection") ||
+      msg.includes("connection reset") ||
+      msg.includes("can't reach database server") ||
+      msg.includes("econnreset") ||
+      msg.includes("socket hang up") ||
+      msg.includes("connection timed out") ||
+      msg.includes("closed the connection")
+    );
+  }
+  return false;
+}
+
+async function reconnectClient(client: PrismaClient): Promise<void> {
+  if (!globalForPrisma.prismaReconnect) {
+    globalForPrisma.prismaReconnect = (async () => {
+      await client.$disconnect().catch(() => undefined);
+      await client.$connect();
+    })().finally(() => {
+      globalForPrisma.prismaReconnect = null;
+    });
+  }
+  await globalForPrisma.prismaReconnect;
+}
+
+function createPrismaClient(): PrismaClient {
+  const base = new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
+
+  // Hostinger MySQL cierra conexiones idle → P1017. Reintento 1× tras reconnect.
+  const extended = base.$extends({
+    query: {
+      async $allOperations({ args, query }) {
+        try {
+          return await query(args);
+        } catch (error) {
+          if (!isTransientConnectionError(error)) throw error;
+          await reconnectClient(base);
+          return await query(args);
+        }
+      },
+    },
+  });
+
+  return extended as unknown as PrismaClient;
 }
 
 function hasDelegate(client: PrismaClient, name: string): boolean {

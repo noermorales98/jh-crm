@@ -4,7 +4,7 @@ import Link from "next/link";
 import type { ActiveServiceView } from "@/src/server/clients/overview";
 
 /**
- * Chips para cambiar el servicio/CreditCase activo vía ?caseId= (CL-003).
+ * Chips para cambiar el servicio activo vía ?caseId= (creditCaseId o serviceCaseId).
  */
 export function ClientServiceSwitcher({
   clientId,
@@ -17,20 +17,25 @@ export function ClientServiceSwitcher({
 }) {
   if (services.length === 0) return null;
 
+  function switchKey(svc: ActiveServiceView) {
+    return svc.creditCaseId ?? svc.serviceCaseId;
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       <span className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
         Servicios
       </span>
       {services.map((svc) => {
-        const active = svc.creditCaseId === activeCaseId;
+        const key = switchKey(svc);
+        const active = key === activeCaseId;
         const href =
           services.length === 1
             ? `/crm/clientes/${clientId}`
-            : `/crm/clientes/${clientId}?caseId=${svc.creditCaseId}`;
+            : `/crm/clientes/${clientId}?caseId=${key}`;
         return (
           <Link
-            key={svc.creditCaseId}
+            key={key}
             href={href}
             className={
               active

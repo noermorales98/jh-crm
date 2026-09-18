@@ -67,7 +67,10 @@ export async function ClientDetailPanel({
       ? await getPortalAccess(ctx, client.id)
       : null;
 
-  const activeCaseId = overview.activeService?.creditCaseId ?? null;
+  const activeCaseId =
+    overview.activeService?.creditCaseId ??
+    overview.activeService?.serviceCaseId ??
+    null;
 
   return (
     <div>
@@ -95,13 +98,19 @@ export async function ClientDetailPanel({
           <div className="flex flex-wrap items-center gap-2">
             <ClientQuickAdd
               clientId={client.id}
-              caseId={activeCaseId}
+              caseId={overview.activeService?.creditCaseId ?? null}
               members={members}
               canTask={can(ctx.role, "tasks.manage")}
               canDocument={can(ctx.role, "documents.upload")}
               canPayment={can(ctx.role, "payments.register")}
-              canReport={can(ctx.role, "creditReports.manage")}
-              canRound={can(ctx.role, "rounds.manage")}
+              canReport={
+                can(ctx.role, "creditReports.manage") &&
+                overview.activeService?.kind === "CREDIT_REPAIR"
+              }
+              canRound={
+                can(ctx.role, "rounds.manage") &&
+                overview.activeService?.kind === "CREDIT_REPAIR"
+              }
               canNote={can(ctx.role, "clients.view")}
               canQuote={can(ctx.role, "quotes.manage")}
             />
@@ -130,7 +139,7 @@ export async function ClientDetailPanel({
       {(intakeEnabled ||
         (portalEnabled && canManagePortal) ||
         canViewProcessors) && (
-        <details className="mt-4 overflow-hidden rounded-surface border border-border-subtle bg-surface-panel open:shadow-sm">
+        <details className="mt-4 overflow-hidden rounded-surface border border-border-subtle bg-surface-panel">
           <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
             <span className="inline-flex items-center gap-1.5">
               Accesos e integraciones
@@ -154,10 +163,12 @@ export async function ClientDetailPanel({
                 </div>
                 <CreateIntakeLinkCard
                   clientId={client.id}
-                  cases={overview.services.map((s) => ({
-                    id: s.creditCaseId,
-                    caseCode: s.caseCode,
-                  }))}
+                  cases={overview.services
+                    .filter((s) => s.creditCaseId != null)
+                    .map((s) => ({
+                      id: s.creditCaseId!,
+                      caseCode: s.caseCode,
+                    }))}
                   existingLinks={intakeLinks}
                   compact
                 />

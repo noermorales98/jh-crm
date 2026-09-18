@@ -3,8 +3,22 @@ import { prisma } from "@/src/lib/db";
 import { zonedDayRange } from "@/src/lib/format/dates";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 
+/** Hostinger: evita abrir demasiadas queries concurrentes en un solo request. */
+async function runBatched(
+  factories: Array<() => Promise<unknown>>,
+  batchSize = 5,
+): Promise<unknown[]> {
+  const out: unknown[] = [];
+  for (let i = 0; i < factories.length; i += batchSize) {
+    const slice = factories.slice(i, i + batchSize);
+    const batch = await Promise.all(slice.map((fn) => fn()));
+    out.push(...batch);
+  }
+  return out;
+}
+
 /**
- * Dashboard operativo: queries agregadas pequeñas en paralelo.
+ * Dashboard operativo: queries agregadas en lotes (no un solo Promise.all masivo).
  * Cada widget incluye los datos mínimos y los query params para enlazar
  * a su lista filtrada.
  */
@@ -53,297 +67,465 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
     deletedItems,
     updatedItems,
     leadsToContact,
-  ] = await Promise.all([
-    prisma.client.count({
-      where: { organizationId: orgId, status: "ACTIVE" },
-    }),
-    prisma.serviceCase.count({
-      where: { organizationId: orgId, status: "OPEN" },
-    }),
+  ] = (await runBatched([
+    () =>
+      prisma.client.count({
+        where: { organizationId: orgId, status: "ACTIVE" },
+      }),
+    () =>
+      prisma.serviceCase.count({
+        where: { organizationId: orgId, status: "OPEN" },
+      }),
     // SC-003: acciones operativas vencidas o dentro de 7 días.
-    prisma.serviceCase.findMany({
-      where: {
-        organizationId: orgId,
-        status: "OPEN",
-        nextActionAt: { lte: in7Days },
-      },
-      select: {
-        id: true,
-        caseNumber: true,
-        nextActionAt: true,
-        creditCase: { select: { id: true } },
-        client: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { nextActionAt: "asc" },
-      take: 10,
-    }),
-    prisma.creditRound.count({
-      where: { organizationId: orgId, status: { in: ["SENT", "WAITING_UPDATE", "REVIEWING"] } },
-    }),
-    prisma.task.findMany({
-      where: {
-        organizationId: orgId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-        dueAt: { gte: today.start, lt: today.end },
-      },
-      select: {
-        id: true, title: true, type: true, priority: true, dueAt: true,
-        client: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { dueAt: "asc" },
-      take: 10,
-    }),
-    prisma.task.findMany({
-      where: {
-        organizationId: orgId,
-        status: { in: ["PENDING", "IN_PROGRESS"] },
-        dueAt: { lt: now },
-      },
-      select: {
-        id: true, title: true, type: true, priority: true, dueAt: true,
-        client: { select: { id: true, firstName: true, lastName: true } },
-        assignedTo: { select: { id: true, name: true } },
-      },
-      orderBy: { dueAt: "asc" },
-      take: 10,
-    }),
-    prisma.serviceCase.findMany({
-      where: {
-        organizationId: orgId,
-        status: "OPEN",
-        nextActionAt: { gte: now, lte: in14Days },
-      },
-      select: {
-        id: true,
-        caseNumber: true,
-        nextActionAt: true,
-        creditCase: { select: { id: true } },
-        client: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { nextActionAt: "asc" },
-      take: 10,
-    }),
-    prisma.creditRound.findMany({
-      where: {
-        organizationId: orgId,
-        status: { in: ["SENT", "WAITING_UPDATE"] },
-        expectedReviewAt: { lte: in14Days },
-      },
-      select: {
-        id: true,
-        roundNumber: true,
-        expectedReviewAt: true,
-        case: {
-          select: {
-            id: true,
-            caseCode: true,
-            client: { select: { id: true, firstName: true, lastName: true } },
+    () =>
+      prisma.serviceCase.findMany({
+        where: {
+          organizationId: orgId,
+          status: "OPEN",
+          nextActionAt: { lte: in7Days },
+        },
+        select: {
+          id: true,
+          caseNumber: true,
+          nextActionAt: true,
+          creditCase: { select: { id: true } },
+          client: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { nextActionAt: "asc" },
+        take: 10,
+      }),
+    () =>
+      prisma.creditRound.count({
+        where: {
+          organizationId: orgId,
+          status: { in: ["SENT", "WAITING_UPDATE", "REVIEWING"] },
+        },
+      }),
+    () =>
+      prisma.task.findMany({
+        where: {
+          organizationId: orgId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueAt: { gte: today.start, lt: today.end },
+        },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          priority: true,
+          dueAt: true,
+          client: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { dueAt: "asc" },
+        take: 10,
+      }),
+    () =>
+      prisma.task.findMany({
+        where: {
+          organizationId: orgId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueAt: { lt: now },
+        },
+        select: {
+          id: true,
+          title: true,
+          type: true,
+          priority: true,
+          dueAt: true,
+          client: { select: { id: true, firstName: true, lastName: true } },
+          assignedTo: { select: { id: true, name: true } },
+        },
+        orderBy: { dueAt: "asc" },
+        take: 10,
+      }),
+    () =>
+      prisma.serviceCase.findMany({
+        where: {
+          organizationId: orgId,
+          status: "OPEN",
+          nextActionAt: { gte: now, lte: in14Days },
+        },
+        select: {
+          id: true,
+          caseNumber: true,
+          nextActionAt: true,
+          creditCase: { select: { id: true } },
+          client: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { nextActionAt: "asc" },
+        take: 10,
+      }),
+    () =>
+      prisma.creditRound.findMany({
+        where: {
+          organizationId: orgId,
+          status: { in: ["SENT", "WAITING_UPDATE"] },
+          expectedReviewAt: { lte: in14Days },
+        },
+        select: {
+          id: true,
+          roundNumber: true,
+          expectedReviewAt: true,
+          case: {
+            select: {
+              id: true,
+              caseCode: true,
+              client: {
+                select: { id: true, firstName: true, lastName: true },
+              },
+            },
           },
         },
-      },
-      orderBy: { expectedReviewAt: "asc" },
-      take: 10,
-    }),
-    prisma.quote.count({
-      where: { organizationId: orgId, status: "SENT" },
-    }),
-    prisma.payment.aggregate({
-      where: { organizationId: orgId, status: "PENDING" },
-      _count: true,
-      _sum: { amount: true },
-    }),
-    prisma.payment.findMany({
-      where: { organizationId: orgId, status: "PENDING" },
-      select: {
-        id: true, amount: true, currency: true, dueAt: true, method: true,
-        client: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { dueAt: "asc" },
-      take: 10,
-    }),
-    prisma.payment.findMany({
-      where: {
-        organizationId: orgId,
-        status: "RECEIVED",
-        receivedAt: { gte: sevenDaysAgo },
-      },
-      select: {
-        id: true, amount: true, currency: true, method: true, receivedAt: true,
-        client: { select: { id: true, firstName: true, lastName: true } },
-        receipt: { select: { id: true, folio: true } },
-      },
-      orderBy: { receivedAt: "desc" },
-      take: 10,
-    }),
-    prisma.mailMessage.count({
-      where: {
-        organizationId: orgId,
-        folder: "INBOX",
-        direction: "INBOUND",
-        isRead: false,
-      },
-    }),
-    prisma.mailMessage.findMany({
-      where: {
-        organizationId: orgId,
-        folder: "INBOX",
-        direction: "INBOUND",
-        isRead: false,
-      },
-      select: {
-        fromName: true,
-        fromAddress: true,
-        subject: true,
-      },
-      orderBy: { receivedAt: "desc" },
-      take: 5,
-    }),
-    // —— Atención crédito ——
-    prisma.creditCase.count({
-      where: {
-        organizationId: orgId,
-        state: "OPEN",
-        stage: { key: "DOCUMENTS_PENDING" },
-      },
-    }),
-    prisma.creditCase.findMany({
-      where: {
-        organizationId: orgId,
-        state: "OPEN",
-        stage: { key: "DOCUMENTS_PENDING" },
-      },
-      select: {
-        id: true,
-        caseCode: true,
-        client: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { updatedAt: "desc" },
-      take: 5,
-    }),
-    prisma.creditReport.count({
-      where: {
-        organizationId: orgId,
-        type: "UPDATE",
-        createdAt: { gte: fourteenDaysAgo },
-      },
-    }),
-    prisma.creditRound.count({
-      where: {
-        organizationId: orgId,
-        status: { in: ["DRAFT", "PREPARING"] },
-      },
-    }),
-    prisma.creditRound.count({
-      where: {
-        organizationId: orgId,
-        status: "WAITING_UPDATE",
-      },
-    }),
-    prisma.serviceCase.count({
-      where: {
-        organizationId: orgId,
-        status: "OPEN",
-        nextActionAt: { lt: now },
-      },
-    }),
-    prisma.serviceCase.findMany({
-      where: {
-        organizationId: orgId,
-        status: "OPEN",
-        nextActionAt: { lt: now },
-      },
-      select: {
-        id: true,
-        caseNumber: true,
-        nextActionAt: true,
-        creditCase: { select: { id: true } },
-        client: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { nextActionAt: "asc" },
-      take: 5,
-    }),
-    prisma.payment.count({
-      where: {
-        organizationId: orgId,
-        status: "PENDING",
-        dueAt: { lt: now },
-      },
-    }),
-    prisma.payment.findMany({
-      where: {
-        organizationId: orgId,
-        status: "PENDING",
-        dueAt: { lt: now },
-      },
-      select: {
-        id: true,
-        amount: true,
-        currency: true,
-        dueAt: true,
-        client: { select: { id: true, firstName: true, lastName: true } },
-      },
-      orderBy: { dueAt: "asc" },
-      take: 5,
-    }),
-    prisma.client.count({
-      where: {
-        organizationId: orgId,
-        status: "LEAD",
-        createdAt: { gte: sevenDaysAgo },
-      },
-    }),
-    prisma.opportunity.count({
-      where: {
-        organizationId: orgId,
-        stage: "WON",
-        updatedAt: { gte: thirtyDaysAgo },
-      },
-    }),
-    prisma.disputeItem.count({
-      where: {
-        organizationId: orgId,
-        status: { in: ["SENT", "WAITING", "RESPONDED"] },
-      },
-    }),
-    prisma.disputeItem.count({
-      where: {
-        organizationId: orgId,
-        outcome: "DELETED",
-      },
-    }),
-    prisma.disputeItem.count({
-      where: {
-        organizationId: orgId,
-        outcome: "UPDATED",
-      },
-    }),
-    // LD-004 — Leads por contactar (nextFollowUpAt vencido o en 7 días).
-    prisma.opportunity.findMany({
-      where: {
-        organizationId: orgId,
-        stage: { notIn: ["WON", "LOST"] },
-        nextFollowUpAt: { not: null, lte: in7Days },
-      },
-      select: {
-        id: true,
-        nextFollowUpAt: true,
-        stage: true,
-        client: {
-          select: { id: true, firstName: true, lastName: true, clientCode: true },
+        orderBy: { expectedReviewAt: "asc" },
+        take: 10,
+      }),
+    () =>
+      prisma.quote.count({
+        where: { organizationId: orgId, status: "SENT" },
+      }),
+    () =>
+      prisma.payment.aggregate({
+        where: { organizationId: orgId, status: "PENDING" },
+        _count: true,
+        _sum: { amount: true },
+      }),
+    () =>
+      prisma.payment.findMany({
+        where: { organizationId: orgId, status: "PENDING" },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          dueAt: true,
+          method: true,
+          client: { select: { id: true, firstName: true, lastName: true } },
         },
-        owner: { select: { id: true, name: true } },
-      },
-      orderBy: { nextFollowUpAt: "asc" },
-      take: 15,
-    }),
-  ]);
+        orderBy: { dueAt: "asc" },
+        take: 10,
+      }),
+    () =>
+      prisma.payment.findMany({
+        where: {
+          organizationId: orgId,
+          status: "RECEIVED",
+          receivedAt: { gte: sevenDaysAgo },
+        },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          method: true,
+          receivedAt: true,
+          client: { select: { id: true, firstName: true, lastName: true } },
+          receipt: { select: { id: true, folio: true } },
+        },
+        orderBy: { receivedAt: "desc" },
+        take: 10,
+      }),
+    () =>
+      prisma.mailMessage.count({
+        where: {
+          organizationId: orgId,
+          folder: "INBOX",
+          direction: "INBOUND",
+          isRead: false,
+        },
+      }),
+    () =>
+      prisma.mailMessage.findMany({
+        where: {
+          organizationId: orgId,
+          folder: "INBOX",
+          direction: "INBOUND",
+          isRead: false,
+        },
+        select: {
+          fromName: true,
+          fromAddress: true,
+          subject: true,
+        },
+        orderBy: { receivedAt: "desc" },
+        take: 5,
+      }),
+    // —— Atención crédito ——
+    () =>
+      prisma.creditCase.count({
+        where: {
+          organizationId: orgId,
+          state: "OPEN",
+          stage: { key: "DOCUMENTS_PENDING" },
+        },
+      }),
+    () =>
+      prisma.creditCase.findMany({
+        where: {
+          organizationId: orgId,
+          state: "OPEN",
+          stage: { key: "DOCUMENTS_PENDING" },
+        },
+        select: {
+          id: true,
+          caseCode: true,
+          client: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+      }),
+    () =>
+      prisma.creditReport.count({
+        where: {
+          organizationId: orgId,
+          type: "UPDATE",
+          createdAt: { gte: fourteenDaysAgo },
+        },
+      }),
+    () =>
+      prisma.creditRound.count({
+        where: {
+          organizationId: orgId,
+          status: { in: ["DRAFT", "PREPARING"] },
+        },
+      }),
+    () =>
+      prisma.creditRound.count({
+        where: {
+          organizationId: orgId,
+          status: "WAITING_UPDATE",
+        },
+      }),
+    () =>
+      prisma.serviceCase.count({
+        where: {
+          organizationId: orgId,
+          status: "OPEN",
+          nextActionAt: { lt: now },
+        },
+      }),
+    () =>
+      prisma.serviceCase.findMany({
+        where: {
+          organizationId: orgId,
+          status: "OPEN",
+          nextActionAt: { lt: now },
+        },
+        select: {
+          id: true,
+          caseNumber: true,
+          nextActionAt: true,
+          creditCase: { select: { id: true } },
+          client: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { nextActionAt: "asc" },
+        take: 5,
+      }),
+    () =>
+      prisma.payment.count({
+        where: {
+          organizationId: orgId,
+          status: "PENDING",
+          dueAt: { lt: now },
+        },
+      }),
+    () =>
+      prisma.payment.findMany({
+        where: {
+          organizationId: orgId,
+          status: "PENDING",
+          dueAt: { lt: now },
+        },
+        select: {
+          id: true,
+          amount: true,
+          currency: true,
+          dueAt: true,
+          client: { select: { id: true, firstName: true, lastName: true } },
+        },
+        orderBy: { dueAt: "asc" },
+        take: 5,
+      }),
+    () =>
+      prisma.client.count({
+        where: {
+          organizationId: orgId,
+          status: "LEAD",
+          createdAt: { gte: sevenDaysAgo },
+        },
+      }),
+    () =>
+      prisma.opportunity.count({
+        where: {
+          organizationId: orgId,
+          stage: "WON",
+          updatedAt: { gte: thirtyDaysAgo },
+        },
+      }),
+    () =>
+      prisma.disputeItem.count({
+        where: {
+          organizationId: orgId,
+          status: { in: ["SENT", "WAITING", "RESPONDED"] },
+        },
+      }),
+    () =>
+      prisma.disputeItem.count({
+        where: {
+          organizationId: orgId,
+          outcome: "DELETED",
+        },
+      }),
+    () =>
+      prisma.disputeItem.count({
+        where: {
+          organizationId: orgId,
+          outcome: "UPDATED",
+        },
+      }),
+    // LD-004 — Leads por contactar (nextFollowUpAt vencido o en 7 días).
+    () =>
+      prisma.opportunity.findMany({
+        where: {
+          organizationId: orgId,
+          stage: { notIn: ["WON", "LOST"] },
+          nextFollowUpAt: { not: null, lte: in7Days },
+        },
+        select: {
+          id: true,
+          nextFollowUpAt: true,
+          stage: true,
+          client: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              clientCode: true,
+            },
+          },
+          owner: { select: { id: true, name: true } },
+        },
+        orderBy: { nextFollowUpAt: "asc" },
+        take: 15,
+      }),
+  ])) as [
+    number,
+    number,
+    Array<{
+      id: string;
+      caseNumber: string;
+      nextActionAt: Date | null;
+      creditCase: { id: string } | null;
+      client: { id: string; firstName: string; lastName: string | null };
+    }>,
+    number,
+    Array<{
+      id: string;
+      title: string;
+      type: string;
+      priority: string;
+      dueAt: Date | null;
+      client: { id: string; firstName: string; lastName: string | null } | null;
+    }>,
+    Array<{
+      id: string;
+      title: string;
+      type: string;
+      priority: string;
+      dueAt: Date | null;
+      client: { id: string; firstName: string; lastName: string | null } | null;
+      assignedTo: { id: string; name: string | null } | null;
+    }>,
+    Array<{
+      id: string;
+      caseNumber: string;
+      nextActionAt: Date | null;
+      creditCase: { id: string } | null;
+      client: { id: string; firstName: string; lastName: string | null };
+    }>,
+    Array<{
+      id: string;
+      roundNumber: number;
+      expectedReviewAt: Date | null;
+      case: {
+        id: string;
+        caseCode: string;
+        client: { id: string; firstName: string; lastName: string | null };
+      };
+    }>,
+    number,
+    { _count: number; _sum: { amount: Prisma.Decimal | null } },
+    Array<{
+      id: string;
+      amount: Prisma.Decimal;
+      currency: string;
+      dueAt: Date | null;
+      method: string;
+      client: { id: string; firstName: string; lastName: string | null };
+    }>,
+    Array<{
+      id: string;
+      amount: Prisma.Decimal;
+      currency: string;
+      method: string;
+      receivedAt: Date | null;
+      client: { id: string; firstName: string; lastName: string | null };
+      receipt: { id: string; folio: string } | null;
+    }>,
+    number,
+    Array<{
+      fromName: string | null;
+      fromAddress: string;
+      subject: string;
+    }>,
+    number,
+    Array<{
+      id: string;
+      caseCode: string;
+      client: { id: string; firstName: string; lastName: string | null };
+    }>,
+    number,
+    number,
+    number,
+    number,
+    Array<{
+      id: string;
+      caseNumber: string;
+      nextActionAt: Date | null;
+      creditCase: { id: string } | null;
+      client: { id: string; firstName: string; lastName: string | null };
+    }>,
+    number,
+    Array<{
+      id: string;
+      amount: Prisma.Decimal;
+      currency: string;
+      dueAt: Date | null;
+      client: { id: string; firstName: string; lastName: string | null };
+    }>,
+    number,
+    number,
+    number,
+    number,
+    number,
+    Array<{
+      id: string;
+      nextFollowUpAt: Date | null;
+      stage: string;
+      client: {
+        id: string;
+        firstName: string;
+        lastName: string | null;
+        clientCode: string;
+      };
+      owner: { id: string; name: string | null } | null;
+    }>,
+  ];
 
   const leadsToContactItems = leadsToContact.map((row) => ({
     ...row,
     overdue:
       row.nextFollowUpAt != null && row.nextFollowUpAt.getTime() < now.getTime(),
   }));
-  const leadsToContactOverdue = leadsToContactItems.filter((r) => r.overdue).length;
+  const leadsToContactOverdue = leadsToContactItems.filter((r) => r.overdue)
+    .length;
   const toNextActionItem = (row: (typeof casesWaitingUpdate)[number]) => ({
     serviceCaseId: row.id,
     caseId: row.creditCase?.id ?? null,
@@ -397,7 +579,11 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       },
       pendingPayments: {
         count: pendingPaymentsAgg._count,
-        totalAmount: (pendingPaymentsAgg._sum.amount ?? new Prisma.Decimal(0)).toDecimalPlaces(2).toString(),
+        totalAmount: (
+          pendingPaymentsAgg._sum.amount ?? new Prisma.Decimal(0)
+        )
+          .toDecimalPlaces(2)
+          .toString(),
         items: pendingPayments,
         link: "/crm/pagos?status=PENDING",
       },

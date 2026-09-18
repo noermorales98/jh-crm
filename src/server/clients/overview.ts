@@ -23,9 +23,11 @@ import {
  */
 
 export type ActiveServiceView = {
-  kind: "CREDIT_REPAIR";
-  creditCaseId: string;
-  serviceCaseId: string | null;
+  /** Service.code (p.ej. CREDIT_REPAIR, HOME_BUYER). */
+  kind: string;
+  /** Solo CREDIT_REPAIR; null en otras verticales. */
+  creditCaseId: string | null;
+  serviceCaseId: string;
   label: string;
   caseCode: string;
   state: CaseState;
@@ -183,16 +185,34 @@ const ROUND_SELECT = {
   disputedItemsCount: true,
 } as const;
 
-function pickActiveCase<T extends { id: string; state: CaseState; openedAt: Date }>(
-  cases: T[],
+function mapServiceStatusToCaseState(
+  status: "OPEN" | "ON_HOLD" | "COMPLETED" | "CANCELED",
+): CaseState {
+  switch (status) {
+    case "OPEN":
+      return "OPEN";
+    case "ON_HOLD":
+      return "PAUSED";
+    case "COMPLETED":
+      return "COMPLETED";
+    case "CANCELED":
+      return "CANCELLED";
+  }
+}
+
+function pickActiveService(
+  services: ActiveServiceView[],
   preferredId?: string | null,
-): T | null {
-  if (cases.length === 0) return null;
+): ActiveServiceView | null {
+  if (services.length === 0) return null;
   if (preferredId) {
-    const preferred = cases.find((c) => c.id === preferredId);
+    const preferred = services.find(
+      (s) =>
+        s.serviceCaseId === preferredId || s.creditCaseId === preferredId,
+    );
     if (preferred) return preferred;
   }
-  return cases.find((c) => c.state === "OPEN") ?? cases[0] ?? null;
+  return services.find((s) => s.state === "OPEN") ?? services[0] ?? null;
 }
 
 function buildBureauProgress(
@@ -268,65 +288,75 @@ export async function getClientOverview(
   const canViewCredit = can(ctx.role, "creditReports.view");
   const canViewPayments = can(ctx.role, "payments.view");
 
-  const cases = canViewCases
-    ? await prisma.creditCase.findMany({
+  const serviceRows = canViewCases
+    ? await prisma.serviceCase.findMany({
         where: { clientId, organizationId: ctx.organizationId },
         select: {
           id: true,
-          caseCode: true,
-          state: true,
-          openedAt: true,
-          nextReviewAt: true,
-          serviceCaseId: true,
+          caseNumber: true,
+          status: true,
+          nextActionAt: true,
+          startedAt: true,
           stage: { select: { id: true, name: true, color: true } },
-          serviceCase: {
+          service: { select: { code: true, name: true } },
+          creditCase: {
             select: {
               id: true,
-              nextActionAt: true,
-              status: true,
+              caseCode: true,
+              state: true,
+              nextReviewAt: true,
               stage: { select: { id: true, name: true, color: true } },
-              service: { select: { code: true, name: true } },
             },
           },
         },
-        orderBy: { openedAt: "desc" },
+        orderBy: { startedAt: "desc" },
         take: 20,
       })
     : [];
 
-  const services: ActiveServiceView[] = cases.map((c) => ({
-    kind: "CREDIT_REPAIR" as const,
-    creditCaseId: c.id,
-    serviceCaseId: c.serviceCaseId ?? c.serviceCase?.id ?? null,
-    label: c.serviceCase?.service.name ?? "Credit Repair",
-    caseCode: c.caseCode,
-    state: c.state,
-    stage: c.serviceCase?.stage ?? c.stage,
-    nextActionAt: c.serviceCase?.nextActionAt ?? c.nextReviewAt,
-  }));
+  const services: ActiveServiceView[] = serviceRows.map((sc) => {
+    const code = sc.service.code ?? "SERVICE";
+    const isCredit = code === "CREDIT_REPAIR";
+    return {
+      kind: code,
+      creditCaseId: sc.creditCase?.id ?? null,
+      serviceCaseId: sc.id,
+      label: sc.service.name,
+      caseCode: sc.creditCase?.caseCode ?? sc.caseNumber,
+      state: isCredit
+        ? (sc.creditCase?.state ?? mapServiceStatusToCaseState(sc.status))
+        : mapServiceStatusToCaseState(sc.status),
+      stage: sc.stage ?? sc.creditCase?.stage ?? null,
+      nextActionAt: sc.nextActionAt ?? sc.creditCase?.nextReviewAt ?? null,
+    };
+  });
 
-  const activeCase = pickActiveCase(cases, options?.caseId);
-  const activeService = activeCase
-    ? services.find((s) => s.creditCaseId === activeCase.id) ?? null
-    : null;
+  const activeService = pickActiveService(services, options?.caseId);
+  const isCreditRepair = activeService?.kind === "CREDIT_REPAIR";
+  const creditCaseId = activeService?.creditCaseId ?? null;
+  const serviceCaseId = activeService?.serviceCaseId ?? null;
 
   // CL-003: métricas de operación scoped al servicio activo (no mezclar expedientes).
-  const paymentScope = activeCase
-    ? { organizationId: ctx.organizationId, clientId, caseId: activeCase.id }
+  const paymentScope = activeService
+    ? creditCaseId
+      ? { organizationId: ctx.organizationId, clientId, caseId: creditCaseId }
+      : {
+          organizationId: ctx.organizationId,
+          clientId,
+          serviceCaseId: serviceCaseId!,
+        }
     : { organizationId: ctx.organizationId, clientId };
   const openTaskStatuses: Array<"PENDING" | "IN_PROGRESS"> = [
     "PENDING",
     "IN_PROGRESS",
   ];
-  const taskScope = activeCase
+  const taskScope = activeService
     ? {
         organizationId: ctx.organizationId,
         status: { in: openTaskStatuses },
         OR: [
-          { caseId: activeCase.id },
-          ...(activeCase.serviceCaseId
-            ? [{ serviceCaseId: activeCase.serviceCaseId }]
-            : []),
+          ...(creditCaseId ? [{ caseId: creditCaseId }] : []),
+          ...(serviceCaseId ? [{ serviceCaseId }] : []),
         ],
       }
     : {
@@ -347,13 +377,11 @@ export async function getClientOverview(
       where: {
         clientId,
         organizationId: ctx.organizationId,
-        ...(activeCase
+        ...(activeService
           ? {
               OR: [
-                { caseId: activeCase.id },
-                ...(activeCase.serviceCaseId
-                  ? [{ serviceCaseId: activeCase.serviceCaseId }]
-                  : []),
+                ...(creditCaseId ? [{ caseId: creditCaseId }] : []),
+                ...(serviceCaseId ? [{ serviceCaseId }] : []),
               ],
             }
           : {}),
@@ -373,13 +401,11 @@ export async function getClientOverview(
         organizationId: ctx.organizationId,
         clientId,
         deletedAt: null,
-        ...(activeCase
+        ...(activeService
           ? {
               OR: [
-                { caseId: activeCase.id },
-                ...(activeCase.serviceCaseId
-                  ? [{ serviceCaseId: activeCase.serviceCaseId }]
-                  : []),
+                ...(creditCaseId ? [{ caseId: creditCaseId }] : []),
+                ...(serviceCaseId ? [{ serviceCaseId }] : []),
                 // Docs solo de cliente (sin caso) visibles en todos los servicios.
                 { caseId: null, serviceCaseId: null },
               ],
@@ -397,7 +423,11 @@ export async function getClientOverview(
       where: {
         organizationId: ctx.organizationId,
         clientId,
-        ...(activeCase ? { caseId: activeCase.id } : {}),
+        ...(creditCaseId
+          ? { caseId: creditCaseId }
+          : serviceCaseId
+            ? { serviceCaseId }
+            : {}),
         status: { in: ["ACCEPTED", "PAID", "SENT", "PARTIAL"] },
       },
       orderBy: { issuedAt: "desc" },
@@ -495,23 +525,7 @@ export async function getClientOverview(
       }
     : null;
 
-  const emptyCreditBlock = {
-    canView: canViewCredit,
-    overview: null,
-    bureaus: [] as BureauProgress[],
-    scoreHistory: [] as ScoreHistoryPointDto[],
-    reportCount: 0,
-    hasChartData: false,
-    round: null,
-    roundsSummary: [] as ClientOverviewRound[],
-    roundsTotal: 0,
-    currentRoundId: null,
-    itemsSummary: { active: 0, pending: 0, resolved: 0, negative: 0 },
-    outcomeSummary: emptyOutcome(),
-    counts: baseCounts,
-  };
-
-  if (!activeCase) {
+  if (!activeService) {
     return {
       client,
       services,
@@ -522,11 +536,27 @@ export async function getClientOverview(
       documentsSummary: { count: documents },
       tasksSummary: { openCount: openTasks },
       paymentsSummary,
-      credit: emptyCreditBlock,
+      credit: null,
     };
   }
 
-  const caseId = activeCase.id;
+  // Otras verticales: métricas de servicio sin chrome de burós/rondas.
+  if (!isCreditRepair || !creditCaseId) {
+    return {
+      client,
+      services,
+      activeService,
+      nextAction,
+      lastActivity,
+      latestActivities,
+      documentsSummary: { count: documents },
+      tasksSummary: { openCount: openTasks },
+      paymentsSummary,
+      credit: null,
+    };
+  }
+
+  const caseId = creditCaseId;
 
   const [roundsSummary, roundsTotal, itemGroups, disputeOutcomes] =
     await Promise.all([

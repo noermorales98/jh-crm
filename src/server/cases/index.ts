@@ -10,6 +10,7 @@ import { resolveAssigneeForOrg } from "@/src/server/users";
 import { ensureCreditRepairService } from "@/src/server/services";
 import { ensureVerticalService } from "@/src/server/services/verticals";
 import type { ServiceCode } from "@/src/server/services/codes";
+import { ensureTaskForServiceNextAction } from "@/src/server/automations";
 
 /**
  * Crear expediente = ServiceCase + CreditCase 1:1 (CREDIT_REPAIR).
@@ -502,7 +503,37 @@ export async function moveCaseToStage(
       tx,
     );
 
-    return updated;
+    // Siguiente acción sugerida (asignada al usuario actual).
+    const { suggestedTaskTitleForStage } = await import(
+      "@/src/lib/case-section-visibility"
+    );
+    const assigneeId =
+      ctx.userId ??
+      creditCase.assignedToId ??
+      serviceCase.assignedToId ??
+      null;
+    let suggestedTaskId: string | null = null;
+    if (assigneeId) {
+      const title = suggestedTaskTitleForStage(stage.name, stage.key);
+      const task = await tx.task.create({
+        data: {
+          organizationId: ctx.organizationId,
+          title,
+          type: "FOLLOW_UP",
+          priority: "NORMAL",
+          status: "PENDING",
+          assignedToId: assigneeId,
+          createdById: ctx.userId,
+          clientId: creditCase.clientId,
+          caseId: creditCase.id,
+          serviceCaseId: serviceCase.id,
+          dueAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+        },
+      });
+      suggestedTaskId = task.id;
+    }
+
+    return { ...updated, suggestedTaskId };
   });
 }
 
@@ -614,6 +645,13 @@ export async function setNextActionAt(
       serviceCaseId: serviceCase.id,
       nextActionAt: serviceCase.nextActionAt,
     };
+  }).then(async (result) => {
+    try {
+      await ensureTaskForServiceNextAction(ctx, result.serviceCaseId);
+    } catch (error) {
+      console.error("[cases] ensureTaskForServiceNextAction:", error);
+    }
+    return result;
   });
 }
 
@@ -676,13 +714,18 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
           nextActionAt: true,
           quotedAmount: true,
           agreedAmount: true,
+          service: { select: { id: true, code: true, name: true } },
         },
       },
     },
   });
   if (!creditCase) throw new DomainError("Caso no encontrado.");
 
-  const [rounds, openTasks, documents, quotes, payments, timeline, stageHistory, notes, paymentsReceived, paymentsPending] =
+  const isCreditRepair =
+    creditCase.serviceCase.service?.code === "CREDIT_REPAIR" ||
+    creditCase.serviceCase.service?.name === "Credit Repair";
+
+  const [rounds, openTasks, documents, quotes, payments, timeline, stageHistory, notes, paymentsReceived, paymentsPending, latestCreditReport] =
     await Promise.all([
       prisma.creditRound.findMany({
         where: { caseId, organizationId: ctx.organizationId },
@@ -809,6 +852,21 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
         },
         _sum: { amount: true },
       }),
+      isCreditRepair
+        ? prisma.creditReport.findFirst({
+            where: { caseId, organizationId: ctx.organizationId },
+            orderBy: { reportDate: "desc" },
+            select: {
+              id: true,
+              reportDate: true,
+              type: true,
+              snapshots: {
+                select: { bureau: true, score: true },
+                orderBy: { bureau: "asc" },
+              },
+            },
+          })
+        : Promise.resolve(null),
     ]);
 
   const agreed = creditCase.serviceCase.agreedAmount;
@@ -822,8 +880,37 @@ export async function getCaseDetail(ctx: OrganizationContext, caseId: string) {
     balance: agreed ? agreed.sub(paid) : null,
   };
 
+  const activeRound =
+    rounds.find((r) =>
+      ["DRAFT", "PREPARING", "SENT", "WAITING_UPDATE", "REVIEWING"].includes(
+        r.status,
+      ),
+    ) ?? rounds[0] ?? null;
+
+  const creditSnapshot = isCreditRepair
+    ? {
+        report: latestCreditReport,
+        scores:
+          latestCreditReport?.snapshots.map((s) => ({
+            bureau: s.bureau,
+            score: s.score,
+          })) ?? [],
+        activeRound: activeRound
+          ? {
+              id: activeRound.id,
+              roundNumber: activeRound.roundNumber,
+              status: activeRound.status,
+              sentAt: activeRound.sentAt,
+              expectedReviewAt: activeRound.expectedReviewAt,
+            }
+          : null,
+      }
+    : null;
+
   return {
     case: creditCase,
+    isCreditRepair,
+    creditSnapshot,
     rounds,
     openTasks,
     documents,

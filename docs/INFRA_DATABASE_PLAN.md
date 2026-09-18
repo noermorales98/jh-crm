@@ -165,6 +165,7 @@ Opciones (de más segura a más sensible):
 | Riesgo | Impacto | Mitigación |
 |---|---|---|
 | `Too many connections` | App cae; migrate a medias | `connection_limit=1`; DBs separadas; backfill en un solo proceso |
+| `max_connections_per_hour` / ERROR **1226** | Dashboard/API fallan; reintentos empeoran | `connection_limit=1` + timeouts en `DATABASE_URL`; dashboard batea queries (`src/server/dashboard`); `src/lib/db.ts` **no** hace reconnect/retry en 1226/cuota |
 | Preview / local → prod | Corrupción, datos de prueba en clientes reales | Scopes Vercel; `.env.local` → dev; checklist §9 |
 | Sin SSL | Credenciales/PII en claro en tránsito | `sslaccept=strict` (+ SSL remoto Hostinger) |
 | Allowlist / IPs efímeras Vercel | Conexiones fallidas intermitentes | Remote MySQL abierto a Vercel o rango documentado; no depender de IP fija de un laptop |

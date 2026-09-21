@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BrandLockup } from "@/src/components/brand/brand-lockup";
 import "./landing.css";
 import "./legal.css";
 
@@ -22,10 +23,7 @@ export function LegalShell({ title, children }: LegalShellProps) {
       <header className="scrolled legal-header">
         <div className="wrap nav">
           <Link className="brand" href="/" aria-label="J&H MultiServices LLC — Inicio">
-            <span className="brand-mark">
-              J<span>&</span>H
-            </span>
-            <span className="brand-tag">MultiServices LLC</span>
+            <BrandLockup tag="MultiServices LLC" size={48} priority />
           </Link>
           <nav aria-label="Volver">
             <Link className="btn btn-primary btn-sm" href="/">

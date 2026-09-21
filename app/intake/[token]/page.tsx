@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { BrandLockup } from "@/src/components/brand/brand-lockup";
 import { IntakeForm } from "@/src/components/intake/intake-form";
 import { isIntakeEnabled } from "@/src/server/intake";
 
@@ -29,10 +30,7 @@ export default async function IntakePage({
               className="brand mx-auto mb-5 w-fit"
               aria-label="J&H MultiServices LLC"
             >
-              <span className="brand-mark">
-                J<span>&</span>H
-              </span>
-              <span className="brand-tag">Multiservices LLC</span>
+              <BrandLockup tag="Multiservices LLC" size={48} />
             </div>
             <h1 className="text-[1.375rem] font-semibold tracking-[-0.02em] text-ink">
               Información del cliente

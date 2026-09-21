@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
 import { auth } from "@/auth";
+import { BrandLockup } from "@/src/components/brand/brand-lockup";
 import { UserMenu } from "@/src/components/ui";
 import { NotificationBell } from "@/src/components/notifications/notification-bell";
 import {
@@ -67,10 +68,7 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
                 className="brand"
                 aria-label="J&H MultiServices LLC — Inicio"
               >
-                <span className="brand-mark">
-                  J<span>&</span>H
-                </span>
-                <span className="brand-tag">Multiservices LLC</span>
+                <BrandLockup tag="Multiservices LLC" size={40} priority />
               </Link>
             }
             sidebar={

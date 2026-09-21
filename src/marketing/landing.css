@@ -143,7 +143,6 @@ header{
   transition:color .35s var(--ease);
 }
 header.on-hero{color:#fff}
-header.on-hero .brand-mark{color:#fff}
 header.on-hero .brand-tag{color:rgba(255,255,255,.72)}
 header.on-hero .nav-links a{color:rgba(255,255,255,.82)}
 header.on-hero .nav-links a:hover{color:#fff}
@@ -166,6 +165,9 @@ header.scrolled{color:var(--ink)}
   display:inline-flex;align-items:center;gap:.55rem;
   min-height:var(--touch);line-height:1;
 }
+.brand-logo{
+  width:48px;height:48px;object-fit:contain;flex-shrink:0;
+}
 .brand-mark{
   font-family:var(--font-display);font-weight:600;font-size:1.45rem;
   letter-spacing:-.02em;color:var(--ink);line-height:1;
@@ -176,6 +178,7 @@ header.scrolled{color:var(--ink)}
   font-size:12px;font-weight:500;letter-spacing:-.01em;
   color:var(--ink-soft);line-height:1.2;
   display:inline-flex;align-items:center;
+  white-space:nowrap;
 }
 .nav-links{display:flex;align-items:center;gap:1.5rem;list-style:none}
 .nav-links a{
@@ -295,9 +298,15 @@ header.scrolled{color:var(--ink)}
   backdrop-filter:saturate(160%) blur(12px);-webkit-backdrop-filter:saturate(160%) blur(12px);
 }
 .hero-brand{
-  display:block;font-family:var(--font-display);font-weight:600;
-  font-size:clamp(3.5rem,9vw,6rem);line-height:.92;letter-spacing:-.03em;
-  color:#fff;margin-bottom:var(--space-4);
+  display:block;margin-bottom:var(--space-4);line-height:0;
+}
+.hero-logo{
+  /* Recorta el padding vertical del PNG 1:1 (letras ~944×357). */
+  display:block;
+  width:min(100%,clamp(12rem,48vw,18rem));
+  height:auto;
+  aspect-ratio:944/357;
+  object-fit:cover;object-position:center;
 }
 .hero-headline{
   display:block;font-family:var(--font-display);font-weight:500;
@@ -731,6 +740,7 @@ footer{
 }
 @media (max-width:760px){
   .nav{height:56px}
+  .brand-logo{width:36px;height:36px}
   .nav-consult{display:none}
   .nav-mobile-cta{display:block;padding:var(--space-4) 0 var(--space-2)}
   .nav-mobile-cta .btn{width:100%}

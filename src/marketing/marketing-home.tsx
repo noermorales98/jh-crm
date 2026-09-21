@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { BrandLockup } from "@/src/components/brand/brand-lockup";
 import { ContactForm } from "./contact-form";
 import "./landing.css";
 
@@ -85,10 +86,7 @@ export function MarketingHome() {
         <div className="header-frost" aria-hidden="true" />
         <div className="wrap nav">
           <a className="brand" href="#inicio" aria-label="J&H MultiServices LLC — Inicio">
-            <span className="brand-mark">
-              J<span>&</span>H
-            </span>
-            <span className="brand-tag">MultiServices LLC</span>
+            <BrandLockup tag="MultiServices" size={48} priority />
           </a>
           <nav aria-label="Navegación principal">
             <ul id="menu-principal" className={menuOpen ? "nav-links open" : "nav-links"}>
@@ -184,7 +182,17 @@ export function MarketingHome() {
               <div className="hero-copy">
                 <p className="hero-welcome reveal d1">Reparación y análisis de crédito</p>
                 <h1 className="reveal d2">
-                  <span className="hero-brand">J&amp;H</span>
+                  <span className="hero-brand">
+                    <Image
+                      src="/logo.png"
+                      alt="J&H"
+                      width={1000}
+                      height={1000}
+                      sizes="(max-width: 760px) 12rem, 18rem"
+                      className="hero-logo"
+                      priority
+                    />
+                  </span>
                   <span className="hero-headline">
                     Análisis crediticio, reparación de crédito y acompañamiento claro.
                   </span>

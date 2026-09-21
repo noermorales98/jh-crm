@@ -262,32 +262,20 @@ body {
 .jh-brand .brand {
   display: flex;
   min-width: 0;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.12rem;
+  align-items: center;
+  gap: 0.55rem;
 }
 
 .jh-brand .brand {
-  align-items: center;
+  flex-direction: column;
+  gap: 0.35rem;
 }
 
-.crm-brand .brand-mark,
-.jh-brand .brand-mark {
-  font-family: var(--font-jh-display), ui-sans-serif, system-ui, sans-serif;
-  font-size: 1.4rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1;
-  color: light-dark(#1c1c1e, #f2f2f7);
-}
-
-.jh-brand .brand-mark {
-  font-size: 1.75rem;
-}
-
-.crm-brand .brand-mark span,
-.jh-brand .brand-mark span {
-  color: var(--color-action-primary);
+.crm-brand .brand-logo,
+.jh-brand .brand-logo {
+  display: block;
+  flex-shrink: 0;
+  object-fit: contain;
 }
 
 .crm-brand .brand-tag,

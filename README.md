@@ -1,235 +1,226 @@
-# J&H Multiservices LLC — CRM interno
+# J&H CRM
 
-CRM operativo interno para **J&H Multiservices LLC**: gestión de clientes, casos
-de crédito con pipeline de etapas, rondas de disputa, tareas con recordatorios,
-catálogo de servicios y paquetes, cotizaciones con PDF, pagos y recibos con
-folio, usuarios/roles, auditoría de eventos sensibles y configuración de la
-organización.
+CRM operativo de **J&H MultiServices LLC**. No es solo una agenda de contactos: concentra ventas, expedientes, reparación de crédito, tareas, documentos, cobros y comunicación en un solo lugar.
 
-## Stack
+Sirve para que el equipo (Hugo y staff) responda en segundos:
 
-- **Next.js 16.3.4** (App Router, route handlers, server actions) + **React 19**
-- **TypeScript strict** + **Tailwind CSS 4**
-- **Prisma 6.19** sobre **MySQL** remoto
-- **NextAuth v5** (Credentials, sesión JWT, bcryptjs)
-- PDFs con jsPDF; subida de archivos a S3 (pendiente de configurar, ver abajo)
+1. ¿Qué hay que hacer hoy?
+2. ¿Qué está atrasado?
+3. ¿Quién espera seguimiento?
 
-## Setup rápido
+Sitio público: [jh-multiservices.com](https://jh-multiservices.com). El CRM interno vive en `/crm`. El login del staff es `/login`.
 
-```bash
-npm install                      # postinstall ejecuta prisma generate
-cp .env.example .env.local       # rellenar valores (ver abajo)
-npm run db:deploy                # aplica migraciones a la base MySQL
-npx tsx --env-file=.env.local scripts/bootstrap.ts
-                                 # crea organización, etapas, settings y usuario OWNER
-npm run dev                      # http://localhost:3000
+---
+
+## Qué hace
+
+Una **persona** entra como prospecto (web, Meta, alta manual) y se convierte en **cliente**. Sobre esa persona se abren **expedientes de servicio** (crédito, comprador de casa, préstamo, web, etc.). Cada expediente lleva etapas, tareas, documentos, notas, cotizaciones y pagos.
+
+El servicio principal es **reparación de crédito**: reportes de Experian / Equifax / TransUnion, ítems a disputar, rondas, cartas y comparación de avances. El CRM no promete puntajes ni “borrar todo lo negativo”; registra lo que sí ocurrió.
+
+También cubre:
+
+- Pipeline comercial (Leads)
+- Catálogo, cotizaciones PDF y cobro (Zelle, efectivo, transferencia, Stripe)
+- Correo de la empresa, WhatsApp y campana interna
+- Portal del cliente (progreso, documentos, firma, pagos)
+- Sitio web con formulario de contacto y páginas legales
+
+---
+
+## Las tres caras del sistema
+
+| Superficie | Quién entra | Para qué |
+| --- | --- | --- |
+| **Sitio** (`/`) | Público | Landing, consulta de $1, privacidad, términos, SMS, cancelación, reembolsos |
+| **CRM** (`/crm`) | Staff con rol | Operación diaria: clientes, casos, cobros, correo, configuración |
+| **Portal** (`/portal`) | Cliente invitado | Ver progreso, documentos, reportes, contratos y pagos |
+
+El intake público (`/intake/[token]`) captura documentos del cliente con un enlace; está apagado hasta activar `FEATURE_PUBLIC_INTAKE`.
+
+---
+
+## Cómo se trabaja (flujo típico)
+
+```text
+Captación          Venta                 Operación              Cierre
+web / Meta / alta  Lead → consulta →    expediente + tareas    pago, recibo,
+                   cotización           crédito / rondas       contrato, testimonio
+        │               │                     │
+        └───────────────┴─────────────────────┘
+                         Cliente (una persona)
 ```
 
-Login con `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` definidos en
-`.env.local` (el script de bootstrap crea ese usuario OWNER).
+1. Llega un lead (formulario, Facebook/Instagram o alta en Clientes).
+2. Se da seguimiento en **Leads** hasta ganarlo o perderlo.
+3. Al ganar, el cliente pasa a activo y se abre un **caso / expediente**.
+4. Se piden documentos, se cotiza, se cobra (o se arma un plan de cuotas).
+5. En crédito: se carga el reporte, se eligen ítems, se arma la **ronda**, se genera la carta, se espera actualización y se compara.
+6. El cliente puede entrar al **portal**. Al terminar, se puede pedir un **testimonio**.
 
-### Variables de entorno
+---
 
-`.env.example` documenta todas las variables. Las imprescindibles:
+## Navegación del CRM
 
-- `DATABASE_URL` — MySQL remoto.
-- `AUTH_SECRET` — secreto de sesión NextAuth.
-- `CRON_SECRET` — Bearer token para `GET /api/cron/reminders`, `GET /api/cron/digest`, `GET /api/cron/mails-sync` y `GET /api/cron/retention`.
-- `BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD` / `BOOTSTRAP_OWNER_NAME`.
-- `OPENROUTER_API_KEY` — chat de IA en el CRM (modelos gratuitos). Opcional: `OPENROUTER_API_KEY_SECONDARY`.
+La barra izquierda es el trabajo de cada día. El resto está en **Más**. **Configuración** queda abajo del todo.
 
-## Scripts
+### Barra principal
 
-| Comando | Descripción |
+| Sección | Ruta | Qué es |
+| --- | --- | --- |
+| **Inicio** | `/crm/dashboard` | Resumen del día: clientes activos, casos abiertos, cobros, atrasos, leads por contactar y atajos al asistente. |
+| **Pendientes** | `/crm/tareas` | Tareas con tipo, prioridad, vencimiento y asignado. También se crean desde el cliente o el caso. |
+| **Leads** | `/crm/oportunidades` | Kanban comercial (nuevo → contactado → consulta → intake → propuesta → pago → ganado/perdido). Ganar abre caso y activa al cliente. |
+| **Clientes** | `/crm/clientes` | Personas. Estados: prospecto, activo, pausado, completado, cancelado, archivado. Alta en `/crm/clientes/nuevo`. |
+| **Casos** | `/crm/casos` | Expedientes de servicio. El de crédito es el núcleo: etapa, responsable, próxima revisión. |
+| **Cobrar** | `/crm/pagos` | Pagos pendientes y recibidos. Alta en `/crm/pagos/nuevo`. Al marcar recibido se emite recibo con folio. |
+| **Mensajes** | `/crm/mails` | Bandeja de la organización (entrada, enviados, borradores, archivo, spam, papelera). IMAP cada minuto; envío por SMTP. |
+| **Chats** | `/crm/chats` | Historial con el asistente de IA. El globo de la esquina también abre el chat. |
+
+### Ficha de cliente
+
+Desde `/crm/clientes/{id}`:
+
+- **Resumen** — contacto, responsable, servicio activo.
+- **Expediente** — datos, perfil sensible (SSN, licencia; solo especialista/admin) y documentos.
+- **Casos / servicios** — expedientes de esa persona.
+- **Actividad y notas** — bitácora.
+- **Tareas, documentos, pagos, testimonios**.
+
+Los documentos aceptan PDF/JPG/PNG (hasta 15 MB) con categoría y sensibilidad. El SSN nunca se muestra en claro en listados ni se manda a la IA.
+
+### Ficha de caso (crédito)
+
+Desde `/crm/casos/{id}`:
+
+- **Resumen** — etapa del flujo, estado, próxima acción.
+- **Crédito** — reportes INITIAL/UPDATE/MANUAL, scores por buró, cuentas (número enmascarado), importación de PDF.
+- **Rondas** — cada ciclo de disputa (borrador → enviada → esperando update → revisión).
+- **Comparaciones** — reporte base vs actualizado (eliminado / actualizado / verificado).
+- **Cartas** — plantilla → borrador → revisión humana → final → enviada. PDF al vuelo, no se guarda en el bucket.
+- **Reporte visual** — snapshot para mostrar avance al cliente.
+- **Tareas, documentos, cotizaciones, pagos** ligados a ese caso.
+
+Las rondas de todos los casos también se listan en **Más → Rondas** (`/crm/rondas`).
+
+### Menú Más
+
+| Grupo | Sección | Ruta | Qué es |
+| --- | --- | --- | --- |
+| Ventas | Consultas | `/crm/consultas` | Solicitudes de consulta del sitio ($1). No se marcan pagadas sin pasarela real. |
+| Crédito | Rondas | `/crm/rondas` | Todas las rondas de disputa. |
+| Dinero | Cuotas | `/crm/planes-pago` | Planes a plazos; cada cuota genera un pago pendiente. |
+| Dinero | Recibos | `/crm/recibos` | Folios emitidos. Solo admin/propietario puede anular. |
+| Dinero | Cotizaciones | `/crm/cotizaciones` | Propuestas con ítems del catálogo o sueltos, envío y PDF. Link de Stripe si está activo. |
+| Dinero | Servicios | `/crm/servicios` | Catálogo y paquetes (`/crm/servicios/paquetes`). |
+| Extra | Testimonios | `/crm/testimonios` | Reseñas con consentimiento (aprobar / publicar son pasos distintos). |
+| Extra | Contratos | `/crm/contratos` | Plantillas y contratos; el cliente firma en el portal. |
+| Extra | Procesadores | `/crm/procesadores` | Monitores externos (SmartCredit, Credit Karma, etc.) y cuentas del cliente. |
+
+Otras pantallas de staff:
+
+- **Atribución** (`/crm/atribucion`) — de dónde vienen los leads (web, Meta, referido, UTM).
+- **Usuarios** (`/crm/usuarios`) — miembros e invitaciones.
+- **Auditoría** (`/crm/auditoria`) — eventos sensibles (SSN, documentos, recibos, cambios de rol).
+
+### Configuración
+
+| Pestaña | Ruta | Qué es |
+| --- | --- | --- |
+| Empresa y folios | `/crm/configuracion` | Nombre, logo, dirección, moneda, impuesto, prefijos (CL, CASE, Q, REC), retención de documentos, Stripe. |
+| Notificaciones | `/crm/configuracion/notificaciones` | SMTP, resumen diario, avisos correo/WhatsApp (CallMeBot al equipo, Whapi a clientes). |
+| Seguridad | `/crm/configuracion/seguridad` | MFA (TOTP) de la cuenta. |
+| Etapas del proceso | `/crm/configuracion/etapas` | Orden y color de las etapas de cada servicio. |
+| Borrar datos | `/crm/configuracion/datos` | Zona de propietario/administrador: vacía clientes, leads y operación. Hay que escribir `BORRAR TODO`. Conserva usuarios, catálogo y la empresa. Irreversible. |
+
+Búsqueda global: **⌘K** (o el campo “Buscar o preguntar”). Campana de notificaciones en el header.
+
+---
+
+## Roles
+
+El permiso se valida en servidor, no solo ocultando botones.
+
+| Rol | En la UI | Puede |
+| --- | --- | --- |
+| **Propietario** (`OWNER`) | Propietario | Todo, incluida administración. |
+| **Administrador** (`ADMIN`) | Administrador | Igual: usuarios, auditoría, anular recibos, catálogo, configuración, borrar datos. |
+| **Especialista** (`SPECIALIST`) | Especialista | Operación + datos sensibles (SSN, documentos confidenciales) y procesadores. |
+| **Staff** (`STAFF`) | Staff | Operación diaria, sin sensibles ni administración. |
+| **Solo lectura** (`VIEWER`) | Solo lectura | Consultar, no editar. |
+
+---
+
+## Servicios que puede llevar un cliente
+
+Un cliente no tiene “un solo estado”. Puede tener varios expedientes a la vez:
+
+| Código | Uso |
 | --- | --- |
-| `npm run dev` | Servidor de desarrollo |
-| `npm run build` / `npm run start` | Build y arranque de producción |
+| `CREDIT_REPAIR` | Reparación de crédito (módulo principal). |
+| `HOME_BUYER` | Comprador de casa. |
+| `BUSINESS_CREDIT` | Crédito comercial / fondeo. |
+| `PERSONAL_LOAN` | Préstamo personal. |
+| `WEB_DEVELOPMENT` | Sitio web. |
+| `CRM_DEVELOPMENT` | Desarrollo de CRM / proyectos. |
+
+Cada vertical tiene sus propias etapas. El flujo de crédito (reportes, rondas, cartas) aplica a `CREDIT_REPAIR`.
+
+---
+
+## Sitio, portal e integraciones
+
+**Sitio.** Portada con servicios y formulario. El envío pide un desliz anti-bot y el consentimiento de privacidad. Crea un cliente prospecto (fuente sitio web), avisa en la campana y por WhatsApp. Si el correo o teléfono ya existe, se anota en el expediente y no se vuelve a notificar.
+
+**Portal.** Flag `FEATURE_CLIENT_PORTAL`. El admin invita desde la ficha. El cliente ve progreso, documentos, reportes, pagos y puede firmar contratos.
+
+**Meta Lead Ads.** Flag `FEATURE_META_LEAD_ADS`. El webhook crea o actualiza cliente + lead (Facebook/Instagram) sin duplicar el mismo anuncio.
+
+**Correo.** IMAP importa la bandeja; SMTP envía. Traducción al español en el detalle. Avisos a campana y WhatsApp.
+
+**Pagos.** Registro manual o Checkout de Stripe (claves por organización). Consultas de $1 no se marcan pagadas sin `FEATURE_CONSULTATION_PAYMENTS` y pasarela.
+
+**IA.** Chat con datos de la org (clientes, casos, cotizaciones, pagos) y enlaces reales `/crm/...`. No descifra SSN ni inventa eliminaciones en burós. Requiere `OPENROUTER_API_KEY`.
+
+**Archivos.** Bucket S3-compatible (p. ej. R2). Sin `S3_*` el resto del CRM funciona; subir/bajar archivos falla de forma controlada. Un cron puede purgar documentos según los días de retención.
+
+---
+
+## Automatizaciones (cron)
+
+No hay cron de Vercel. Se disparan desde [cron-job.org](https://cron-job.org/en/) con `Authorization: Bearer $CRON_SECRET`.
+
+| Job | Ruta | Frecuencia | Qué hace |
+| --- | --- | --- | --- |
+| Correos | `GET /api/cron/mails-sync` | 1 min | Importa IMAP, avisa una sola vez por mensaje. |
+| Recordatorios | `GET /api/cron/reminders` | 15 min | Tareas, revisiones, pagos, follow-ups. |
+| Resumen | `GET /api/cron/digest` | 1 h | Correo a owner/admin a la hora configurada. |
+| Retención | `GET /api/cron/retention` | 1 día | Hard-delete en S3 de documentos vencidos. |
+
+---
+
+## Para desarrollar
+
+Stack: **Next.js 16** (App Router) + **React 19** + **TypeScript** + **Tailwind 4** + **Prisma 6** (MySQL) + **NextAuth v5**.
+
+```bash
+npm install
+cp .env.example .env.local    # rellenar valores
+npm run db:deploy
+npx tsx --env-file=.env.local scripts/bootstrap.ts
+npm run dev                   # http://localhost:3000
+```
+
+El bootstrap crea la organización, etapas de crédito, settings y el usuario propietario (`BOOTSTRAP_OWNER_EMAIL` / `BOOTSTRAP_OWNER_PASSWORD`).
+
+Imprescindibles en `.env.local`: `DATABASE_URL`, `AUTH_SECRET`, `CRON_SECRET`, `BOOTSTRAP_OWNER_*`. Opcionales: OpenRouter, S3, flags `FEATURE_*`. Lista completa en `.env.example`.
+
+| Comando | Uso |
+| --- | --- |
+| `npm run dev` | Desarrollo |
+| `npm run build` / `npm run start` | Producción |
 | `npm run lint` | ESLint |
-| `npm run db:generate` | Regenerar Prisma Client |
-| `npm run db:migrate` | Migraciones en desarrollo |
-| `npm run db:deploy` | Aplicar migraciones (producción) |
-| `npm run db:studio` | Prisma Studio |
-| `npm run smoke:credit-reports` | Smoke de reportes de crédito (SPRINT 1) |
-| `npm run smoke:disputes-comparisons` | Smoke de disputas y comparaciones (SPRINT 2) |
-| `npm run smoke:letters` | Smoke de cartas / reporte visual (SPRINT 3) |
-| `npm run smoke:sprint4` | Smoke intake/procesadores/oportunidades/atribución (SPRINT 4) |
-| `npm run smoke:sprint5` | Smoke planes de pago / consultas / automatizaciones (SPRINT 5) |
-| `npm run smoke:sprint6` | Smoke MFA / retención / portal (SPRINT 6) |
-| `npm run smoke:sprint8` | Smoke legales / privacidad en contacto (SPRINT 8) |
-| `npm run seed:demo-credit` | Seed DEMO persistente (cliente + caso completo) |
+| `npm run db:migrate` / `db:deploy` / `db:studio` | Prisma |
+| `npm run seed:demo-credit` | Cliente + caso de crédito de demostración |
 
-Scripts auxiliares en `scripts/`:
-
-- `bootstrap.ts` — inicializa la organización y el usuario OWNER.
-- `smoke/` — fixtures y verificaciones de humo (dominio, UI, finanzas, HTTP,
-  E2E integral `e2e-flow.ts`, verificación en navegador `browser-verify.mjs`),
-  cada uno con su cleanup correspondiente.
-
-## Asistente de IA
-
-El CRM incluye un chat flotante (esquina inferior derecha) que usa modelos
-gratuitos de [OpenRouter](https://openrouter.ai/keys) (`openrouter/free`).
-Responde con datos de la organización (clientes, casos, cotizaciones, pagos),
-la configuración de la empresa y las rutas para guiar al usuario con enlaces
-`/crm/...`. Requiere sesión; no expone SSN descifrado ni secretos.
-
-`OPENROUTER_API_KEY_SECONDARY` se usa si la clave primaria responde 429/402/401.
-
-## Reportes de crédito (SPRINT 1)
-
-Dominio operativo normalizado (sin parseo automático de PDF):
-
-- `CreditReport` — metadata del reporte (tipo INITIAL/UPDATE/MANUAL, fecha, proveedor, documento opcional).
-- `CreditBureauSnapshot` — scores y contadores por buró (Experian / Equifax / TransUnion).
-- `CreditItem` — cuentas/elementos con número **enmascarado** (nunca SSN ni cuenta completa).
-
-UI en el caso: `/crm/casos/[caseId]/credito` (evolución de scores + listado) y
-`/crm/casos/[caseId]/credito/reportes/[reportId]` (detalle e ítems).
-
-Migración: `prisma/migrations/20260904190000_credit_reports_sprint1`.
-
-Smoke: `npx tsx --env-file=.env.local scripts/smoke/credit-reports-smoke.ts`.
-
-Los contadores `CreditRound.disputedItemsCount` se sincronizan desde
-`DisputeItem` (no CANCELLED). `lettersCount` sigue siendo manual hasta el
-sprint de cartas.
-
-## Disputas y comparación (SPRINT 2)
-
-- `DisputeItem` — elementos exactos incluidos en una ronda (motivo, status, outcome).
-- Detalle de ronda: `/crm/casos/[caseId]/rondas/[roundId]` con resumen de resultados.
-- `ReportComparison` + `ReportComparisonItem` — comparación base vs actualizado con override manual.
-- Pantalla: `/crm/casos/[caseId]/comparaciones/[comparisonId]`.
-
-Migración: `prisma/migrations/20260904200000_dispute_items_and_comparisons`.
-
-Smoke: `npm run smoke:disputes-comparisons`.
-
-Datos DEMO (persistentes): `npm run seed:demo-credit`.
-
-## Cartas y reporte visual (SPRINT 3)
-
-- `DisputeLetterTemplate` — plantillas con variables `{{client.fullName}}`, `{{bureau}}`, etc.
-- `DisputeLetter` — borrador → revisión humana → FINAL → SENT (sin PDF en S3).
-- Vista HTML: `/crm/casos/[caseId]/rondas/[roundId]/cartas/[letterId]`
-- PDF on-demand: `GET /api/letters/[letterId]/pdf` (attachment local, no se guarda en el bucket).
-- `ClientProgressReport` — snapshot en BD; vista HTML `/crm/casos/[caseId]/reportes/[reportId]`;
-  PDF `GET /api/progress-reports/[reportId]/pdf`. Historial en ronda y pestaña Crédito.
-- UI: detalle de ronda (`Generar carta`, `Reporte visual`) y pestaña Crédito.
-
-Migraciones: `20260904210000_dispute_letters_sprint3`, `20260904220000_client_progress_reports`.
-
-Smoke: `npm run smoke:letters`.
-
-## SPRINT 4 — Intake, procesadores, atribución, pipeline comercial
-
-- **Intake avanzado:** payload especializado (`payloadJson`), objetivos/flags, categorías de documento (no todo OTHER).
-- **Procesadores:** catálogo `CreditProcessor` + `ClientProcessorAccount` (`/crm/procesadores`); `ExternalReference` se mantiene.
-- **Atribución:** `Client.attribution` JSON + `leadChannel`; formulario de contacto captura UTM; dashboard `/crm/atribucion`.
-- **Pipeline comercial:** `Opportunity` con etapas NEW_LEAD…WON/LOST; Kanban `/crm/oportunidades`; WON → CreditCase + cliente ACTIVE.
-
-Migración: `prisma/migrations/20260904230000_sprint4_intake_processors_ops`.
-
-Smoke: `npm run smoke:sprint4`.
-
-## SPRINT 5 — Planes de pago, consultas, automatizaciones
-
-- **Planes de pago:** `PaymentPlan` + `PaymentInstallment`; UI `/crm/planes-pago`. Al crear un plan se generan N pagos PENDING. Al recibir un pago ligado, la cuota pasa a PAID y el plan a COMPLETED si aplica.
-- **Consultas:** `Consultation` desde el formulario de contacto ($1, estado REQUESTED). CRM `/crm/consultas`. Nunca se marca PAID sin pasarela real (`FEATURE_CONSULTATION_PAYMENTS` + gateway).
-- **Automatizaciones:** follow-up de lead, intake sin completar (>48 h), revisión de ronda, análisis de reporte UPDATE, documentos pendientes (cron).
-
-Migración: ya aplicada (PaymentPlan / Consultation / enums de actividad y notificación).
-
-Smoke: `npm run smoke:sprint5`.
-
-## SPRINT 6 — Portal, contratos, MFA, retención
-
-- **Portal del cliente:** `ClientPortalAccess` separado del staff; rutas `/portal/*` (login, progreso, documentos, reportes, pagos). Flag `FEATURE_CLIENT_PORTAL` (default off). Invitar desde ficha de cliente (ADMIN/OWNER).
-- **Contratos:** `ContractTemplate` + `ClientContract`; CRM `/crm/contratos`; firma desde portal cuando status SENT.
-- **MFA (TOTP):** OWNER/ADMIN/SPECIALIST en `/crm/configuracion/seguridad`. Si `mfaEnabled`, login en 2 pasos (TOTP o recovery). Rate limit `login:${email}`: 10 / 15 min.
-- **Retención:** `documentSoftDeleteRetentionDays` / `documentMaxRetentionDays` en Configuración → Empresa. Soft-delete programa `purgeAfter`; cron hard-deletea S3 + `hardDeletedAt`.
-
-Migración: `prisma/migrations/20260905120000_sprint6_portal_contracts_mfa_retention`.
-
-### Cron retención
-
-- URL: `https://TU-DOMINIO/api/cron/retention`
-- Método: `GET`
-- Cada **día** (o cada hora)
-- Header: `Authorization` = `Bearer $CRON_SECRET`
-- Idempotente: no reprocesa documentos con `hardDeletedAt`.
-
-Smoke: `npm run smoke:sprint6`.
-
-## SPRINT 7 — Meta Lead Ads, dashboard crédito, IA
-
-- **Meta Lead Ads:** `processMetaLead` + webhook `GET/POST /api/public/meta/leads`. Flag `FEATURE_META_LEAD_ADS` (default off). Dedupe por `MetaLeadEvent` (`organizationId` + `externalLeadId`). Crea/actualiza Client (`source=META`, canal FACEBOOK/INSTAGRAM), Opportunity NEW_LEAD, follow-up y notificación `META_LEAD`. POST exige `META_APP_SECRET` (HMAC `X-Hub-Signature-256`); Graph API opcional con `META_PAGE_ACCESS_TOKEN`.
-- **Dashboard crédito:** widgets de atención (docs pendientes, reportes UPDATE 14d, rondas por preparar / esperando update, revisiones y pagos vencidos, leads 7d, conversiones WON 30d, ítems disputados / eliminados / actualizados) en `/crm/dashboard`.
-- **IA:** tools `getCreditCaseDetail`, `listCreditAttention`, `searchCreditProgress`; reglas anti-SSN / no inventar eliminaciones; rutas de crédito, oportunidades, portal y contratos en knowledge.
-
-Migración: ya aplicada (`MetaLeadEvent`, `NotificationType.META_LEAD`).
-
-Smoke: `npm run smoke:sprint7`.
-
-## SPRINT 8 — Website, legales, QA
-
-- **Páginas legales (plantillas / borrador):** `/privacy`, `/terms`, `/cancellation`, `/refunds`, `/disclosures`, `/sms-terms` — marcadas como «requiere revisión legal»; públicas en `auth.config.ts`.
-- **Landing:** footer con enlaces legales; sección «Cómo funciona» en 4 pasos; servicios con énfasis crediticio (sin promesas de puntaje/eliminaciones); LLC y web se mantienen.
-- **Contacto:** checkbox obligatorio de privacidad + checkbox opcional de SMS (independientes). `sms_consent` en `Client.attribution`. Mensaje de éxito: «Solicitud recibida» / sin cobro (el cobro real solo con `FEATURE_CONSULTATION_PAYMENTS`).
-
-### QA checklist (SPRINT 8)
-
-- [ ] Abrir `/privacy` … `/sms-terms` sin login.
-- [ ] Footer del landing enlaza las 6 páginas.
-- [ ] Enviar contacto sin privacidad → error de validación.
-- [ ] Con privacidad (SMS opcional) → «Solicitud recibida» y texto de que no se cobró.
-- [ ] `npm run smoke:sprint8`
-- [ ] `npx tsc --noEmit`
-
-Smoke: `npm run smoke:sprint8`.
-
-## Cron (cron-job.org)
-
-No hay cron de Vercel (`vercel.json` / Cron Jobs del dashboard). Todo se dispara desde [cron-job.org](https://cron-job.org/en/) contra la URL de producción.
-Crea **cuatro** jobs. Todos usan el header `Authorization: Bearer $CRON_SECRET`.
-
-### Correos (IMAP)
-
-- URL: `https://TU-DOMINIO/api/cron/mails-sync`
-- Método: `GET`
-- Cada **1 minuto**
-- Header: `Authorization` = `Bearer $CRON_SECRET`
-- Importa correos nuevos y avisa en la campana y por WhatsApp (si está activo).
-- Idempotente: el mismo mensaje no se importa ni notifica dos veces.
-
-### Recordatorios (tareas, revisiones, pagos)
-
-- URL: `https://TU-DOMINIO/api/cron/reminders`
-- Método: `GET`
-- Cada **15 minutos**
-- Idempotente: cada aviso lleva `dedupeKey` único (upsert), no se duplica.
-
-### Resumen diario
-
-- URL: `https://TU-DOMINIO/api/cron/digest`
-- Método: `GET`
-- Cada **hora** (el CRM solo envía si `digestEnabled` y la hora local de la organización coincide con la configurada en Notificaciones; default 08:00).
-- Destinatarios: OWNER y ADMIN. El correo sale por el SMTP de Configuración → Notificaciones.
-
-### Retención de documentos
-
-- URL: `https://TU-DOMINIO/api/cron/retention`
-- Método: `GET`
-- Cada **día** (recomendado)
-- Hard-delete S3 de documentos con `purgeAfter` vencido o retención máxima superada.
-
-SMTP, hora del resumen y toggles de correo/WhatsApp: menú de usuario → **Notificaciones** (`/crm/configuracion/notificaciones`).
-
-## Pendiente: almacenamiento S3
-
-La subida/descarga de documentos (expediente de clientes, adjuntos de intake)
-requiere un bucket S3-compatible. Hasta configurar `S3_ENDPOINT`, `S3_REGION`,
-`S3_BUCKET`, `S3_ACCESS_KEY_ID` y `S3_SECRET_ACCESS_KEY` en `.env.local`, esas
-rutas (`/api/files/*`) responden con error controlado y el resto del CRM
-funciona con normalidad. El intake público además está desactivado por defecto
-(`FEATURE_PUBLIC_INTAKE=false`).
+Arquitectura, reglas de negocio y seguridad: carpeta [`docs/`](docs/README.md).

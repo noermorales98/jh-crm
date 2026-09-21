@@ -44,6 +44,7 @@ const NESTED_TITLES: Record<string, string> = {
   paquetes: "Paquetes",
   etapas: "Etapas",
   notificaciones: "Notificaciones",
+  datos: "Borrar datos",
   expediente: "Expediente",
   actividad: "Actividad",
   documentos: "Documentos",

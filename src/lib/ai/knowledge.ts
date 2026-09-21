@@ -44,6 +44,7 @@ export const CRM_ROUTES = [
   { href: "/crm/auditoria", label: "Auditoría", how: "Eventos sensibles: perfil, documentos, recibos (solo admin/owner)." },
   { href: "/crm/configuracion", label: "Configuración", how: "Datos de empresa, moneda, prefijos, hasta 4 números WhatsApp CallMeBot." },
   { href: "/crm/configuracion/etapas", label: "Etapas del pipeline", how: "Etapas del caso: nombre, color y orden." },
+  { href: "/crm/configuracion/datos", label: "Borrar datos", how: "Solo propietario/administrador. Vacía clientes, leads y datos operativos. Hay que escribir BORRAR TODO. Conserva usuarios, catálogo y configuración." },
 ] as const;
 
 export const HOW_TO_GUIDE = `

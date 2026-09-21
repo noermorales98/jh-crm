@@ -11,12 +11,17 @@ import {
 } from "@/src/server/errors";
 import { cuidSchema, emailSchema, moneySchema } from "@/src/lib/validation/common";
 import * as configService from "@/src/server/config";
+import {
+  wipeOrganizationData,
+  type WipeResult,
+} from "@/src/server/config/wipe-org-data";
 
 function revalidateConfig() {
   revalidatePath("/crm/configuracion");
   revalidatePath("/crm/configuracion/notificaciones");
   revalidatePath("/crm/configuracion/seguridad");
   revalidatePath("/crm/configuracion/etapas");
+  revalidatePath("/crm/configuracion/datos");
   revalidatePath("/crm/dashboard");
 }
 
@@ -233,6 +238,23 @@ export async function deactivateStage(stageId: string): Promise<ActionResult<{ i
     const stage = await configService.deactivateStage(ctx, id);
     revalidateConfig();
     return actionOk({ id: stage.id });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+/** OWNER/ADMIN: borra clientes, leads y el resto de datos operativos. */
+export async function wipeOrganizationDataAction(
+  confirmation: unknown,
+): Promise<ActionResult<WipeResult>> {
+  try {
+    const ctx = await requireRole("OWNER", "ADMIN");
+    const phrase = z.string().parse(confirmation);
+    const result = await wipeOrganizationData(ctx, phrase);
+    revalidatePath("/crm", "layout");
+    revalidateConfig();
+    return actionOk(result);
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

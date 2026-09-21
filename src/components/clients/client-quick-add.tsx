@@ -15,6 +15,7 @@ import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
 import { CreateRoundButton } from "@/src/components/rounds/create-round-button";
 import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
+import { ClientNoteQuickModal } from "@/src/components/clients/client-note-quick-modal";
 
 type MemberOption = { id: string; name: string };
 
@@ -27,6 +28,7 @@ const itemClass =
 export function ClientQuickAdd({
   clientId,
   caseId,
+  serviceCaseId,
   members,
   canTask,
   canDocument,
@@ -34,10 +36,12 @@ export function ClientQuickAdd({
   canReport,
   canRound,
   canNote,
+  canServiceNote,
   canQuote,
 }: {
   clientId: string;
   caseId: string | null;
+  serviceCaseId?: string | null;
   members: MemberOption[];
   canTask: boolean;
   canDocument: boolean;
@@ -45,9 +49,12 @@ export function ClientQuickAdd({
   canReport: boolean;
   canRound: boolean;
   canNote: boolean;
+  /** Si true, la nota se asocia al ServiceCase/CreditCase activo. */
+  canServiceNote?: boolean;
   canQuote?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [noteOpen, setNoteOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -88,15 +95,21 @@ export function ClientQuickAdd({
           className="absolute right-0 z-40 mt-1 min-w-[13.5rem] overflow-hidden rounded-control border border-border-subtle bg-surface-panel py-1"
         >
           {canNote ? (
-            <Link
+            <button
+              type="button"
               role="menuitem"
-              href={`/crm/clientes/${clientId}/actividad`}
               className={itemClass}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                setNoteOpen(true);
+              }}
             >
-              <NotebookPen className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
-              Nota / actividad
-            </Link>
+              <NotebookPen
+                className="size-3.5 shrink-0 text-text-secondary"
+                aria-hidden
+              />
+              Nota
+            </button>
           ) : null}
           {canDocument ? (
             <UploadDocumentButton
@@ -115,7 +128,10 @@ export function ClientQuickAdd({
               className={itemClass}
               onClick={() => setOpen(false)}
             >
-              <FileText className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
+              <FileText
+                className="size-3.5 shrink-0 text-text-secondary"
+                aria-hidden
+              />
               Cotización
             </Link>
           ) : null}
@@ -128,7 +144,10 @@ export function ClientQuickAdd({
               className={itemClass}
               onClick={() => setOpen(false)}
             >
-              <CreditCard className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
+              <CreditCard
+                className="size-3.5 shrink-0 text-text-secondary"
+                aria-hidden
+              />
               Registrar pago
             </Link>
           ) : null}
@@ -150,7 +169,10 @@ export function ClientQuickAdd({
               className="flex items-center gap-2 px-2 py-1.5 [&_button]:w-full [&_button]:justify-start"
               onClick={() => setOpen(false)}
             >
-              <Package className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
+              <Package
+                className="size-3.5 shrink-0 text-text-secondary"
+                aria-hidden
+              />
               <div className="min-w-0 flex-1">
                 <CreateCreditReportButton caseId={caseId} />
               </div>
@@ -161,7 +183,10 @@ export function ClientQuickAdd({
               className="flex items-center gap-2 px-2 py-1.5 [&_button]:w-full [&_button]:justify-start"
               onClick={() => setOpen(false)}
             >
-              <RefreshCcw className="size-3.5 shrink-0 text-text-secondary" aria-hidden />
+              <RefreshCcw
+                className="size-3.5 shrink-0 text-text-secondary"
+                aria-hidden
+              />
               <div className="min-w-0 flex-1">
                 <CreateRoundButton caseId={caseId} />
               </div>
@@ -169,6 +194,14 @@ export function ClientQuickAdd({
           ) : null}
         </div>
       ) : null}
+
+      <ClientNoteQuickModal
+        open={noteOpen}
+        onClose={() => setNoteOpen(false)}
+        clientId={clientId}
+        caseId={canServiceNote ? caseId : null}
+        serviceCaseId={canServiceNote ? (serviceCaseId ?? null) : null}
+      />
     </div>
   );
 }

@@ -266,6 +266,18 @@ async function main() {
         overviewB.tasksSummary.openCount >= 1,
     );
     check(
+      "overview priority tasks shape",
+      Array.isArray(overviewA.tasksSummary.priority) &&
+        overviewA.tasksSummary.priority.length >= 1 &&
+        typeof overviewA.tasksSummary.priority[0]?.title === "string",
+    );
+    check(
+      "overview docs checklist summary",
+      typeof overviewA.documentsSummary.complete === "number" &&
+        typeof overviewA.documentsSummary.pending === "number" &&
+        Array.isArray(overviewA.documentsSummary.missing),
+    );
+    check(
       "independent stages in switcher",
       overviewA.activeService?.stage?.id !== overviewB.activeService?.stage?.id,
     );

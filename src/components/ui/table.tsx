@@ -18,7 +18,7 @@ export function THead({ children }: { children: ReactNode }) {
 
 export function TBody({ children }: { children: ReactNode }) {
   return (
-    <tbody className="bg-surface-elevated [&>tr]:border-b [&>tr]:border-border-subtle [&>tr:last-child]:border-b-0 [&>tr]:transition-colors [&>tr]:duration-150 [&>tr:hover]:bg-nav-hover motion-reduce:[&>tr]:transition-none">
+    <tbody className="bg-surface-panel [&>tr]:border-b [&>tr]:border-border-subtle [&>tr:last-child]:border-b-0 [&>tr]:transition-colors [&>tr]:duration-150 [&>tr:hover]:bg-nav-hover motion-reduce:[&>tr]:transition-none">
       {children}
     </tbody>
   );
@@ -42,7 +42,7 @@ export function TH({
   return (
     <th
       scope="col"
-      className={`bg-surface-elevated px-4 py-3 text-left text-[11px] font-semibold text-text-secondary ${className}`}
+      className={`bg-surface-panel px-4 py-3 text-left text-[11px] font-semibold text-text-secondary ${className}`}
       {...props}
     >
       {children}

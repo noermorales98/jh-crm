@@ -147,6 +147,7 @@ export function ConsultationStatusActions({
       {checkoutUrl ? (
         <StripeCheckoutLinkBar
           url={checkoutUrl}
+          label="Consulta · pago Stripe"
           onClear={() => {
             setCheckoutUrl(null);
             setSuccess(null);

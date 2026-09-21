@@ -34,11 +34,13 @@ export function QuoteActions({
   status,
   clientId,
   clientPhone,
+  folio,
 }: {
   quoteId: string;
   status: string;
   clientId: string;
   clientPhone?: string | null;
+  folio?: string | null;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -205,6 +207,11 @@ export function QuoteActions({
       {checkoutUrl ? (
         <StripeCheckoutLinkBar
           url={checkoutUrl}
+          label={
+            folio?.trim()
+              ? `Cotización ${folio.trim()}`
+              : "Cotización · pago Stripe"
+          }
           onClear={() => {
             setCheckoutUrl(null);
             setSuccess(null);

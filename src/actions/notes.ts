@@ -27,11 +27,20 @@ export async function addServiceCaseNoteAction(
     const data = serviceCaseNoteCreateSchema.parse(input);
     const note = await notes.createServiceCaseNote(ctx, {
       caseId: data.caseId,
+      serviceCaseId: data.serviceCaseId,
       body: data.body,
     });
 
-    revalidatePath(`/crm/casos/${data.caseId}`);
-    revalidatePath(`/crm/casos/${data.caseId}/actividad`);
+    if (data.caseId) {
+      revalidatePath(`/crm/casos/${data.caseId}`);
+      revalidatePath(`/crm/casos/${data.caseId}/actividad`);
+    }
+    if (data.serviceCaseId) {
+      revalidatePath(`/crm/expedientes/${data.serviceCaseId}`);
+    }
+    revalidatePath(`/crm/clientes/${note.clientId}`);
+    revalidatePath(`/crm/clientes/${note.clientId}/actividad`);
+    revalidatePath(`/crm/clientes/${note.clientId}/notas`);
 
     return actionOk({
       id: note.id,

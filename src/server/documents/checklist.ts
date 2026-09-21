@@ -54,6 +54,37 @@ export interface DocumentChecklistRow {
   present: boolean;
 }
 
+/** Resumen ligero para Client 360 (sin URLs ni filas de Document). */
+export type DocumentsChecklistSummary = {
+  complete: number;
+  pending: number;
+  /** Categorías requeridas faltantes (máx 3). */
+  missing: { category: DocumentCategory }[];
+  /** Total de documentos en el scope (todas las categorías). */
+  count: number;
+};
+
+export function summarizeChecklistFromCounts(
+  serviceCode: string | null | undefined,
+  countByCategory: Map<DocumentCategory, number>,
+): DocumentsChecklistSummary {
+  const spec = getChecklistForService(serviceCode);
+  let complete = 0;
+  let pending = 0;
+  const missing: { category: DocumentCategory }[] = [];
+  for (const category of spec.required) {
+    const present = (countByCategory.get(category) ?? 0) > 0;
+    if (present) complete += 1;
+    else {
+      pending += 1;
+      if (missing.length < 3) missing.push({ category });
+    }
+  }
+  let count = 0;
+  for (const n of countByCategory.values()) count += n;
+  return { complete, pending, missing, count };
+}
+
 export async function getCaseDocumentChecklist(
   ctx: OrganizationContext,
   caseId: string,

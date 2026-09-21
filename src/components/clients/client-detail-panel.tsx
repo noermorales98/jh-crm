@@ -99,6 +99,7 @@ export async function ClientDetailPanel({
             <ClientQuickAdd
               clientId={client.id}
               caseId={overview.activeService?.creditCaseId ?? null}
+              serviceCaseId={overview.activeService?.serviceCaseId ?? null}
               members={members}
               canTask={can(ctx.role, "tasks.manage")}
               canDocument={can(ctx.role, "documents.upload")}
@@ -111,7 +112,10 @@ export async function ClientDetailPanel({
                 can(ctx.role, "rounds.manage") &&
                 overview.activeService?.kind === "CREDIT_REPAIR"
               }
-              canNote={can(ctx.role, "clients.view")}
+              canNote={
+                can(ctx.role, "clients.edit") || can(ctx.role, "cases.manage")
+              }
+              canServiceNote={can(ctx.role, "cases.manage")}
               canQuote={can(ctx.role, "quotes.manage")}
             />
             {canEdit ? (
@@ -139,7 +143,7 @@ export async function ClientDetailPanel({
       {(intakeEnabled ||
         (portalEnabled && canManagePortal) ||
         canViewProcessors) && (
-        <details className="mt-4 overflow-hidden rounded-surface border border-border-subtle bg-surface-panel">
+        <details className="mt-4 overflow-hidden rounded-surface border border-border-subtle/50 bg-surface-panel">
           <summary className="cursor-pointer list-none px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-text-secondary marker:content-none [&::-webkit-details-marker]:hidden">
             <span className="inline-flex items-center gap-1.5">
               Accesos e integraciones

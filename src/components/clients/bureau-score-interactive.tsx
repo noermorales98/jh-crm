@@ -12,13 +12,13 @@ import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
 import { formatDate } from "@/src/lib/format";
 
 /**
- * Scores por buró: en compact, fila tipográfica sin cajas (Apple HIG).
- * Clic abre historial en popover.
+ * Franja única de scores por buró (Client 360).
+ * Siempre visible: actual, delta, inicial. Click → historial.
  */
 export function BureauScoreInteractive({
   bureaus,
   scoreHistory,
-  compact = false,
+  compact = true,
 }: {
   bureaus: BureauProgress[];
   scoreHistory: ScoreHistoryPointDto[];
@@ -64,43 +64,36 @@ export function BureauScoreInteractive({
               <button
                 type="button"
                 title={tip}
+                aria-label={tip}
                 className={
                   compact
-                    ? "flex min-h-11 w-full flex-col justify-center rounded-control px-1 py-1 text-left transition-colors hover:bg-nav-hover/40 motion-reduce:transition-none"
-                    : "w-full rounded-control border border-border-subtle/50 bg-surface-panel/50 px-3 py-2 text-left transition-colors hover:border-action-primary/30"
+                    ? "flex min-h-11 w-full flex-col justify-center rounded-control px-1 py-1 text-left outline-none transition-colors hover:bg-nav-hover/40 focus-visible:ring-2 focus-visible:ring-action-primary motion-reduce:transition-none"
+                    : "w-full rounded-control border border-border-subtle/50 bg-surface-panel/50 px-3 py-2 text-left outline-none transition-colors hover:border-action-primary/30 focus-visible:ring-2 focus-visible:ring-action-primary"
                 }
               >
-                <p
-                  className={`font-medium uppercase tracking-wide text-text-secondary ${
-                    compact ? "text-[10px]" : "text-[10px]"
-                  }`}
-                >
+                <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
                   {CREDIT_BUREAU_LABELS[b.bureau]}
                 </p>
                 <div className="mt-0.5 flex items-baseline gap-1.5">
-                  <p
-                    className={`font-semibold tabular-nums tracking-[-0.02em] text-ink ${
-                      compact ? "text-xl" : "text-xl"
-                    }`}
-                  >
+                  <p className="text-xl font-semibold tabular-nums tracking-[-0.02em] text-ink">
                     {b.current ?? "—"}
                   </p>
                   <ScoreDelta
                     value={b.deltaFromInitial ?? b.deltaFromPrevious}
                   />
                 </div>
-                {!compact ? (
-                  <p className="mt-0.5 text-xs text-text-secondary">
-                    Inicial{" "}
-                    <span className="tabular-nums">{b.initial ?? "—"}</span>
-                    {b.reportDate ? (
-                      <>
-                        {" · "}
+                <p className="mt-0.5 text-xs text-text-secondary">
+                  Inicial{" "}
+                  <span className="tabular-nums">{b.initial ?? "—"}</span>
+                  {b.reportDate ? (
+                    <>
+                      {" · "}
+                      <span className="tabular-nums">
                         {formatDate(b.reportDate)}
-                      </>
-                    ) : null}
-                  </p>
-                ) : null}
+                      </span>
+                    </>
+                  ) : null}
+                </p>
               </button>
             }
           >

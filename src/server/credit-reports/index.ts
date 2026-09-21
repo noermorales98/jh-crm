@@ -535,6 +535,219 @@ export async function getCaseCreditOverview(
   return { caseId, current, history, reports, negativeItemCount };
 }
 
+const ACTIVE_LIFECYCLE: CreditItemLifecycleStatus[] = [
+  "IDENTIFIED",
+  "UNDER_REVIEW",
+  "SELECTED",
+  "DISPUTED",
+];
+
+export type ReportPeekNearbyEvent = {
+  kind: "round_sent" | "round_reviewed";
+  at: Date;
+  label: string;
+  roundId: string;
+};
+
+export type ReportPeekResult = {
+  id: string;
+  caseId: string;
+  reportDate: Date;
+  type: CreditReportType;
+  provider: string | null;
+  label: string;
+  scores: Record<CreditBureau, number | null>;
+  previousScores: Record<CreditBureau, number | null> | null;
+  deltas: Record<CreditBureau, number | null>;
+  itemsActive: number;
+  itemsResolved: number;
+  itemsNegative: number;
+  comparison: { id: string; hrefSuffix: string } | null;
+  nearbyEvents: ReportPeekNearbyEvent[];
+};
+
+/**
+ * Peek ligero de un reporte para Client 360.
+ * No carga items completos ni genera URLs de documentos.
+ */
+export async function getReportPeek(
+  ctx: OrganizationContext,
+  reportId: string,
+): Promise<ReportPeekResult> {
+  const report = await prisma.creditReport.findFirst({
+    where: { id: reportId, organizationId: ctx.organizationId },
+    select: {
+      id: true,
+      caseId: true,
+      reportDate: true,
+      type: true,
+      provider: true,
+      importedAt: true,
+      snapshots: { select: { bureau: true, score: true } },
+    },
+  });
+  if (!report) throw new DomainError("Reporte de crédito no encontrado.");
+
+  const windowMs = 21 * 24 * 60 * 60 * 1000;
+  const from = new Date(report.reportDate.getTime() - windowMs);
+  const to = new Date(report.reportDate.getTime() + windowMs);
+
+  const [prev, itemGroups, negativeCount, comparison, roundsNear] =
+    await Promise.all([
+      prisma.creditReport.findFirst({
+        where: {
+          organizationId: ctx.organizationId,
+          caseId: report.caseId,
+          id: { not: report.id },
+          OR: [
+            { reportDate: { lt: report.reportDate } },
+            {
+              reportDate: report.reportDate,
+              importedAt: { lt: report.importedAt },
+            },
+          ],
+        },
+        orderBy: [{ reportDate: "desc" }, { importedAt: "desc" }],
+        select: {
+          id: true,
+          snapshots: { select: { bureau: true, score: true } },
+        },
+      }),
+      prisma.creditItem.groupBy({
+        by: ["lifecycleStatus"],
+        where: {
+          organizationId: ctx.organizationId,
+          reportId: report.id,
+        },
+        _count: { _all: true },
+      }),
+      prisma.creditItem.count({
+        where: {
+          organizationId: ctx.organizationId,
+          reportId: report.id,
+          isNegative: true,
+        },
+      }),
+      prisma.reportComparison.findFirst({
+        where: {
+          organizationId: ctx.organizationId,
+          caseId: report.caseId,
+          OR: [
+            { baseReportId: report.id },
+            { compareReportId: report.id },
+          ],
+        },
+        orderBy: { createdAt: "desc" },
+        select: { id: true },
+      }),
+      prisma.creditRound.findMany({
+        where: {
+          organizationId: ctx.organizationId,
+          caseId: report.caseId,
+          OR: [
+            { sentAt: { gte: from, lte: to } },
+            { reviewedAt: { gte: from, lte: to } },
+          ],
+        },
+        select: {
+          id: true,
+          roundNumber: true,
+          sentAt: true,
+          reviewedAt: true,
+        },
+        orderBy: { roundNumber: "asc" },
+        take: 5,
+      }),
+    ]);
+
+  const scores = Object.fromEntries(BUREAUS.map((b) => [b, null])) as Record<
+    CreditBureau,
+    number | null
+  >;
+  for (const snap of report.snapshots) {
+    scores[snap.bureau] = snap.score;
+  }
+
+  let previousScores: Record<CreditBureau, number | null> | null = null;
+  const deltas = Object.fromEntries(BUREAUS.map((b) => [b, null])) as Record<
+    CreditBureau,
+    number | null
+  >;
+  if (prev) {
+    previousScores = Object.fromEntries(BUREAUS.map((b) => [b, null])) as Record<
+      CreditBureau,
+      number | null
+    >;
+    for (const snap of prev.snapshots) {
+      previousScores[snap.bureau] = snap.score;
+    }
+    for (const b of BUREAUS) {
+      const cur = scores[b];
+      const p = previousScores[b];
+      deltas[b] = cur != null && p != null ? cur - p : null;
+    }
+  }
+
+  const lifecycleCounts = new Map(
+    itemGroups.map((g) => [g.lifecycleStatus, g._count._all]),
+  );
+  const itemsActive = ACTIVE_LIFECYCLE.reduce(
+    (acc, s) => acc + (lifecycleCounts.get(s) ?? 0),
+    0,
+  );
+  const itemsResolved = lifecycleCounts.get("RESOLVED") ?? 0;
+
+  const nearbyEvents: ReportPeekNearbyEvent[] = [];
+  for (const r of roundsNear) {
+    if (r.sentAt && r.sentAt >= from && r.sentAt <= to) {
+      nearbyEvents.push({
+        kind: "round_sent",
+        at: r.sentAt,
+        label: `Ronda #${r.roundNumber} enviada`,
+        roundId: r.id,
+      });
+    }
+    if (r.reviewedAt && r.reviewedAt >= from && r.reviewedAt <= to) {
+      nearbyEvents.push({
+        kind: "round_reviewed",
+        at: r.reviewedAt,
+        label: `Ronda #${r.roundNumber} revisada`,
+        roundId: r.id,
+      });
+    }
+  }
+  nearbyEvents.sort((a, b) => a.at.getTime() - b.at.getTime());
+
+  const label =
+    report.type === "INITIAL"
+      ? "Inicio"
+      : report.type === "UPDATE"
+        ? "Actualización"
+        : "Manual";
+
+  return {
+    id: report.id,
+    caseId: report.caseId,
+    reportDate: report.reportDate,
+    type: report.type,
+    provider: report.provider,
+    label,
+    scores,
+    previousScores,
+    deltas,
+    itemsActive,
+    itemsResolved,
+    itemsNegative: negativeCount,
+    comparison: comparison
+      ? {
+          id: comparison.id,
+          hrefSuffix: `/comparaciones/${comparison.id}`,
+        }
+      : null,
+    nearbyEvents: nearbyEvents.slice(0, 5),
+  };
+}
+
 /** Verifica aislamiento de tenant: reporte de otra org no es visible. */
 export async function assertReportTenantIsolation(
   ctx: OrganizationContext,

@@ -160,6 +160,7 @@ export async function createServiceCaseNote(
       id: true,
       body: true,
       createdAt: true,
+      clientId: true,
       author: { select: { id: true, name: true } },
     },
   });

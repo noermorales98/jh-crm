@@ -132,6 +132,7 @@ export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
             notes: payment.notes ?? "",
             quoteId: payment.quote?.id ?? null,
             quoteStatus: payment.quote?.status ?? null,
+            quoteFolio: payment.quote?.folio ?? null,
             clientPhone: payment.client.phone,
           }}
         />

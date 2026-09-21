@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 
-/** Tarjeta base: superficie plana con borde sutil. */
+/** Tarjeta base: blanco sólido sobre el fondo agrupado gris (HIG). */
 export function Card({
   className = "",
   children,
@@ -10,7 +10,7 @@ export function Card({
 }) {
   return (
     <div
-      className={`overflow-hidden rounded-surface border border-border-subtle/35 bg-surface-elevated ${className}`}
+      className={`overflow-hidden rounded-surface border border-border-subtle/50 bg-surface-panel ${className}`}
     >
       {children}
     </div>

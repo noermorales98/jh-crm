@@ -4,6 +4,7 @@ import { requirePermission } from "@/src/server/auth/guards";
 import { actionFail, actionOk, isNextControlError, type ActionResult } from "@/src/server/errors";
 import { getRoundDetail } from "@/src/server/disputes";
 import { getPaymentDetail } from "@/src/server/payments";
+import { getReportPeek } from "@/src/server/credit-reports";
 
 export async function peekRoundAction(
   roundId: string,
@@ -94,6 +95,60 @@ export async function peekPaymentAction(
       caseCode: payment.case?.caseCode ?? null,
       quoteFolio: payment.quote?.folio ?? null,
       receiptId: payment.receipt?.id ?? null,
+    });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+export async function peekReportAction(
+  reportId: string,
+): Promise<
+  ActionResult<{
+    id: string;
+    caseId: string;
+    reportDate: Date;
+    type: string;
+    provider: string | null;
+    label: string;
+    scores: Record<string, number | null>;
+    previousScores: Record<string, number | null> | null;
+    deltas: Record<string, number | null>;
+    itemsActive: number;
+    itemsResolved: number;
+    itemsNegative: number;
+    comparisonAvailable: boolean;
+    comparisonHref: string | null;
+    nearbyEvents: {
+      kind: string;
+      at: Date;
+      label: string;
+      roundId: string;
+    }[];
+  }>
+> {
+  try {
+    const ctx = await requirePermission("creditReports.view");
+    const peek = await getReportPeek(ctx, reportId);
+    return actionOk({
+      id: peek.id,
+      caseId: peek.caseId,
+      reportDate: peek.reportDate,
+      type: peek.type,
+      provider: peek.provider,
+      label: peek.label,
+      scores: peek.scores,
+      previousScores: peek.previousScores,
+      deltas: peek.deltas,
+      itemsActive: peek.itemsActive,
+      itemsResolved: peek.itemsResolved,
+      itemsNegative: peek.itemsNegative,
+      comparisonAvailable: peek.comparison != null,
+      comparisonHref: peek.comparison
+        ? `/crm/casos/${peek.caseId}${peek.comparison.hrefSuffix}`
+        : null,
+      nearbyEvents: peek.nearbyEvents,
     });
   } catch (error) {
     if (isNextControlError(error)) throw error;

@@ -33,6 +33,7 @@ export interface PaymentRowData {
   notes: string;
   quoteId?: string | null;
   quoteStatus?: string | null;
+  quoteFolio?: string | null;
   clientPhone?: string | null;
 }
 
@@ -97,6 +98,11 @@ export function PaymentRowActions({ payment }: { payment: PaymentRowData }) {
       <QuoteStripeCheckoutActions
         quoteId={payment.quoteId}
         clientPhone={payment.clientPhone}
+        linkLabel={
+          payment.quoteFolio?.trim()
+            ? `Cotización ${payment.quoteFolio.trim()}`
+            : undefined
+        }
         compact
       />
     ) : null;

@@ -3,9 +3,12 @@ import type {
   CreditBureau,
   CreditItemLifecycleStatus,
   DisputeOutcome,
+  DocumentCategory,
   PaymentMethod,
   PaymentStatus,
   RoundStatus,
+  TaskPriority,
+  TaskStatus,
 } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { DomainError } from "@/src/server/errors";
@@ -16,6 +19,7 @@ import {
   type BureauScoreCurrent,
   type CaseCreditOverview,
 } from "@/src/server/credit-reports";
+import { summarizeChecklistFromCounts } from "@/src/server/documents/checklist";
 
 /**
  * Overview densificado + datos para tooltips/peeks del hub cliente.
@@ -92,6 +96,21 @@ export type ClientOverviewCounts = {
   currency: string;
 };
 
+export type PriorityTaskDto = {
+  id: string;
+  title: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueAt: Date | null;
+};
+
+export type DocumentsChecklistSummaryDto = {
+  complete: number;
+  pending: number;
+  missing: { category: DocumentCategory }[];
+  count: number;
+};
+
 export type ClientOverviewResult = {
   client: {
     id: string;
@@ -122,8 +141,8 @@ export type ClientOverviewResult = {
     description: string;
     createdAt: Date;
   }[];
-  documentsSummary: { count: number };
-  tasksSummary: { openCount: number };
+  documentsSummary: DocumentsChecklistSummaryDto;
+  tasksSummary: { openCount: number; priority: PriorityTaskDto[] };
   paymentsSummary: {
     quoteTotal: number | null;
     received: number;
@@ -367,8 +386,9 @@ export async function getClientOverview(
 
   const [
     activityRows,
-    documents,
+    documentGroups,
     openTasks,
+    priorityTaskRows,
     paymentAggs,
     latestQuote,
     recentPayments,
@@ -396,11 +416,13 @@ export async function getClientOverview(
       orderBy: { createdAt: "desc" },
       take: 3,
     }),
-    prisma.document.count({
+    prisma.document.groupBy({
+      by: ["category"],
       where: {
         organizationId: ctx.organizationId,
         clientId,
         deletedAt: null,
+        hardDeletedAt: null,
         ...(activeService
           ? {
               OR: [
@@ -412,8 +434,21 @@ export async function getClientOverview(
             }
           : {}),
       },
+      _count: { _all: true },
     }),
     prisma.task.count({ where: taskScope }),
+    prisma.task.findMany({
+      where: taskScope,
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        priority: true,
+        dueAt: true,
+      },
+      orderBy: [{ priority: "desc" }, { dueAt: "asc" }, { createdAt: "desc" }],
+      take: 3,
+    }),
     prisma.payment.groupBy({
       by: ["status"],
       where: paymentScope,
@@ -468,6 +503,24 @@ export async function getClientOverview(
     description: a.description,
     createdAt: a.createdAt,
   }));
+
+  const countByCategory = new Map<DocumentCategory, number>(
+    documentGroups.map((row) => [row.category, row._count._all]),
+  );
+  const documentsSummary = summarizeChecklistFromCounts(
+    activeService?.kind ?? null,
+    countByCategory,
+  );
+  const documents = documentsSummary.count;
+
+  const priorityTasks: PriorityTaskDto[] = priorityTaskRows.map((t) => ({
+    id: t.id,
+    title: t.title,
+    status: t.status,
+    priority: t.priority,
+    dueAt: t.dueAt,
+  }));
+  const tasksSummary = { openCount: openTasks, priority: priorityTasks };
 
   const pendingPaymentsTotal = Number(
     paymentAggs.find((p) => p.status === "PENDING")?._sum.amount ?? 0,
@@ -533,8 +586,8 @@ export async function getClientOverview(
       nextAction: null,
       lastActivity,
       latestActivities,
-      documentsSummary: { count: documents },
-      tasksSummary: { openCount: openTasks },
+      documentsSummary,
+      tasksSummary,
       paymentsSummary,
       credit: null,
     };
@@ -549,8 +602,8 @@ export async function getClientOverview(
       nextAction,
       lastActivity,
       latestActivities,
-      documentsSummary: { count: documents },
-      tasksSummary: { openCount: openTasks },
+      documentsSummary,
+      tasksSummary,
       paymentsSummary,
       credit: null,
     };
@@ -644,8 +697,8 @@ export async function getClientOverview(
     nextAction,
     lastActivity,
     latestActivities,
-    documentsSummary: { count: documents },
-    tasksSummary: { openCount: openTasks },
+    documentsSummary,
+    tasksSummary,
     paymentsSummary,
     credit: {
       canView: canViewCredit,

@@ -17,16 +17,20 @@ export function QuoteStripeCheckoutActions({
   quoteId,
   clientPhone,
   compact = false,
+  linkLabel,
 }: {
   quoteId: string;
   clientPhone?: string | null;
   compact?: boolean;
+  /** Nombre visible del link (p. ej. folio). */
+  linkLabel?: string;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const hasPhone = Boolean(clientPhone?.trim());
+  const label = linkLabel?.trim() || "Cotización · pago Stripe";
 
   function generate() {
     setError(null);
@@ -90,6 +94,7 @@ export function QuoteStripeCheckoutActions({
       {checkoutUrl ? (
         <StripeCheckoutLinkBar
           url={checkoutUrl}
+          label={label}
           onClear={() => {
             setCheckoutUrl(null);
             setSuccess(null);

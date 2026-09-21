@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 /**
  * Error de dominio: mensaje legible en español, seguro para mostrar al
  * usuario. Los servicios lanzan DomainError para reglas de negocio
@@ -42,6 +44,19 @@ export function isNextControlError(error: unknown): boolean {
   );
 }
 
+function isPrismaTransactionTimeout(error: unknown): boolean {
+  if (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2028"
+  ) {
+    return true;
+  }
+  const msg = error instanceof Error ? error.message : String(error);
+  return /transaction already closed|expired transaction|timeout for this transaction/i.test(
+    msg,
+  );
+}
+
 /** Mensaje seguro para devolver al cliente desde una Server Action. */
 export function actionErrorMessage(error: unknown): string {
   if (isDomainError(error)) return error.message;
@@ -59,6 +74,9 @@ export function actionErrorMessage(error: unknown): string {
   ) {
     const issues = (error as { issues: { message: string }[] }).issues;
     if (issues[0]?.message) return issues[0].message;
+  }
+  if (isPrismaTransactionTimeout(error)) {
+    return "La operación tardó demasiado. Intenta de nuevo.";
   }
   console.error("[action] error inesperado:", error);
   return "Ocurrió un error inesperado. Intenta de nuevo.";

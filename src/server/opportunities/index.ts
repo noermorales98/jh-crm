@@ -12,6 +12,7 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
 import { createCreditCase } from "@/src/server/cases";
 import { resolveAssigneeForOrg } from "@/src/server/users";
+import { ensureCreditRepairService } from "@/src/server/services";
 import { OPPORTUNITY_STAGES } from "@/src/lib/validation/opportunities";
 import { labelFor, OPPORTUNITY_STAGE_LABELS } from "@/src/lib/labels";
 import { ensureTaskForOpportunityFollowUp } from "@/src/server/automations";
@@ -525,6 +526,12 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
     );
   }
 
+  const assigneeId = await resolveAssigneeForOrg(
+    ctx.organizationId,
+    opp.ownerId,
+  );
+  await ensureCreditRepairService(ctx.organizationId);
+
   return prisma.$transaction(async (tx) => {
     const clientRow = await tx.client.findFirst({
       where: { id: opp.clientId, organizationId: ctx.organizationId },
@@ -536,7 +543,7 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
       ctx,
       {
         clientId: opp.clientId,
-        assignedToId: opp.ownerId,
+        assignedToId: assigneeId,
         summary: `Caso creado desde oportunidad comercial.`,
       },
       tx,

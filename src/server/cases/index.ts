@@ -7,7 +7,7 @@ import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
 import { resolveAssigneeForOrg } from "@/src/server/users";
-import { ensureCreditRepairService } from "@/src/server/services";
+import { ensureCreditRepairService, getServiceByCode } from "@/src/server/services";
 import { ensureVerticalService } from "@/src/server/services/verticals";
 import type { ServiceCode } from "@/src/server/services/codes";
 import { ensureTaskForServiceNextAction } from "@/src/server/automations";
@@ -128,7 +128,8 @@ async function getActiveStageOrThrow(
  * CREDIT_REPAIR → CreditCase; HOME_BUYER → HomeBuyerCase;
  * BUSINESS_CREDIT → FundingCase; PERSONAL_LOAN → PersonalLoanCase;
  * WEB/CRM_DEVELOPMENT → ProjectCase.
- * Si se pasa `tx`, se usa esa transacción (p.ej. markWon).
+ * Si se pasa `tx`, se usa esa transacción (p.ej. markWon): el caller debe
+ * haber llamado ensure* y resolveAssignee fuera de la tx.
  */
 export async function createServiceCase(
   ctx: OrganizationContext,
@@ -137,7 +138,11 @@ export async function createServiceCase(
 ) {
   const serviceCode: ServiceCode = data.serviceCode ?? "CREDIT_REPAIR";
 
-  const run = async (client: Prisma.TransactionClient) => {
+  const run = async (
+    client: Prisma.TransactionClient,
+    assigneeId: string | null,
+    serviceId: string,
+  ) => {
     const found = await client.client.findFirst({
       where: { id: data.clientId, organizationId: ctx.organizationId },
       select: { id: true, status: true, firstName: true, lastName: true },
@@ -146,10 +151,6 @@ export async function createServiceCase(
     if (found.status === "ARCHIVED") {
       throw new DomainError("No se puede crear un caso para un cliente archivado.");
     }
-    const assigneeId = await resolveAssigneeForOrg(
-      ctx.organizationId,
-      data.assignedToId,
-    );
     if (assigneeId) {
       const member = await client.organizationMember.findUnique({
         where: {
@@ -167,24 +168,19 @@ export async function createServiceCase(
       }
     }
 
-    const service =
-      serviceCode === "CREDIT_REPAIR"
-        ? await ensureCreditRepairService(ctx.organizationId, client)
-        : await ensureVerticalService(ctx.organizationId, serviceCode, client);
-
     const stage = data.stageId
       ? await client.workflowStage.findFirst({
           where: {
             id: data.stageId,
             organizationId: ctx.organizationId,
-            serviceId: service.id,
+            serviceId,
             isActive: true,
           },
         })
       : await client.workflowStage.findFirst({
           where: {
             organizationId: ctx.organizationId,
-            serviceId: service.id,
+            serviceId,
             isActive: true,
           },
           orderBy: { order: "asc" },
@@ -207,7 +203,7 @@ export async function createServiceCase(
       data: {
         organizationId: ctx.organizationId,
         clientId: found.id,
-        serviceId: service.id,
+        serviceId,
         caseNumber: code,
         status: "OPEN",
         stageId: stage.id,
@@ -303,7 +299,7 @@ export async function createServiceCase(
           caseNumber: serviceCase.caseNumber,
           stageKey: stage.key,
           serviceCaseId: serviceCase.id,
-          serviceId: service.id,
+          serviceId,
           serviceCode,
           status: "OPEN",
         },
@@ -314,8 +310,23 @@ export async function createServiceCase(
     return { serviceCase, creditCase };
   };
 
-  if (tx) return run(tx);
-  return prisma.$transaction((client) => run(client));
+  if (tx) {
+    const existing = await getServiceByCode(ctx.organizationId, serviceCode, tx);
+    if (!existing) {
+      throw new DomainError("La organización no tiene el servicio configurado.");
+    }
+    return run(tx, data.assignedToId ?? null, existing.id);
+  }
+
+  const assigneeId = await resolveAssigneeForOrg(
+    ctx.organizationId,
+    data.assignedToId,
+  );
+  const catalog =
+    serviceCode === "CREDIT_REPAIR"
+      ? await ensureCreditRepairService(ctx.organizationId)
+      : await ensureVerticalService(ctx.organizationId, serviceCode);
+  return prisma.$transaction((client) => run(client, assigneeId, catalog.id));
 }
 
 /**

@@ -4,7 +4,7 @@ import { Prisma, PrismaClient } from "@prisma/client";
  * Subir este número cuando se añadan modelos/campos Prisma.
  * Fuerza descartar el singleton de HMR/Turbopack que aún no tiene los delegates.
  */
-const PRISMA_CLIENT_GENERATION = 10;
+const PRISMA_CLIENT_GENERATION = 11;
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -29,8 +29,16 @@ function isConnectionQuotaError(error: unknown): boolean {
   return false;
 }
 
+function isPrismaTransactionTimeout(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2028"
+  );
+}
+
 function isTransientConnectionError(error: unknown): boolean {
   if (isConnectionQuotaError(error)) return false;
+  // P2028: transacción interactiva expirada. Reconectar empeora el cierre.
+  if (isPrismaTransactionTimeout(error)) return false;
 
   if (error instanceof Prisma.PrismaClientKnownRequestError) {
     return (
@@ -82,6 +90,8 @@ async function reconnectClient(client: PrismaClient): Promise<void> {
 function createPrismaClient(): PrismaClient {
   const base = new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+    // Hostinger RTT: el default (5s) corta altas de cliente/expediente.
+    transactionOptions: { maxWait: 10_000, timeout: 15_000 },
   });
 
   // Hostinger MySQL cierra conexiones idle → P1017. Reintento 1× tras reconnect.

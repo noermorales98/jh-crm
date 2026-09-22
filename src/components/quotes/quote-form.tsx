@@ -77,6 +77,17 @@ function money(value: number): string {
   }).format(value);
 }
 
+/** Fila libre vacía para el alta. key 0; el siguiente ítem usa nextKey 1. */
+const BLANK_MANUAL_ITEM: QuoteItemRow = {
+  key: 0,
+  kind: "manual",
+  refId: "",
+  description: "",
+  quantity: "1",
+  unitPrice: "",
+  discount: "",
+};
+
 /**
  * Constructor de cotizaciones (crear y editar borradores).
  * Los totales se calculan en cliente como vista previa; el servidor
@@ -112,8 +123,13 @@ export function QuoteForm({
     initial?.clientId ?? initialClientId,
   );
   const [caseId, setCaseId] = useState(initial?.caseId ?? initialCaseId);
-  const [items, setItems] = useState<QuoteItemRow[]>(initial?.items ?? []);
-  const [nextKey, setNextKey] = useState(initial?.items.length ?? 0);
+  const startWithBlankLine = mode === "create" && !initial;
+  const [items, setItems] = useState<QuoteItemRow[]>(
+    initial?.items ?? (startWithBlankLine ? [BLANK_MANUAL_ITEM] : []),
+  );
+  const [nextKey, setNextKey] = useState(
+    initial?.items.length ?? (startWithBlankLine ? 1 : 0),
+  );
   const [validUntil, setValidUntil] = useState(initial?.validUntil ?? "");
   const [taxRate, setTaxRate] = useState(initial?.taxRate ?? defaultTaxRate);
   const [notes, setNotes] = useState(initial?.notes ?? "");
@@ -315,7 +331,7 @@ export function QuoteForm({
       <Card>
         <CardHeader
           title="Ítems"
-          description="Agrega servicios o paquetes del catálogo, o ítems manuales. El descuento es por ítem."
+          description="Agrega servicios o paquetes del catálogo, o líneas libres. El descuento es por ítem."
           actions={
             <>
               <Button variant="secondary" size="sm" onClick={() => addItem("service")}>
@@ -328,7 +344,7 @@ export function QuoteForm({
               </Button>
               <Button variant="secondary" size="sm" onClick={() => addItem("manual")}>
                 <Plus className="size-3.5" aria-hidden />
-                Manual
+                Línea libre
               </Button>
             </>
           }
@@ -336,7 +352,7 @@ export function QuoteForm({
         <CardBody className="space-y-3">
           {items.length === 0 ? (
             <p className="rounded-control border border-dashed border-border-subtle px-4 py-6 text-center text-sm text-text-secondary">
-              Sin ítems. Agrega un servicio, un paquete o un ítem manual.
+              Sin ítems. Agrega un servicio, un paquete o una línea libre.
             </p>
           ) : (
             <ul className="space-y-3">
@@ -357,7 +373,7 @@ export function QuoteForm({
                           ? "Servicio"
                           : row.kind === "package"
                             ? "Paquete"
-                            : "Manual"}
+                            : "Línea libre"}
                       </span>
                       <Button
                         variant="ghost"
@@ -418,7 +434,8 @@ export function QuoteForm({
                         <Input
                           type="number"
                           min="0"
-                          step="1"
+                          step="0.01"
+                          inputMode="decimal"
                           value={row.quantity}
                           onChange={(e) =>
                             updateItem(row.key, { quantity: e.target.value })

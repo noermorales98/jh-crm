@@ -94,7 +94,7 @@ async function resolveItems(
 
   const resolved: ComputedItem[] = [];
   for (const [index, item] of items.entries()) {
-    const quantity = dec(item.quantity);
+    const quantity = money(dec(item.quantity));
     if (quantity.lte(0)) {
       throw new DomainError(`El ítem ${index + 1} debe tener cantidad mayor a 0.`);
     }

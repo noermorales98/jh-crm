@@ -10,12 +10,17 @@ import { nextClientCode } from "@/src/server/folios";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
-import { createCreditCase } from "@/src/server/cases";
+import { createServiceCase } from "@/src/server/cases";
 import { resolveAssigneeForOrg } from "@/src/server/users";
 import { ensureCreditRepairService } from "@/src/server/services";
+import { ensureVerticalService } from "@/src/server/services/verticals";
 import { OPPORTUNITY_STAGES } from "@/src/lib/validation/opportunities";
 import { labelFor, OPPORTUNITY_STAGE_LABELS } from "@/src/lib/labels";
-import { ensureTaskForOpportunityFollowUp } from "@/src/server/automations";
+import { resolveWonServiceCode } from "@/src/lib/won-service";
+import {
+  ensureFollowUpTaskForLead,
+  ensureTaskForOpportunityFollowUp,
+} from "@/src/server/automations";
 
 async function syncOpportunityWorkQueue(
   ctx: OrganizationContext,
@@ -289,6 +294,13 @@ export async function createLead(ctx: OrganizationContext, data: LeadCreateData)
     );
 
     return { client, opportunity: opp };
+  }).then(async (result) => {
+    try {
+      await ensureFollowUpTaskForLead(ctx, result.client.id);
+    } catch (error) {
+      console.error("[opportunities] ensureFollowUpTaskForLead:", error);
+    }
+    return result;
   });
 }
 
@@ -509,10 +521,15 @@ export async function updateStage(
 }
 
 /**
- * Cierra como WON: ServiceCase+CreditCase + Client ACTIVE + won ids en una tx (BR-012 / LD-005).
+ * Cierra como WON: ServiceCase (+ extensión vertical) + Client ACTIVE en una tx (BR-012 / LD-005).
+ * Respeta `serviceCode` / serviceRequested (D3); CREDIT_REPAIR solo si aplica.
  * No duplica Client; no toca source / leadChannel / attribution (BR-011).
  */
-export async function markWon(ctx: OrganizationContext, opportunityId: string) {
+export async function markWon(
+  ctx: OrganizationContext,
+  opportunityId: string,
+  options?: { serviceCode?: string | null },
+) {
   const opp = await getOpportunityOrThrow(ctx, opportunityId);
   if (opp.stage === "WON") {
     throw new DomainError("La oportunidad ya está marcada como ganada.");
@@ -526,11 +543,32 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
     );
   }
 
+  const clientIntent = await prisma.client.findFirst({
+    where: { id: opp.clientId, organizationId: ctx.organizationId },
+    select: { id: true, status: true, serviceRequested: true },
+  });
+  if (!clientIntent) throw new DomainError("Cliente no encontrado.");
+
+  const serviceCode = (() => {
+    try {
+      return resolveWonServiceCode(
+        options?.serviceCode,
+        clientIntent.serviceRequested,
+      );
+    } catch {
+      throw new DomainError("Servicio inválido para la conversión.");
+    }
+  })();
+
   const assigneeId = await resolveAssigneeForOrg(
     ctx.organizationId,
     opp.ownerId,
   );
-  await ensureCreditRepairService(ctx.organizationId);
+  if (serviceCode === "CREDIT_REPAIR") {
+    await ensureCreditRepairService(ctx.organizationId);
+  } else {
+    await ensureVerticalService(ctx.organizationId, serviceCode);
+  }
 
   return prisma.$transaction(async (tx) => {
     const clientRow = await tx.client.findFirst({
@@ -539,21 +577,19 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
     });
     if (!clientRow) throw new DomainError("Cliente no encontrado.");
 
-    const creditCase = await createCreditCase(
+    const created = await createServiceCase(
       ctx,
       {
         clientId: opp.clientId,
+        serviceCode,
         assignedToId: assigneeId,
         summary: `Caso creado desde oportunidad comercial.`,
       },
       tx,
     );
 
-    if (!creditCase.serviceCaseId) {
-      throw new DomainError(
-        "La conversión WON requiere ServiceCase; CreditCase quedó sin vínculo.",
-      );
-    }
+    const serviceCaseId = created.serviceCase.id;
+    const creditCase = created.creditCase;
 
     // Solo LEAD → ACTIVE (ciclo comercial). No tocar ACTIVE/ARCHIVED aquí.
     if (clientRow.status === "LEAD") {
@@ -570,26 +606,31 @@ export async function markWon(ctx: OrganizationContext, opportunityId: string) {
       where: { id: opp.id },
       data: {
         stage: "WON",
-        wonServiceCaseId: creditCase.serviceCaseId,
+        wonServiceCaseId: serviceCaseId,
         lostReason: null,
         nextFollowUpAt: null,
       },
       include: OPPORTUNITY_INCLUDE,
     });
 
+    const caseLabel =
+      creditCase?.caseCode ?? created.serviceCase.caseNumber;
+
     await writeActivityLog(
       toActivityContext(ctx),
       {
         type: "OPPORTUNITY_WON",
-        description: `Oportunidad ganada → caso ${creditCase.caseCode}.`,
+        description: `Oportunidad ganada → expediente ${caseLabel} (${serviceCode}).`,
         clientId: opp.clientId,
-        caseId: creditCase.id,
-        serviceCaseId: creditCase.serviceCaseId,
+        caseId: creditCase?.id ?? null,
+        serviceCaseId,
         metadata: {
           opportunityId: opp.id,
-          caseId: creditCase.id,
-          caseCode: creditCase.caseCode,
-          serviceCaseId: creditCase.serviceCaseId,
+          caseId: creditCase?.id ?? null,
+          caseCode: creditCase?.caseCode ?? null,
+          caseNumber: created.serviceCase.caseNumber,
+          serviceCaseId,
+          serviceCode,
           clientWasLead: clientRow.status === "LEAD",
         },
       },

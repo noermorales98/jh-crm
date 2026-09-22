@@ -15,6 +15,7 @@ import {
   leadCreateSchema,
   leadUpdateSchema,
   opportunityMarkLostSchema,
+  opportunityMarkWonSchema,
   opportunityUpdateStageSchema,
 } from "@/src/lib/validation/opportunities";
 import * as opportunities from "@/src/server/opportunities";
@@ -145,6 +146,7 @@ export async function updateOpportunityStageAction(
 
 export async function markOpportunityWonAction(
   opportunityId: string,
+  input?: unknown,
 ): Promise<
   ActionResult<{
     id: string;
@@ -156,15 +158,25 @@ export async function markOpportunityWonAction(
   try {
     const ctx = await requirePermission("opportunities.manage");
     const id = cuidSchema.parse(opportunityId);
-    const opp = await opportunities.markWon(ctx, id);
+    const data = opportunityMarkWonSchema.parse(input ?? {});
+    const opp = await opportunities.markWon(ctx, id, {
+      serviceCode: data.serviceCode,
+    });
     // Fase 4: el enlace canónico es wonServiceCase; wonCase es legacy.
     const wonCreditCase = opp.wonCase ?? opp.wonServiceCase?.creditCase ?? null;
     revalidateOpportunities(opp.clientId, wonCreditCase?.id ?? undefined);
+    if (opp.wonServiceCaseId) {
+      revalidatePath(`/crm/expedientes/${opp.wonServiceCaseId}`);
+      revalidatePath(`/crm/clientes/${opp.clientId}/servicios`);
+    }
     return actionOk({
       id: opp.id,
       caseId: wonCreditCase?.id ?? null,
       serviceCaseId: opp.wonServiceCaseId,
-      caseCode: wonCreditCase?.caseCode ?? null,
+      caseCode:
+        wonCreditCase?.caseCode ??
+        opp.wonServiceCase?.caseNumber ??
+        null,
     });
   } catch (error) {
     if (isNextControlError(error)) throw error;

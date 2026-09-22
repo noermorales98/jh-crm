@@ -66,8 +66,22 @@ export const opportunityMarkLostSchema = z.object({
     .max(2000),
 });
 
+export const opportunityMarkWonSchema = z.object({
+  serviceCode: z
+    .enum([
+      "CREDIT_REPAIR",
+      "HOME_BUYER",
+      "BUSINESS_CREDIT",
+      "PERSONAL_LOAN",
+      "WEB_DEVELOPMENT",
+      "CRM_DEVELOPMENT",
+    ])
+    .optional(),
+});
+
 export type OpportunityCreateInput = z.infer<typeof opportunityCreateSchema>;
 export type LeadCreateInput = z.infer<typeof leadCreateSchema>;
+export type OpportunityMarkWonInput = z.infer<typeof opportunityMarkWonSchema>;
 
 /** LD-002 — editar prospecto (Client) + deal (Opportunity). */
 export const leadUpdateSchema = leadCreateSchema.extend({

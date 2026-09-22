@@ -8,7 +8,22 @@ import { DomainError } from "@/src/server/errors";
 import { Card, CardBody, CardHeader, StatusPill } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
 import { TASK_TYPE_LABELS, labelFor } from "@/src/lib/labels";
+import { resolveLeadIntent } from "@/src/lib/leads-intent";
 import { TaskRowActions } from "@/src/components/tasks/task-row-actions";
+import {
+  getLatestIntakeSummary,
+  intakeSummaryOneLiner,
+} from "@/src/server/intake/summary";
+
+function isLeadFollowUpTask(task: {
+  type: string;
+  title: string;
+  client: { status: string } | null;
+}) {
+  if (task.type !== "FOLLOW_UP") return false;
+  if (task.client?.status === "LEAD") return true;
+  return /nuevo lead/i.test(task.title);
+}
 
 export async function TaskDetailPanel({ taskId }: { taskId: string }) {
   const ctx = await requireOrganization();
@@ -28,6 +43,20 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
     new Date(task.dueAt) < new Date() &&
     open;
 
+  const showNeed = isLeadFollowUpTask(task) && task.client;
+  const intent = showNeed
+    ? resolveLeadIntent({
+        source: task.client!.source,
+        leadChannel: task.client!.leadChannel,
+        serviceRequested: task.client!.serviceRequested,
+      })
+    : null;
+  const intakeLine = showNeed
+    ? intakeSummaryOneLiner(
+        await getLatestIntakeSummary(ctx, task.client!.id),
+      )
+    : null;
+
   return (
     <div className="space-y-4 p-4">
       <div>
@@ -37,6 +66,37 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
           <StatusPill domain="taskPriority" value={task.priority} />
         </div>
       </div>
+
+      {showNeed && intent ? (
+        <Card>
+          <CardHeader title="Qué necesita" />
+          <CardBody className="space-y-2 text-[13px]">
+            <p className="font-medium text-ink">{intent.intentLabel}</p>
+            {task.client?.serviceRequested?.trim() &&
+            task.client.serviceRequested.trim() !== intent.intentLabel ? (
+              <p className="text-text-secondary">
+                Servicio indicado: {task.client.serviceRequested.trim()}
+              </p>
+            ) : null}
+            <p className="text-text-secondary">
+              Origen: {intent.originLabel}
+            </p>
+            {intakeLine ? (
+              <p className="text-text-secondary">
+                Intake: {intakeLine}
+              </p>
+            ) : null}
+            {task.client ? (
+              <Link
+                href={`/crm/clientes/${task.client.id}`}
+                className="inline-block text-action-primary hover:text-action-secondary"
+              >
+                Abrir ficha de {clientFullName(task.client)}
+              </Link>
+            ) : null}
+          </CardBody>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader title="Detalle" />

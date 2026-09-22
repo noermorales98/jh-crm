@@ -60,7 +60,18 @@ const TASK_LIST_SELECT = {
   reminderAt: true,
   completedAt: true,
   createdAt: true,
-  client: { select: { id: true, clientCode: true, firstName: true, lastName: true } },
+  client: {
+    select: {
+      id: true,
+      clientCode: true,
+      firstName: true,
+      lastName: true,
+      status: true,
+      source: true,
+      leadChannel: true,
+      serviceRequested: true,
+    },
+  },
   case: {
     select: {
       id: true,

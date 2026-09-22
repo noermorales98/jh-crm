@@ -45,8 +45,12 @@ async function resolveTaskAssignee(
   return firstOwnerUserId(organizationId, dbClient);
 }
 
-const LEAD_FOLLOW_UP_TITLE = "Seguimiento: Nuevo lead";
 const LEAD_FOLLOW_UP_DESC = "Nuevo lead — contactar en 24 h.";
+
+function leadFollowUpTitle(firstName: string, lastName: string | null) {
+  const name = [firstName, lastName].filter(Boolean).join(" ").trim() || "lead";
+  return `Contactar a ${name} nuevo lead`;
+}
 
 /**
  * Tarea FOLLOW_UP idempotente para un prospecto nuevo.
@@ -58,7 +62,13 @@ export async function ensureFollowUpTaskForLead(
   const organizationId = orgIdOf(ctx);
   const client = await prisma.client.findFirst({
     where: { id: clientId, organizationId },
-    select: { id: true, assignedToId: true, firstName: true, lastName: true },
+    select: {
+      id: true,
+      assignedToId: true,
+      firstName: true,
+      lastName: true,
+      serviceRequested: true,
+    },
   });
   if (!client) return null;
 
@@ -69,6 +79,7 @@ export async function ensureFollowUpTaskForLead(
       type: "FOLLOW_UP",
       status: "PENDING",
       OR: [
+        { title: { contains: "nuevo lead" } },
         { title: { contains: "Nuevo lead" } },
         { description: { contains: "Nuevo lead" } },
       ],
@@ -85,12 +96,17 @@ export async function ensureFollowUpTaskForLead(
   const dueAt = new Date();
   dueAt.setUTCDate(dueAt.getUTCDate() + 1);
 
+  const need = client.serviceRequested?.trim();
+  const description = need
+    ? `${LEAD_FOLLOW_UP_DESC}\nQué necesita: ${need}`
+    : LEAD_FOLLOW_UP_DESC;
+
   return prisma.task.create({
     data: {
       organizationId,
       clientId: client.id,
-      title: LEAD_FOLLOW_UP_TITLE,
-      description: LEAD_FOLLOW_UP_DESC,
+      title: leadFollowUpTitle(client.firstName, client.lastName),
+      description,
       type: "FOLLOW_UP",
       priority: "HIGH",
       status: "PENDING",

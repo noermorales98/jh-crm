@@ -4,6 +4,7 @@ import { can } from "@/src/server/auth/permissions";
 import * as opportunities from "@/src/server/opportunities";
 import * as clientService from "@/src/server/clients";
 import { listMemberOptions, clientFullName } from "@/src/server/page-helpers";
+import { listVerticalServiceOptions } from "@/src/server/services/verticals";
 import { PageHeader } from "@/src/components/ui";
 import { OpportunityKanban } from "@/src/components/opportunities/opportunity-kanban";
 import { CreateLeadButton } from "@/src/components/opportunities/create-lead-button";
@@ -26,10 +27,11 @@ export default async function LeadsPage() {
     canManage && can(ctx.role, "clients.create");
   const canEditLead = canManage && can(ctx.role, "clients.edit");
 
-  const [columns, clientsResult, members] = await Promise.all([
+  const [columns, clientsResult, members, verticalServices] = await Promise.all([
     opportunities.listByStage(ctx),
     clientService.listClients(ctx, { limit: 100 }),
     listMemberOptions(ctx),
+    listVerticalServiceOptions(ctx.organizationId),
   ]);
 
   const clientOptions = clientsResult.items
@@ -61,6 +63,10 @@ export default async function LeadsPage() {
         canManage={canManage}
         canEditLead={canEditLead}
         members={members}
+        services={verticalServices.map((s) => ({
+          code: s.code,
+          name: s.name,
+        }))}
       />
     </div>
   );

@@ -46,6 +46,7 @@ import {
   resolveLeadIntent,
   type LeadMessage,
 } from "@/src/lib/leads-intent";
+import { resolveWonServiceCode } from "@/src/lib/won-service";
 import {
   labelFor,
   LEAD_CHANNEL_LABELS,
@@ -120,10 +121,20 @@ export type OppCard = {
 };
 
 type MemberOption = { id: string; name: string };
+type ServiceOption = { code: string; name: string };
 type Columns = Record<string, OppCard[]>;
 
 const MOVE_STAGES = PIPELINE_STAGES.filter((s) => s !== "WON" && s !== "LOST");
 const DND_MIME = "application/x-jh-lead-id";
+
+const DEFAULT_WON_SERVICES: ServiceOption[] = [
+  { code: "CREDIT_REPAIR", name: "Credit Repair" },
+  { code: "HOME_BUYER", name: "Compra de Casa" },
+  { code: "BUSINESS_CREDIT", name: "Financiamiento de Negocio" },
+  { code: "PERSONAL_LOAN", name: "Préstamo Personal" },
+  { code: "WEB_DEVELOPMENT", name: "Desarrollo Web" },
+  { code: "CRM_DEVELOPMENT", name: "Desarrollo CRM" },
+];
 
 function clientName(opp: OppCard) {
   return [opp.client.firstName, opp.client.lastName].filter(Boolean).join(" ");
@@ -241,11 +252,13 @@ export function OpportunityKanban({
   canManage,
   canEditLead,
   members,
+  services,
 }: {
   columns: Columns;
   canManage: boolean;
   canEditLead: boolean;
   members: MemberOption[];
+  services?: ServiceOption[];
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -253,6 +266,7 @@ export function OpportunityKanban({
   const [lostFor, setLostFor] = useState<string | null>(null);
   const [lostReason, setLostReason] = useState("");
   const [wonFor, setWonFor] = useState<string | null>(null);
+  const [wonServiceCode, setWonServiceCode] = useState("CREDIT_REPAIR");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messageDraft, setMessageDraft] = useState("");
   const [messageError, setMessageError] = useState<string | null>(null);
@@ -296,6 +310,8 @@ export function OpportunityKanban({
   );
   const selected = flat.find((o) => o.id === selectedId) ?? null;
   const wonTarget = flat.find((o) => o.id === wonFor) ?? null;
+  const wonServiceOptions =
+    services && services.length > 0 ? services : DEFAULT_WON_SERVICES;
   const selectedIntent = selected
     ? resolveLeadIntent({
         source: selected.client.source ?? selected.source,
@@ -406,6 +422,13 @@ export function OpportunityKanban({
     if (opp.stage === "WON" || opp.stage === "LOST") return;
 
     if (toStage === "WON") {
+      const oppForWon = findOpp(oppId);
+      setWonServiceCode(
+        resolveWonServiceCode(
+          null,
+          oppForWon?.client.serviceRequested,
+        ),
+      );
       setWonFor(oppId);
       return;
     }
@@ -1048,7 +1071,15 @@ export function OpportunityKanban({
                     variant="success"
                     disabled={pending}
                     className="flex-1"
-                    onClick={() => setWonFor(selected.id)}
+                    onClick={() => {
+                      setWonServiceCode(
+                        resolveWonServiceCode(
+                          null,
+                          selected.client.serviceRequested,
+                        ),
+                      );
+                      setWonFor(selected.id);
+                    }}
                   >
                     Ganada
                   </Button>
@@ -1080,8 +1111,8 @@ export function OpportunityKanban({
         title="Marcar como ganada"
         description={
           wonTarget
-            ? `Conversión de ${clientName(wonTarget)}: se abre el expediente sin crear otra persona.`
-            : "Se abrirá el expediente sin crear otra persona."
+            ? `Conversión de ${clientName(wonTarget)}: se abre el expediente del servicio elegido.`
+            : "Se abrirá el expediente del servicio elegido."
         }
         footer={
           <>
@@ -1098,7 +1129,9 @@ export function OpportunityKanban({
               onClick={() => {
                 if (!wonFor) return;
                 run(async () => {
-                  const result = await markOpportunityWonAction(wonFor);
+                  const result = await markOpportunityWonAction(wonFor, {
+                    serviceCode: wonServiceCode,
+                  });
                   if (result.ok) {
                     setWonFor(null);
                     // Mantener detalle abierto: tras refresh verá el enlace al caso.
@@ -1112,15 +1145,37 @@ export function OpportunityKanban({
           </>
         }
       >
-        <ul className="list-disc space-y-1.5 pl-4 text-sm leading-relaxed text-text-secondary-strong">
-          <li>No se duplica el cliente ni se borra el lead.</li>
-          <li>Se crea ServiceCase OPEN (Credit Repair) con CreditCase 1:1.</li>
-          <li>La oportunidad queda Ganada y enlazada al caso.</li>
-          <li>
-            Si el cliente estaba en LEAD, pasa a ACTIVE. La fuente original se
-            conserva.
-          </li>
-        </ul>
+        <div className="space-y-4">
+          <Field label="Servicio del expediente" htmlFor="won-service">
+            <Select
+              id="won-service"
+              value={wonServiceCode}
+              onChange={(e) => setWonServiceCode(e.target.value)}
+              disabled={pending}
+            >
+              {wonServiceOptions.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <ul className="list-disc space-y-1.5 pl-4 text-sm leading-relaxed text-text-secondary-strong">
+            <li>No se duplica el cliente ni se borra el lead.</li>
+            <li>
+              Se crea ServiceCase OPEN del servicio elegido
+              {wonServiceCode === "CREDIT_REPAIR"
+                ? " (con CreditCase 1:1)"
+                : " (sin CreditCase)"}
+              .
+            </li>
+            <li>La oportunidad queda Ganada y enlazada al expediente.</li>
+            <li>
+              Si el cliente estaba en LEAD, pasa a ACTIVE. La fuente original se
+              conserva.
+            </li>
+          </ul>
+        </div>
       </Modal>
 
       <Modal

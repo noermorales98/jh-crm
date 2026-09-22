@@ -4,6 +4,7 @@ import { can } from "@/src/server/auth/permissions";
 import { getClientOverview } from "@/src/server/clients/overview";
 import { listMemberOptions } from "@/src/server/page-helpers";
 import { listStages } from "@/src/server/config";
+import { listVerticalServiceOptions } from "@/src/server/services/verticals";
 import { DomainError } from "@/src/server/errors";
 import { ClientActions } from "@/src/components/clients/client-actions";
 import { ClientHeader } from "@/app/crm/clientes/[clientId]/client-header";
@@ -46,7 +47,12 @@ export async function ClientDetailPanel({
     ? await listMemberOptions(ctx)
     : [];
   const canManageCases = can(ctx.role, "cases.manage");
-  const stages = canManageCases ? await listStages(ctx, false) : [];
+  const [stages, verticalServices] = canManageCases
+    ? await Promise.all([
+        listStages(ctx, false),
+        listVerticalServiceOptions(ctx.organizationId),
+      ])
+    : [[], []];
 
   const intakeEnabled = isIntakeEnabled();
   const intakeLinks = intakeEnabled
@@ -136,6 +142,7 @@ export async function ClientDetailPanel({
         canManageCases={canManageCases}
         canRegisterPayment={can(ctx.role, "payments.register")}
         stages={stages.map((s) => ({ id: s.id, name: s.name, color: s.color }))}
+        services={verticalServices}
         members={members}
       />
 

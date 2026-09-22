@@ -20,6 +20,10 @@ import {
   type CaseCreditOverview,
 } from "@/src/server/credit-reports";
 import { summarizeChecklistFromCounts } from "@/src/server/documents/checklist";
+import {
+  getLatestIntakeSummary,
+  type IntakeSummaryDto,
+} from "@/src/server/intake/summary";
 
 /**
  * Overview densificado + datos para tooltips/peeks del hub cliente.
@@ -172,6 +176,8 @@ export type ClientOverviewResult = {
     outcomeSummary: OutcomeSummary;
     counts: ClientOverviewCounts;
   } | null;
+  /** Resumen compacto del último intake (OWNER/ADMIN/SPECIALIST). */
+  intakeSummary: IntakeSummaryDto | null;
 };
 
 const ACTIVE_ITEM: CreditItemLifecycleStatus[] = [
@@ -392,6 +398,7 @@ export async function getClientOverview(
     paymentAggs,
     latestQuote,
     recentPayments,
+    intakeSummary,
   ] = await Promise.all([
     prisma.activityLog.findMany({
       where: {
@@ -484,6 +491,7 @@ export async function getClientOverview(
           },
         })
       : Promise.resolve([]),
+    getLatestIntakeSummary(ctx, clientId),
   ]);
 
   const lastActivityRow = activityRows[0] ?? null;
@@ -590,6 +598,7 @@ export async function getClientOverview(
       tasksSummary,
       paymentsSummary,
       credit: null,
+      intakeSummary,
     };
   }
 
@@ -606,6 +615,7 @@ export async function getClientOverview(
       tasksSummary,
       paymentsSummary,
       credit: null,
+      intakeSummary,
     };
   }
 
@@ -728,5 +738,6 @@ export async function getClientOverview(
         itemsNegative,
       },
     },
+    intakeSummary,
   };
 }

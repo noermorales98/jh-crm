@@ -10,7 +10,10 @@ import {
 import { Pill, ButtonLink, Card, CardBody } from "@/src/components/ui";
 import { ScoreDelta } from "@/src/components/credit-reports/bureau-score-strip";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
-import { CreateCaseButton } from "@/src/components/cases/create-case-button";
+import {
+  CreateCaseButton,
+  type ServiceOption,
+} from "@/src/components/cases/create-case-button";
 import { ClientCreditWorkspace } from "@/src/components/clients/client-credit-workspace";
 import { ClientOperationalRail } from "@/src/components/clients/client-operational-rail";
 import { RoundsSummaryStrip } from "@/src/components/clients/rounds-summary-strip";
@@ -51,6 +54,7 @@ export function ClientOverviewPanel({
   canManageCases,
   canRegisterPayment,
   stages,
+  services: serviceOptions,
   members,
 }: {
   overview: Overview;
@@ -58,10 +62,19 @@ export function ClientOverviewPanel({
   canManageCases: boolean;
   canRegisterPayment?: boolean;
   stages: { id: string; name: string; color: string }[];
+  /** Catálogo multi-vertical para abrir ServiceCase desde empty state. */
+  services?: ServiceOption[];
   members: { id: string; name: string }[];
 }) {
-  const { client, activeService, lastActivity, credit, services, nextAction } =
-    overview;
+  const {
+    client,
+    activeService,
+    lastActivity,
+    credit,
+    services,
+    nextAction,
+    intakeSummary,
+  } = overview;
   const isCreditRepair = activeService?.kind === "CREDIT_REPAIR";
   const caseId = activeService?.creditCaseId ?? null;
   const caseHref = caseId ? `/crm/casos/${caseId}` : null;
@@ -80,6 +93,13 @@ export function ClientOverviewPanel({
 
   return (
     <div className="space-y-4">
+      {intakeSummary ? (
+        <IntakeSummaryCard
+          clientId={client.id}
+          summary={intakeSummary}
+        />
+      ) : null}
+
       {/* Sin servicio activo */}
       {!activeService ? (
         <Card>
@@ -115,13 +135,15 @@ export function ClientOverviewPanel({
             <div className="rounded-control border border-dashed border-border-subtle bg-surface-app/40 px-3 py-3">
               <p className="text-sm font-medium text-ink">Sin expediente</p>
               <p className="mt-0.5 text-xs text-text-secondary">
-                Crea un caso para ver etapa, documentos y progreso aquí.
+                Elige el servicio que necesita el cliente para abrir el
+                expediente.
               </p>
               {canManageCases ? (
                 <div className="mt-2">
                   <CreateCaseButton
                     clientId={client.id}
                     stages={stages}
+                    services={serviceOptions}
                     members={members}
                   />
                 </div>
@@ -335,6 +357,71 @@ export function ClientOverviewPanel({
         </Card>
       ) : null}
     </div>
+  );
+}
+
+function IntakeSummaryCard({
+  clientId,
+  summary,
+}: {
+  clientId: string;
+  summary: NonNullable<Overview["intakeSummary"]>;
+}) {
+  return (
+    <Card>
+      <CardBody className="space-y-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
+            Respuestas del formulario
+          </p>
+          <span className="tabular-nums text-[11px] text-text-secondary">
+            {formatDate(summary.submittedAt)}
+          </span>
+        </div>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink">
+          {summary.primaryGoalLabel ? (
+            <span>
+              <span className="text-text-secondary">Objetivo · </span>
+              {summary.primaryGoalLabel}
+            </span>
+          ) : null}
+          {summary.documentCount > 0 ? (
+            <span>
+              <span className="text-text-secondary">Docs · </span>
+              <span className="tabular-nums">{summary.documentCount}</span>
+            </span>
+          ) : null}
+          {summary.reportProvider ? (
+            <span>
+              <span className="text-text-secondary">Reporte · </span>
+              {summary.reportProvider}
+            </span>
+          ) : null}
+        </div>
+        {summary.consultationReason ? (
+          <p className="text-xs leading-snug text-text-secondary-strong">
+            {summary.consultationReason}
+          </p>
+        ) : null}
+        {summary.flags.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {summary.flags.map((flag) => (
+              <Pill key={flag} tone="slate">
+                {flag}
+              </Pill>
+            ))}
+          </div>
+        ) : null}
+        <div>
+          <Link
+            href={`/crm/clientes/${clientId}/documentos`}
+            className="text-xs font-medium text-action-primary hover:text-action-secondary"
+          >
+            Ver documentos
+          </Link>
+        </div>
+      </CardBody>
+    </Card>
   );
 }
 

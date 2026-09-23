@@ -18,6 +18,7 @@ import {
   DEFAULT_TIMEZONE,
 } from "@/src/lib/format/dates";
 import { TASK_TYPE_LABELS, labelFor } from "@/src/lib/labels";
+import { taskWorkBadge, type TaskWorkBadgeTone } from "@/src/lib/task-work-badge";
 import { clientFullName } from "@/src/server/page-helpers";
 import { TaskRowActions } from "./task-row-actions";
 
@@ -28,6 +29,8 @@ export interface TaskRow {
   priority: string;
   status: string;
   dueAt: Date | null;
+  externalKey?: string | null;
+  description?: string | null;
   client: {
     id: string;
     clientCode: string;
@@ -44,23 +47,17 @@ export interface TaskRow {
 }
 
 
-function workBadge(
-  task: TaskRow,
-  timezone: string,
-): { label: string; tone: "red" | "amber" | "slate" | "green" } | null {
-  const now = new Date();
-  const open = task.status === "PENDING" || task.status === "IN_PROGRESS";
-  const bucket = classifyTaskDue(task.dueAt, now, timezone);
-  const overdue = bucket === "overdue" && open;
-  const today = bucket === "today";
+const PILL_TONE: Record<TaskWorkBadgeTone, "red" | "amber" | "slate"> = {
+  danger: "red",
+  warning: "amber",
+  neutral: "slate",
+};
 
-  if (overdue) return { label: "Urgente", tone: "red" };
-  if (task.type === "REQUEST_PAYMENT") return { label: "Cobrar", tone: "amber" };
-  if (task.type === "REQUEST_DOCUMENT") return { label: "Docs", tone: "amber" };
-  if (task.title.startsWith("Contactar")) return { label: "Lead", tone: "amber" };
-  if (task.title.startsWith("Próxima acción")) return { label: "Próxima", tone: "slate" };
-  if (today) return { label: "Hoy", tone: "amber" };
-  return null;
+/** Badge compartido con la cola del dashboard; «Pendiente» no se muestra aquí. */
+function workBadge(task: TaskRow, timezone: string) {
+  const badge = taskWorkBadge(task, classifyTaskDue(task.dueAt, new Date(), timezone));
+  if (badge.label === "Pendiente") return null;
+  return { label: badge.label, tone: PILL_TONE[badge.tone] };
 }
 
 function caseLabel(c: NonNullable<TaskRow["case"]>) {

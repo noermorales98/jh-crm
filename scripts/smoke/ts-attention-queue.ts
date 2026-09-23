@@ -133,6 +133,13 @@ async function main() {
       `got id=${rows[1]?.id} badge=${rows[1]?.badge}`,
     );
     check(
+      "tono danger en 1ª y Hoy/warning en 2ª (taskWorkBadge)",
+      rows[0]?.tone === "danger" &&
+        rows[1]?.badge === "Hoy" &&
+        rows[1]?.tone === "warning",
+      `got ${rows[0]?.tone} / ${rows[1]?.badge}/${rows[1]?.tone}`,
+    );
+    check(
       "dueBucket overdue en 1ª",
       rows[0]?.dueBucket === "overdue",
       `got ${rows[0]?.dueBucket}`,

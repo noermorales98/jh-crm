@@ -5,6 +5,7 @@ import {
   zonedDayRange,
   zonedWeekRange,
 } from "@/src/lib/format/dates";
+import { taskWorkBadge, type TaskWorkBadge } from "@/src/lib/task-work-badge";
 import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
@@ -65,6 +66,7 @@ const TASK_LIST_SELECT = {
   reminderAt: true,
   completedAt: true,
   createdAt: true,
+  externalKey: true,
   client: {
     select: {
       id: true,
@@ -385,43 +387,14 @@ export async function countOpenTasksByType(ctx: OrganizationContext) {
   ) as Partial<Record<TaskType, number>>;
 }
 
-export type AttentionTaskBadge =
-  | "Urgente"
-  | "Hoy"
-  | "Cobrar"
-  | "Docs"
-  | "Lead"
-  | "Próxima"
-  | "Pendiente";
+export type AttentionTaskBadge = TaskWorkBadge;
 
 const ATTENTION_SELECT = {
   ...TASK_LIST_SELECT,
   description: true,
-  externalKey: true,
 } satisfies Prisma.TaskSelect;
 
 type AttentionRow = Prisma.TaskGetPayload<{ select: typeof ATTENTION_SELECT }>;
-
-function attentionBadgeFor(
-  task: AttentionRow,
-  bucket: ReturnType<typeof classifyTaskDue>,
-): AttentionTaskBadge {
-  // Vencida: siempre Urgente (cualquier tipo).
-  if (bucket === "overdue") return "Urgente";
-  if (task.type === "REQUEST_PAYMENT") return "Cobrar";
-  if (task.type === "REQUEST_DOCUMENT") return "Docs";
-  if (
-    task.externalKey?.startsWith("opportunity:") ||
-    task.title.startsWith("Contactar")
-  ) {
-    return "Lead";
-  }
-  if (task.description?.includes("nextAction") || task.title.startsWith("Próxima acción")) {
-    return "Próxima";
-  }
-  if (bucket === "today") return "Hoy";
-  return "Pendiente";
-}
 
 /**
  * Cola unificada para dashboard «Para hacer»: solo Tasks abiertas.
@@ -483,7 +456,7 @@ export async function listAttentionTasks(
 
   return rows.map((task) => {
     const dueBucket = classifyTaskDue(task.dueAt, now, timezone);
-    const badge = attentionBadgeFor(task, dueBucket);
+    const { label: badge, tone } = taskWorkBadge(task, dueBucket);
     return {
       id: task.id,
       title: task.title,
@@ -497,11 +470,7 @@ export async function listAttentionTasks(
         .filter(Boolean)
         .join(" · "),
       href: `/crm/tareas/${task.id}`,
-      tone: (badge === "Urgente"
-        ? "danger"
-        : badge === "Hoy" || badge === "Cobrar" || badge === "Docs" || badge === "Lead"
-          ? "warning"
-          : "neutral") as "danger" | "warning" | "neutral",
+      tone,
       badge,
       dueBucket,
       type: task.type,

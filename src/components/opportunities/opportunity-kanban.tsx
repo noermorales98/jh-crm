@@ -48,9 +48,13 @@ import {
 } from "@/src/lib/leads-intent";
 import { resolveWonServiceCode } from "@/src/lib/won-service";
 import {
+  intakeStageBadge,
+  kanbanColumnIdForStage,
   labelFor,
   LEAD_CHANNEL_LABELS,
+  OPPORTUNITY_KANBAN_COLUMNS,
   OPPORTUNITY_STAGE_LABELS,
+  stageForKanbanColumn,
 } from "@/src/lib/labels";
 import {
   getStoredLeadsView,
@@ -124,7 +128,9 @@ type MemberOption = { id: string; name: string };
 type ServiceOption = { code: string; name: string };
 type Columns = Record<string, OppCard[]>;
 
-const MOVE_STAGES = PIPELINE_STAGES.filter((s) => s !== "WON" && s !== "LOST");
+const MOVE_COLUMNS = OPPORTUNITY_KANBAN_COLUMNS.filter(
+  (column) => column.id !== "WON" && column.id !== "LOST",
+);
 const DND_MIME = "application/x-jh-lead-id";
 
 const DEFAULT_WON_SERVICES: ServiceOption[] = [
@@ -146,6 +152,10 @@ function cloneColumns(source: Columns): Columns {
     next[stage] = [...(source[stage] ?? [])];
   }
   return next;
+}
+
+function cardsInColumn(source: Columns, stages: readonly string[]): OppCard[] {
+  return stages.flatMap((stage) => source[stage] ?? []);
 }
 
 function LeadCardFace({
@@ -184,9 +194,14 @@ function LeadCardFace({
           />
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-ink">
-            {clientName(opp)}
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="truncate text-[15px] font-semibold tracking-[-0.02em] text-ink">
+              {clientName(opp)}
+            </p>
+            {intakeStageBadge(opp.stage) ? (
+              <Pill tone="indigo">{intakeStageBadge(opp.stage)}</Pill>
+            ) : null}
+          </div>
           {registeredAt ? (
             <p className="mt-1 flex items-center gap-1.5 text-[12px] text-text-secondary">
               <Clock3
@@ -378,10 +393,10 @@ export function OpportunityKanban({
     });
   }
 
-  const stageCounts = useMemo(() => {
+  const columnCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const stage of PIPELINE_STAGES) {
-      counts[stage] = localColumns[stage]?.length ?? 0;
+    for (const column of OPPORTUNITY_KANBAN_COLUMNS) {
+      counts[column.id] = cardsInColumn(localColumns, column.stages).length;
     }
     return counts;
   }, [localColumns]);
@@ -416,33 +431,32 @@ export function OpportunityKanban({
     return flat.find((o) => o.id === id) ?? null;
   }
 
-  function requestMove(oppId: string, toStage: string) {
+  function requestMove(oppId: string, columnId: string) {
     const opp = findOpp(oppId);
-    if (!opp || opp.stage === toStage) return;
+    if (!opp) return;
     if (opp.stage === "WON" || opp.stage === "LOST") return;
 
-    if (toStage === "WON") {
-      const oppForWon = findOpp(oppId);
+    if (columnId === "WON") {
       setWonServiceCode(
-        resolveWonServiceCode(
-          null,
-          oppForWon?.client.serviceRequested,
-        ),
+        resolveWonServiceCode(null, opp.client.serviceRequested),
       );
       setWonFor(oppId);
       return;
     }
-    if (toStage === "LOST") {
+    if (columnId === "LOST") {
       setLostReason("");
       setLostFor(oppId);
       return;
     }
 
+    const toStage = stageForKanbanColumn(columnId, opp.stage);
+    if (opp.stage === toStage) return;
+
     setError(null);
     startTransition(async () => {
       applyOptimisticColumns({ oppId, toStage });
       const result = await updateOpportunityStageAction(oppId, {
-        stage: toStage,
+        stage: toStage as OppCard["stage"],
       });
       if (!result.ok) {
         playActionResult(false);
@@ -530,12 +544,11 @@ export function OpportunityKanban({
       className="overflow-x-auto pb-1"
     >
       <ol className="flex min-w-max items-stretch gap-0 px-0.5">
-        {PIPELINE_STAGES.map((stage, index) => {
-          const theme = stageTheme(stage);
-          const count = stageCounts[stage] ?? 0;
-          const short = labelFor(OPPORTUNITY_STAGE_LABELS, stage);
+        {OPPORTUNITY_KANBAN_COLUMNS.map((column, index) => {
+          const theme = stageTheme(column.stages[0]);
+          const count = columnCounts[column.id] ?? 0;
           return (
-            <li key={stage} className="flex items-center">
+            <li key={column.id} className="flex items-center">
               {index > 0 ? (
                 <span
                   aria-hidden
@@ -549,10 +562,10 @@ export function OpportunityKanban({
                 }`}
                 onClick={() => {
                   if (view === "kanban" || view === "timeline") {
-                    scrollToStage(stage);
+                    scrollToStage(column.id);
                   } else {
                     document
-                      .getElementById(`lead-list-${stage}`)
+                      .getElementById(`lead-list-${column.id}`)
                       ?.scrollIntoView({ behavior: "smooth", block: "start" });
                   }
                 }}
@@ -565,7 +578,7 @@ export function OpportunityKanban({
                 <span
                   className={`max-w-[4.75rem] truncate text-center text-[10px] font-medium leading-tight sm:max-w-[5.5rem] ${theme.accent}`}
                 >
-                  {short}
+                  {column.label}
                 </span>
               </button>
             </li>
@@ -597,22 +610,22 @@ export function OpportunityKanban({
           ref={boardScrollRef}
           className="flex gap-3 overflow-x-auto px-0.5 pb-3 pt-2"
         >
-          {PIPELINE_STAGES.map((stage) => {
-            const items = localColumns[stage] ?? [];
-            const theme = stageTheme(stage);
-            const isDrop = dragOverStage === stage;
+          {OPPORTUNITY_KANBAN_COLUMNS.map((column) => {
+            const items = cardsInColumn(localColumns, column.stages);
+            const theme = stageTheme(column.stages[0]);
+            const isDrop = dragOverStage === column.id;
             return (
               <div
-                key={stage}
-                id={`lead-col-${stage}`}
+                key={column.id}
+                id={`lead-col-${column.id}`}
                 ref={(el) => {
-                  columnRefs.current[stage] = el;
+                  columnRefs.current[column.id] = el;
                 }}
-                onDragOver={(e) => onDragOverColumn(e, stage)}
+                onDragOver={(e) => onDragOverColumn(e, column.id)}
                 onDragLeave={() => {
-                  setDragOverStage((cur) => (cur === stage ? null : cur));
+                  setDragOverStage((cur) => (cur === column.id ? null : cur));
                 }}
-                onDrop={(e) => onDropColumn(e, stage)}
+                onDrop={(e) => onDropColumn(e, column.id)}
                 className={`flex w-[17.5rem] shrink-0 flex-col rounded-surface ring-1 transition-[ring-color,background-color] duration-200 ${theme.column} ${
                   isDrop ? `ring-2 ${theme.dropRing}` : ""
                 }`}
@@ -621,7 +634,7 @@ export function OpportunityKanban({
                   <p
                     className={`text-[11px] font-semibold uppercase tracking-[0.06em] ${theme.accent}`}
                   >
-                    {labelFor(OPPORTUNITY_STAGE_LABELS, stage)}
+                    {column.label}
                   </p>
                   <p className="mt-0.5 text-[15px] font-semibold tabular-nums tracking-[-0.02em] text-ink">
                     {items.length}
@@ -653,9 +666,13 @@ export function OpportunityKanban({
                           } ${
                             draggingId === opp.id ? "opacity-40" : ""
                           }`}
-                          aria-label={`${clientName(opp)}, etapa ${labelFor(OPPORTUNITY_STAGE_LABELS, stage)}`}
+                          aria-label={`${clientName(opp)}, etapa ${column.label}${
+                            intakeStageBadge(opp.stage)
+                              ? `, ${intakeStageBadge(opp.stage)}`
+                              : ""
+                          }`}
                         >
-                          <LeadCardFace opp={opp} stage={stage} />
+                          <LeadCardFace opp={opp} stage={opp.stage} />
                         </div>
                       </li>
                     );
@@ -674,21 +691,21 @@ export function OpportunityKanban({
 
       {view === "list" ? (
         <div className="space-y-4">
-          {PIPELINE_STAGES.map((stage) => {
-            const items = localColumns[stage] ?? [];
-            const theme = stageTheme(stage);
+          {OPPORTUNITY_KANBAN_COLUMNS.map((column) => {
+            const items = cardsInColumn(localColumns, column.stages);
+            const theme = stageTheme(column.stages[0]);
             if (items.length === 0) return null;
             return (
               <section
-                key={stage}
-                id={`lead-list-${stage}`}
+                key={column.id}
+                id={`lead-list-${column.id}`}
                 className={`overflow-hidden rounded-surface ring-1 ${theme.column}`}
               >
                 <header className="flex items-center justify-between gap-2 px-4 py-3">
                   <h2
                     className={`text-[13px] font-semibold tracking-[-0.01em] ${theme.accent}`}
                   >
-                    {labelFor(OPPORTUNITY_STAGE_LABELS, stage)}
+                    {column.label}
                   </h2>
                   <span className="text-[13px] font-semibold tabular-nums text-ink">
                     {items.length}
@@ -726,7 +743,7 @@ export function OpportunityKanban({
                           </span>
                         </span>
                         <Pill tone={theme.pill}>
-                          {labelFor(OPPORTUNITY_STAGE_LABELS, stage)}
+                          {intakeStageBadge(opp.stage) ?? column.label}
                         </Pill>
                       </button>
                     </li>
@@ -753,22 +770,22 @@ export function OpportunityKanban({
               aria-hidden
               className="absolute left-6 right-6 top-[2.15rem] h-px bg-border-subtle"
             />
-            {PIPELINE_STAGES.map((stage) => {
-              const items = localColumns[stage] ?? [];
-              const theme = stageTheme(stage);
+            {OPPORTUNITY_KANBAN_COLUMNS.map((column) => {
+              const items = cardsInColumn(localColumns, column.stages);
+              const theme = stageTheme(column.stages[0]);
               return (
                 <li
-                  key={stage}
-                  id={`lead-tl-${stage}`}
+                  key={column.id}
+                  id={`lead-tl-${column.id}`}
                   ref={(el) => {
-                    columnRefs.current[stage] = el;
+                    columnRefs.current[column.id] = el;
                   }}
                   className="relative z-[1] flex w-56 shrink-0 flex-col items-center px-2"
                 >
                   <button
                     type="button"
                     className={`jh-stage-chip mb-3 flex flex-col items-center gap-1.5`}
-                    onClick={() => scrollToStage(stage)}
+                    onClick={() => scrollToStage(column.id)}
                   >
                     <span
                       className={`flex size-9 items-center justify-center rounded-full text-[12px] font-semibold tabular-nums text-white ${theme.dot}`}
@@ -778,7 +795,7 @@ export function OpportunityKanban({
                     <span
                       className={`max-w-[8rem] text-center text-[11px] font-semibold leading-snug ${theme.accent}`}
                     >
-                      {labelFor(OPPORTUNITY_STAGE_LABELS, stage)}
+                      {column.label}
                     </span>
                   </button>
                   <ul className="flex w-full flex-col gap-2">
@@ -789,7 +806,7 @@ export function OpportunityKanban({
                           onClick={() => openLead(opp.id)}
                           className="jh-lead-card w-full rounded-surface border border-border-subtle/60 bg-surface-elevated p-3 text-left transition-transform hover:-translate-y-px motion-reduce:hover:translate-y-0"
                         >
-                          <LeadCardFace opp={opp} stage={stage} dense />
+                          <LeadCardFace opp={opp} stage={opp.stage} dense />
                         </button>
                       </li>
                     ))}
@@ -1059,9 +1076,11 @@ export function OpportunityKanban({
                   }}
                 >
                   <option value="">Mover a…</option>
-                  {MOVE_STAGES.filter((s) => s !== selected.stage).map((s) => (
-                    <option key={s} value={s}>
-                      {labelFor(OPPORTUNITY_STAGE_LABELS, s)}
+                  {MOVE_COLUMNS.filter(
+                    (column) => column.id !== kanbanColumnIdForStage(selected.stage),
+                  ).map((column) => (
+                    <option key={column.id} value={column.id}>
+                      {column.label}
                     </option>
                   ))}
                 </Select>

@@ -219,6 +219,57 @@ export const OPPORTUNITY_STAGE_LABELS: Record<string, string> = {
   LOST: "Perdida",
 };
 
+/**
+ * Columnas visibles del pipeline. No cambia el enum: Intake agrupa
+ * INTAKE_SENT + INTAKE_COMPLETED; Pago es WAITING_PAYMENT.
+ */
+export const OPPORTUNITY_KANBAN_COLUMNS = [
+  { id: "NEW_LEAD", label: "Nuevo lead", stages: ["NEW_LEAD"] },
+  { id: "CONTACTED", label: "Contactado", stages: ["CONTACTED"] },
+  { id: "CONSULTATION", label: "Consulta", stages: ["CONSULTATION"] },
+  {
+    id: "INTAKE",
+    label: "Intake",
+    stages: ["INTAKE_SENT", "INTAKE_COMPLETED"],
+  },
+  { id: "PROPOSAL", label: "Propuesta", stages: ["PROPOSAL"] },
+  { id: "PAYMENT", label: "Pago", stages: ["WAITING_PAYMENT"] },
+  { id: "WON", label: "Ganada", stages: ["WON"] },
+  { id: "LOST", label: "Perdida", stages: ["LOST"] },
+] as const;
+
+export function intakeStageBadge(
+  stage: string,
+): "Enviado" | "Completado" | null {
+  if (stage === "INTAKE_SENT") return "Enviado";
+  if (stage === "INTAKE_COMPLETED") return "Completado";
+  return null;
+}
+
+/** Etapa real al soltar en una columna. Intake conserva INTAKE_* si ya estaba ahí. */
+export function stageForKanbanColumn(
+  columnId: string,
+  currentStage: string,
+): string {
+  if (columnId === "INTAKE") {
+    if (
+      currentStage === "INTAKE_SENT" ||
+      currentStage === "INTAKE_COMPLETED"
+    ) {
+      return currentStage;
+    }
+    return "INTAKE_SENT";
+  }
+  if (columnId === "PAYMENT") return "WAITING_PAYMENT";
+  return columnId;
+}
+
+export function kanbanColumnIdForStage(stage: string): string {
+  if (stage === "INTAKE_SENT" || stage === "INTAKE_COMPLETED") return "INTAKE";
+  if (stage === "WAITING_PAYMENT") return "PAYMENT";
+  return stage;
+}
+
 export const PROCESSOR_ACCOUNT_STATUS_LABELS: Record<string, string> = {
   PLANNED: "Planificada",
   ACTIVE: "Activa",

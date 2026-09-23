@@ -4,6 +4,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import * as opportunities from "../../src/server/opportunities";
+import { ensureVerticalService } from "../../src/server/services/verticals";
 import type { OrganizationContext } from "../../src/server/auth/guards";
 
 const MARK = `won-br012-${Date.now()}`;
@@ -19,6 +20,9 @@ async function main() {
   let opportunityId: string | null = null;
   let wonCaseId: string | null = null;
   let wonServiceCaseId: string | null = null;
+  let rollbackClientId: string | null = null;
+  let rollbackOpportunityId: string | null = null;
+  let restoreStageIds: string[] = [];
 
   try {
     const member = await prisma.organizationMember.findFirst({
@@ -129,6 +133,78 @@ async function main() {
     }
     check("idempotent reject second WON", rejected);
 
+    console.log("\n[LD-005] markWon rollback dentro de la transacción");
+    const rollback = await opportunities.createLead(ctx, {
+      firstName: "Smoke",
+      lastName: `${MARK}-rollback`,
+      email: `${MARK}-rollback@example.test`,
+      phone: null,
+      source: "instagram_smoke",
+      leadChannel: "INSTAGRAM",
+      serviceRequested: "HOME_BUYER",
+      ownerId: member.userId,
+      estimatedValue: 100,
+      campaign: `${MARK}-rollback`,
+    });
+    rollbackClientId = rollback.client.id;
+    rollbackOpportunityId = rollback.opportunity.id;
+    check("rollback client LEAD", rollback.client.status === "LEAD");
+    check("rollback opp NEW_LEAD", rollback.opportunity.stage === "NEW_LEAD");
+
+    // ensure* corre ANTES de la tx y crea el servicio si falta, así que
+    // "servicio inexistente" no falla dentro de markWon. Se apagan las
+    // etapas activas para que createServiceCase lance dentro de la tx.
+    const homeBuyer = await ensureVerticalService(
+      ctx.organizationId,
+      "HOME_BUYER",
+    );
+    const stages = await prisma.workflowStage.findMany({
+      where: { organizationId: ctx.organizationId, serviceId: homeBuyer.id },
+      select: { id: true, isActive: true },
+    });
+    if (stages.length === 0) {
+      throw new Error("HOME_BUYER no tiene etapas para provocar el fallo.");
+    }
+    restoreStageIds = stages.filter((stage) => stage.isActive).map((stage) => stage.id);
+    await prisma.workflowStage.updateMany({
+      where: { id: { in: stages.map((stage) => stage.id) } },
+      data: { isActive: false },
+    });
+
+    let rolledBack = false;
+    let rollbackMessage = "";
+    try {
+      await opportunities.markWon(ctx, rollback.opportunity.id, {
+        serviceCode: "HOME_BUYER",
+      });
+    } catch (error) {
+      rolledBack = true;
+      rollbackMessage = error instanceof Error ? error.message : "";
+    }
+    check("markWon lanza dentro de la tx", rolledBack);
+    check(
+      "fallo de etapas activas",
+      rollbackMessage.includes("etapas activas"),
+    );
+
+    const clientStill = await prisma.client.findUniqueOrThrow({
+      where: { id: rollback.client.id },
+    });
+    const oppStillOpen = await prisma.opportunity.findUniqueOrThrow({
+      where: { id: rollback.opportunity.id },
+    });
+    const serviceCases = await prisma.serviceCase.count({
+      where: { clientId: rollback.client.id },
+    });
+    const creditCases = await prisma.creditCase.count({
+      where: { clientId: rollback.client.id },
+    });
+    check("cliente sigue en LEAD", clientStill.status === "LEAD");
+    check("oportunidad sigue en NEW_LEAD", oppStillOpen.stage === "NEW_LEAD");
+    check("wonServiceCaseId null", oppStillOpen.wonServiceCaseId == null);
+    check("sin ServiceCase", serviceCases === 0);
+    check("sin CreditCase", creditCases === 0);
+
     console.log(
       JSON.stringify(
         {
@@ -144,6 +220,41 @@ async function main() {
     );
   } finally {
     console.log("\n[cleanup]");
+    if (restoreStageIds.length > 0) {
+      await prisma.workflowStage
+        .updateMany({
+          where: { id: { in: restoreStageIds } },
+          data: { isActive: true },
+        })
+        .catch(() => undefined);
+    }
+    if (rollbackOpportunityId) {
+      await prisma.opportunity
+        .deleteMany({ where: { id: rollbackOpportunityId } })
+        .catch(() => undefined);
+    }
+    if (rollbackClientId) {
+      const leaked = await prisma.serviceCase
+        .findMany({
+          where: { clientId: rollbackClientId },
+          select: { id: true },
+        })
+        .catch(() => []);
+      for (const row of leaked) {
+        await prisma.creditCase
+          .deleteMany({ where: { serviceCaseId: row.id } })
+          .catch(() => undefined);
+        await prisma.serviceCase
+          .deleteMany({ where: { id: row.id } })
+          .catch(() => undefined);
+      }
+      await prisma.activityLog
+        .deleteMany({ where: { clientId: rollbackClientId } })
+        .catch(() => undefined);
+      await prisma.client
+        .deleteMany({ where: { id: rollbackClientId } })
+        .catch(() => undefined);
+    }
     if (opportunityId) {
       await prisma.opportunity
         .deleteMany({ where: { id: opportunityId } })

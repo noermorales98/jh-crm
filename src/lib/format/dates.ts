@@ -45,7 +45,8 @@ export { isPast, addDays };
 
 export type TaskDueBucket = "overdue" | "today" | "week" | "later" | "none";
 
-function ymdInZone(date: Date, timezone: string): string {
+/** Día calendario (YYYY-MM-DD) de `date` en `timezone`. */
+export function ymdInZone(date: Date, timezone: string): string {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: timezone,
     year: "numeric",

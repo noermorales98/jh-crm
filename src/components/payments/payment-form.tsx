@@ -50,6 +50,7 @@ export function PaymentForm({
   initialClientId = "",
   initialCaseId = "",
   initialQuoteId = "",
+  defaultReceivedAt,
 }: {
   clients: PaymentClientOption[];
   cases: PaymentCaseOption[];
@@ -57,6 +58,8 @@ export function PaymentForm({
   initialClientId?: string;
   initialCaseId?: string;
   initialQuoteId?: string;
+  /** Hoy (YYYY-MM-DD) en la zona de la organización; lo calcula el server. */
+  defaultReceivedAt: string;
 }) {
   const router = useRouter();
   const [clientId, setClientId] = useState(initialClientId);
@@ -66,9 +69,7 @@ export function PaymentForm({
   const [method, setMethod] = useState("ZELLE");
   const [reference, setReference] = useState("");
   const [status, setStatus] = useState<"RECEIVED" | "PENDING">("RECEIVED");
-  const [receivedAt, setReceivedAt] = useState(
-    () => new Date().toISOString().slice(0, 10),
-  );
+  const [receivedAt, setReceivedAt] = useState(defaultReceivedAt);
   const [dueAt, setDueAt] = useState("");
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);

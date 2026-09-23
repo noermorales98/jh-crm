@@ -3,6 +3,8 @@ import { requirePermission } from "@/src/server/auth/guards";
 import * as clientService from "@/src/server/clients";
 import * as caseService from "@/src/server/cases";
 import * as quoteService from "@/src/server/quotes";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
+import { ymdInZone } from "@/src/lib/format/dates";
 import {
   clientFullName,
   firstParam,
@@ -24,10 +26,11 @@ export default async function NewPaymentPage({
   const ctx = await requirePermission("payments.register");
   const sp = await searchParams;
 
-  const [clients, casesResult, quotesResult] = await Promise.all([
+  const [clients, casesResult, quotesResult, timezone] = await Promise.all([
     clientService.listClients(ctx, { limit: 100 }),
     caseService.listCases(ctx, { limit: 100 }),
     quoteService.listQuotes(ctx, { limit: 100 }),
+    getOrganizationTimezone(ctx.organizationId),
   ]);
 
   const clientOptions = clients.items
@@ -68,6 +71,7 @@ export default async function NewPaymentPage({
             initialClientId={firstParam(sp, "clientId") ?? ""}
             initialCaseId={firstParam(sp, "caseId") ?? ""}
             initialQuoteId={firstParam(sp, "quoteId") ?? ""}
+            defaultReceivedAt={ymdInZone(new Date(), timezone)}
           />
         </CardBody>
       </Card>

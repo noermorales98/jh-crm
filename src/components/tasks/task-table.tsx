@@ -13,6 +13,10 @@ import {
   TR,
 } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
+import {
+  classifyTaskDue,
+  DEFAULT_TIMEZONE,
+} from "@/src/lib/format/dates";
 import { TASK_TYPE_LABELS, labelFor } from "@/src/lib/labels";
 import { clientFullName } from "@/src/server/page-helpers";
 import { TaskRowActions } from "./task-row-actions";
@@ -40,19 +44,15 @@ export interface TaskRow {
 }
 
 
-function workBadge(task: TaskRow): { label: string; tone: "red" | "amber" | "slate" | "green" } | null {
+function workBadge(
+  task: TaskRow,
+  timezone: string,
+): { label: string; tone: "red" | "amber" | "slate" | "green" } | null {
   const now = new Date();
-  const due = task.dueAt ? new Date(task.dueAt) : null;
-  const overdue =
-    due != null &&
-    due.getTime() < now.getTime() &&
-    (task.status === "PENDING" || task.status === "IN_PROGRESS");
-  const start = new Date(now);
-  start.setHours(0, 0, 0, 0);
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-  const today =
-    due != null && due.getTime() >= start.getTime() && due.getTime() < end.getTime();
+  const open = task.status === "PENDING" || task.status === "IN_PROGRESS";
+  const bucket = classifyTaskDue(task.dueAt, now, timezone);
+  const overdue = bucket === "overdue" && open;
+  const today = bucket === "today";
 
   if (overdue) return { label: "Urgente", tone: "red" };
   if (task.type === "REQUEST_PAYMENT") return { label: "Cobrar", tone: "amber" };
@@ -82,6 +82,7 @@ export function TaskTable({
   showLinks = true,
   showWorkBadges = false,
   emptyAction,
+  timezone = DEFAULT_TIMEZONE,
 }: {
   tasks: TaskRow[];
   members: { id: string; name: string }[];
@@ -89,6 +90,7 @@ export function TaskTable({
   showLinks?: boolean;
   showWorkBadges?: boolean;
   emptyAction?: ReactNode;
+  timezone?: string;
 }) {
   if (tasks.length === 0) {
     return (
@@ -118,11 +120,9 @@ export function TaskTable({
       </THead>
       <TBody>
         {tasks.map((task) => {
-          const overdue =
-            task.dueAt &&
-            new Date(task.dueAt) < now &&
-            (task.status === "PENDING" || task.status === "IN_PROGRESS");
           const open = task.status === "PENDING" || task.status === "IN_PROGRESS";
+          const overdue =
+            classifyTaskDue(task.dueAt, now, timezone) === "overdue" && open;
           return (
             <TR key={task.id}>
               <TD className="max-w-72">
@@ -139,7 +139,7 @@ export function TaskTable({
                   </Link>
                   {showWorkBadges
                     ? (() => {
-                        const badge = workBadge(task);
+                        const badge = workBadge(task, timezone);
                         return badge ? <Pill tone={badge.tone}>{badge.label}</Pill> : null;
                       })()
                     : null}
@@ -179,7 +179,7 @@ export function TaskTable({
               <TD
                 className={`whitespace-nowrap ${overdue ? "font-medium text-danger-ink" : "text-text-secondary"}`}
               >
-                {task.dueAt ? formatDate(task.dueAt) : "—"}
+                {task.dueAt ? formatDate(task.dueAt, timezone) : "—"}
                 {overdue ? " · vencida" : ""}
               </TD>
               <TD>

@@ -151,7 +151,10 @@ export default async function DashboardPage() {
       icon: ClipboardList,
       label: "Pendientes hoy",
       value: widgets.tasksToday.count + widgets.overdueTasks.count,
-      hint: "Tareas a atender",
+      hint:
+        widgets.overdueTasks.count > 0
+          ? `${widgets.overdueTasks.count} vencidas`
+          : "Tareas a atender",
       iconClass: "bg-success-soft text-success-ink",
     },
   ];

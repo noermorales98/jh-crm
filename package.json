@@ -29,6 +29,9 @@
     "smoke:client-whatsapp": "tsx --env-file=.env.local scripts/smoke/client-whatsapp-smoke.ts",
     "smoke:au-005": "tsx --env-file=.env.local scripts/smoke/au-005-stripe-smoke.ts",
     "smoke:credit-pdf-import": "tsx scripts/smoke/credit-pdf-import-smoke.ts",
+    "smoke:ts-due": "tsx scripts/smoke/ts-due-rules.ts",
+    "smoke:ts-attention": "tsx --env-file=.env.local scripts/smoke/ts-attention-queue.ts",
+    "fix:task-dates": "tsx --env-file=.env.local scripts/fix-task-utc-midnight-dates.ts",
     "seed:demo-credit": "tsx --env-file=.env.local scripts/seed-demo-credit-case.ts",
     "postinstall": "prisma generate"
   },

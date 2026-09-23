@@ -1,10 +1,15 @@
 import type { Prisma, TaskPriority, TaskStatus, TaskType } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
-import { zonedDayRange } from "@/src/lib/format/dates";
+import {
+  classifyTaskDue,
+  zonedDayRange,
+  zonedWeekRange,
+} from "@/src/lib/format/dates";
 import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import { resolveAssigneeForOrg } from "@/src/server/users";
 
 /**
@@ -297,27 +302,24 @@ export async function getTask(ctx: OrganizationContext, taskId: string) {
 export async function listTasks(ctx: OrganizationContext, filters: TaskListFilters = {}) {
   const limit = Math.min(filters.limit ?? 20, 100);
 
-  const settings = await prisma.organizationSettings.findUnique({
-    where: { organizationId: ctx.organizationId },
-    select: { timezone: true },
-  });
-  const timezone = settings?.timezone ?? "America/Chicago";
+  const timezone = await getOrganizationTimezone(ctx.organizationId);
 
   let dueFilter: Prisma.TaskWhereInput = {};
   if (filters.due) {
-    const { start, end } = zonedDayRange(new Date(), timezone);
+    const now = new Date();
+    const { start, end } = zonedDayRange(now, timezone);
     if (filters.due === "overdue") {
       dueFilter = {
-        dueAt: { lt: new Date() },
+        dueAt: { lt: start },
         // Vencidas solo cuentan si siguen abiertas (salvo filtro explícito).
         ...(!filters.status ? { status: { in: OPEN_TASK_STATUSES } } : {}),
       };
     } else if (filters.due === "today") {
       dueFilter = { dueAt: { gte: start, lt: end } };
     } else {
-      // week: hoy + 6 días
+      const week = zonedWeekRange(now, timezone);
       dueFilter = {
-        dueAt: { gte: start, lt: new Date(end.getTime() + 6 * 24 * 60 * 60 * 1000) },
+        dueAt: { gte: week.start, lt: week.end },
       };
     }
   }
@@ -392,77 +394,96 @@ export type AttentionTaskBadge =
   | "Próxima"
   | "Pendiente";
 
+const ATTENTION_SELECT = {
+  ...TASK_LIST_SELECT,
+  description: true,
+  externalKey: true,
+} satisfies Prisma.TaskSelect;
+
+type AttentionRow = Prisma.TaskGetPayload<{ select: typeof ATTENTION_SELECT }>;
+
+function attentionBadgeFor(
+  task: AttentionRow,
+  bucket: ReturnType<typeof classifyTaskDue>,
+): AttentionTaskBadge {
+  // Vencida: siempre Urgente (cualquier tipo).
+  if (bucket === "overdue") return "Urgente";
+  if (task.type === "REQUEST_PAYMENT") return "Cobrar";
+  if (task.type === "REQUEST_DOCUMENT") return "Docs";
+  if (
+    task.externalKey?.startsWith("opportunity:") ||
+    task.title.startsWith("Contactar")
+  ) {
+    return "Lead";
+  }
+  if (task.description?.includes("nextAction") || task.title.startsWith("Próxima acción")) {
+    return "Próxima";
+  }
+  if (bucket === "today") return "Hoy";
+  return "Pendiente";
+}
+
 /**
- * Cola unificada para dashboard «Para hacer»: solo Tasks abiertas, ordenadas.
+ * Cola unificada para dashboard «Para hacer»: solo Tasks abiertas.
+ * Cuatro consultas secuenciales (vencidas → hoy → resto con fecha → sin fecha)
+ * para no perder vencidas LOW detrás de muchas URGENT futuras.
  */
 export async function listAttentionTasks(
   ctx: OrganizationContext,
   opts?: { take?: number; timezone?: string },
 ) {
   const take = Math.min(opts?.take ?? 12, 40);
-  const timezone = opts?.timezone ?? "America/Chicago";
+  const timezone =
+    opts?.timezone ?? (await getOrganizationTimezone(ctx.organizationId));
   const now = new Date();
   const { start: todayStart, end: todayEnd } = zonedDayRange(now, timezone);
 
-  const rows = await prisma.task.findMany({
-    where: {
-      organizationId: ctx.organizationId,
-      status: { in: OPEN_TASK_STATUSES },
-    },
-    select: {
-      ...TASK_LIST_SELECT,
-      description: true,
-      externalKey: true,
-    },
-    orderBy: [
-      { priority: "desc" },
-      { dueAt: "asc" },
-      { createdAt: "desc" },
-      { id: "asc" },
-    ],
-    take: take * 3,
-  });
+  const baseWhere: Prisma.TaskWhereInput = {
+    organizationId: ctx.organizationId,
+    status: { in: OPEN_TASK_STATUSES },
+  };
 
-  function badgeFor(task: (typeof rows)[number]): AttentionTaskBadge {
-    const due = task.dueAt ? new Date(task.dueAt) : null;
-    const overdue = due != null && due.getTime() < now.getTime();
-    const today =
-      due != null && due.getTime() >= todayStart.getTime() && due.getTime() < todayEnd.getTime();
-    if (task.type === "REQUEST_PAYMENT") return overdue ? "Urgente" : "Cobrar";
-    if (task.type === "REQUEST_DOCUMENT") return "Docs";
-    if (
-      task.externalKey?.startsWith("opportunity:") ||
-      task.title.startsWith("Contactar")
-    ) {
-      return overdue ? "Urgente" : "Lead";
-    }
-    if (task.description?.includes("nextAction") || task.title.startsWith("Próxima acción")) {
-      return overdue ? "Urgente" : "Próxima";
-    }
-    if (overdue) return "Urgente";
-    if (today) return "Hoy";
-    return "Pendiente";
+  const rows: AttentionRow[] = [];
+
+  async function fill(
+    where: Prisma.TaskWhereInput,
+    orderBy: Prisma.TaskOrderByWithRelationInput[],
+  ) {
+    const need = take - rows.length;
+    if (need <= 0) return;
+    const batch = await prisma.task.findMany({
+      where: { ...baseWhere, ...where },
+      select: ATTENTION_SELECT,
+      orderBy,
+      take: need,
+    });
+    rows.push(...batch);
   }
 
-  function urgencyRank(task: (typeof rows)[number]): number {
-    const b = badgeFor(task);
-    if (b === "Urgente") return 0;
-    if (b === "Hoy") return 1;
-    if (b === "Cobrar" || b === "Docs" || b === "Lead") return 2;
-    if (b === "Próxima") return 3;
-    return 4;
-  }
+  // a. Vencidas (más antigua primero)
+  await fill(
+    { dueAt: { lt: todayStart } },
+    [{ dueAt: "asc" }, { id: "asc" }],
+  );
+  // b. Hoy (prioridad desc, luego fecha)
+  await fill(
+    { dueAt: { gte: todayStart, lt: todayEnd } },
+    [{ priority: "desc" }, { dueAt: "asc" }, { id: "asc" }],
+  );
+  // c. Resto con fecha (dueAt >= todayEnd)
+  await fill(
+    { dueAt: { gte: todayEnd } },
+    [{ priority: "desc" }, { dueAt: "asc" }, { id: "asc" }],
+  );
+  // d. Sin fecha (consulta aparte: MySQL y nulls)
+  await fill(
+    { dueAt: null },
+    [{ priority: "desc" }, { createdAt: "desc" }, { id: "asc" }],
+  );
 
-  const sorted = [...rows].sort((a, b) => {
-    const ur = urgencyRank(a) - urgencyRank(b);
-    if (ur !== 0) return ur;
-    const aDue = a.dueAt ? new Date(a.dueAt).getTime() : Number.POSITIVE_INFINITY;
-    const bDue = b.dueAt ? new Date(b.dueAt).getTime() : Number.POSITIVE_INFINITY;
-    return aDue - bDue;
-  });
-
-  return sorted.slice(0, take).map((task) => {
-    const badge = badgeFor(task);
+  return rows.map((task) => {
+    const dueBucket = classifyTaskDue(task.dueAt, now, timezone);
+    const badge = attentionBadgeFor(task, dueBucket);
     return {
       id: task.id,
       title: task.title,
@@ -482,6 +503,7 @@ export async function listAttentionTasks(
           ? "warning"
           : "neutral") as "danger" | "warning" | "neutral",
       badge,
+      dueBucket,
       type: task.type,
       dueAt: task.dueAt,
       client: task.client,

@@ -7,6 +7,7 @@ import { listMemberOptions, clientFullName } from "@/src/server/page-helpers";
 import { DomainError } from "@/src/server/errors";
 import { Card, CardBody, CardHeader, StatusPill } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
+import { classifyTaskDue } from "@/src/lib/format/dates";
 import { TASK_TYPE_LABELS, labelFor } from "@/src/lib/labels";
 import { resolveLeadIntent } from "@/src/lib/leads-intent";
 import { TaskRowActions } from "@/src/components/tasks/task-row-actions";
@@ -14,6 +15,7 @@ import {
   getLatestIntakeSummary,
   intakeSummaryOneLiner,
 } from "@/src/server/intake/summary";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 
 function isLeadFollowUpTask(task: {
   type: string;
@@ -38,10 +40,9 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
   const canManage = can(ctx.role, "tasks.manage");
   const open = task.status === "PENDING" || task.status === "IN_PROGRESS";
   const members = canManage ? await listMemberOptions(ctx) : [];
+  const tz = await getOrganizationTimezone(ctx.organizationId);
   const overdue =
-    task.dueAt &&
-    new Date(task.dueAt) < new Date() &&
-    open;
+    classifyTaskDue(task.dueAt, new Date(), tz) === "overdue" && open;
 
   const showNeed = isLeadFollowUpTask(task) && task.client;
   const intent = showNeed
@@ -109,13 +110,13 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
             <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Vencimiento</dt>
               <dd className={overdue ? "font-medium text-danger-ink" : ""}>
-                {task.dueAt ? formatDate(task.dueAt) : "—"}
+                {task.dueAt ? formatDate(task.dueAt, tz) : "—"}
                 {overdue ? " · vencida" : ""}
               </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Recordatorio</dt>
-              <dd>{task.reminderAt ? formatDate(task.reminderAt) : "—"}</dd>
+              <dd>{task.reminderAt ? formatDate(task.reminderAt, tz) : "—"}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-text-secondary">Cliente</dt>

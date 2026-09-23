@@ -28,6 +28,7 @@ import {
 } from "@/src/lib/labels";
 import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
 import { TaskTable } from "@/src/components/tasks/task-table";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 
 export const metadata: Metadata = {
   title: "Pendientes",
@@ -61,6 +62,7 @@ export default async function TasksPage({
   const due = parseEnumParam(firstParam(sp, "due"), DUE_VALUES);
   const cursor = firstParam(sp, "cursor");
   const canManage = can(ctx.role, "tasks.manage");
+  const timezone = await getOrganizationTimezone(ctx.organizationId);
 
   const [result, completed, completedCount, typeCounts, members, clients] =
     await Promise.all([
@@ -182,6 +184,7 @@ export default async function TasksPage({
           members={members}
           canManage={canManage}
           showWorkBadges
+          timezone={timezone}
           emptyAction={
             canManage ? (
               <CreateTaskButton members={members} clients={clientOptions} />
@@ -230,6 +233,7 @@ export default async function TasksPage({
               tasks={completed.items}
               members={members}
               canManage={canManage}
+              timezone={timezone}
             />
             {completedCount > completed.items.length ? (
               <p className="border-t border-border-subtle/40 px-4 py-3 text-[12px] text-text-secondary sm:px-5">

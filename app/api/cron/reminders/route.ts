@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/src/lib/db";
+import { classifyTaskDue, DEFAULT_TIMEZONE } from "@/src/lib/format/dates";
 import { safeEqual } from "@/src/lib/security/tokens";
 import { createNotification } from "@/src/server/notifications";
 
@@ -64,7 +65,7 @@ export async function GET(request: Request) {
     select: { organizationId: true, timezone: true },
   });
   for (const s of settings) timezoneByOrg.set(s.organizationId, s.timezone);
-  const tzOf = (orgId: string) => timezoneByOrg.get(orgId) ?? "America/Chicago";
+  const tzOf = (orgId: string) => timezoneByOrg.get(orgId) ?? DEFAULT_TIMEZONE;
 
   let created = 0;
   const errors: string[] = [];
@@ -99,15 +100,18 @@ export async function GET(request: Request) {
     }
   }
 
-  // 2. Tareas vencidas
-  const overdueTasks = await prisma.task.findMany({
+  // 2. Tareas vencidas (día calendario org; prefiltro dueAt < now + classify)
+  const overdueCandidates = await prisma.task.findMany({
     where: {
       dueAt: { lt: now },
       status: { in: ["PENDING", "IN_PROGRESS"] },
     },
     select: { id: true, organizationId: true, title: true, assignedToId: true, dueAt: true },
   });
-  for (const task of overdueTasks) {
+  for (const task of overdueCandidates) {
+    if (classifyTaskDue(task.dueAt, now, tzOf(task.organizationId)) !== "overdue") {
+      continue;
+    }
     for (const userId of await resolveRecipients(task.organizationId, task.assignedToId)) {
       await notify({
         organizationId: task.organizationId,
@@ -287,7 +291,7 @@ export async function GET(request: Request) {
     data: {
       scanned: {
         tasksWithReminder: tasksWithReminder.length,
-        overdueTasks: overdueTasks.length,
+        overdueTasks: overdueCandidates.length,
         casesToReview: casesToReview.length,
         roundsToReview: roundsToReview.length,
         duePayments: duePayments.length,

@@ -15,6 +15,7 @@ import { Card, CardHeader } from "@/src/components/ui";
 import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
 import { TaskTable } from "@/src/components/tasks/task-table";
 import { ClientHeader } from "../client-header";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 
 export const metadata: Metadata = {
   title: "Tareas del cliente",
@@ -42,6 +43,7 @@ export default async function ClientTasksPage({
 
   const { client, cases } = detail;
   const canManage = can(ctx.role, "tasks.manage");
+  const timezone = await getOrganizationTimezone(ctx.organizationId);
   const scopedCase =
     caseId && cases.some((c) => c.id === caseId)
       ? cases.find((c) => c.id === caseId)!
@@ -117,6 +119,7 @@ export default async function ClientTasksPage({
           members={members}
           canManage={canManage}
           showLinks={false}
+          timezone={timezone}
           emptyAction={
             canManage ? (
               <CreateTaskButton

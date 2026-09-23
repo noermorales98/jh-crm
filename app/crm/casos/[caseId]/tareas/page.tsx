@@ -10,6 +10,7 @@ import { Card, CardHeader } from "@/src/components/ui";
 import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
 import { TaskTable } from "@/src/components/tasks/task-table";
 import { CaseHeader } from "../case-header";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 
 export const metadata: Metadata = {
   title: "Tareas del caso",
@@ -33,6 +34,7 @@ export default async function CaseTasksPage({
 
   const { case: creditCase } = detail;
   const canManage = can(ctx.role, "tasks.manage");
+  const timezone = await getOrganizationTimezone(ctx.organizationId);
 
   const [tasks, members] = await Promise.all([
     taskService.listTasks(ctx, { caseId: creditCase.id, limit: 50 }),
@@ -59,7 +61,12 @@ export default async function CaseTasksPage({
           title="Tareas del caso"
           description="Seguimiento, solicitudes de documentos y revisiones ligadas a este caso."
         />
-        <TaskTable tasks={tasks.items} members={members} canManage={canManage} />
+        <TaskTable
+          tasks={tasks.items}
+          members={members}
+          canManage={canManage}
+          timezone={timezone}
+        />
       </Card>
     </div>
   );

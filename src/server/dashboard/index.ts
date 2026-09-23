@@ -2,6 +2,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { zonedDayRange } from "@/src/lib/format/dates";
 import type { OrganizationContext } from "@/src/server/auth/guards";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 
 /** Hostinger: evita abrir demasiadas queries concurrentes en un solo request. */
 async function runBatched(
@@ -24,11 +25,7 @@ async function runBatched(
  */
 export async function getDashboardSummary(ctx: OrganizationContext) {
   const orgId = ctx.organizationId;
-  const settings = await prisma.organizationSettings.findUnique({
-    where: { organizationId: orgId },
-    select: { timezone: true },
-  });
-  const timezone = settings?.timezone ?? "America/Chicago";
+  const timezone = await getOrganizationTimezone(orgId);
   const now = new Date();
   const today = zonedDayRange(now, timezone);
   const in14Days = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
@@ -44,6 +41,8 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
     activeRounds,
     tasksToday,
     overdueTasks,
+    tasksTodayCount,
+    overdueTasksCount,
     upcomingCaseActions,
     upcomingRoundReviews,
     pendingQuotes,
@@ -124,7 +123,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
         where: {
           organizationId: orgId,
           status: { in: ["PENDING", "IN_PROGRESS"] },
-          dueAt: { lt: now },
+          dueAt: { lt: today.start },
         },
         select: {
           id: true,
@@ -137,6 +136,22 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
         },
         orderBy: { dueAt: "asc" },
         take: 10,
+      }),
+    () =>
+      prisma.task.count({
+        where: {
+          organizationId: orgId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueAt: { gte: today.start, lt: today.end },
+        },
+      }),
+    () =>
+      prisma.task.count({
+        where: {
+          organizationId: orgId,
+          status: { in: ["PENDING", "IN_PROGRESS"] },
+          dueAt: { lt: today.start },
+        },
       }),
     () =>
       prisma.serviceCase.findMany({
@@ -433,6 +448,8 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       client: { id: string; firstName: string; lastName: string | null } | null;
       assignedTo: { id: string; name: string | null } | null;
     }>,
+    number,
+    number,
     Array<{
       id: string;
       caseNumber: string;
@@ -558,12 +575,12 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
         link: "/crm/rondas",
       },
       tasksToday: {
-        count: tasksToday.length,
+        count: tasksTodayCount,
         items: tasksToday,
         link: "/crm/tareas?due=today",
       },
       overdueTasks: {
-        count: overdueTasks.length,
+        count: overdueTasksCount,
         items: overdueTasks,
         link: "/crm/tareas?due=overdue",
       },

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { zonedDateAtHour } from "@/src/lib/format/dates";
 
 /** Esquemas Zod compartidos entre Server Actions y Route Handlers. */
 
@@ -47,6 +48,38 @@ export const moneySchema = z
   .union([z.string(), z.number()])
   .refine((v) => Number.isFinite(Number(v)), "Monto inválido.");
 
+/**
+ * @deprecated para fechas de solo día: "YYYY-MM-DD" queda a medianoche UTC
+ * (el día anterior en America/Chicago). Usa orgDateInputSchema.
+ */
 export const optionalDateSchema = z.coerce.date().optional().nullable();
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Fecha capturada por el usuario: YYYY-MM-DD se deja string (se convierte a
+ * la TZ de la organización con resolveOrgDateInput); instante completo →
+ * Date; null / ausente OK.
+ */
+export const orgDateInputSchema = z
+  .union([z.null(), z.string().regex(YMD_RE), z.coerce.date()])
+  .optional();
+
+export type OrgDateInput = z.infer<typeof orgDateInputSchema>;
+
+/**
+ * YYYY-MM-DD → instante a `hour` en `timezone`; Date se respeta.
+ * undefined (sin cambio) y null (borrar) pasan tal cual.
+ */
+export function resolveOrgDateInput(
+  value: OrgDateInput,
+  timezone: string,
+  hour: number,
+): Date | null | undefined {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+  if (typeof value === "string") return zonedDateAtHour(value, timezone, hour);
+  return value;
+}
 
 export const cuidSchema = z.string().min(1, "Identificador requerido.");

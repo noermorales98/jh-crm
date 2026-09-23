@@ -9,7 +9,11 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
-import { cuidSchema } from "@/src/lib/validation/common";
+import {
+  cuidSchema,
+  resolveOrgDateInput,
+} from "@/src/lib/validation/common";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import {
   opportunityCreateSchema,
   leadCreateSchema,
@@ -47,6 +51,7 @@ export async function createLeadAction(
       );
     }
     const data = leadCreateSchema.parse(input);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
     const result = await opportunities.createLead(ctx, {
       firstName: data.firstName,
       lastName: data.lastName || null,
@@ -58,7 +63,7 @@ export async function createLeadAction(
       ownerId: data.ownerId ?? null,
       estimatedValue: data.estimatedValue ?? null,
       campaign: data.campaign || null,
-      nextFollowUpAt: data.nextFollowUpAt ?? null,
+      nextFollowUpAt: resolveOrgDateInput(data.nextFollowUpAt, tz, 12) ?? null,
     });
     revalidateOpportunities(result.client.id);
     return actionOk({
@@ -82,6 +87,7 @@ export async function updateLeadAction(
       );
     }
     const data = leadUpdateSchema.parse(input);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
     const result = await opportunities.updateLead(ctx, data.opportunityId, {
       firstName: data.firstName,
       lastName: data.lastName || null,
@@ -93,7 +99,7 @@ export async function updateLeadAction(
       ownerId: data.ownerId ?? null,
       estimatedValue: data.estimatedValue ?? null,
       campaign: data.campaign || null,
-      nextFollowUpAt: data.nextFollowUpAt ?? null,
+      nextFollowUpAt: resolveOrgDateInput(data.nextFollowUpAt, tz, 12) ?? null,
     });
 
     revalidateOpportunities(result.client.id);
@@ -114,8 +120,10 @@ export async function createOpportunityAction(
   try {
     const ctx = await requirePermission("opportunities.manage");
     const data = opportunityCreateSchema.parse(input);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
     const opp = await opportunities.createOpportunity(ctx, {
       ...data,
+      nextFollowUpAt: resolveOrgDateInput(data.nextFollowUpAt, tz, 12),
       source: data.source || null,
       campaign: data.campaign || null,
     });

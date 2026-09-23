@@ -9,7 +9,12 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
-import { cuidSchema, optionalDateSchema } from "@/src/lib/validation/common";
+import {
+  cuidSchema,
+  orgDateInputSchema,
+  resolveOrgDateInput,
+} from "@/src/lib/validation/common";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import * as caseService from "@/src/server/cases";
 
 function revalidateCases(clientId?: string, caseId?: string) {
@@ -28,7 +33,7 @@ const createCaseSchema = z.object({
   stageId: cuidSchema.optional(),
   assignedToId: cuidSchema.nullish(),
   summary: z.string().trim().max(5000).nullish(),
-  nextActionAt: optionalDateSchema,
+  nextActionAt: orgDateInputSchema,
 });
 
 /** SC-001 — Crear expediente CREDIT_REPAIR (ServiceCase + CreditCase). */
@@ -45,7 +50,11 @@ export async function createCreditCase(
   try {
     const ctx = await requirePermission("cases.manage");
     const data = createCaseSchema.parse(input);
-    const creditCase = await caseService.createCreditCase(ctx, data);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
+    const creditCase = await caseService.createCreditCase(ctx, {
+      ...data,
+      nextActionAt: resolveOrgDateInput(data.nextActionAt, tz, 12),
+    });
     revalidateCases(creditCase.clientId, creditCase.id);
     return actionOk({
       id: creditCase.id,
@@ -170,7 +179,7 @@ export async function reopenCase(caseId: string) {
   return transition(caseId, caseService.reopenCase);
 }
 
-const nextActionSchema = z.object({ nextActionAt: optionalDateSchema });
+const nextActionSchema = z.object({ nextActionAt: orgDateInputSchema });
 
 export async function setNextActionAt(
   caseId: string,
@@ -180,7 +189,12 @@ export async function setNextActionAt(
     const ctx = await requirePermission("cases.manage");
     const id = cuidSchema.parse(caseId);
     const { nextActionAt } = nextActionSchema.parse(input);
-    const updated = await caseService.setNextActionAt(ctx, id, nextActionAt ?? null);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
+    const updated = await caseService.setNextActionAt(
+      ctx,
+      id,
+      resolveOrgDateInput(nextActionAt, tz, 12) ?? null,
+    );
     revalidateCases(updated.clientId, updated.id);
     return actionOk({ id: updated.id });
   } catch (error) {

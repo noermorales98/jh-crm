@@ -3,6 +3,8 @@ import { prisma } from "@/src/lib/db";
 import { writeActivityLog } from "@/src/server/activity";
 import { toActivityContext } from "@/src/server/context";
 import type { OrganizationContext } from "@/src/server/auth/guards";
+import { classifyTaskDue, zonedNoonInDays } from "@/src/lib/format/dates";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 
 type OrgIdOrCtx = string | OrganizationContext | { organizationId: string; userId?: string | null };
 
@@ -267,6 +269,7 @@ export async function onCreditReportCreated(
 ) {
   if (report.type !== "UPDATE") return null;
   if (report.organizationId !== ctx.organizationId) return null;
+  const timezone = await getOrganizationTimezone(ctx.organizationId);
 
   return prisma.$transaction(async (tx) => {
     await tx.$queryRaw`SELECT id FROM CreditReport WHERE id = ${report.id} AND organizationId = ${ctx.organizationId} FOR UPDATE`;
@@ -278,7 +281,7 @@ export async function onCreditReportCreated(
     if (existing) return existing.serviceCaseId === current.case.serviceCaseId ? existing : tx.task.update({ where: { id: existing.id }, data: { serviceCaseId: current.case.serviceCaseId } });
     const assignedToId = await resolveTaskAssignee(ctx.organizationId, current.case.assignedToId ?? ctx.userId, tx);
     if (!assignedToId) return null;
-    const dueAt = new Date(); dueAt.setUTCDate(dueAt.getUTCDate() + 2);
+    const dueAt = zonedNoonInDays(new Date(), timezone, 2);
     const task = await tx.task.create({ data: { organizationId: ctx.organizationId, clientId: current.clientId, caseId: current.caseId,
       serviceCaseId: current.case.serviceCaseId, title, description: `Analizar reporte de crédito actualizado. (report:${current.id})`,
       type: "FOLLOW_UP", priority: "NORMAL", status: "PENDING", dueAt, assignedToId, createdById: ctx.userId } });
@@ -342,8 +345,11 @@ export async function ensureDocsPendingTask(organizationId?: string) {
     );
     if (!assignedToId) continue;
 
-    const dueAt = new Date();
-    dueAt.setUTCDate(dueAt.getUTCDate() + 2);
+    const dueAt = zonedNoonInDays(
+      new Date(),
+      await getOrganizationTimezone(creditCase.organizationId),
+      2,
+    );
 
     await prisma.task.create({
       data: {
@@ -471,7 +477,12 @@ export async function ensureTaskForPayment(
 
   const title = `Cobrar · ${clientLabel(payment.client)}`;
   const dueAt = payment.dueAt ?? new Date();
-  const overdue = dueAt.getTime() < Date.now();
+  const overdue =
+    classifyTaskDue(
+      dueAt,
+      new Date(),
+      await getOrganizationTimezone(organizationId),
+    ) === "overdue";
   const existing = await prisma.task.findFirst({
     where: {
       organizationId,
@@ -563,7 +574,12 @@ export async function ensureTaskForOpportunityFollowUp(
   );
   if (!assignedToId) return null;
 
-  const overdue = opp.nextFollowUpAt.getTime() < Date.now();
+  const overdue =
+    classifyTaskDue(
+      opp.nextFollowUpAt,
+      new Date(),
+      await getOrganizationTimezone(organizationId),
+    ) === "overdue";
   const title = `Contactar · ${clientLabel(opp.client)}`;
   const existing = await prisma.task.findFirst({
     where: {
@@ -653,7 +669,12 @@ export async function ensureTaskForServiceNextAction(
 
   const code =
     serviceCase.creditCase?.caseCode ?? serviceCase.caseNumber;
-  const overdue = serviceCase.nextActionAt.getTime() < Date.now();
+  const overdue =
+    classifyTaskDue(
+      serviceCase.nextActionAt,
+      new Date(),
+      await getOrganizationTimezone(organizationId),
+    ) === "overdue";
   const title = `Próxima acción · ${code}`;
   const existing = await prisma.task.findFirst({
     where: {

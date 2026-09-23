@@ -10,7 +10,12 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
-import { cuidSchema, optionalDateSchema } from "@/src/lib/validation/common";
+import {
+  cuidSchema,
+  orgDateInputSchema,
+  resolveOrgDateInput,
+} from "@/src/lib/validation/common";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import { isServiceCode } from "@/src/server/services/codes";
 import * as caseService from "@/src/server/cases";
 import * as serviceCaseService from "@/src/server/service-cases";
@@ -38,7 +43,7 @@ const createServiceCaseSchema = z.object({
   stageId: cuidSchema.optional(),
   assignedToId: cuidSchema.nullish(),
   summary: z.string().trim().max(5000).nullish(),
-  nextActionAt: optionalDateSchema,
+  nextActionAt: orgDateInputSchema,
 });
 
 /**
@@ -58,12 +63,17 @@ export async function createServiceCaseAction(
   try {
     const ctx = await requirePermission("cases.manage");
     const data = createServiceCaseSchema.parse(input);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
     if (!isServiceCode(data.serviceCode)) {
       throw new DomainError("Código de servicio inválido.");
     }
     const { serviceCase, creditCase } = await caseService.createServiceCase(
       ctx,
-      { ...data, serviceCode: data.serviceCode },
+      {
+        ...data,
+        serviceCode: data.serviceCode,
+        nextActionAt: resolveOrgDateInput(data.nextActionAt, tz, 12),
+      },
     );
     revalidateServiceCase(serviceCase.id, serviceCase.clientId, creditCase?.id);
     return actionOk({
@@ -101,7 +111,7 @@ export async function moveServiceCaseStageAction(
   }
 }
 
-const nextActionSchema = z.object({ nextActionAt: optionalDateSchema });
+const nextActionSchema = z.object({ nextActionAt: orgDateInputSchema });
 
 export async function setServiceCaseNextActionAction(
   serviceCaseId: string,
@@ -111,10 +121,11 @@ export async function setServiceCaseNextActionAction(
     const ctx = await requirePermission("cases.manage");
     const id = cuidSchema.parse(serviceCaseId);
     const { nextActionAt } = nextActionSchema.parse(input);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
     const updated = await serviceCaseService.setServiceCaseNextActionAt(
       ctx,
       id,
-      nextActionAt ?? null,
+      resolveOrgDateInput(nextActionAt, tz, 12) ?? null,
     );
     revalidateServiceCase(id, updated.clientId);
     return actionOk({ id });

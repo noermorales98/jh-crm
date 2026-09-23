@@ -9,7 +9,13 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
-import { cuidSchema, moneySchema, optionalDateSchema } from "@/src/lib/validation/common";
+import {
+  cuidSchema,
+  moneySchema,
+  orgDateInputSchema,
+  resolveOrgDateInput,
+} from "@/src/lib/validation/common";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import * as paymentService from "@/src/server/payments";
 
 const methodEnum = z.enum(["ZELLE", "STRIPE", "CASH", "BANK_TRANSFER", "OTHER"]);
@@ -29,8 +35,8 @@ const registerSchema = z.object({
   method: methodEnum,
   status: z.enum(["PENDING", "RECEIVED"]).optional(),
   reference: z.string().trim().max(200).nullish(),
-  dueAt: optionalDateSchema,
-  receivedAt: optionalDateSchema,
+  dueAt: orgDateInputSchema,
+  receivedAt: orgDateInputSchema,
   notes: z.string().trim().max(5000).nullish(),
 });
 
@@ -47,7 +53,12 @@ export async function registerPayment(
   try {
     const ctx = await requirePermission("payments.register");
     const data = registerSchema.parse(input);
-    const result = await paymentService.registerPayment(ctx, data);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
+    const result = await paymentService.registerPayment(ctx, {
+      ...data,
+      dueAt: resolveOrgDateInput(data.dueAt, tz, 12),
+      receivedAt: resolveOrgDateInput(data.receivedAt, tz, 12),
+    });
     revalidatePayments();
     return actionOk({
       paymentId: result.payment.id,
@@ -65,7 +76,7 @@ const updatePendingSchema = z.object({
   amount: moneySchema.optional(),
   method: methodEnum.optional(),
   reference: z.string().trim().max(200).nullish(),
-  dueAt: optionalDateSchema,
+  dueAt: orgDateInputSchema,
   notes: z.string().trim().max(5000).nullish(),
 });
 
@@ -77,7 +88,11 @@ export async function updatePendingPayment(
     const ctx = await requirePermission("payments.register");
     const id = cuidSchema.parse(paymentId);
     const data = updatePendingSchema.parse(input);
-    const payment = await paymentService.updatePendingPayment(ctx, id, data);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
+    const payment = await paymentService.updatePendingPayment(ctx, id, {
+      ...data,
+      dueAt: resolveOrgDateInput(data.dueAt, tz, 12),
+    });
     revalidatePayments();
     return actionOk({ id: payment.id });
   } catch (error) {

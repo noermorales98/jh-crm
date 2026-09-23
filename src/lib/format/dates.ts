@@ -109,6 +109,22 @@ export function zonedDateAtHour(
 }
 
 /**
+ * Mediodía en `timezone` del día calendario `days` días después de `now`
+ * (días de calendario, no 24h × n).
+ */
+export function zonedNoonInDays(
+  now: Date,
+  timezone: string,
+  days: number,
+): Date {
+  return zonedDateAtHour(
+    addCalendarDaysYmd(ymdInZone(now, timezone), days),
+    timezone,
+    12,
+  );
+}
+
+/**
  * Rango [start, end) UTC del día calendario de `date` en `timezone`.
  * Útil para filtros "hoy" / "esta semana" conscientes de la zona horaria
  * de la organización (America/Chicago por defecto).

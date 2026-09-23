@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { cuidSchema, moneySchema, optionalDateSchema } from "./common";
+import { cuidSchema, moneySchema, orgDateInputSchema } from "./common";
 
 export const OPPORTUNITY_STAGES = [
   "NEW_LEAD",
@@ -20,7 +20,7 @@ export const opportunityCreateSchema = z.object({
   estimatedValue: moneySchema.optional().nullable(),
   source: z.string().trim().max(150).nullish().or(z.literal("")),
   campaign: z.string().trim().max(150).nullish().or(z.literal("")),
-  nextFollowUpAt: optionalDateSchema,
+  nextFollowUpAt: orgDateInputSchema,
 });
 
 const LEAD_CHANNELS = [
@@ -51,7 +51,7 @@ export const leadCreateSchema = z.object({
   ownerId: cuidSchema.optional().nullable(),
   estimatedValue: moneySchema.optional().nullable(),
   campaign: z.string().trim().max(150).nullish().or(z.literal("")),
-  nextFollowUpAt: optionalDateSchema,
+  nextFollowUpAt: orgDateInputSchema,
 });
 
 export const opportunityUpdateStageSchema = z.object({

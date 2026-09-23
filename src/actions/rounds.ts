@@ -9,7 +9,13 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
-import { cuidSchema } from "@/src/lib/validation/common";
+import {
+  cuidSchema,
+  orgDateInputSchema,
+  requiredOrgDateInputSchema,
+  resolveOrgDateInput,
+} from "@/src/lib/validation/common";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import * as roundService from "@/src/server/rounds";
 
 function revalidateRounds() {
@@ -62,10 +68,10 @@ export async function updateRound(
 }
 
 const markSentSchema = z.object({
-  expectedReviewAt: z.coerce.date({ error: "Indica la fecha esperada de revisión." }),
+  expectedReviewAt: requiredOrgDateInputSchema("Indica la fecha esperada de revisión."),
   createReviewTask: z.boolean().optional(),
   assignedToId: cuidSchema.optional(),
-  reminderAt: z.coerce.date().optional(),
+  reminderAt: orgDateInputSchema,
 });
 
 export async function markRoundSent(
@@ -76,7 +82,17 @@ export async function markRoundSent(
     const ctx = await requirePermission("rounds.manage");
     const id = cuidSchema.parse(roundId);
     const data = markSentSchema.parse(input);
-    const result = await roundService.markRoundSent(ctx, id, data);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
+    // Mismo criterio que tareas: vence a mediodía, recuerda a las 9:00 del
+    // mismo día (si no se indica otro recordatorio).
+    const reminderInput =
+      data.reminderAt ??
+      (typeof data.expectedReviewAt === "string" ? data.expectedReviewAt : undefined);
+    const result = await roundService.markRoundSent(ctx, id, {
+      ...data,
+      expectedReviewAt: resolveOrgDateInput(data.expectedReviewAt, tz, 12),
+      reminderAt: resolveOrgDateInput(reminderInput, tz, 9) ?? undefined,
+    });
     revalidateRounds();
     revalidatePath("/crm/tareas");
     return actionOk({

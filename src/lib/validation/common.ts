@@ -68,9 +68,31 @@ export const orgDateInputSchema = z
 export type OrgDateInput = z.infer<typeof orgDateInputSchema>;
 
 /**
+ * Igual que orgDateInputSchema pero obligatorio: rechaza null / ausente / ""
+ * (z.coerce.date(null) daría 1970) con `message`.
+ */
+export function requiredOrgDateInputSchema(message: string) {
+  return z.union([
+    z.string().regex(YMD_RE, message),
+    z.union([z.string(), z.date()], { error: message })
+      .pipe(z.coerce.date({ error: message })),
+  ], { error: message });
+}
+
+/**
  * YYYY-MM-DD → instante a `hour` en `timezone`; Date se respeta.
  * undefined (sin cambio) y null (borrar) pasan tal cual.
  */
+export function resolveOrgDateInput(
+  value: string | Date,
+  timezone: string,
+  hour: number,
+): Date;
+export function resolveOrgDateInput(
+  value: OrgDateInput,
+  timezone: string,
+  hour: number,
+): Date | null | undefined;
 export function resolveOrgDateInput(
   value: OrgDateInput,
   timezone: string,

@@ -1,6 +1,11 @@
 /**
  * Corrige dueAt/reminderAt guardados a medianoche UTC exacta (YYYY-MM-DD
- * vía z.coerce.date) en tareas creadas a mano (externalKey IS NULL).
+ * vía z.coerce.date) en tareas creadas a mano (externalKey IS NULL) —
+ * incluye las tareas de revisión de ronda (CREDIT_UPDATE / REVIEW_RESULT),
+ * que no llevan externalKey — y CreditRound.expectedReviewAt.
+ *
+ * ServiceCase.nextActionAt (copiado de la ronda) lo corrige
+ * fix-entity-utc-midnight-dates.ts.
  *
  * Por defecto solo simula. Escribe con --apply (lotes de 50).
  *
@@ -86,6 +91,41 @@ async function main() {
     if (fix.dueAt || fix.reminderAt) fixes.push(fix);
   }
 
+  // CreditRound.expectedReviewAt: fecha de solo día desde markRoundSent.
+  const rounds = await prisma.creditRound.findMany({
+    where: { expectedReviewAt: { not: null } },
+    select: {
+      id: true,
+      organizationId: true,
+      roundNumber: true,
+      expectedReviewAt: true,
+    },
+    orderBy: { id: "asc" },
+  });
+
+  type RoundFix = {
+    id: string;
+    organizationId: string;
+    roundNumber: number;
+    old: Date;
+    next: Date;
+  };
+
+  const roundFixes: RoundFix[] = [];
+  for (const round of rounds) {
+    if (!round.expectedReviewAt || !isUtcMidnight(round.expectedReviewAt)) {
+      continue;
+    }
+    const ymd = round.expectedReviewAt.toISOString().slice(0, 10);
+    roundFixes.push({
+      id: round.id,
+      organizationId: round.organizationId,
+      roundNumber: round.roundNumber,
+      old: round.expectedReviewAt,
+      next: zonedDateAtHour(ymd, tzOf(round.organizationId), 12),
+    });
+  }
+
   const byOrg = new Map<string, number>();
   for (const f of fixes) {
     byOrg.set(f.organizationId, (byOrg.get(f.organizationId) ?? 0) + 1);
@@ -93,8 +133,8 @@ async function main() {
 
   console.log(
     APPLY
-      ? `APPLY: corrigiendo ${fixes.length} tarea(s)`
-      : `DRY-RUN: ${fixes.length} tarea(s) a corregir (pasa --apply para escribir)`,
+      ? `APPLY: corrigiendo ${fixes.length} tarea(s) y ${roundFixes.length} ronda(s)`
+      : `DRY-RUN: ${fixes.length} tarea(s) y ${roundFixes.length} ronda(s) a corregir (pasa --apply para escribir)`,
   );
   console.log("Por organización:");
   for (const [orgId, n] of byOrg) {
@@ -121,10 +161,19 @@ async function main() {
     }
   }
 
-  if (!APPLY || fixes.length === 0) {
+  if (roundFixes.length) {
+    console.log("\nRondas (hasta 20):");
+    for (const r of roundFixes.slice(0, 20)) {
+      console.log(
+        `  - round id=${r.id} #${r.roundNumber} | expectedReviewAt ${r.old.toISOString()} → ${r.next.toISOString()} (local ${formatDate(r.next, tzOf(r.organizationId))})`,
+      );
+    }
+  }
+
+  if (!APPLY || fixes.length + roundFixes.length === 0) {
     if (!APPLY) {
       console.log(
-        "\nAviso: con --apply, updatedAt de estas tareas cambiará.",
+        "\nAviso: con --apply, updatedAt de estas tareas y rondas cambiará.",
       );
     }
     return;
@@ -146,6 +195,20 @@ async function main() {
     console.log(`  lote ${i / BATCH + 1}: ${updated}/${fixes.length}`);
   }
   console.log(`Hecho: ${updated} actualizadas.`);
+
+  let roundsUpdated = 0;
+  for (let i = 0; i < roundFixes.length; i += BATCH) {
+    const batch = roundFixes.slice(i, i + BATCH);
+    for (const r of batch) {
+      await prisma.creditRound.update({
+        where: { id: r.id },
+        data: { expectedReviewAt: r.next },
+      });
+      roundsUpdated += 1;
+    }
+    console.log(`  rondas lote ${i / BATCH + 1}: ${roundsUpdated}/${roundFixes.length}`);
+  }
+  console.log(`Hecho: ${roundsUpdated} ronda(s) actualizadas.`);
 }
 
 main()

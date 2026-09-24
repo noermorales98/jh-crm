@@ -8,8 +8,12 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
-import { cuidSchema } from "@/src/lib/validation/common";
+import {
+  cuidSchema,
+  resolveOrgDateInput,
+} from "@/src/lib/validation/common";
 import { createPlanSchema } from "@/src/lib/validation/payment-plans";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import * as paymentPlans from "@/src/server/payment-plans";
 
 function revalidatePlans(planId?: string, clientId?: string) {
@@ -25,8 +29,10 @@ export async function createPaymentPlanAction(
   try {
     const ctx = await requirePermission("payments.register");
     const data = createPlanSchema.parse(input);
+    const tz = await getOrganizationTimezone(ctx.organizationId);
     const plan = await paymentPlans.createPaymentPlan(ctx, {
       ...data,
+      startDate: resolveOrgDateInput(data.startDate, tz, 12),
       notes: data.notes || null,
     });
     revalidatePlans(plan.id, data.clientId);

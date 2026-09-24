@@ -26,16 +26,15 @@ type ClientOption = {
   label: string;
 };
 
-function todayInputValue() {
-  return new Date().toISOString().slice(0, 10);
-}
-
 export function CreatePlanButton({
   clients,
   defaultClientId,
+  defaultStartDate,
 }: {
   clients: ClientOption[];
   defaultClientId?: string;
+  /** Hoy (YYYY-MM-DD) en la zona de la organización; lo calcula el server. */
+  defaultStartDate: string;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -43,7 +42,7 @@ export function CreatePlanButton({
   const [totalAmount, setTotalAmount] = useState("");
   const [numberOfInstallments, setNumberOfInstallments] = useState("3");
   const [frequency, setFrequency] = useState<(typeof PAYMENT_PLAN_FREQUENCIES)[number]>("MONTHLY");
-  const [startDate, setStartDate] = useState(todayInputValue());
+  const [startDate, setStartDate] = useState(defaultStartDate);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -62,7 +61,7 @@ export function CreatePlanButton({
     setTotalAmount("");
     setNumberOfInstallments("3");
     setFrequency("MONTHLY");
-    setStartDate(todayInputValue());
+    setStartDate(defaultStartDate);
     setNotes("");
     setError(null);
     setOpen(true);

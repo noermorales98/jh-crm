@@ -11,9 +11,11 @@ import * as rounds from "../../src/server/rounds";
 import * as paymentPlans from "../../src/server/payment-plans";
 import * as consultations from "../../src/server/consultations";
 import * as automations from "../../src/server/automations";
+import { DEFAULT_TIMEZONE } from "../../src/lib/format/dates";
 
 const prisma = new PrismaClient();
 const MARK = "S5-SMOKE";
+const TZ = DEFAULT_TIMEZONE;
 let passed = 0;
 let failed = 0;
 
@@ -85,9 +87,9 @@ async function main() {
     });
     check("3 PENDING payments", pendingPayments.length === 3, pendingPayments.length);
 
-    const due0 = paymentPlans.addInstallmentDate(startDate, "MONTHLY", 0);
-    const due1 = paymentPlans.addInstallmentDate(startDate, "MONTHLY", 1);
-    const due2 = paymentPlans.addInstallmentDate(startDate, "MONTHLY", 2);
+    const due0 = paymentPlans.addInstallmentDate(startDate, "MONTHLY", 0, TZ);
+    const due1 = paymentPlans.addInstallmentDate(startDate, "MONTHLY", 1, TZ);
+    const due2 = paymentPlans.addInstallmentDate(startDate, "MONTHLY", 2, TZ);
     check(
       "addInstallmentDate monthly spacing",
       due1.getUTCMonth() !== due0.getUTCMonth() ||

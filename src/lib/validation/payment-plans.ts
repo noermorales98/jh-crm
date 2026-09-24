@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { cuidSchema, moneySchema, optionalDateSchema } from "./common";
+import {
+  cuidSchema,
+  moneySchema,
+  requiredOrgDateInputSchema,
+} from "./common";
 
 export const PAYMENT_PLAN_FREQUENCIES = [
   "WEEKLY",
@@ -19,7 +23,7 @@ export const createPlanSchema = z.object({
     .min(2, "Mínimo 2 cuotas.")
     .max(60, "Máximo 60 cuotas."),
   frequency: z.enum(PAYMENT_PLAN_FREQUENCIES),
-  startDate: z.coerce.date({ error: "Indica la fecha de inicio." }),
+  startDate: requiredOrgDateInputSchema("Indica la fecha de inicio."),
   notes: z.string().trim().max(5000).nullish().or(z.literal("")),
 });
 

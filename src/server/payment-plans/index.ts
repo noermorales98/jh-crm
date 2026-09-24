@@ -9,6 +9,8 @@ import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
+import { ymdInZone, zonedDateAtHour } from "@/src/lib/format/dates";
 
 const dec = (v: Prisma.Decimal | number | string) => new Prisma.Decimal(v);
 const money = (v: Prisma.Decimal) =>
@@ -32,36 +34,39 @@ export interface PaymentPlanListFilters {
   limit?: number;
 }
 
-/** Fecha de vencimiento de la cuota `index` (0-based) según frecuencia. */
+/**
+ * Fecha de vencimiento de la cuota `index` (0-based) según frecuencia.
+ * Aritmética sobre el día calendario de `start` en `timezone` (no en UTC);
+ * el resultado queda a mediodía en `timezone`, igual que las demás fechas
+ * de solo día.
+ */
 export function addInstallmentDate(
   start: Date,
   frequency: PaymentPlanFrequency,
   index: number,
+  timezone: string,
 ): Date {
-  const d = new Date(start.getTime());
-  if (index <= 0) return d;
-
+  const [y, m, d] = ymdInZone(start, timezone).split("-").map(Number);
+  // Date.UTC solo como calculadora de fecha civil (sin zona).
+  let civil: Date;
   switch (frequency) {
     case "WEEKLY":
-      d.setUTCDate(d.getUTCDate() + 7 * index);
-      return d;
+      civil = new Date(Date.UTC(y, m - 1, d + 7 * Math.max(index, 0)));
+      break;
     case "BIWEEKLY":
-      d.setUTCDate(d.getUTCDate() + 14 * index);
-      return d;
+      civil = new Date(Date.UTC(y, m - 1, d + 14 * Math.max(index, 0)));
+      break;
     case "MONTHLY":
-    case "CUSTOM": {
-      const day = d.getUTCDate();
-      d.setUTCMonth(d.getUTCMonth() + index);
-      // Evitar desbordes (p. ej. 31 → feb).
-      if (d.getUTCDate() < day) {
-        d.setUTCDate(0);
-      }
-      return d;
+    case "CUSTOM":
+    default: {
+      const monthIndex = m - 1 + Math.max(index, 0);
+      // Evitar desbordes (p. ej. 31 → feb): último día del mes destino.
+      const lastDay = new Date(Date.UTC(y, monthIndex + 1, 0)).getUTCDate();
+      civil = new Date(Date.UTC(y, monthIndex, Math.min(d, lastDay)));
+      break;
     }
-    default:
-      d.setUTCMonth(d.getUTCMonth() + index);
-      return d;
   }
+  return zonedDateAtHour(civil.toISOString().slice(0, 10), timezone, 12);
 }
 
 async function getPlanOrThrow(ctx: OrganizationContext, planId: string) {
@@ -149,6 +154,7 @@ export async function createPaymentPlan(
     }
   }
 
+  const timezone = await getOrganizationTimezone(ctx.organizationId);
   const baseInstallment = money(totalAmount.div(n));
   const lastInstallment = money(
     totalAmount.sub(baseInstallment.mul(n - 1)),
@@ -175,7 +181,12 @@ export async function createPaymentPlan(
     for (let i = 0; i < n; i += 1) {
       const sequence = i + 1;
       const amount = i === n - 1 ? lastInstallment : baseInstallment;
-      const dueAt = addInstallmentDate(data.startDate, data.frequency, i);
+      const dueAt = addInstallmentDate(
+        data.startDate,
+        data.frequency,
+        i,
+        timezone,
+      );
 
       const payment = await tx.payment.create({
         data: {

@@ -5,6 +5,8 @@ import { requirePermission } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import { prisma } from "@/src/lib/db";
 import * as paymentPlans from "@/src/server/payment-plans";
+import { getOrganizationTimezone } from "@/src/server/org-timezone";
+import { ymdInZone } from "@/src/lib/format/dates";
 import {
   Card,
   EmptyState,
@@ -39,7 +41,11 @@ const STATUS_TONE: Record<string, "green" | "amber" | "slate" | "blue"> = {
 export default async function PaymentPlansPage() {
   const ctx = await requirePermission("payments.view");
   const canRegister = can(ctx.role, "payments.register");
-  const { items } = await paymentPlans.listPaymentPlans(ctx, { limit: 50 });
+  const [{ items }, timezone] = await Promise.all([
+    paymentPlans.listPaymentPlans(ctx, { limit: 50 }),
+    getOrganizationTimezone(ctx.organizationId),
+  ]);
+  const defaultStartDate = ymdInZone(new Date(), timezone);
 
   const clients = canRegister
     ? await prisma.client.findMany({
@@ -70,7 +76,12 @@ export default async function PaymentPlansPage() {
         title="Cuotas"
         description="Planes de pago en cuotas. Al registrar el cobro, la cuota queda pagada."
         actions={
-          canRegister ? <CreatePlanButton clients={clientOptions} /> : null
+          canRegister ? (
+            <CreatePlanButton
+              clients={clientOptions}
+              defaultStartDate={defaultStartDate}
+            />
+          ) : null
         }
       />
 
@@ -82,7 +93,10 @@ export default async function PaymentPlansPage() {
             description="Crea un plan para generar las cuotas y los pagos por cobrar."
             action={
               canRegister ? (
-                <CreatePlanButton clients={clientOptions} />
+                <CreatePlanButton
+                  clients={clientOptions}
+                  defaultStartDate={defaultStartDate}
+                />
               ) : null
             }
           />

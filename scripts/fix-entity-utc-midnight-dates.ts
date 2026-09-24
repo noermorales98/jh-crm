@@ -2,7 +2,7 @@
  * Corrige fechas de solo día guardadas a medianoche UTC exacta (YYYY-MM-DD
  * vía optionalDateSchema / z.coerce.date) → mediodía en la TZ de la org:
  *   Payment.dueAt, Payment.receivedAt, Opportunity.nextFollowUpAt,
- *   ServiceCase.nextActionAt.
+ *   ServiceCase.nextActionAt, PaymentInstallment.dueAt, PaymentPlan.startDate.
  * Después re-sincroniza las Tasks automáticas (Cobrar / Contactar /
  * Próxima acción) de las filas tocadas para que copien la fecha nueva.
  *
@@ -39,7 +39,12 @@ function isUtcMidnight(d: Date): boolean {
   );
 }
 
-type Entity = "payment" | "opportunity" | "serviceCase";
+type Entity =
+  | "payment"
+  | "opportunity"
+  | "serviceCase"
+  | "paymentInstallment"
+  | "paymentPlan";
 
 type Fix = {
   entity: Entity;
@@ -102,6 +107,20 @@ async function main() {
   });
   for (const s of serviceCases) collect("serviceCase", s, ["nextActionAt"]);
 
+  // Cuotas: mismo instante que su Payment (addInstallmentDate), así que la
+  // corrección de Payment.dueAt y la de aquí coinciden.
+  const installments = await prisma.paymentInstallment.findMany({
+    select: { id: true, organizationId: true, dueAt: true },
+    orderBy: { id: "asc" },
+  });
+  for (const pi of installments) collect("paymentInstallment", pi, ["dueAt"]);
+
+  const plans = await prisma.paymentPlan.findMany({
+    select: { id: true, organizationId: true, startDate: true },
+    orderBy: { id: "asc" },
+  });
+  for (const pl of plans) collect("paymentPlan", pl, ["startDate"]);
+
   const byEntity = new Map<string, number>();
   for (const f of fixes) {
     for (const field of Object.keys(f.fields)) {
@@ -151,8 +170,12 @@ async function main() {
         await prisma.payment.update({ where: { id: f.id }, data });
       } else if (f.entity === "opportunity") {
         await prisma.opportunity.update({ where: { id: f.id }, data });
-      } else {
+      } else if (f.entity === "serviceCase") {
         await prisma.serviceCase.update({ where: { id: f.id }, data });
+      } else if (f.entity === "paymentInstallment") {
+        await prisma.paymentInstallment.update({ where: { id: f.id }, data });
+      } else {
+        await prisma.paymentPlan.update({ where: { id: f.id }, data });
       }
       updated += 1;
     }

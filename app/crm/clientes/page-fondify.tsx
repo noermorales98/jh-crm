@@ -17,7 +17,7 @@ import {
   FondifyButton,
 } from "@/src/components/fondify";
 import { EmptyState } from "@/src/components/ui";
-import { formatDate } from "@/src/lib/format/dates";
+import { formatDate } from "@/src/lib/format";
 
 export const metadata: Metadata = {
   title: "Clientes",
@@ -134,7 +134,7 @@ export default async function ClientsPageFondify({
             const nextAction = client.nextAction;
             const overdue = nextAction ? nextAction.at.getTime() < now : false;
             const reviewDate = nextAction
-              ? formatDate(nextAction.at, ctx.timezone)
+              ? formatDate(nextAction.at)
               : undefined;
 
             return (

@@ -18,7 +18,7 @@ import {
 } from "@/src/server/auth/guards";
 import { getDashboardSummary } from "@/src/server/dashboard";
 import { KpiCard, PageHeaderFondify } from "@/src/components/fondify";
-import { formatDate } from "@/src/lib/format/dates";
+// formatDate not needed in this page
 import { clientFullName } from "@/src/server/page-helpers";
 
 export const metadata: Metadata = {

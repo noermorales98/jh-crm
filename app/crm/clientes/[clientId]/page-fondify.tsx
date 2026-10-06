@@ -10,7 +10,7 @@ import {
   ActionCenter,
   KpiCard,
 } from "@/src/components/fondify";
-import { formatDate } from "@/src/lib/format/dates";
+// formatDate not needed in this page
 
 export const metadata: Metadata = {
   title: "Cliente",

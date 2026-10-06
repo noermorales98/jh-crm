@@ -15,6 +15,7 @@ import {
 import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
 import { SpotlightSearch } from "@/src/components/search/spotlight-search";
 import type { Role } from "@prisma/client";
+import { HelpCircle, Sparkles } from "lucide-react";
 
 const SECTION_TITLES: Record<string, string> = {
   dashboard: "Inicio",
@@ -248,7 +249,27 @@ export function CrmHeader({
       ) : (
         <SpotlightSearch role={role} />
       )}
-      <div className="flex shrink-0 items-center gap-1">{children}</div>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          disabled
+          title="Próximamente"
+          className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium text-text-secondary opacity-60 sm:inline-flex"
+        >
+          <Sparkles className="size-3.5" aria-hidden />
+          Novedades
+        </button>
+        <button
+          type="button"
+          disabled
+          title="Próximamente"
+          aria-label="Ayuda"
+          className="hidden size-9 items-center justify-center rounded-full text-text-secondary opacity-60 sm:inline-flex"
+        >
+          <HelpCircle className="size-4" aria-hidden />
+        </button>
+        {children}
+      </div>
     </header>
   );
 }

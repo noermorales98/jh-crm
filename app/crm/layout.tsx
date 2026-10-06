@@ -17,6 +17,7 @@ import { CrmHeader, HeaderTitleProvider } from "./CrmHeader";
 import { CrmMain } from "./CrmMain";
 import { CrmChat } from "@/src/components/ai/crm-chat";
 import { CreditPdfImportLockProvider } from "@/src/components/credit-reports/credit-pdf-import-lock";
+import { prisma } from "@/src/lib/db";
 
 export const metadata: Metadata = {
   title: {
@@ -50,12 +51,16 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
 
   const userName = session.user.name ?? session.user.email ?? "Usuario";
   const organizationId = session.user.currentOrganizationId;
-  const [inbox, unreadCount] = organizationId
+  const [inbox, unreadCount, organization] = organizationId
     ? await Promise.all([
         listNotificationsForUser(organizationId, session.user.id),
         countUnreadNotifications(organizationId, session.user.id),
+        prisma.organization.findUnique({
+          where: { id: organizationId },
+          select: { name: true },
+        }),
       ])
-    : [[], 0];
+    : [[], 0, null];
 
   return (
     <div className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>
@@ -73,7 +78,11 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
             }
             sidebar={
               <Suspense fallback={<div className="flex-1" aria-hidden />}>
-                <SidebarNav />
+                <SidebarNav
+                  organizationName={
+                    organization?.name ?? "J&H Multiservices LLC"
+                  }
+                />
               </Suspense>
             }
             header={

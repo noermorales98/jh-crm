@@ -12,6 +12,16 @@ import {
   Merge,
   Copy,
   X,
+  FileBarChart,
+  ListChecks,
+  Search,
+  TrendingUp,
+  Calculator,
+  GitCompare,
+  Receipt,
+  Scale,
+  ClipboardList,
+  type LucideIcon,
 } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
 import { Button } from "@/src/components/ui";
@@ -94,31 +104,43 @@ function KpiCard({
 function Tile({
   title,
   subtitle,
+  icon: Icon,
   badge,
   onClick,
   href,
 }: {
   title: string;
   subtitle: string;
+  icon: LucideIcon;
   badge?: string;
   onClick?: () => void;
   href?: string;
 }) {
   const className =
-    "relative flex min-h-[88px] flex-col justify-between rounded-surface bg-surface-panel p-3.5 text-left transition-colors hover:bg-nav-hover";
+    "group flex min-h-[44px] items-start gap-3 rounded-surface bg-surface-app p-3.5 text-left transition-colors hover:bg-nav-hover active:bg-nav-active";
   const body = (
     <>
-      {badge ? (
-        <span className="absolute top-2.5 right-2.5">
-          <Capsule tone="accent" size="sm">
-            {badge}
-          </Capsule>
-        </span>
-      ) : null}
-      <span className="pr-14 text-[15px] font-semibold tracking-[-0.01em] text-ink">
-        {title}
+      <span
+        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-nav-hover text-action-primary transition-colors group-hover:bg-nav-active"
+        aria-hidden
+      >
+        <Icon className="size-[18px]" strokeWidth={1.75} />
       </span>
-      <span className="text-[13px] text-text-secondary">{subtitle}</span>
+      <span className="min-w-0 flex-1 pt-0.5">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
+            {title}
+          </span>
+          {badge ? (
+            <Capsule tone="accent" size="sm">
+              {badge}
+            </Capsule>
+          ) : null}
+        </span>
+        <span className="mt-0.5 block text-[13px] leading-snug text-text-secondary">
+          {subtitle}
+        </span>
+      </span>
     </>
   );
   if (href) {
@@ -251,14 +273,6 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   return (
     <div className="space-y-4">
       <div className="rounded-surface bg-surface-panel p-4">
-        <Link
-          href="/crm/clientes"
-          className="mb-3 inline-flex items-center gap-1 text-[13px] font-medium text-action-primary"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Clientes
-        </Link>
-
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -307,7 +321,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           >
             <FileText className="size-3.5" aria-hidden />
             Documentos
-            <span className="rounded-full bg-nav-hover px-1.5 text-[11px] tabular-nums">
+            <span className="rounded-full bg-surface-panel px-1.5 text-[11px] tabular-nums">
               {props.documentsCount}
             </span>
           </Link>
@@ -381,81 +395,105 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         />
       </div>
 
-      <section className="space-y-4 rounded-surface bg-surface-panel p-4">
+      <section className="space-y-6">
         <div>
-          <h2 className="text-[18px] font-bold text-ink">Action Center</h2>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
-            1 · Analiza y muestra el valor
+          <h2 className="mb-1 text-[20px] font-semibold tracking-[-0.02em] text-ink">
+            Action Center
+          </h2>
+          <p className="text-[13px] text-text-secondary">
+            Herramientas para analizar el caso y cerrar la venta.
           </p>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <Tile
-            title="Reporte de crédito"
-            subtitle="El documento completo"
-            href={props.reportHref ?? undefined}
-            onClick={props.reportHref ? undefined : () => setPanel("plan")}
-          />
-          <Tile
-            title="Plan de Acción"
-            subtitle="Lectura + pasos a dar"
-            badge="Nuevo"
-            onClick={() => setPanel("plan")}
-          />
-          <Tile
-            title="Análisis"
-            subtitle="Cuentas negativas"
-            badge="Beta"
-            onClick={() => setPanel("analisis")}
-          />
-          <Tile
-            title="Score Plan"
-            subtitle="Sube el puntaje ya"
-            badge="Beta"
-            onClick={() => setPanel("score")}
-          />
-          <Tile
-            title="Fondeo"
-            subtitle="Cuánto puede conseguir"
-            onClick={() => setPanel("fondeo")}
-          />
-          <Tile
-            title="Avance"
-            subtitle="Progreso por rondas"
-            badge="Beta"
-            href={props.avanceHref ?? undefined}
-            onClick={props.avanceHref ? undefined : () => setPanel("plan")}
-          />
         </div>
 
-        <div>
-          <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
-            2 · Cierra la venta
-          </p>
-          <div className="grid gap-2 sm:grid-cols-3">
-            <Tile
-              title="Cotización"
-              subtitle="CRM"
-              href={props.quoteHref}
-            />
-            <Tile
-              title="Contrato"
-              subtitle="CRM"
-              href={props.contractHref}
-            />
-            <Tile
-              title="Formulario de Iniciación"
-              subtitle={props.intakeUrl ? "Copiar / enviar" : "Sin enlace"}
-              onClick={() => setPanel("script")}
-            />
+        <div className="space-y-3">
+          <div>
+            <p className="mb-2 text-[13px] font-semibold text-ink">
+              1 · Analiza y muestra el valor
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <Tile
+                icon={FileBarChart}
+                title="Reporte de crédito"
+                subtitle="El documento completo"
+                href={props.reportHref ?? undefined}
+                onClick={props.reportHref ? undefined : () => setPanel("plan")}
+              />
+              <Tile
+                icon={ListChecks}
+                title="Plan de Acción"
+                subtitle="Lectura + pasos a dar"
+                badge="Nuevo"
+                onClick={() => setPanel("plan")}
+              />
+              <Tile
+                icon={Search}
+                title="Análisis"
+                subtitle="Cuentas negativas"
+                badge="Beta"
+                onClick={() => setPanel("analisis")}
+              />
+              <Tile
+                icon={TrendingUp}
+                title="Score Plan"
+                subtitle="Sube el puntaje ya"
+                badge="Beta"
+                onClick={() => setPanel("score")}
+              />
+              <Tile
+                icon={Calculator}
+                title="Fondeo"
+                subtitle="Cuánto puede conseguir"
+                onClick={() => setPanel("fondeo")}
+              />
+              <Tile
+                icon={GitCompare}
+                title="Avance"
+                subtitle="Progreso por rondas"
+                badge="Beta"
+                href={props.avanceHref ?? undefined}
+                onClick={props.avanceHref ? undefined : () => setPanel("plan")}
+              />
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-2 text-[13px] font-semibold text-ink">
+              2 · Cierra la venta
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              <Tile
+                icon={Receipt}
+                title="Cotización"
+                subtitle="Propuesta y envío"
+                href={props.quoteHref}
+              />
+              <Tile
+                icon={Scale}
+                title="Contrato"
+                subtitle="Acuerdo y firma"
+                href={props.contractHref}
+              />
+              <Tile
+                icon={ClipboardList}
+                title="Formulario de Iniciación"
+                subtitle={props.intakeUrl ? "Copiar / enviar" : "Sin enlace"}
+                onClick={() => setPanel("script")}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="rounded-surface bg-surface-app p-4">
+        <div className="rounded-surface bg-surface-panel p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h3 className="text-[14px] font-semibold text-ink">
+            <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
               ¿Qué le digo al cliente?
             </h3>
-            <Button type="button" variant="secondary" size="sm" onClick={copyScript}>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={copyScript}
+            >
               <Copy className="size-3.5" aria-hidden />
               Copiar guion
             </Button>

@@ -8,3 +8,5 @@ export { KpiCard } from "./kpi-card";
 export { PageHeaderFondify } from "./page-header-fondify";
 export { ClientRow } from "./client-row";
 export { FondifyButton } from "./fondify-button";
+export { ActionCenter } from "./action-center";
+export { ClientDetailHeader } from "./client-detail-header";

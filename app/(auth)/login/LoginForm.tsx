@@ -42,46 +42,53 @@ export function LoginForm() {
       new URLSearchParams(window.location.search).get("callbackUrl"),
     );
 
-    const result = await signIn("credentials", {
-      email: creds.email,
-      password: creds.password,
-      ...(mfaCode ? { mfaCode } : {}),
-      redirect: false,
-      callbackUrl,
-    });
+    try {
+      const result = await signIn("credentials", {
+        email: creds.email,
+        password: creds.password,
+        ...(mfaCode ? { mfaCode } : {}),
+        redirect: false,
+        callbackUrl,
+      });
 
-    if (result?.ok) {
+      // Auth.js: `ok` es el HTTP 200 del callback, NO el éxito del login.
+      // El fallo real viene en `error` / `code` (URL del JSON de respuesta).
+      if (!result || result.error) {
+        const code = result?.code ?? "";
+        if (code === "mfa_required") {
+          setStep("mfa");
+          setError(undefined);
+          return;
+        }
+        if (code === "mfa_invalid") {
+          play("error");
+          setError("Código MFA inválido o cuenta bloqueada temporalmente.");
+          return;
+        }
+        if (code === "rate_limit") {
+          play("error");
+          setError(
+            "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
+          );
+          return;
+        }
+
+        play("error");
+        setError(
+          step === "mfa"
+            ? "Código MFA inválido. Revisa e inténtalo de nuevo."
+            : "El correo o la contraseña no coinciden. Revisa e inténtalo de nuevo.",
+        );
+        return;
+      }
+
       window.location.assign(result.url || callbackUrl);
-      return;
-    }
-
-    const code = result?.code ?? "";
-    if (code === "mfa_required") {
-      setStep("mfa");
-      setError(undefined);
-      setPending(false);
-      return;
-    }
-    if (code === "mfa_invalid") {
+    } catch {
       play("error");
-      setError("Código MFA inválido o cuenta bloqueada temporalmente.");
+      setError("No se pudo iniciar sesión. Inténtalo de nuevo.");
+    } finally {
       setPending(false);
-      return;
     }
-    if (code === "rate_limit") {
-      play("error");
-      setError("Demasiados intentos. Espera unos minutos e inténtalo de nuevo.");
-      setPending(false);
-      return;
-    }
-
-    play("error");
-    setError(
-      step === "mfa"
-        ? "Código MFA inválido. Revisa e inténtalo de nuevo."
-        : "El correo o la contraseña no coinciden. Revisa e inténtalo de nuevo.",
-    );
-    setPending(false);
   }
 
   async function onSubmit(event: React.FormEvent<HTMLFormElement>) {

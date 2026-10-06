@@ -62,6 +62,68 @@
   --color-background: light-dark(#f2f2f7, #000000);
   --color-foreground: light-dark(#1c1c1e, #f2f2f7);
 
+  /* ─── Fondify Agency Tokens (integrados) ─────────────────── */
+  /* Primary púrpura profundo para CTAs y acciones */
+  --ff-primary: #6e1ea3;
+  --ff-primary-hover: #5a1788;
+  --ff-primary-pressed: #4a126f;
+  --ff-primary-soft: #f0e8f6;
+  --ff-primary-muted: #c4a3da;
+  --ff-primary-tint: #faf7fc;
+
+  /* Fondo lavanda y superficies */
+  --ff-bg: #eef1f6;
+  --ff-surface: #ffffff;
+
+  /* Texto */
+  --ff-text: #0f172a;
+  --ff-text-secondary: #64748b;
+  --ff-text-muted: #94a3b8;
+  --ff-text-inverse: #ffffff;
+
+  /* Bordes */
+  --ff-border: #e8edf3;
+  --ff-border-strong: #d1d7e0;
+  --ff-border-dashed: #c5ced9;
+
+  /* Status pills - Fondify colors */
+  --ff-status-repair-bg: #fce7ea;
+  --ff-status-repair-fg: #bf4054;
+  --ff-status-ready-bg: #e0efea;
+  --ff-status-ready-fg: #2f7a62;
+  --ff-status-struct-bg: #f7f1d8;
+  --ff-status-struct-fg: #8a6a28;
+  --ff-status-round-bg: #f0e8f6;
+  --ff-status-round-fg: #6e1ea3;
+
+  /* Acentos */
+  --ff-magenta: #fb7185;
+  --ff-warning-bg: #fff8e6;
+  --ff-warning-border: #f5d78a;
+  --ff-warning-fg: #8a6a28;
+  --ff-orange-review: #ea580c;
+
+  /* Tipografía */
+  --ff-fs-xs: 0.6875rem;
+  --ff-fs-sm: 0.8125rem;
+  --ff-fs-md: 0.875rem;
+  --ff-fs-base: 0.9375rem;
+  --ff-fs-lg: 1.125rem;
+  --ff-fs-xl: 1.5rem;
+  --ff-fs-2xl: 1.875rem;
+
+  /* Radios específicos Fondify */
+  --ff-radius-sm: 6px;
+  --ff-radius-md: 10px;
+  --ff-radius-lg: 12px;
+  --ff-radius-xl: 16px;
+  --ff-radius-full: 9999px;
+
+  /* Sombras Fondify */
+  --ff-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --ff-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --ff-shadow-modal: 0 20px 48px rgba(15, 23, 42, 0.2);
+
   /* Radios: control 12px, superficie 18px, pill 9999px */
   --radius-control: 12px;
   --radius-surface: 18px;

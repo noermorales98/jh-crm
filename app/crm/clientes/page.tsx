@@ -83,7 +83,7 @@ export default async function ClientsPage({
       </div>
 
       {result.items.length === 0 ? (
-        <div className="rounded-2xl border border-border-subtle bg-surface-panel px-4 py-10">
+        <div className="rounded-surface bg-surface-panel px-4 py-10">
           <EmptyState
             icon={Users}
             title={
@@ -99,8 +99,8 @@ export default async function ClientsPage({
           />
         </div>
       ) : (
-        <div className="space-y-2">
-          {result.items.map((client) => (
+        <div className="overflow-hidden rounded-surface bg-surface-panel">
+          {result.items.map((client, index) => (
             <ClientRowCard
               key={client.id}
               id={client.id}
@@ -110,6 +110,7 @@ export default async function ClientsPage({
               roundNumber={client.roundNumber}
               nextActionAt={client.nextAction?.at ?? null}
               reportsCount={client.reportsCount}
+              isLast={index === result.items.length - 1}
             />
           ))}
         </div>

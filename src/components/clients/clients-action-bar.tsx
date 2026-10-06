@@ -125,14 +125,14 @@ export function ClientsActionBar({
             <input
               name="firstName"
               required
-              className="w-full rounded-xl border border-border-subtle bg-surface-app px-3 py-2.5 text-sm outline-none focus:border-action-primary"
+              className="w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25"
             />
           </label>
           <label className="block text-[13px]">
             <span className="mb-1 block font-medium text-ink">Apellido</span>
             <input
               name="lastName"
-              className="w-full rounded-xl border border-border-subtle bg-surface-app px-3 py-2.5 text-sm outline-none focus:border-action-primary"
+              className="w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25"
             />
           </label>
           <label className="block text-[13px]">
@@ -140,7 +140,7 @@ export function ClientsActionBar({
             <input
               name="email"
               type="email"
-              className="w-full rounded-xl border border-border-subtle bg-surface-app px-3 py-2.5 text-sm outline-none focus:border-action-primary"
+              className="w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25"
             />
           </label>
           {error ? (
@@ -170,7 +170,7 @@ export function ClientsActionBar({
             <code className="font-mono">firstName,lastName,email</code>).
             Compatible con exportaciones tipo Dispute Fox / Credit Repair Cloud.
           </p>
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border border-dashed border-border-subtle bg-surface-app px-4 py-8 text-center">
+          <label className="flex cursor-pointer flex-col items-center justify-center rounded-surface bg-nav-hover px-4 py-8 text-center">
             <Upload className="mb-2 size-6 text-action-primary" aria-hidden />
             <span className="text-[13px] font-medium text-ink">
               Arrastra o elige un CSV / XLSX
@@ -213,7 +213,7 @@ export function ClientsActionBar({
             <p className="text-[12px] font-semibold uppercase tracking-wide text-action-primary">
               Enlace de intake / registro
             </p>
-            <p className="break-all rounded-xl border border-border-subtle bg-surface-app px-3 py-2 font-mono text-[12px] text-ink">
+            <p className="break-all rounded-control bg-surface-app px-3 py-2 font-mono text-[12px] text-ink">
               {shareUrl}
             </p>
             <div className="grid grid-cols-2 gap-2">

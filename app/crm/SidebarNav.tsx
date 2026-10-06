@@ -129,7 +129,7 @@ function NavLink({
       >
         <Icon className="size-[18px] shrink-0" strokeWidth={1.75} aria-hidden />
         <span className="flex-1">{item.label}</span>
-        <span className="rounded-full bg-nav-hover px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
+        <span className="rounded-full bg-surface-panel/80 px-1.5 py-0.5 text-[10px] font-medium text-text-secondary">
           Pronto
         </span>
       </div>
@@ -169,7 +169,7 @@ export function SidebarNav({
 
   return (
     <>
-      <div className="mx-3 mt-1 mb-2 rounded-xl border border-border-subtle bg-surface-app/60 px-3 py-2.5">
+      <div className="mx-3 mt-1 mb-2 rounded-xl bg-nav-hover px-3 py-2.5">
         <div className="flex items-center gap-2.5">
           <div
             className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-action-primary text-[13px] font-bold text-action-primary-foreground"
@@ -181,7 +181,7 @@ export function SidebarNav({
             <p className="truncate text-[13px] font-semibold text-ink">
               {organizationName}
             </p>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
+            <p className="text-[11px] font-medium text-text-secondary">
               Panel de agencia
             </p>
           </div>

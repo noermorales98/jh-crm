@@ -2,20 +2,10 @@ import Link from "next/link";
 import type { FondifyBucket } from "@/src/lib/fondify/status";
 import { FONDIFY_BUCKET_LABELS } from "@/src/lib/fondify/status";
 
-const PILL_TONES: Record<FondifyBucket | "all", string> = {
-  all: "border-action-primary/40 bg-nav-active text-action-primary",
-  ready: "border-success/40 bg-success-soft text-success-ink",
-  struct: "border-warning/40 bg-warning-soft text-warning-ink",
-  repair: "border-danger/40 bg-danger-soft text-danger",
-};
-
-const ACTIVE_RING: Record<FondifyBucket | "all", string> = {
-  all: "ring-2 ring-action-primary/30 border-action-primary",
-  ready: "ring-2 ring-success/30 border-success",
-  struct: "ring-2 ring-warning/30 border-warning",
-  repair: "ring-2 ring-danger/30 border-danger",
-};
-
+/**
+ * Filtros monocromo (HIG color: un acento, no un arcoíris de chips).
+ * Activo = fill primary; inactivo = fill neutro. Sin bordes ni rings.
+ */
 export function FilterPills({
   active,
   counts,
@@ -26,14 +16,14 @@ export function FilterPills({
   q?: string;
 }) {
   const items: Array<{ key: FondifyBucket | "all"; label: string }> = [
-    { key: "all", label: "TODOS" },
+    { key: "all", label: "Todos" },
     { key: "ready", label: FONDIFY_BUCKET_LABELS.ready },
     { key: "struct", label: FONDIFY_BUCKET_LABELS.struct },
     { key: "repair", label: FONDIFY_BUCKET_LABELS.repair },
   ];
 
   return (
-    <div className="flex flex-wrap gap-2" role="group" aria-label="Filtros">
+    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtros">
       {items.map((item) => {
         const href =
           item.key === "all"
@@ -46,12 +36,23 @@ export function FilterPills({
           <Link
             key={item.key}
             href={href}
-            className={`inline-flex items-center rounded-full border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
-              PILL_TONES[item.key]
-            } ${isActive ? ACTIVE_RING[item.key] : ""}`}
+            className={`inline-flex min-h-8 items-center rounded-full px-3 py-1.5 text-[12px] font-medium tracking-[-0.01em] transition-colors ${
+              isActive
+                ? "bg-action-primary text-action-primary-foreground"
+                : "bg-nav-hover text-text-secondary-strong hover:bg-nav-active hover:text-action-primary"
+            }`}
             aria-current={isActive ? "true" : undefined}
           >
-            {item.label} · {counts[item.key]}
+            {item.label}
+            <span
+              className={`ml-1.5 tabular-nums ${
+                isActive
+                  ? "text-action-primary-foreground/80"
+                  : "text-text-secondary"
+              }`}
+            >
+              {counts[item.key]}
+            </span>
           </Link>
         );
       })}

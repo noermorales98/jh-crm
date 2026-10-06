@@ -55,7 +55,7 @@ export function AgencyModal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className="relative z-10 w-full max-w-md rounded-2xl border border-border-subtle bg-surface-panel p-5 outline-none"
+        className="relative z-10 w-full max-w-md rounded-surface bg-surface-panel p-5 outline-none"
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <h2 id={titleId} className="text-[17px] font-semibold text-ink">

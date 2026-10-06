@@ -16,7 +16,7 @@ import {
 import type { ClientStatus } from "@prisma/client";
 import { Button } from "@/src/components/ui";
 import { AgencyModal } from "@/src/components/agency/agency-modal";
-import { FondifyStatusPill } from "@/src/components/agency/client-row";
+import { Capsule, FondifyStatusCapsule } from "@/src/components/agency/capsule";
 import { archiveClient, updateClient } from "@/src/actions/clients";
 import {
   daysUntil,
@@ -74,14 +74,12 @@ function KpiCard({
   emphasis?: "danger" | "primary";
 }) {
   return (
-    <div className="rounded-2xl border border-border-subtle bg-surface-panel px-4 py-3">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
-        {label}
-      </p>
+    <div className="rounded-surface bg-surface-panel px-4 py-3">
+      <p className="text-[12px] font-medium text-text-secondary">{label}</p>
       <p
-        className={`mt-1 text-[22px] font-bold tabular-nums ${
+        className={`mt-1 text-[22px] font-semibold tabular-nums tracking-[-0.02em] ${
           emphasis === "danger"
-            ? "text-danger"
+            ? "text-danger-ink"
             : emphasis === "primary"
               ? "text-action-primary"
               : "text-ink"
@@ -107,16 +105,20 @@ function Tile({
   href?: string;
 }) {
   const className =
-    "relative flex min-h-[88px] flex-col justify-between rounded-2xl border border-border-subtle bg-surface-panel p-3 text-left transition-colors hover:bg-nav-hover";
+    "relative flex min-h-[88px] flex-col justify-between rounded-surface bg-surface-panel p-3.5 text-left transition-colors hover:bg-nav-hover";
   const body = (
     <>
       {badge ? (
-        <span className="absolute top-2 right-2 rounded-full bg-action-primary px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-action-primary-foreground">
-          {badge}
+        <span className="absolute top-2.5 right-2.5">
+          <Capsule tone="accent" size="sm">
+            {badge}
+          </Capsule>
         </span>
       ) : null}
-      <span className="text-[14px] font-semibold text-ink">{title}</span>
-      <span className="text-[12px] text-text-secondary">{subtitle}</span>
+      <span className="pr-14 text-[15px] font-semibold tracking-[-0.01em] text-ink">
+        {title}
+      </span>
+      <span className="text-[13px] text-text-secondary">{subtitle}</span>
     </>
   );
   if (href) {
@@ -248,7 +250,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-border-subtle bg-surface-panel p-4">
+      <div className="rounded-surface bg-surface-panel p-4">
         <Link
           href="/crm/clientes"
           className="mb-3 inline-flex items-center gap-1 text-[13px] font-medium text-action-primary"
@@ -263,18 +265,18 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               <h1 className="text-[22px] font-bold tracking-[-0.02em] text-ink">
                 {props.fullName}
               </h1>
-              <FondifyStatusPill status={props.client.status} />
+              <FondifyStatusCapsule status={props.client.status} />
             </div>
             <p className="mt-1 text-[13px] text-text-secondary">
               {props.client.email ?? "Sin correo"} · {props.reportsCount}{" "}
               reportes
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
-              <span className="rounded-full border border-border-subtle bg-surface-app px-2 py-0.5 text-[11px] font-semibold uppercase text-action-primary">
+              <Capsule tone="accent">
                 {props.roundNumber != null
                   ? `Ronda ${props.roundNumber}`
                   : "Ronda —"}
-              </span>
+              </Capsule>
               {days != null ? (
                 <span
                   className={
@@ -301,7 +303,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         <div className="mt-4 flex flex-wrap gap-2">
           <Link
             href={`/crm/clientes/${props.client.id}/documentos`}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-control border border-border-subtle bg-surface-panel px-3 text-[13px] font-medium text-ink transition-colors hover:bg-nav-hover"
+            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-control bg-nav-hover px-3 text-[13px] font-medium text-ink transition-colors hover:bg-nav-active"
           >
             <FileText className="size-3.5" aria-hidden />
             Documentos
@@ -334,7 +336,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               type="button"
               variant="secondary"
               size="sm"
-              className="border-danger/40 text-danger"
+              className="text-danger-ink"
               onClick={() => setPanel("delete")}
             >
               <Trash2 className="size-3.5" aria-hidden />
@@ -357,7 +359,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
       </div>
 
       {showRepairBanner ? (
-        <div className="rounded-2xl border border-warning/40 bg-warning-soft px-4 py-3 text-[13px] text-warning-ink">
+        <div className="rounded-surface bg-warning-soft px-4 py-3 text-[13px] text-warning-ink">
           <strong>Gran oportunidad de reparación.</strong> Este cliente tiene{" "}
           {props.kpis.porArreglar} cuenta
           {props.kpis.porArreglar === 1 ? "" : "s"} negativa
@@ -379,7 +381,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         />
       </div>
 
-      <section className="space-y-4 rounded-2xl border border-border-subtle bg-surface-panel p-4">
+      <section className="space-y-4 rounded-surface bg-surface-panel p-4">
         <div>
           <h2 className="text-[18px] font-bold text-ink">Action Center</h2>
           <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-text-secondary">
@@ -448,7 +450,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-border-subtle bg-surface-app p-4">
+        <div className="rounded-surface bg-surface-app p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-[14px] font-semibold text-ink">
               ¿Qué le digo al cliente?
@@ -476,7 +478,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               name="firstName"
               defaultValue={props.client.firstName}
               required
-              className="w-full rounded-xl border border-border-subtle bg-surface-app px-3 py-2.5 text-sm"
+              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
             />
           </label>
           <label className="block text-[13px]">
@@ -484,7 +486,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             <input
               name="lastName"
               defaultValue={props.client.lastName ?? ""}
-              className="w-full rounded-xl border border-border-subtle bg-surface-app px-3 py-2.5 text-sm"
+              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
             />
           </label>
           <label className="block text-[13px]">
@@ -493,7 +495,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               name="email"
               type="email"
               defaultValue={props.client.email ?? ""}
-              className="w-full rounded-xl border border-border-subtle bg-surface-app px-3 py-2.5 text-sm"
+              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
             />
           </label>
           {error ? (
@@ -560,7 +562,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
       >
         {props.intakeUrl ? (
           <div className="space-y-3">
-            <p className="break-all rounded-xl border border-border-subtle bg-surface-app px-3 py-2 font-mono text-[12px]">
+            <p className="break-all rounded-control bg-surface-app px-3 py-2 font-mono text-[12px]">
               {props.intakeUrl}
             </p>
             <Button type="button" variant="primary" className="w-full" onClick={copyIntake}>
@@ -582,17 +584,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               Analizando a: <strong className="text-ink">{props.fullName}</strong>
             </p>
             <div className="flex flex-wrap justify-center gap-2">
-              <span className="rounded-full border border-danger/30 bg-danger-soft px-3 py-1 text-[11px] font-semibold text-danger">
-                No calificado
-              </span>
-              <span className="rounded-full border border-warning/30 bg-warning-soft px-3 py-1 text-[11px] font-semibold text-warning-ink">
-                Estimado fondeo —
-              </span>
-              <span className="rounded-full border border-action-primary/30 bg-nav-active px-3 py-1 text-[11px] font-semibold text-action-primary">
-                {props.reportsCount} reportes
-              </span>
+              <Capsule tone="danger">No calificado</Capsule>
+              <Capsule tone="warning">Estimado fondeo —</Capsule>
+              <Capsule tone="accent">{props.reportsCount} reportes</Capsule>
             </div>
-            <div className="rounded-2xl border border-border-subtle bg-surface-panel p-4">
+            <div className="rounded-surface bg-surface-panel p-4">
               <h3 className="font-semibold text-ink">1 · Desglose por buró</h3>
               <p className="mt-2 text-[13px] text-text-secondary">
                 {props.reportsCount > 0
@@ -608,7 +604,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 </Link>
               ) : null}
             </div>
-            <div className="rounded-2xl border border-border-subtle bg-surface-panel p-4">
+            <div className="rounded-surface bg-surface-panel p-4">
               <h3 className="font-semibold text-ink">2 · Estructura</h3>
               <p className="mt-2 text-[13px] text-text-secondary">
                 Orden sugerido: bajar utilización → disputar negativos →
@@ -626,11 +622,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               Negativos: <strong>{props.kpis.porArreglar}</strong>
             </p>
             {props.kpis.porArreglar === 0 ? (
-              <p className="rounded-2xl border border-border-subtle bg-surface-panel px-4 py-6 text-center text-[13px] text-text-secondary">
+              <p className="rounded-surface bg-surface-panel px-4 py-6 text-center text-[13px] text-text-secondary">
                 No hay cuentas negativas cargadas (o no hay reporte parseado).
               </p>
             ) : (
-              <p className="rounded-2xl border border-border-subtle bg-surface-panel px-4 py-4 text-[13px] text-text-secondary">
+              <p className="rounded-surface bg-surface-panel px-4 py-4 text-[13px] text-text-secondary">
                 Hay {props.kpis.porArreglar} ítems negativos en el caso. Abre el
                 reporte o el caso de crédito para ver acreedor, buró y disputa.
                 {props.caseId ? (
@@ -676,7 +672,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               {scoreOrder.map((row) => (
                 <div
                   key={row.name}
-                  className="flex items-center justify-between rounded-xl border border-border-subtle bg-surface-panel px-3 py-2 text-[13px]"
+                  className="flex items-center justify-between rounded-control bg-surface-panel px-3 py-2 text-[13px]"
                 >
                   <span>
                     {row.name} · {row.pct}%
@@ -729,7 +725,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                   onChange={(e) =>
                     setFondeoForm((prev) => ({ ...prev, [key]: e.target.value }))
                   }
-                  className="w-full rounded-xl border border-border-subtle bg-surface-panel px-3 py-2.5"
+                  className="w-full rounded-control bg-surface-panel px-3 py-2.5"
                 />
               </label>
             ))}
@@ -749,7 +745,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               Calcular fondeo
             </Button>
             {fondeoResult ? (
-              <p className="rounded-xl border border-border-subtle bg-surface-panel px-3 py-3 text-[14px] font-semibold text-ink">
+              <p className="rounded-control bg-surface-panel px-3 py-3 text-[14px] font-semibold text-ink">
                 {fondeoResult}
               </p>
             ) : null}

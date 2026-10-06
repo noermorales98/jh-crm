@@ -28,14 +28,15 @@ export type PillTone =
   | "red"
   | "purple";
 
+/** Fill suave sin borde/ring (HIG: cápsulas por color de superficie, no outline). */
 const TONE_CLASSES: Record<PillTone, string> = {
-  slate: "bg-surface-panel text-text-secondary-strong ring-border-subtle",
-  indigo: "bg-nav-active text-action-primary ring-action-primary/20",
-  blue: "bg-info-soft text-info-ink ring-info-ink/20",
-  green: "bg-success-soft text-success-ink ring-success-ink/20",
-  amber: "bg-warning-soft text-warning-ink ring-warning-ink/20",
-  red: "bg-danger-soft text-danger-ink ring-danger-ink/20",
-  purple: "bg-purple-soft text-purple-ink ring-purple-ink/20",
+  slate: "bg-nav-hover text-text-secondary-strong",
+  indigo: "bg-nav-active text-action-primary",
+  blue: "bg-info-soft text-info-ink",
+  green: "bg-success-soft text-success-ink",
+  amber: "bg-warning-soft text-warning-ink",
+  red: "bg-danger-soft text-danger-ink",
+  purple: "bg-purple-soft text-purple-ink",
 };
 
 export function Pill({
@@ -47,7 +48,7 @@ export function Pill({
 }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ${TONE_CLASSES[tone]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium tracking-[-0.01em] ${TONE_CLASSES[tone]}`}
     >
       {children}
     </span>
@@ -163,7 +164,7 @@ export function StatusPill({
 export function StagePill({ name, color }: { name: string; color: string }) {
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full bg-surface-panel px-2 py-0.5 text-[11px] font-medium text-text-secondary-strong ring-1 ring-inset ring-border-subtle"
+      className="inline-flex items-center gap-1.5 rounded-full bg-nav-hover px-2 py-0.5 text-[11px] font-medium tracking-[-0.01em] text-text-secondary-strong"
     >
       <span
         aria-hidden

@@ -2,36 +2,13 @@ import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
 import {
-  FONDIFY_BUCKET_LABELS,
   daysUntil,
   isReviewSoon,
-  mapClientToFondifyStatus,
   reviewInLabel,
 } from "@/src/lib/fondify/status";
+import { Capsule, FondifyStatusCapsule } from "@/src/components/agency/capsule";
 
-const BUCKET_PILL: Record<string, string> = {
-  repair: "bg-danger-soft text-danger border-danger/30",
-  struct: "bg-warning-soft text-warning-ink border-warning/30",
-  ready: "bg-success-soft text-success-ink border-success/30",
-};
-
-export function FondifyStatusPill({ status }: { status: ClientStatus }) {
-  const bucket = mapClientToFondifyStatus(status);
-  if (!bucket) {
-    return (
-      <span className="inline-flex rounded-full border border-border-subtle bg-nav-hover px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
-        {status}
-      </span>
-    );
-  }
-  return (
-    <span
-      className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${BUCKET_PILL[bucket]}`}
-    >
-      {FONDIFY_BUCKET_LABELS[bucket]}
-    </span>
-  );
-}
+export { FondifyStatusCapsule as FondifyStatusPill };
 
 export function ClientRowCard({
   id,
@@ -41,6 +18,7 @@ export function ClientRowCard({
   roundNumber,
   nextActionAt,
   reportsCount,
+  isLast = false,
 }: {
   id: string;
   name: string;
@@ -49,6 +27,7 @@ export function ClientRowCard({
   roundNumber: number | null;
   nextActionAt: Date | null;
   reportsCount: number;
+  isLast?: boolean;
 }) {
   const days = nextActionAt ? daysUntil(nextActionAt) : null;
   const soon = days != null && isReviewSoon(days);
@@ -56,24 +35,30 @@ export function ClientRowCard({
   return (
     <Link
       href={`/crm/clientes/${id}`}
-      className="flex items-center gap-3 rounded-2xl border border-border-subtle bg-surface-panel px-4 py-3 transition-colors hover:bg-nav-hover"
+      className={`flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-nav-hover ${
+        isLast ? "" : "border-border-subtle/60 border-b"
+      }`}
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-[15px] font-semibold text-ink">
+          <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
             {name}
           </span>
-          <FondifyStatusPill status={status} />
-          <span className="inline-flex rounded-full border border-border-subtle bg-surface-app px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-action-primary">
+          <FondifyStatusCapsule status={status} />
+          <Capsule tone="accent">
             {roundNumber != null ? `Ronda ${roundNumber}` : "Ronda —"}
-          </span>
+          </Capsule>
         </div>
         <p className="mt-1 truncate text-[13px] text-text-secondary">
           {email ?? "Sin correo"}
           {days != null ? (
             <>
               {" · "}
-              <span className={soon ? "font-medium text-warning-ink" : undefined}>
+              <span
+                className={
+                  soon ? "font-medium text-warning-ink" : undefined
+                }
+              >
                 {reviewInLabel(days)}
               </span>
             </>
@@ -81,15 +66,13 @@ export function ClientRowCard({
         </p>
       </div>
       <div className="shrink-0 text-right">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-text-secondary">
-          Reportes
-        </p>
-        <p className="text-[18px] font-bold tabular-nums text-ink">
+        <p className="text-[11px] font-medium text-text-secondary">Reportes</p>
+        <p className="text-[17px] font-semibold tabular-nums tracking-[-0.02em] text-ink">
           {reportsCount}
         </p>
       </div>
       <ChevronRight
-        className="size-5 shrink-0 text-text-secondary"
+        className="size-5 shrink-0 text-text-placeholder"
         aria-hidden
       />
     </Link>

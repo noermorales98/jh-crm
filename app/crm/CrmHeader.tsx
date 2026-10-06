@@ -215,7 +215,7 @@ export function CrmHeader({
   const hideSpotlight = /^\/crm\/chats\/[^/]+/.test(pathname);
 
   return (
-    <header className="jh-toolbar sticky top-0 z-sticky flex h-14 items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top)] lg:h-16 lg:px-6">
+    <header className="jh-toolbar sticky top-0 z-sticky flex h-14 items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top)] lg:h-16 lg:px-6 border-b border-[var(--ff-border)]">
       <div className="flex min-w-0 items-center gap-1.5">
         {backHref ? (
           <Link

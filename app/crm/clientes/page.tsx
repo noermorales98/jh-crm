@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Plus, Users } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
@@ -12,58 +11,28 @@ import {
   type SearchParams,
 } from "@/src/server/page-helpers";
 import {
-  ButtonLink,
-  Card,
-  CursorPagination,
-  EmptyState,
-  FilterBar,
-  FilterSelect,
-  ListToolbar,
-  PageHeader,
-  SearchInput,
-  StatusPill,
-  Table,
-  TBody,
-  TD,
-  TH,
-  THead,
-  TR,
-} from "@/src/components/ui";
+  PageHeaderFondify,
+  FilterPills,
+  ClientRow,
+  FondifyButton,
+} from "@/src/components/fondify";
+import { EmptyState } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
-import {
-  CLIENT_STATUS_LABELS,
-  LEAD_CHANNEL_LABELS,
-  labelFor,
-} from "@/src/lib/labels";
 
 export const metadata: Metadata = {
   title: "Clientes",
 };
 
-const CLIENT_STATUSES = Object.keys(CLIENT_STATUS_LABELS) as ClientStatus[];
+const CLIENT_STATUS_LABELS = {
+  LEAD: "PROSPECTOS",
+  ACTIVE: "ACTIVOS",
+  PAUSED: "PAUSADOS",
+  COMPLETED: "COMPLETADOS",
+  CANCELLED: "CANCELADOS",
+  ARCHIVED: "ARCHIVADOS",
+};
 
-function originLabel(source: string | null, leadChannel: string | null) {
-  const channel = leadChannel
-    ? labelFor(LEAD_CHANNEL_LABELS, leadChannel)
-    : null;
-  if (channel && source) return `${channel} · ${source}`;
-  if (channel) return channel;
-  if (source) return source;
-  return null;
-}
-
-function nextActionKindLabel(kind: "service" | "follow_up" | "review") {
-  switch (kind) {
-    case "follow_up":
-      return "Seguimiento";
-    case "review":
-      return "Revisión";
-    default:
-      return "Acción";
-  }
-}
-
-export default async function ClientsPage({
+export default async function ClientsPageFondify({
   searchParams,
 }: {
   searchParams: SearchParams;
@@ -72,7 +41,7 @@ export default async function ClientsPage({
   const sp = await searchParams;
 
   const q = firstParam(sp, "q");
-  const status = parseEnumParam(firstParam(sp, "status"), CLIENT_STATUSES);
+  const status = parseEnumParam(firstParam(sp, "status"), Object.keys(CLIENT_STATUS_LABELS) as ClientStatus[]);
   const assignedToId = firstParam(sp, "assignedTo");
   const cursor = firstParam(sp, "cursor");
 
@@ -83,195 +52,107 @@ export default async function ClientsPage({
     cursor,
   });
 
+  const totalCount = result.items.length;
+  const statusCounts: Record<string, number> = {
+    "": totalCount,
+    LEAD: 0,
+    ACTIVE: 0,
+    PAUSED: 0,
+  };
+
+  result.items.forEach((client) => {
+    if (client.status in statusCounts) {
+      statusCounts[client.status]++;
+    }
+  });
+
+  const filterOptions = [
+    { value: "", label: "TODOS", count: statusCounts[""] },
+    { value: "ACTIVE", label: "ACTIVOS", count: statusCounts.ACTIVE },
+    { value: "LEAD", label: "PROSPECTOS", count: statusCounts.LEAD },
+    { value: "PAUSED", label: "PAUSADOS", count: statusCounts.PAUSED },
+  ];
+
   const now = Date.now();
 
   return (
-    <div>
-      <PageHeader
+    <div className="mx-auto max-w-5xl space-y-6">
+      <PageHeaderFondify
+        kicker={`${totalCount} CLIENTES`}
         title="Clientes"
-        description="Cartera de clientes y prospectos. Origen, servicios activos y próxima acción."
+        subtitle="Toca un cliente para ver su caso y cerrar la venta."
         actions={
-          can(ctx.role, "clients.create") ? (
-            <ButtonLink href="/crm/clientes/nuevo">
-              <Plus className="size-4" aria-hidden />
-              Nuevo cliente
-            </ButtonLink>
-          ) : null
+          <>
+            <FondifyButton variant="outlined" size="md">
+              Comparte tu enlace
+            </FondifyButton>
+            <FondifyButton variant="outlined" size="md">
+              Importar clientes
+            </FondifyButton>
+            {can(ctx.role, "clients.create") && (
+              <FondifyButton
+                href="/crm/clientes/nuevo"
+                variant="primary"
+                size="md"
+                icon={Plus}
+              >
+                Agregar cliente
+              </FondifyButton>
+            )}
+          </>
         }
       />
 
-      <ListToolbar
-        search={
-          <SearchInput
-            placeholder="Buscar por nombre, código, correo o teléfono…"
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--ff-text-muted)]" />
+          <input
+            type="search"
+            name="q"
+            placeholder="Buscar por nombre o correo…"
             defaultValue={q ?? ""}
+            className="w-full rounded-[var(--ff-radius-md)] border border-[var(--ff-border)] bg-[var(--ff-surface)] py-2 pl-10 pr-4 text-[var(--ff-fs-base)] text-[var(--ff-text)] placeholder:text-[var(--ff-text-muted)] focus:border-[var(--ff-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--ff-primary)]/20"
           />
-        }
-        filters={
-          <FilterBar>
-            <FilterSelect
-              name="status"
-              label="Estado"
-              options={CLIENT_STATUSES.map((s) => ({
-                value: s,
-                label: CLIENT_STATUS_LABELS[s],
-              }))}
-            />
-          </FilterBar>
-        }
-      />
+        </div>
+        <FilterPills name="status" options={filterOptions} />
+      </div>
 
-      <Card>
-        {result.items.length === 0 ? (
+      {result.items.length === 0 ? (
+        <div className="rounded-[var(--ff-radius-lg)] bg-[var(--ff-surface)] p-12 text-center">
           <EmptyState
-            icon={Users}
             title="Sin clientes"
             description={
-              q || status || assignedToId
-                ? "Ningún cliente coincide con los filtros aplicados."
+              q || status
+                ? "Ningún cliente coincide con el filtro."
                 : "Agrega el primer cliente para empezar."
             }
-            action={
-              can(ctx.role, "clients.create") &&
-              !q &&
-              !status &&
-              !assignedToId ? (
-                <ButtonLink href="/crm/clientes/nuevo" size="sm">
-                  <Plus className="size-4" aria-hidden />
-                  Agregar cliente
-                </ButtonLink>
-              ) : null
-            }
           />
-        ) : (
-          <Table>
-            <THead>
-              <TR>
-                <TH>Nombre</TH>
-                <TH>Contacto</TH>
-                <TH>Origen</TH>
-                <TH>Servicios activos</TH>
-                <TH>Próxima acción</TH>
-                <TH>Estado</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {result.items.map((client) => {
-                const origin = originLabel(client.source, client.leadChannel);
-                const next = client.nextAction;
-                const overdue = next ? next.at.getTime() < now : false;
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {result.items.map((client) => {
+            const nextAction = client.nextAction;
+            const overdue = nextAction ? nextAction.at.getTime() < now : false;
+            const reviewDate = nextAction
+              ? formatDate(nextAction.at)
+              : undefined;
 
-                return (
-                  <TR
-                    key={client.id}
-                    className="transition-colors hover:bg-nav-hover"
-                  >
-                    <TD>
-                      <Link
-                        href={`/crm/clientes/${client.id}`}
-                        className="font-medium text-action-primary hover:text-action-secondary"
-                      >
-                        {clientFullName(client)}
-                      </Link>
-                      <p className="mt-0.5 font-mono text-[11px] text-text-secondary">
-                        {client.clientCode}
-                      </p>
-                    </TD>
-                    <TD>
-                      <div className="text-xs">
-                        {client.email ? (
-                          <span className="block text-text-secondary-strong">
-                            {client.email}
-                          </span>
-                        ) : null}
-                        {client.phone ? (
-                          <span className="block text-text-secondary">
-                            {client.phone}
-                          </span>
-                        ) : null}
-                        {!client.email && !client.phone ? (
-                          <span className="text-text-secondary">—</span>
-                        ) : null}
-                      </div>
-                    </TD>
-                    <TD className="max-w-[10rem]">
-                      {origin ? (
-                        <span className="line-clamp-2 text-xs text-text-secondary-strong">
-                          {origin}
-                        </span>
-                      ) : (
-                        <span className="text-text-secondary">—</span>
-                      )}
-                    </TD>
-                    <TD>
-                      {client.activeServices.length === 0 ? (
-                        <span className="text-text-secondary">—</span>
-                      ) : (
-                        <ul className="space-y-1">
-                          {client.activeServices.slice(0, 3).map((svc) => (
-                            <li key={`${svc.kind}-${svc.id}`} className="text-xs">
-                              <span className="font-medium text-text-primary">
-                                {svc.label}
-                              </span>
-                              <span className="block text-[11px] text-text-secondary">
-                                {svc.caseNumber}
-                                {svc.stageName ? ` · ${svc.stageName}` : ""}
-                              </span>
-                            </li>
-                          ))}
-                          {client.activeServices.length > 3 ? (
-                            <li className="text-[11px] text-text-secondary">
-                              +{client.activeServices.length - 3} más
-                            </li>
-                          ) : null}
-                        </ul>
-                      )}
-                    </TD>
-                    <TD className="whitespace-nowrap">
-                      {next ? (
-                        <div className="text-xs">
-                          <span
-                            className={
-                              overdue
-                                ? "font-medium tabular-nums text-danger"
-                                : "tabular-nums text-text-secondary-strong"
-                            }
-                          >
-                            {formatDate(next.at)}
-                          </span>
-                          <span className="mt-0.5 block text-[11px] text-text-secondary">
-                            {nextActionKindLabel(next.kind)}
-                            {next.kind !== "follow_up"
-                              ? ` · ${next.label}`
-                              : ""}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-text-secondary">—</span>
-                      )}
-                    </TD>
-                    <TD>
-                      <StatusPill domain="client" value={client.status} />
-                    </TD>
-                  </TR>
-                );
-              })}
-            </TBody>
-          </Table>
-        )}
-
-        <CursorPagination
-          pathname="/crm/clientes"
-          params={{
-            q,
-            status,
-            assignedTo: assignedToId,
-            back: firstParam(sp, "back"),
-          }}
-          cursor={cursor}
-          nextCursor={result.nextCursor}
-        />
-      </Card>
+            return (
+              <ClientRow
+                key={client.id}
+                id={client.id}
+                name={clientFullName(client)}
+                email={client.email ?? "Sin correo"}
+                status={client.status}
+                roundNumber={undefined}
+                reviewDate={reviewDate}
+                reportsCount={0}
+                overdue={overdue}
+              />
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

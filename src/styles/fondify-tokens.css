@@ -1,0 +1,183 @@
+/**
+ * Fondify Agency — Design Tokens
+ * Tokens específicos para el panel de agencia estilo Fondify
+ */
+
+:root {
+  /* ─── Color · marca ───────────────────────────────────────── */
+  --ff-brand: #1e34a4;
+  --ff-primary: #6e1ea3;
+  --ff-primary-hover: #5a1788;
+  --ff-primary-pressed: #4a126f;
+  --ff-primary-soft: #f0e8f6;
+  --ff-primary-muted: #c4a3da;
+  --ff-primary-tint: #faf7fc;
+
+  /* ─── Color · superficies ─────────────────────────────────── */
+  --ff-bg: #eef1f6;
+  --ff-bg-soft: #f8f9fb;
+  --ff-surface: #ffffff;
+  --ff-surface-raised: #ffffff;
+  --ff-sidebar: #ffffff;
+  --ff-topbar: #ffffff;
+
+  /* ─── Color · texto ───────────────────────────────────────── */
+  --ff-text: #0f172a;
+  --ff-text-secondary: #64748b;
+  --ff-text-muted: #94a3b8;
+  --ff-text-inverse: #ffffff;
+  --ff-text-link: var(--ff-primary);
+
+  /* ─── Color · bordes ──────────────────────────────────────── */
+  --ff-border: #e8edf3;
+  --ff-border-strong: #d1d7e0;
+  --ff-border-focus: var(--ff-primary);
+  --ff-border-dashed: #c5ced9;
+
+  /* ─── Color · status pills ────────────────────────────────── */
+  --ff-status-repair-bg: #fce7ea;
+  --ff-status-repair-fg: #bf4054;
+  --ff-status-repair-border: #e8a0ab;
+  
+  --ff-status-ready-bg: #e0efea;
+  --ff-status-ready-fg: #2f7a62;
+  --ff-status-ready-border: #9ec9b8;
+  
+  --ff-status-struct-bg: #f7f1d8;
+  --ff-status-struct-fg: #8a6a28;
+  --ff-status-struct-border: #e0c978;
+  
+  --ff-status-round-bg: #f0e8f6;
+  --ff-status-round-fg: #6e1ea3;
+  --ff-status-round-border: #c4a3da;
+  
+  --ff-status-neutral-bg: #f1f5f9;
+  --ff-status-neutral-fg: #64748b;
+  --ff-status-neutral-border: #d1d7e0;
+  
+  --ff-badge-nuevo-bg: #6e1ea3;
+  --ff-badge-nuevo-fg: #ffffff;
+  --ff-badge-beta-bg: #f97316;
+  --ff-badge-beta-fg: #ffffff;
+
+  /* ─── Color · acentos ─────────────────────────────────────── */
+  --ff-magenta: #fb7185;
+  --ff-magenta-soft: #ffe4e8;
+  --ff-warning-bg: #fff8e6;
+  --ff-warning-border: #f5d78a;
+  --ff-warning-fg: #8a6a28;
+  --ff-danger: #dc2626;
+  --ff-danger-soft: #fef2f2;
+  --ff-success: #16a34a;
+  --ff-orange-review: #ea580c;
+
+  /* ─── Color · overlay / modal ─────────────────────────────── */
+  --ff-overlay: rgba(15, 23, 42, 0.45);
+
+  /* ─── Tipografía ──────────────────────────────────────────── */
+  --ff-font-sans: "Inter", "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+  --ff-font-mono: "JetBrains Mono", "SF Mono", "Roboto Mono", ui-monospace, Menlo, Consolas, monospace;
+
+  --ff-fs-xs: 0.6875rem;   /* 11px · kickers ALLCAPS */
+  --ff-fs-sm: 0.8125rem;   /* 13px · meta, pills, sidebar */
+  --ff-fs-md: 0.875rem;    /* 14px · body */
+  --ff-fs-base: 0.9375rem; /* 15px · inputs / botones */
+  --ff-fs-lg: 1.125rem;    /* 18px · card titles */
+  --ff-fs-xl: 1.5rem;      /* 24px · page title */
+  --ff-fs-2xl: 1.875rem;   /* 30px · KPI value */
+  --ff-fs-3xl: 2.25rem;    /* 36px · hero / totals magenta */
+
+  --ff-fw-regular: 400;
+  --ff-fw-medium: 500;
+  --ff-fw-semibold: 600;
+  --ff-fw-bold: 700;
+
+  --ff-lh-tight: 1.2;
+  --ff-lh-snug: 1.35;
+  --ff-lh-normal: 1.5;
+
+  --ff-ls-kicker: 0.06em;
+  --ff-ls-tight: -0.01em;
+
+  /* ─── Radios ──────────────────────────────────────────────── */
+  --ff-radius-xs: 4px;
+  --ff-radius-sm: 6px;
+  --ff-radius-md: 10px;
+  --ff-radius-lg: 12px;
+  --ff-radius-xl: 16px;
+  --ff-radius-full: 9999px;
+
+  /* ─── Espaciado (escala 4px) ──────────────────────────────── */
+  --ff-space-0: 0;
+  --ff-space-1: 0.25rem;
+  --ff-space-2: 0.5rem;
+  --ff-space-3: 0.75rem;
+  --ff-space-4: 1rem;
+  --ff-space-5: 1.25rem;
+  --ff-space-6: 1.5rem;
+  --ff-space-8: 2rem;
+  --ff-space-10: 2.5rem;
+  --ff-space-12: 3rem;
+  --ff-space-16: 4rem;
+
+  /* ─── Layout shell ────────────────────────────────────────── */
+  --ff-sidebar-width: 240px;
+  --ff-topbar-height: 56px;
+  --ff-content-max: 1120px;
+  --ff-modal-width-sm: 420px;
+  --ff-modal-width-md: 560px;
+  --ff-modal-width-lg: 720px;
+
+  /* ─── Sombras ─────────────────────────────────────────────── */
+  --ff-shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --ff-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --ff-shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --ff-shadow-lg: 0 12px 32px rgba(15, 23, 42, 0.14), 0 4px 8px rgba(15, 23, 42, 0.06);
+  --ff-shadow-modal: 0 20px 48px rgba(15, 23, 42, 0.2);
+
+  /* ─── Z-index ─────────────────────────────────────────────── */
+  --ff-z-base: 0;
+  --ff-z-sticky: 100;
+  --ff-z-sidebar: 200;
+  --ff-z-topbar: 300;
+  --ff-z-dropdown: 400;
+  --ff-z-overlay: 500;
+  --ff-z-modal: 600;
+  --ff-z-toast: 700;
+
+  /* ─── Transiciones ────────────────────────────────────────── */
+  --ff-ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ff-duration-fast: 120ms;
+  --ff-duration: 180ms;
+}
+
+/* Utilidades tipográficas recurrentes */
+.ff-kicker {
+  font-family: var(--ff-font-sans);
+  font-size: var(--ff-fs-xs);
+  font-weight: var(--ff-fw-semibold);
+  letter-spacing: var(--ff-ls-kicker);
+  text-transform: uppercase;
+  color: var(--ff-text-muted);
+}
+
+.ff-mono {
+  font-family: var(--ff-font-mono);
+  font-size: var(--ff-fs-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.ff-page-title {
+  font-family: var(--ff-font-sans);
+  font-size: var(--ff-fs-xl);
+  font-weight: var(--ff-fw-bold);
+  color: var(--ff-text);
+  letter-spacing: var(--ff-ls-tight);
+  line-height: var(--ff-lh-tight);
+}
+
+.ff-page-subtitle {
+  font-size: var(--ff-fs-md);
+  color: var(--ff-text-secondary);
+  line-height: var(--ff-lh-normal);
+}

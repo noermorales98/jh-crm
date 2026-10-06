@@ -1,27 +1,29 @@
 "use client";
 
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 
 /**
  * Buscador que escribe el param `q` en la URL (client).
- * Navega al enviar (Enter o botón) y limpia cursor/back para reiniciar
- * la paginación. Conserva los demás filtros activos.
+ * Con `live` (default true) debounced ~300ms; Enter también aplica.
  */
 export function SearchInput({
   placeholder = "Buscar…",
   paramName = "q",
   defaultValue = "",
+  live = true,
 }: {
   placeholder?: string;
   paramName?: string;
   defaultValue?: string;
+  live?: boolean;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [value, setValue] = useState(defaultValue);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function navigate(next: string) {
     const sp = new URLSearchParams(searchParams.toString());
@@ -36,11 +38,22 @@ export function SearchInput({
     router.push(qs ? `${pathname}?${qs}` : pathname);
   }
 
+  useEffect(() => {
+    setValue(defaultValue);
+  }, [defaultValue]);
+
+  useEffect(() => {
+    return () => {
+      if (timer.current) clearTimeout(timer.current);
+    };
+  }, []);
+
   return (
     <form
       role="search"
       onSubmit={(e) => {
         e.preventDefault();
+        if (timer.current) clearTimeout(timer.current);
         navigate(value);
       }}
       className="relative"
@@ -52,7 +65,13 @@ export function SearchInput({
       <input
         type="search"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
+        onChange={(e) => {
+          const next = e.target.value;
+          setValue(next);
+          if (!live) return;
+          if (timer.current) clearTimeout(timer.current);
+          timer.current = setTimeout(() => navigate(next), 300);
+        }}
         placeholder={placeholder}
         aria-label={placeholder}
         className="block min-h-11 w-full rounded-full border border-border-subtle bg-surface-elevated py-2 pl-9 pr-10 text-[15px] text-ink placeholder:text-text-placeholder focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/30 sm:min-h-9 sm:w-80"
@@ -63,6 +82,7 @@ export function SearchInput({
           aria-label="Limpiar búsqueda"
           onClick={() => {
             setValue("");
+            if (timer.current) clearTimeout(timer.current);
             navigate("");
           }}
           className="absolute right-1.5 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-full text-text-secondary hover:bg-nav-hover hover:text-ink"

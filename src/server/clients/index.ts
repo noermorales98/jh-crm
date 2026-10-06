@@ -8,6 +8,11 @@ import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { resolveAssigneeForOrg } from "@/src/server/users";
+import {
+  clientStatusesForFondifyBucket,
+  LIST_DEFAULT_STATUSES,
+  type FondifyBucket,
+} from "@/src/lib/fondify/status";
 
 /**
  * Servicio de clientes. Toda query está scopeada por organizationId
@@ -33,6 +38,8 @@ export interface ClientCreateData {
 export interface ClientListFilters {
   q?: string;
   status?: ClientStatus;
+  /** Filtro Fondify: repair | struct | ready (mapea a ClientStatus[]). */
+  fondifyStatus?: "repair" | "struct" | "ready";
   assignedToId?: string;
   cursor?: string;
   limit?: number;
@@ -79,9 +86,17 @@ const CLIENT_LIST_SELECT = {
       nextReviewAt: true,
       serviceCaseId: true,
       stage: { select: { id: true, name: true, color: true } },
+      rounds: {
+        select: { roundNumber: true, status: true },
+        orderBy: { roundNumber: "desc" as const },
+        take: 1,
+      },
     },
     orderBy: { openedAt: "desc" as const },
     take: 6,
+  },
+  _count: {
+    select: { creditReports: true },
   },
   opportunities: {
     where: { stage: { notIn: ["WON", "LOST"] } },
@@ -127,7 +142,9 @@ function mapClientListItem(row: {
     nextReviewAt: Date | null;
     serviceCaseId: string | null;
     stage: { id: string; name: string; color: string } | null;
+    rounds: Array<{ roundNumber: number; status: string }>;
   }>;
+  _count: { creditReports: number };
   opportunities: Array<{
     id: string;
     stage: string;
@@ -148,7 +165,8 @@ function mapClientListItem(row: {
   createdAt: Date;
   assignedTo: { id: string; name: string | null; email: string | null } | null;
 }) {
-  const { sensitive, serviceCases, cases, opportunities, ...client } = row;
+  const { sensitive, serviceCases, cases, opportunities, _count, ...client } =
+    row;
 
   const activeServices: ClientListActiveService[] = [];
   const seenCaseNumbers = new Set<string>();
@@ -214,11 +232,18 @@ function mapClientListItem(row: {
   candidates.sort((a, b) => a.at.getTime() - b.at.getTime());
   const nextAction = candidates[0] ?? null;
 
+  const roundNumber =
+    cases.find((c) => c.rounds[0])?.rounds[0]?.roundNumber ?? null;
+  const primaryCaseId = cases[0]?.id ?? null;
+
   return {
     ...client,
     ssnMasked: sensitive?.ssnLast4 ? maskSSN(sensitive.ssnLast4) : null,
     activeServices,
     nextAction,
+    roundNumber,
+    primaryCaseId,
+    reportsCount: _count.creditReports,
   };
 }
 
@@ -385,9 +410,15 @@ export async function assignClient(
 
 export async function listClients(ctx: OrganizationContext, filters: ClientListFilters = {}) {
   const limit = Math.min(filters.limit ?? 20, 100);
+  const statusFilter = filters.fondifyStatus
+    ? { status: { in: clientStatusesForFondifyBucket(filters.fondifyStatus) } }
+    : filters.status
+      ? { status: filters.status }
+      : { status: { in: LIST_DEFAULT_STATUSES } };
+
   const where: Prisma.ClientWhereInput = {
     organizationId: ctx.organizationId,
-    ...(filters.status ? { status: filters.status } : {}),
+    ...statusFilter,
     ...(filters.assignedToId ? { assignedToId: filters.assignedToId } : {}),
     ...(filters.q
       ? {
@@ -417,6 +448,51 @@ export async function listClients(ctx: OrganizationContext, filters: ClientListF
     items: mapped,
     nextCursor: hasMore ? items[items.length - 1].id : null,
   };
+}
+
+export async function countClientsByFondifyBucket(
+  ctx: OrganizationContext,
+  q?: string,
+): Promise<Record<FondifyBucket | "all", number>> {
+  const qFilter = q
+    ? {
+        OR: [
+          { firstName: { contains: q } },
+          { lastName: { contains: q } },
+          { email: { contains: q } },
+          { phone: { contains: q } },
+          { clientCode: { contains: q } },
+        ],
+      }
+    : {};
+
+  const base = { organizationId: ctx.organizationId, ...qFilter };
+
+  const [all, repair, struct, ready] = await Promise.all([
+    prisma.client.count({
+      where: { ...base, status: { in: LIST_DEFAULT_STATUSES } },
+    }),
+    prisma.client.count({
+      where: {
+        ...base,
+        status: { in: clientStatusesForFondifyBucket("repair") },
+      },
+    }),
+    prisma.client.count({
+      where: {
+        ...base,
+        status: { in: clientStatusesForFondifyBucket("struct") },
+      },
+    }),
+    prisma.client.count({
+      where: {
+        ...base,
+        status: { in: clientStatusesForFondifyBucket("ready") },
+      },
+    }),
+  ]);
+
+  return { all, repair, struct, ready };
 }
 
 /**

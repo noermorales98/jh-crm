@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition, type ReactNode } from "react";
 import {
   ArrowLeft,
+  ChevronRight,
   FileText,
   Pencil,
   Trash2,
@@ -117,16 +118,16 @@ function Tile({
   href?: string;
 }) {
   const className =
-    "group flex min-h-[44px] items-start gap-3 rounded-surface bg-surface-app p-3.5 text-left transition-colors hover:bg-nav-hover active:bg-nav-active";
+    "group flex min-h-[72px] items-center gap-3 rounded-surface bg-surface-panel px-3.5 py-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:bg-surface-elevated active:bg-nav-hover";
   const body = (
     <>
       <span
-        className="flex size-10 shrink-0 items-center justify-center rounded-full bg-nav-hover text-action-primary transition-colors group-hover:bg-nav-active"
+        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-action-primary/10 text-action-primary"
         aria-hidden
       >
         <Icon className="size-[18px]" strokeWidth={1.75} />
       </span>
-      <span className="min-w-0 flex-1 pt-0.5">
+      <span className="min-w-0 flex-1">
         <span className="flex items-center gap-2">
           <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
             {title}
@@ -141,6 +142,10 @@ function Tile({
           {subtitle}
         </span>
       </span>
+      <ChevronRight
+        className="size-4 shrink-0 text-text-secondary opacity-50 transition-opacity group-hover:opacity-100"
+        aria-hidden
+      />
     </>
   );
   if (href) {
@@ -395,19 +400,14 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         />
       </div>
 
-      <section className="space-y-6">
-        <div>
-          <h2 className="mb-1 text-[20px] font-semibold tracking-[-0.02em] text-ink">
-            Action Center
-          </h2>
-          <p className="text-[13px] text-text-secondary">
-            Herramientas para analizar el caso y cerrar la venta.
-          </p>
-        </div>
+      <section className="space-y-5">
+        <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-ink">
+          Action Center
+        </h2>
 
-        <div className="space-y-3">
+        <div className="space-y-5">
           <div>
-            <p className="mb-2 text-[13px] font-semibold text-ink">
+            <p className="mb-2.5 px-0.5 text-[13px] font-medium text-text-secondary">
               1 · Analiza y muestra el valor
             </p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -457,7 +457,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           </div>
 
           <div>
-            <p className="mb-2 text-[13px] font-semibold text-ink">
+            <p className="mb-2.5 px-0.5 text-[13px] font-medium text-text-secondary">
               2 · Cierra la venta
             </p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">

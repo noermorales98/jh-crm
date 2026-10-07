@@ -3,6 +3,7 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { play } from "cuelume";
+import { Package } from "lucide-react";
 import {
   Alert,
   Button,
@@ -38,11 +39,15 @@ export function CreateCaseButton({
   stages,
   services,
   members,
+  menuItem = false,
+  label = "Nuevo expediente",
 }: {
   clientId: string;
   stages?: StageOption[];
   services?: ServiceOption[];
   members: { id: string; name: string }[];
+  menuItem?: boolean;
+  label?: string;
 }) {
   const router = useRouter();
   const options: ServiceOption[] = useMemo(
@@ -99,9 +104,24 @@ export function CreateCaseButton({
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        Nuevo expediente
-      </Button>
+      {menuItem ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover"
+          onClick={() => setOpen(true)}
+        >
+          <Package
+            className="size-3.5 shrink-0 text-text-secondary"
+            aria-hidden
+          />
+          {label}
+        </button>
+      ) : (
+        <Button size="sm" onClick={() => setOpen(true)}>
+          {label}
+        </Button>
+      )}
       <Modal
         open={open}
         onClose={() => setOpen(false)}

@@ -1,20 +1,19 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import * as clientService from "@/src/server/clients";
 import * as taskService from "@/src/server/tasks";
 import {
+  clientFullName,
   firstParam,
   listMemberOptions,
   type SearchParams,
 } from "@/src/server/page-helpers";
 import { DomainError } from "@/src/server/errors";
-import { Card, CardHeader } from "@/src/components/ui";
 import { CreateTaskButton } from "@/src/components/tasks/create-task-button";
-import { TaskTable } from "@/src/components/tasks/task-table";
-import { ClientHeader } from "../client-header";
+import { ClientTasksPanel } from "@/src/components/clients/client-tasks-panel";
+import { AgencyClientShell } from "@/src/components/clients/agency-client-shell";
 import { getOrganizationTimezone } from "@/src/server/org-timezone";
 
 export const metadata: Metadata = {
@@ -60,78 +59,32 @@ export default async function ClientTasksPage({
   ]);
 
   return (
-    <div>
-      <ClientHeader
-        client={client}
-        actions={
-          canManage ? (
-            <CreateTaskButton
-              members={members}
-              fixedClientId={client.id}
-              fixedCaseId={scopedCase?.id}
-              label="Nueva tarea"
-            />
-          ) : null
-        }
-        meta={
-          cases.length > 1 ? (
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-text-secondary">Filtrar por servicio:</span>
-              <Link
-                href={`/crm/clientes/${client.id}/tareas`}
-                className={
-                  !scopedCase
-                    ? "font-medium text-action-primary"
-                    : "text-text-secondary hover:text-ink"
-                }
-              >
-                Todos
-              </Link>
-              {cases.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/crm/clientes/${client.id}/tareas?caseId=${c.id}`}
-                  className={
-                    scopedCase?.id === c.id
-                      ? "font-medium text-action-primary"
-                      : "font-mono text-text-secondary hover:text-ink"
-                  }
-                >
-                  {c.caseCode}
-                </Link>
-              ))}
-            </div>
-          ) : null
-        }
+    <AgencyClientShell
+      clientId={client.id}
+      fullName={clientFullName(client)}
+      status={client.status}
+      title="Tareas"
+      actions={
+        canManage ? (
+          <CreateTaskButton
+            members={members}
+            fixedClientId={client.id}
+            fixedCaseId={scopedCase?.id}
+            label="Nueva tarea"
+          />
+        ) : null
+      }
+    >
+      <ClientTasksPanel
+        clientId={client.id}
+        tasks={tasks.items}
+        members={members}
+        canManage={canManage}
+        timezone={timezone}
+        cases={cases.map((c) => ({ id: c.id, caseCode: c.caseCode }))}
+        scopedCaseId={scopedCase?.id ?? null}
+        filterBasePath={`/crm/clientes/${client.id}/tareas`}
       />
-
-      <Card>
-        <CardHeader
-          title="Tareas"
-          description={
-            scopedCase
-              ? `Solo tareas del expediente ${scopedCase.caseCode}.`
-              : "Pendientes y recientes ligadas a este cliente."
-          }
-        />
-        <TaskTable
-          tasks={tasks.items}
-          members={members}
-          canManage={canManage}
-          showLinks={false}
-          timezone={timezone}
-          emptyAction={
-            canManage ? (
-              <CreateTaskButton
-                members={members}
-                fixedClientId={client.id}
-                fixedCaseId={scopedCase?.id}
-                label="Crear tarea"
-              />
-            ) : undefined
-          }
-        />
-      </Card>
-    </div>
+    </AgencyClientShell>
   );
 }

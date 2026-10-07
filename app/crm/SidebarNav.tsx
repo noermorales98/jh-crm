@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Archive,
-  Briefcase,
   ClipboardList,
   CreditCard,
   Ellipsis,
@@ -40,7 +39,6 @@ const PRIMARY_ITEMS: readonly PrimaryItem[] = [
   { href: "/crm/tareas", label: "Pendientes", icon: ClipboardList },
   { href: "/crm/oportunidades", label: "Leads", icon: Target },
   { href: "/crm/clientes", label: "Clientes", icon: Users },
-  { href: "/crm/casos", label: "Casos", icon: Briefcase },
   { href: "/crm/pagos", label: "Cobrar", icon: CreditCard },
   { href: "/crm/mails", label: "Mensajes", icon: Inbox, mails: true },
   { href: "/crm/chats", label: "Chats", icon: MessageCircle, chats: true },

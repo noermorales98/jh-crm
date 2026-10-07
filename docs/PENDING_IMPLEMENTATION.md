@@ -12,6 +12,7 @@ Completado — ver **[UX_IMPROVEMENTS_2026-09-17.md](./UX_IMPROVEMENTS_2026-09-1
 
 ## Pendientes confirmados
 
+- **CL-004 Reportes / evolución del crédito:** sección `/crm/reportes` (o en ficha cliente) con puntajes actuales, delta vs reporte anterior e historial cronológico por cliente. Hoy vive en `/crm/casos/:id/credito`; Casos ya no es menú (hub en `/crm/clientes/:id`). Ver `04-BACKLOG.md` CL-004.
 - **AU-003:** SMS a clientes (aplazado).
 - **AU-006:** APIs automáticas de buró — **aplazado a futuro** (requiere proveedor de pago + compliance; no hay opción gratis usable. Mientras tanto: CR-PDF-001).
 - **AU-007:** afiliados/comisiones (P3).

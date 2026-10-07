@@ -2,18 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState, useTransition, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+  type ReactNode,
+} from "react";
 import {
   ArrowLeft,
-  ChevronRight,
-  FileText,
   Pencil,
   Trash2,
-  Upload,
   Merge,
   Copy,
   X,
-  FileBarChart,
   ListChecks,
   Search,
   TrendingUp,
@@ -22,6 +25,13 @@ import {
   Receipt,
   Scale,
   ClipboardList,
+  Briefcase,
+  CheckSquare,
+  CreditCard,
+  StickyNote,
+  MessageSquareQuote,
+  FileText,
+  MoreHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
@@ -35,6 +45,16 @@ import {
   mapClientToFondifyStatus,
   reviewInLabel,
 } from "@/src/lib/fondify/status";
+import { ClientQuickAdd } from "@/src/components/clients/client-quick-add";
+import type {
+  ServiceOption,
+  StageOption,
+} from "@/src/components/cases/create-case-button";
+import { CreateIntakeLinkCard } from "@/src/components/intake/create-intake-link-card";
+import {
+  ActivityTimeline,
+  type TimelineEvent,
+} from "@/src/components/clients/activity-timeline";
 
 export type AgencyClientDetailProps = {
   client: {
@@ -60,8 +80,42 @@ export type AgencyClientDetailProps = {
   reportHref: string | null;
   avanceHref: string | null;
   intakeUrl: string | null;
+  intakeEnabled: boolean;
+  intakeCases: { id: string; caseCode: string }[];
+  intakeLinks: {
+    id: string;
+    url: string;
+    caseCode: string | null;
+    maxUses: number;
+    useCount: number;
+    expiresAt: Date | string | null;
+    usable: boolean;
+    isActive: boolean;
+  }[];
   canEdit: boolean;
+  canIntake: boolean;
   salesScript: string;
+  quickAdd: {
+    members: { id: string; name: string }[];
+    stages: StageOption[];
+    services: ServiceOption[];
+    canDocument: boolean;
+    canPayment: boolean;
+    canReport: boolean;
+    canRound: boolean;
+    canService: boolean;
+  };
+  activityEvents: TimelineEvent[];
+  /** Paneles de operación (slots RSC) */
+  opsPanels: {
+    services: ReactNode;
+    tasks: ReactNode;
+    documents: ReactNode;
+    payments: ReactNode;
+    notes: ReactNode;
+    testimonials: ReactNode | null;
+    credit: ReactNode;
+  };
 };
 
 type Panel =
@@ -73,36 +127,19 @@ type Panel =
   | "analisis"
   | "score"
   | "fondeo"
-  | "script";
+  | "script"
+  | "services"
+  | "tasks"
+  | "documents"
+  | "payments"
+  | "notes"
+  | "testimonials"
+  | "credit"
+  | "activity"
+  | "more";
 
-function KpiCard({
-  label,
-  value,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  emphasis?: "danger" | "primary";
-}) {
-  return (
-    <div className="rounded-surface bg-surface-panel px-4 py-3">
-      <p className="text-[12px] font-medium text-text-secondary">{label}</p>
-      <p
-        className={`mt-1 text-[22px] font-semibold tabular-nums tracking-[-0.02em] ${
-          emphasis === "danger"
-            ? "text-danger-ink"
-            : emphasis === "primary"
-              ? "text-action-primary"
-              : "text-ink"
-        }`}
-      >
-        {value}
-      </p>
-    </div>
-  );
-}
-
-function Tile({
+/** Chip horizontal (Ahora / Cierre): cápsula con icono + título. */
+function ActionCapsule({
   title,
   subtitle,
   icon: Icon,
@@ -111,41 +148,37 @@ function Tile({
   href,
 }: {
   title: string;
-  subtitle: string;
+  subtitle?: string;
   icon: LucideIcon;
   badge?: string;
   onClick?: () => void;
   href?: string;
 }) {
   const className =
-    "group flex min-h-[72px] items-center gap-3 rounded-surface bg-surface-panel px-3.5 py-3 text-left shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:bg-surface-elevated active:bg-nav-hover";
+    "group flex min-w-[7.5rem] max-w-[10rem] shrink-0 flex-col items-center gap-1.5 rounded-[22px] bg-surface-panel px-3.5 py-3 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-colors hover:bg-surface-elevated active:bg-nav-hover sm:min-w-[8.25rem]";
   const body = (
     <>
       <span
-        className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-action-primary/10 text-action-primary"
+        className="relative flex size-10 items-center justify-center rounded-full bg-action-primary/10 text-action-primary"
         aria-hidden
       >
         <Icon className="size-[18px]" strokeWidth={1.75} />
-      </span>
-      <span className="min-w-0 flex-1">
-        <span className="flex items-center gap-2">
-          <span className="truncate text-[15px] font-semibold tracking-[-0.01em] text-ink">
-            {title}
+        {badge ? (
+          <span className="absolute -right-1 -top-1 rounded-full bg-action-primary px-1.5 py-px text-[9px] font-semibold leading-none text-action-primary-foreground">
+            {badge}
           </span>
-          {badge ? (
-            <Capsule tone="accent" size="sm">
-              {badge}
-            </Capsule>
-          ) : null}
-        </span>
-        <span className="mt-0.5 block text-[13px] leading-snug text-text-secondary">
-          {subtitle}
-        </span>
+        ) : null}
       </span>
-      <ChevronRight
-        className="size-4 shrink-0 text-text-secondary opacity-50 transition-opacity group-hover:opacity-100"
-        aria-hidden
-      />
+      <span className="w-full">
+        <span className="block truncate text-[13px] font-semibold tracking-[-0.01em] text-ink">
+          {title}
+        </span>
+        {subtitle ? (
+          <span className="mt-0.5 block truncate text-[11px] leading-snug text-text-secondary">
+            {subtitle}
+          </span>
+        ) : null}
+      </span>
     </>
   );
   if (href) {
@@ -159,6 +192,26 @@ function Tile({
     <button type="button" onClick={onClick} className={className}>
       {body}
     </button>
+  );
+}
+
+/** Track horizontal de cápsulas (Ahora / Cierre / Expediente). */
+function CapsuleGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <p className="mb-2 px-1 text-[12px] font-medium uppercase tracking-wide text-text-secondary">
+        {label}
+      </p>
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:thin]">
+        {children}
+      </div>
+    </div>
   );
 }
 
@@ -202,6 +255,8 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const [pending, startTransition] = useTransition();
   const [panel, setPanel] = useState<Panel>(null);
   const [error, setError] = useState<string | null>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
   const [utilPct, setUtilPct] = useState(45);
   const [fondeoForm, setFondeoForm] = useState({
     business: "",
@@ -215,6 +270,17 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const days = props.nextReviewAt ? daysUntil(props.nextReviewAt) : null;
   const soon = days != null && isReviewSoon(days);
   const showRepairBanner = bucket === "repair" && props.kpis.porArreglar > 0;
+
+  const activityPreview = props.activityEvents.slice(0, 5);
+
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onPointerDown(event: PointerEvent) {
+      if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [moreOpen]);
 
   const scoreOrder = useMemo(() => {
     const base = Math.max(100, Math.round(5000 * (utilPct / 100)));
@@ -287,8 +353,10 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               <FondifyStatusCapsule status={props.client.status} />
             </div>
             <p className="mt-1 text-[13px] text-text-secondary">
-              {props.client.email ?? "Sin correo"} · {props.reportsCount}{" "}
-              reportes
+              {props.client.email ?? "Sin correo"}
+              {props.documentsCount > 0
+                ? ` · ${props.documentsCount} docs`
+                : null}
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-[13px]">
               <Capsule tone="accent">
@@ -307,73 +375,117 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                   {reviewInLabel(days)}
                 </span>
               ) : null}
-              {props.caseId ? (
-                <Link
-                  href={`/crm/casos/${props.caseId}/rondas`}
-                  className="font-medium text-action-primary"
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <div ref={moreRef} className="relative">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setMoreOpen((v) => !v)}
+                aria-expanded={moreOpen}
+                aria-haspopup="menu"
+                aria-label="Más acciones"
+              >
+                <MoreHorizontal className="size-4" aria-hidden />
+              </Button>
+              {moreOpen ? (
+                <div
+                  role="menu"
+                  className="absolute right-0 z-40 mt-1 min-w-[11rem] overflow-hidden rounded-control border border-border-subtle bg-surface-panel py-1 shadow-lg"
                 >
-                  Abrir centro de rondas →
-                </Link>
+                  {props.canEdit ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        setPanel("edit");
+                      }}
+                    >
+                      <Pencil className="size-3.5 text-text-secondary" aria-hidden />
+                      Editar
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover"
+                    onClick={() => {
+                      setMoreOpen(false);
+                      setPanel("merge");
+                    }}
+                  >
+                    <Merge className="size-3.5 text-text-secondary" aria-hidden />
+                    Unir expedientes
+                  </button>
+                  {props.canEdit ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-danger-ink hover:bg-nav-hover"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        setPanel("delete");
+                      }}
+                    >
+                      <Trash2 className="size-3.5" aria-hidden />
+                      Eliminar
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
             </div>
+            <ClientQuickAdd
+              clientId={props.client.id}
+              caseId={props.caseId}
+              members={props.quickAdd.members}
+              stages={props.quickAdd.stages}
+              services={props.quickAdd.services}
+              intakeCases={props.intakeCases}
+              intakeLinks={props.intakeLinks}
+              intakeEnabled={props.intakeEnabled}
+              canDocument={props.quickAdd.canDocument}
+              canPayment={props.quickAdd.canPayment}
+              canReport={props.quickAdd.canReport}
+              canRound={props.quickAdd.canRound}
+              canService={props.quickAdd.canService}
+              canIntake={props.canIntake}
+            />
           </div>
         </div>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          <Link
-            href={`/crm/clientes/${props.client.id}/documentos`}
-            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-control bg-nav-hover px-3 text-[13px] font-medium text-ink transition-colors hover:bg-nav-active"
-          >
-            <FileText className="size-3.5" aria-hidden />
-            Documentos
-            <span className="rounded-full bg-surface-panel px-1.5 text-[11px] tabular-nums">
-              {props.documentsCount}
-            </span>
-          </Link>
-          {props.canEdit ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => setPanel("edit")}
-            >
-              <Pencil className="size-3.5" aria-hidden />
-              Editar
-            </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => setPanel("merge")}
-          >
-            <Merge className="size-3.5" aria-hidden />
-            Unir expedientes
-          </Button>
-          {props.canEdit ? (
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="text-danger-ink"
-              onClick={() => setPanel("delete")}
-            >
-              <Trash2 className="size-3.5" aria-hidden />
-              Eliminar
-            </Button>
-          ) : null}
-          {props.caseId ? (
-            <ButtonLinkish
-              href={`/crm/casos/${props.caseId}/credito`}
-              label="Subir reporte"
-              icon={<Upload className="size-3.5" aria-hidden />}
-            />
-          ) : (
-            <Button type="button" variant="primary" size="sm" disabled>
-              <Upload className="size-3.5" aria-hidden />
-              Subir reporte
-            </Button>
-          )}
+        <div
+          className="mt-3 grid grid-cols-3 gap-2 border-t border-border-subtle/70 pt-3"
+          role="group"
+          aria-label="Indicadores del cliente"
+        >
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium leading-none text-text-secondary">
+              Por arreglar
+            </p>
+            <p className="mt-1 truncate text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-danger-ink">
+              {props.kpis.porArreglar}
+            </p>
+          </div>
+          <div className="min-w-0 border-l border-border-subtle/70 pl-3 sm:pl-4">
+            <p className="text-[11px] font-medium leading-none text-text-secondary">
+              Fondeo
+            </p>
+            <p className="mt-1 truncate text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
+              {props.kpis.fondeoPotencial}
+            </p>
+          </div>
+          <div className="min-w-0 border-l border-border-subtle/70 pl-3 sm:pl-4">
+            <p className="text-[11px] font-medium leading-none text-text-secondary">
+              Asesoría
+            </p>
+            <p className="mt-1 truncate text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-action-primary">
+              {props.kpis.asesoriaHoy}
+            </p>
+          </div>
         </div>
       </div>
 
@@ -386,122 +498,182 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <KpiCard
-          label="Por arreglar"
-          value={String(props.kpis.porArreglar)}
-          emphasis="danger"
-        />
-        <KpiCard label="Fondeo potencial" value={props.kpis.fondeoPotencial} />
-        <KpiCard
-          label="Asesoría hoy"
-          value={props.kpis.asesoriaHoy}
-          emphasis="primary"
-        />
-      </div>
-
-      <section className="space-y-5">
+      <section className="space-y-4">
         <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-ink">
           Action Center
         </h2>
 
-        <div className="space-y-5">
-          <div>
-            <p className="mb-2.5 px-0.5 text-[13px] font-medium text-text-secondary">
-              1 · Analiza y muestra el valor
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <Tile
-                icon={FileBarChart}
-                title="Reporte de crédito"
-                subtitle="El documento completo"
-                href={props.reportHref ?? undefined}
-                onClick={props.reportHref ? undefined : () => setPanel("plan")}
-              />
-              <Tile
-                icon={ListChecks}
-                title="Plan de Acción"
-                subtitle="Lectura + pasos a dar"
-                badge="Nuevo"
-                onClick={() => setPanel("plan")}
-              />
-              <Tile
-                icon={Search}
-                title="Análisis"
-                subtitle="Cuentas negativas"
-                badge="Beta"
-                onClick={() => setPanel("analisis")}
-              />
-              <Tile
-                icon={TrendingUp}
-                title="Score Plan"
-                subtitle="Sube el puntaje ya"
-                badge="Beta"
-                onClick={() => setPanel("score")}
-              />
-              <Tile
-                icon={Calculator}
-                title="Fondeo"
-                subtitle="Cuánto puede conseguir"
-                onClick={() => setPanel("fondeo")}
-              />
-              <Tile
-                icon={GitCompare}
-                title="Avance"
-                subtitle="Progreso por rondas"
-                badge="Beta"
-                href={props.avanceHref ?? undefined}
-                onClick={props.avanceHref ? undefined : () => setPanel("plan")}
-              />
-            </div>
-          </div>
+        <CapsuleGroup label="Ahora">
+          <ActionCapsule
+            icon={ListChecks}
+            title="Plan de Acción"
+            subtitle="Pasos a dar"
+            badge="Nuevo"
+            onClick={() => setPanel("plan")}
+          />
+          <ActionCapsule
+            icon={Search}
+            title="Análisis"
+            subtitle={
+              props.kpis.porArreglar > 0
+                ? `${props.kpis.porArreglar} negativos`
+                : "Negativos"
+            }
+            onClick={() => setPanel("analisis")}
+          />
+          <ActionCapsule
+            icon={TrendingUp}
+            title="Score Plan"
+            subtitle="Sube el puntaje"
+            onClick={() => setPanel("score")}
+          />
+          <ActionCapsule
+            icon={Calculator}
+            title="Fondeo"
+            subtitle="Estimado"
+            onClick={() => setPanel("fondeo")}
+          />
+          <ActionCapsule
+            icon={GitCompare}
+            title="Crédito"
+            subtitle={
+              props.roundNumber != null
+                ? `Ronda ${props.roundNumber}`
+                : `${props.reportsCount} reportes`
+            }
+            onClick={() => setPanel("credit")}
+          />
+        </CapsuleGroup>
 
-          <div>
-            <p className="mb-2.5 px-0.5 text-[13px] font-medium text-text-secondary">
-              2 · Cierra la venta
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              <Tile
-                icon={Receipt}
-                title="Cotización"
-                subtitle="Propuesta y envío"
-                href={props.quoteHref}
-              />
-              <Tile
-                icon={Scale}
-                title="Contrato"
-                subtitle="Acuerdo y firma"
-                href={props.contractHref}
-              />
-              <Tile
-                icon={ClipboardList}
-                title="Formulario de Iniciación"
-                subtitle={props.intakeUrl ? "Copiar / enviar" : "Sin enlace"}
-                onClick={() => setPanel("script")}
-              />
-            </div>
-          </div>
-        </div>
+        <CapsuleGroup label="Cierre">
+          <ActionCapsule
+            icon={Receipt}
+            title="Cotización"
+            subtitle="Propuesta"
+            href={props.quoteHref}
+          />
+          <ActionCapsule
+            icon={Scale}
+            title="Contrato"
+            subtitle="Firma"
+            href={props.contractHref}
+          />
+          <ActionCapsule
+            icon={ClipboardList}
+            title="Iniciación"
+            subtitle={
+              props.intakeUrl
+                ? "Copiar enlace"
+                : props.intakeEnabled
+                  ? "Generar"
+                  : "Sin enlace"
+            }
+            onClick={() => setPanel("script")}
+          />
+        </CapsuleGroup>
 
-        <div className="rounded-surface bg-surface-panel p-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
+        <CapsuleGroup label="Expediente">
+          <ActionCapsule
+            icon={Briefcase}
+            title="Servicios"
+            subtitle="Expedientes"
+            onClick={() => setPanel("services")}
+          />
+          <ActionCapsule
+            icon={CheckSquare}
+            title="Tareas"
+            subtitle="Pendientes"
+            onClick={() => setPanel("tasks")}
+          />
+          <ActionCapsule
+            icon={FileText}
+            title="Documentos"
+            subtitle={
+              props.documentsCount > 0
+                ? `${props.documentsCount} archivo${props.documentsCount === 1 ? "" : "s"}`
+                : "Archivos"
+            }
+            onClick={() => setPanel("documents")}
+          />
+          <ActionCapsule
+            icon={CreditCard}
+            title="Pagos"
+            subtitle="Cobros"
+            onClick={() => setPanel("payments")}
+          />
+          <ActionCapsule
+            icon={StickyNote}
+            title="Notas"
+            subtitle="Internas"
+            onClick={() => setPanel("notes")}
+          />
+          {props.opsPanels.testimonials ? (
+            <ActionCapsule
+              icon={MessageSquareQuote}
+              title="Testimonios"
+              subtitle="Éxito"
+              onClick={() => setPanel("testimonials")}
+            />
+          ) : null}
+        </CapsuleGroup>
+
+        <details className="group rounded-surface bg-surface-panel">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
             <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
               ¿Qué le digo al cliente?
             </h3>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={copyScript}
-            >
-              <Copy className="size-3.5" aria-hidden />
-              Copiar guion
-            </Button>
+            <span className="text-[13px] font-medium text-action-primary group-open:hidden">
+              Ver guion
+            </span>
+            <span className="hidden text-[13px] font-medium text-action-primary group-open:inline">
+              Ocultar
+            </span>
+          </summary>
+          <div className="border-t border-border-subtle px-4 pb-4 pt-3">
+            <div className="mb-2 flex justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={copyScript}
+              >
+                <Copy className="size-3.5" aria-hidden />
+                Copiar guion
+              </Button>
+            </div>
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary">
+              {props.salesScript}
+            </p>
           </div>
-          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary">
-            {props.salesScript}
-          </p>
+        </details>
+      </section>
+
+      <section id="actividad" className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-ink">
+            Actividad
+          </h2>
+          {props.activityEvents.length > 5 ? (
+            <button
+              type="button"
+              className="text-[13px] font-medium text-action-primary"
+              onClick={() => setPanel("activity")}
+            >
+              Ver toda
+            </button>
+          ) : null}
         </div>
+        {activityPreview.length === 0 ? (
+          <p className="rounded-surface bg-surface-panel px-4 py-6 text-center text-[13px] text-text-secondary">
+            Aún no hay actividad registrada.
+          </p>
+        ) : (
+          <ActivityTimeline
+            clientId={props.client.id}
+            clientName={props.fullName}
+            events={activityPreview}
+          />
+        )}
       </section>
 
       <AgencyModal
@@ -589,7 +761,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
       >
         <p className="text-[13px] text-text-secondary">
           Unir expedientes aún no está implementado en jh-crm. Esta UI queda
-          lista; el merge server llega en un paso posterior (TODO tipado).
+          lista; el merge server llega en un paso posterior.
         </p>
       </AgencyModal>
 
@@ -606,11 +778,30 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             <Button type="button" variant="primary" className="w-full" onClick={copyIntake}>
               Copiar enlace
             </Button>
+            {props.intakeEnabled && props.canIntake ? (
+              <div className="border-t border-border-subtle pt-3">
+                <p className="mb-2 text-[12px] text-text-secondary">
+                  O genera un enlace nuevo:
+                </p>
+                <CreateIntakeLinkCard
+                  clientId={props.client.id}
+                  cases={props.intakeCases}
+                  existingLinks={props.intakeLinks}
+                  compact
+                />
+              </div>
+            ) : null}
           </div>
+        ) : props.intakeEnabled && props.canIntake ? (
+          <CreateIntakeLinkCard
+            clientId={props.client.id}
+            cases={props.intakeCases}
+            existingLinks={props.intakeLinks}
+          />
         ) : (
           <p className="text-[13px] text-text-secondary">
-            No hay IntakeLink activo para este cliente. Créalo desde documentos
-            o intake cuando FEATURE_PUBLIC_INTAKE esté activo.
+            No hay enlace de intake activo. Activa FEATURE_PUBLIC_INTAKE o
+            genera uno con Añadir → Solicitar información.
           </p>
         )}
       </AgencyModal>
@@ -666,16 +857,17 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             ) : (
               <p className="rounded-surface bg-surface-panel px-4 py-4 text-[13px] text-text-secondary">
                 Hay {props.kpis.porArreglar} ítems negativos en el caso. Abre el
-                reporte o el caso de crédito para ver acreedor, buró y disputa.
+                crédito para ver acreedor, buró y disputa.
                 {props.caseId ? (
                   <>
                     {" "}
-                    <Link
-                      href={`/crm/casos/${props.caseId}/credito`}
+                    <button
+                      type="button"
                       className="font-medium text-action-primary"
+                      onClick={() => setPanel("credit")}
                     >
-                      Ir al crédito →
-                    </Link>
+                      Ir a crédito y rondas →
+                    </button>
                   </>
                 ) : null}
               </p>
@@ -699,9 +891,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 onChange={(e) => setUtilPct(Number(e.target.value))}
                 className="w-full"
               />
-              <span className="text-text-secondary">
-                Targets: 30% / 10%
-              </span>
+              <span className="text-text-secondary">Targets: 30% / 10%</span>
             </label>
             <div className="space-y-2">
               <p className="text-[13px] font-semibold text-ink">
@@ -790,26 +980,51 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           </div>
         </InlinePanel>
       ) : null}
-    </div>
-  );
-}
 
-function ButtonLinkish({
-  href,
-  label,
-  icon,
-}: {
-  href: string;
-  label: string;
-  icon: ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-control bg-action-primary px-3 text-[13px] font-semibold text-action-primary-foreground transition-colors hover:bg-action-secondary"
-    >
-      {icon}
-      {label}
-    </Link>
+      {panel === "services" ? (
+        <InlinePanel title="Servicios" onClose={() => setPanel(null)}>
+          {props.opsPanels.services}
+        </InlinePanel>
+      ) : null}
+      {panel === "tasks" ? (
+        <InlinePanel title="Tareas" onClose={() => setPanel(null)}>
+          {props.opsPanels.tasks}
+        </InlinePanel>
+      ) : null}
+      {panel === "documents" ? (
+        <InlinePanel title="Documentos" onClose={() => setPanel(null)}>
+          {props.opsPanels.documents}
+        </InlinePanel>
+      ) : null}
+      {panel === "payments" ? (
+        <InlinePanel title="Pagos" onClose={() => setPanel(null)}>
+          {props.opsPanels.payments}
+        </InlinePanel>
+      ) : null}
+      {panel === "notes" ? (
+        <InlinePanel title="Notas" onClose={() => setPanel(null)}>
+          {props.opsPanels.notes}
+        </InlinePanel>
+      ) : null}
+      {panel === "testimonials" && props.opsPanels.testimonials ? (
+        <InlinePanel title="Testimonios" onClose={() => setPanel(null)}>
+          {props.opsPanels.testimonials}
+        </InlinePanel>
+      ) : null}
+      {panel === "credit" ? (
+        <InlinePanel title="Crédito y rondas" onClose={() => setPanel(null)}>
+          {props.opsPanels.credit}
+        </InlinePanel>
+      ) : null}
+      {panel === "activity" ? (
+        <InlinePanel title="Actividad" onClose={() => setPanel(null)}>
+          <ActivityTimeline
+            clientId={props.client.id}
+            clientName={props.fullName}
+            events={props.activityEvents}
+          />
+        </InlinePanel>
+      ) : null}
+    </div>
   );
 }

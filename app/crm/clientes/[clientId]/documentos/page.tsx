@@ -6,10 +6,9 @@ import * as clientService from "@/src/server/clients";
 import * as documentService from "@/src/server/documents";
 import { isStorageConfigured } from "@/src/lib/storage/s3";
 import { DomainError } from "@/src/server/errors";
-import { Alert, Card, CardBody, CardHeader } from "@/src/components/ui";
-import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
-import { DocumentTable } from "@/src/components/documents/document-table";
-import { ClientHeader } from "../client-header";
+import { clientFullName } from "@/src/server/page-helpers";
+import { ClientDocumentsPanel } from "@/src/components/clients/client-documents-panel";
+import { AgencyClientShell } from "@/src/components/clients/agency-client-shell";
 
 export const metadata: Metadata = {
   title: "Documentos del cliente",
@@ -33,39 +32,24 @@ export default async function ClientDocumentsPage({
 
   const { client } = detail;
   const canUpload = can(ctx.role, "documents.upload");
-  const storageReady = isStorageConfigured();
   const documents = await documentService.listDocuments(ctx, {
     clientId: client.id,
     limit: 50,
   });
 
   return (
-    <div>
-      <ClientHeader client={client} />
-
-      <Card className="overflow-hidden">
-        <CardHeader
-          title="Documentos"
-          description={`${documents.items.length} archivo${documents.items.length === 1 ? "" : "s"} del cliente.`}
-        />
-        <CardBody className="space-y-3 px-4 py-3">
-          {storageReady ? (
-            canUpload ? (
-              <UploadDocumentButton clientId={client.id} />
-            ) : (
-              <Alert tone="info">
-                Tu rol es de solo lectura: no puedes subir documentos.
-              </Alert>
-            )
-          ) : (
-            <Alert tone="info">
-              El almacenamiento no está configurado. Puedes ver la lista, pero
-              no subir archivos.
-            </Alert>
-          )}
-        </CardBody>
-        <DocumentTable documents={documents.items} canDelete={canUpload} />
-      </Card>
-    </div>
+    <AgencyClientShell
+      clientId={client.id}
+      fullName={clientFullName(client)}
+      status={client.status}
+      title="Documentos"
+    >
+      <ClientDocumentsPanel
+        clientId={client.id}
+        documents={documents.items}
+        canUpload={canUpload}
+        storageReady={isStorageConfigured()}
+      />
+    </AgencyClientShell>
   );
 }

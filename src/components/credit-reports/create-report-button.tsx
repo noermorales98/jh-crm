@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { FileBarChart } from "lucide-react";
 import {
   Alert,
   Button,
@@ -24,7 +25,15 @@ type ScoreDraft = Record<(typeof BUREAUS)[number], string>;
  * Modal para registrar un reporte de crédito con scores por buró.
  * Los elementos de cuenta se añaden en el detalle del reporte.
  */
-export function CreateCreditReportButton({ caseId }: { caseId: string }) {
+export function CreateCreditReportButton({
+  caseId,
+  menuItem = false,
+  label = "Registrar reporte",
+}: {
+  caseId: string;
+  menuItem?: boolean;
+  label?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"INITIAL" | "UPDATE" | "MANUAL">("INITIAL");
@@ -81,9 +90,24 @@ export function CreateCreditReportButton({ caseId }: { caseId: string }) {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        Registrar reporte
-      </Button>
+      {menuItem ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover"
+          onClick={() => setOpen(true)}
+        >
+          <FileBarChart
+            className="size-3.5 shrink-0 text-text-secondary"
+            aria-hidden
+          />
+          {label}
+        </button>
+      ) : (
+        <Button size="sm" onClick={() => setOpen(true)}>
+          {label}
+        </Button>
+      )}
       <Modal
         open={open}
         onClose={() => setOpen(false)}

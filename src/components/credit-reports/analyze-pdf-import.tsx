@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { FileScan } from "lucide-react";
 import { Alert, Button, Field, Modal, Select } from "@/src/components/ui";
 import {
   listAnalyzableCreditPdfsAction,
@@ -22,7 +23,15 @@ type PdfOption = {
  * Elige PDF y encola análisis en segundo plano.
  * Redirige a la página de progreso y activa bloqueo de navegación.
  */
-export function AnalyzePdfImportButton({ caseId }: { caseId: string }) {
+export function AnalyzePdfImportButton({
+  caseId,
+  menuItem = false,
+  label = "Analizar PDF",
+}: {
+  caseId: string;
+  menuItem?: boolean;
+  label?: string;
+}) {
   const router = useRouter();
   const { engageLock, isLocked } = useCreditPdfImportLock();
   const [open, setOpen] = useState(false);
@@ -70,25 +79,48 @@ export function AnalyzePdfImportButton({ caseId }: { caseId: string }) {
     });
   }
 
+  function openModal() {
+    setError(null);
+    setOpen(true);
+  }
+
   return (
     <>
-      <Button
-        type="button"
-        variant="secondary"
-        size="sm"
-        disabled={isLocked}
-        title={
-          isLocked
-            ? "Hay un análisis en curso; no puedes iniciar otro"
-            : undefined
-        }
-        onClick={() => {
-          setError(null);
-          setOpen(true);
-        }}
-      >
-        Analizar PDF
-      </Button>
+      {menuItem ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover disabled:cursor-not-allowed disabled:text-text-placeholder"
+          disabled={isLocked}
+          title={
+            isLocked
+              ? "Hay un análisis en curso; no puedes iniciar otro"
+              : undefined
+          }
+          onClick={openModal}
+        >
+          <FileScan
+            className="size-3.5 shrink-0 text-text-secondary"
+            aria-hidden
+          />
+          {label}
+        </button>
+      ) : (
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={isLocked}
+          title={
+            isLocked
+              ? "Hay un análisis en curso; no puedes iniciar otro"
+              : undefined
+          }
+          onClick={openModal}
+        >
+          {label}
+        </Button>
+      )}
       <Modal
         open={open}
         onClose={() => {

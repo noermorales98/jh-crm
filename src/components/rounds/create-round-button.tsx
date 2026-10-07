@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { RefreshCcw } from "lucide-react";
 import {
   Alert,
   Button,
@@ -17,7 +18,15 @@ import { playActionResult } from "@/src/lib/cuelume";
  * Botón + modal para crear una ronda de disputa en un caso abierto.
  * Los elementos disputados se seleccionan después en el detalle de la ronda.
  */
-export function CreateRoundButton({ caseId }: { caseId: string }) {
+export function CreateRoundButton({
+  caseId,
+  menuItem = false,
+  label = "Nueva ronda",
+}: {
+  caseId: string;
+  menuItem?: boolean;
+  label?: string;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState("");
@@ -50,9 +59,24 @@ export function CreateRoundButton({ caseId }: { caseId: string }) {
 
   return (
     <>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        Nueva ronda
-      </Button>
+      {menuItem ? (
+        <button
+          type="button"
+          role="menuitem"
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover"
+          onClick={() => setOpen(true)}
+        >
+          <RefreshCcw
+            className="size-3.5 shrink-0 text-text-secondary"
+            aria-hidden
+          />
+          {label}
+        </button>
+      ) : (
+        <Button size="sm" onClick={() => setOpen(true)}>
+          {label}
+        </Button>
+      )}
       <Modal
         open={open}
         onClose={() => setOpen(false)}

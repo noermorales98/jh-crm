@@ -105,9 +105,21 @@ export async function ClientDetailPanel({
             <ClientQuickAdd
               clientId={client.id}
               caseId={overview.activeService?.creditCaseId ?? null}
-              serviceCaseId={overview.activeService?.serviceCaseId ?? null}
               members={members}
-              canTask={can(ctx.role, "tasks.manage")}
+              stages={stages.map((s) => ({
+                id: s.id,
+                name: s.name,
+                color: s.color,
+              }))}
+              services={verticalServices}
+              intakeCases={overview.services
+                .filter((s) => s.creditCaseId != null)
+                .map((s) => ({
+                  id: s.creditCaseId!,
+                  caseCode: s.caseCode,
+                }))}
+              intakeLinks={intakeLinks}
+              intakeEnabled={intakeEnabled}
               canDocument={can(ctx.role, "documents.upload")}
               canPayment={can(ctx.role, "payments.register")}
               canReport={
@@ -118,11 +130,8 @@ export async function ClientDetailPanel({
                 can(ctx.role, "rounds.manage") &&
                 overview.activeService?.kind === "CREDIT_REPAIR"
               }
-              canNote={
-                can(ctx.role, "clients.edit") || can(ctx.role, "cases.manage")
-              }
-              canServiceNote={can(ctx.role, "cases.manage")}
-              canQuote={can(ctx.role, "quotes.manage")}
+              canService={canManageCases}
+              canIntake={canEdit || canManageCases}
             />
             {canEdit ? (
               <ClientActions

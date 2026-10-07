@@ -245,20 +245,22 @@ Mostrar:
 ## CL-002 — Ficha de Cliente
 **Prioridad:** P0
 
-**Estado:** DONE (2026-09-10). Tabs: Resumen · Servicios · Actividad · Tareas · Documentos · Pagos · Notas · Testimonios. `/casos` redirige a `/servicios`. Expediente (datos/perfil) queda como enlace secundario. Testimonios implementados en Fase 6 (2026-09-15): captura, consentimiento y revisión/publicación manual.
+**Estado:** DONE (2026-09-10; hub Fondify 2026-10-06). Resumen = Action Center + botón Añadir + Actividad al final. Secciones operativas (Servicios, Tareas, Documentos, Pagos, Notas, Testimonios, Rondas) viven en el Action Center y en subrutas. Casos ya no es ítem de menú (`/crm/casos` → `/crm/clientes`); rutas técnicas `/crm/casos/:id/*` siguen activas. Testimonios: Fase 6 (2026-09-15).
 
-Tabs:
+---
 
-```text
-Resumen
-Servicios
-Actividad
-Tareas
-Documentos
-Pagos
-Notas
-Testimonios
-```
+## CL-004 — Reportes de crédito por cliente (evolución)
+**Prioridad:** P1
+
+**Estado:** TODO (backlog — otro sprint)
+
+Nueva sección **Reportes** (`/crm/reportes` o pestaña en ficha cliente) donde cada cliente tenga su reporte agregado. Mover aquí la **Evolución del crédito** (puntajes actuales, diferencia vs reporte anterior, historial cronológico) que hoy vive en `/crm/casos/:id/credito`.
+
+**Acceptance Criteria:**
+
+- nav o acceso a Reportes sin depender de la sección Casos;
+- un cliente → su evolución de scores e historial;
+- delta respecto al reporte anterior visible.
 
 ---
 

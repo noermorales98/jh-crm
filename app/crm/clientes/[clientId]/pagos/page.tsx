@@ -1,35 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Wallet } from "lucide-react";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import * as clientService from "@/src/server/clients";
 import * as paymentService from "@/src/server/payments";
 import {
+  clientFullName,
   firstParam,
   type SearchParams,
 } from "@/src/server/page-helpers";
 import { DomainError } from "@/src/server/errors";
-import {
-  ButtonLink,
-  Card,
-  CardHeader,
-  EmptyState,
-  StatusPill,
-  Table,
-  TBody,
-  TD,
-  TH,
-  THead,
-  TR,
-} from "@/src/components/ui";
-import { formatDate, formatMoney } from "@/src/lib/format";
-import {
-  PAYMENT_METHOD_LABELS,
-  labelFor,
-} from "@/src/lib/labels";
-import { ClientHeader } from "../client-header";
+import { ButtonLink } from "@/src/components/ui";
+import { ClientPaymentsPanel } from "@/src/components/clients/client-payments-panel";
+import { AgencyClientShell } from "@/src/components/clients/agency-client-shell";
 
 export const metadata: Metadata = {
   title: "Pagos del cliente",
@@ -73,123 +56,27 @@ export default async function ClientPaymentsPage({
     : `/crm/pagos/nuevo?clientId=${client.id}`;
 
   return (
-    <div>
-      <ClientHeader
-        client={client}
-        actions={
-          canRegister ? (
-            <ButtonLink href={nuevoHref} size="sm">
-              Registrar pago
-            </ButtonLink>
-          ) : null
-        }
-        meta={
-          cases.length > 1 ? (
-            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-              <span className="text-text-secondary">Filtrar por servicio:</span>
-              <Link
-                href={`/crm/clientes/${client.id}/pagos`}
-                className={
-                  !scopedCase
-                    ? "font-medium text-action-primary"
-                    : "text-text-secondary hover:text-ink"
-                }
-              >
-                Todos
-              </Link>
-              {cases.map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/crm/clientes/${client.id}/pagos?caseId=${c.id}`}
-                  className={
-                    scopedCase?.id === c.id
-                      ? "font-medium text-action-primary"
-                      : "font-mono text-text-secondary hover:text-ink"
-                  }
-                >
-                  {c.caseCode}
-                </Link>
-              ))}
-            </div>
-          ) : null
-        }
+    <AgencyClientShell
+      clientId={client.id}
+      fullName={clientFullName(client)}
+      status={client.status}
+      title="Pagos"
+      actions={
+        canRegister ? (
+          <ButtonLink href={nuevoHref} size="sm">
+            Registrar pago
+          </ButtonLink>
+        ) : null
+      }
+    >
+      <ClientPaymentsPanel
+        clientId={client.id}
+        payments={payments.items}
+        canRegister={canRegister}
+        cases={cases.map((c) => ({ id: c.id, caseCode: c.caseCode }))}
+        scopedCaseId={scopedCase?.id ?? null}
+        filterBasePath={`/crm/clientes/${client.id}/pagos`}
       />
-
-      <Card>
-        <CardHeader
-          title="Pagos"
-          description={
-            scopedCase
-              ? `Solo pagos del expediente ${scopedCase.caseCode}.`
-              : "Historial de pagos asociados a este cliente."
-          }
-        />
-        {payments.items.length === 0 ? (
-          <EmptyState
-            icon={Wallet}
-            title="Sin pagos"
-            description="Aún no hay pagos registrados para este alcance."
-            action={
-              canRegister ? (
-                <ButtonLink href={nuevoHref} size="sm">
-                  Registrar pago
-                </ButtonLink>
-              ) : null
-            }
-          />
-        ) : (
-          <Table>
-            <THead>
-              <TR>
-                <TH>Monto</TH>
-                <TH>Método</TH>
-                <TH>Estado</TH>
-                <TH>Vence</TH>
-                <TH>Recibido</TH>
-                <TH>Caso</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {payments.items.map((p) => (
-                <TR key={p.id} className="transition-colors hover:bg-nav-hover">
-                  <TD>
-                    <Link
-                      href={`/crm/pagos?id=${p.id}`}
-                      className="font-medium tabular-nums text-action-primary hover:text-action-secondary"
-                    >
-                      {formatMoney(p.amount, p.currency)}
-                    </Link>
-                  </TD>
-                  <TD className="text-xs text-text-secondary-strong">
-                    {labelFor(PAYMENT_METHOD_LABELS, p.method)}
-                  </TD>
-                  <TD>
-                    <StatusPill domain="payment" value={p.status} />
-                  </TD>
-                  <TD className="whitespace-nowrap text-text-secondary">
-                    {p.dueAt ? formatDate(p.dueAt) : "—"}
-                  </TD>
-                  <TD className="whitespace-nowrap text-text-secondary">
-                    {p.receivedAt ? formatDate(p.receivedAt) : "—"}
-                  </TD>
-                  <TD>
-                    {p.case ? (
-                      <Link
-                        href={`/crm/casos/${p.case.id}`}
-                        className="font-mono text-xs text-action-primary hover:text-action-secondary"
-                      >
-                        {p.case.caseCode}
-                      </Link>
-                    ) : (
-                      <span className="text-text-secondary">—</span>
-                    )}
-                  </TD>
-                </TR>
-              ))}
-            </TBody>
-          </Table>
-        )}
-      </Card>
-    </div>
+    </AgencyClientShell>
   );
 }

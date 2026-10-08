@@ -1,15 +1,27 @@
 import { NextResponse } from "next/server";
-import { apiErrorResponse } from "@/src/server/http";
+import {
+  apiErrorResponse,
+  clientIpFromRequest,
+} from "@/src/server/http";
 import { contactFormSchema } from "@/src/lib/validation/contact";
-import { createMathChallenge, verifyMathChallenge } from "@/src/lib/contact/challenge";
+import {
+  createMathChallenge,
+  verifyMathChallenge,
+} from "@/src/lib/contact/challenge";
 import { submitContactLead } from "@/src/server/contact";
+import {
+  assertRateLimit,
+  sweepOldRateLimitBuckets,
+} from "@/src/server/security/rate-limit";
 
 /**
- * GET  /api/public/contact — reto anti-robot (token firmado; la UI pide un desliz).
+ * GET  /api/public/contact — reto anti-robot (token firmado).
  * POST /api/public/contact — envío del formulario de `/`.
  *
- * Sin rate-limit: el reto firmado + honeypot bastan; limitar por IP bloqueaba
- * la carga del formulario (2 instancias + Strict Mode en dev).
+ * Rate limit solo en POST (IP + email). GET queda libre: limitar la
+ * carga del reto bloqueaba el formulario (Strict Mode / varias instancias).
+ * organizationId del body se ignora: el schema no lo admite y la org
+ * sale solo de PUBLIC_ORG_ID en el servidor.
  */
 export async function GET() {
   try {
@@ -26,6 +38,20 @@ export async function POST(request: Request) {
     if (body.website?.trim()) {
       return NextResponse.json({ ok: true });
     }
+
+    const ip = clientIpFromRequest(request);
+    const email = body.email.trim().toLowerCase();
+    await assertRateLimit({
+      key: `contact:post:ip:${ip}`,
+      limit: 20,
+      windowSeconds: 60 * 60,
+    });
+    await assertRateLimit({
+      key: `contact:post:email:${email}`,
+      limit: 10,
+      windowSeconds: 60 * 60,
+    });
+    sweepOldRateLimitBuckets();
 
     verifyMathChallenge(body.challengeToken, body.challengeAnswer);
     const result = await submitContactLead({

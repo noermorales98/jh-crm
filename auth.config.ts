@@ -1,5 +1,6 @@
 import type { NextAuthConfig } from "next-auth";
 import { NextResponse } from "next/server";
+import { isAnonymousPath } from "@/src/server/auth/public-paths";
 import { SESSION_MAX_AGE_SECONDS } from "@/src/server/auth/session-constants";
 
 /**
@@ -66,45 +67,13 @@ export const authConfig = {
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
 
-      // Siempre públicos: auth, endpoints públicos, cron, health y assets.
-      if (
-        pathname.startsWith("/api/auth") ||
-        pathname.startsWith("/api/public") ||
-        pathname.startsWith("/api/cron") ||
-        pathname.startsWith("/api/mails") ||
-        pathname === "/api/health" ||
-        pathname.startsWith("/_next") ||
-        pathname === "/favicon.ico" ||
-        /\.(?:svg|png|jpe?g|gif|webp|ico)$/i.test(pathname)
-      ) {
-        return true;
-      }
-
-      // Intake: la ruta es pública; la página/APIs responden 404 si el flag está off.
-      if (pathname.startsWith("/intake")) {
-        return true;
-      }
-
-      if (pathname === "/" || pathname === "/login" || pathname.startsWith("/login/")) {
-        return true;
-      }
-
-      // Páginas legales públicas (SPRINT 8).
-      if (
-        pathname === "/privacy" ||
-        pathname === "/terms" ||
-        pathname === "/cancellation" ||
-        pathname === "/refunds" ||
-        pathname === "/disclosures" ||
-        pathname === "/sms-terms"
-      ) {
+      // Públicos sin sesión (incluye webhook Stripe, /pay y /a). Ver public-paths.ts.
+      if (isAnonymousPath(pathname)) {
         return true;
       }
 
       // Portal de clientes (feature flag + audiencia distinta del staff).
-      if (pathname === "/portal/login" || pathname.startsWith("/portal/login/")) {
-        return true;
-      }
+      // /portal/login ya es anónimo vía isAnonymousPath.
       if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
         if (!isPortalFeatureOn()) {
           return NextResponse.redirect(new URL("/portal/login", request.nextUrl));

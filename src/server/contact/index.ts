@@ -50,13 +50,30 @@ function emptyToNull(v?: string | null) {
   return t.length ? t : null;
 }
 
-async function resolvePublicOrganizationId(): Promise<string> {
+const PUBLIC_FORM_UNAVAILABLE =
+  "El formulario no está disponible ahora. Inténtalo más tarde.";
+
+/** Lee PUBLIC_ORG_ID. Vacío o ausente → null (el formulario no escribe). */
+export function readPublicOrganizationIdFromEnv(): string | null {
+  const raw = process.env.PUBLIC_ORG_ID?.trim();
+  return raw && raw.length > 0 ? raw : null;
+}
+
+/**
+ * Org del formulario público: solo la configurada en PUBLIC_ORG_ID.
+ * No acepta organizationId del cliente. Sin fallback a “la más antigua”.
+ */
+export async function resolvePublicOrganizationId(): Promise<string> {
+  const configured = readPublicOrganizationIdFromEnv();
+  if (!configured) {
+    throw new DomainError(PUBLIC_FORM_UNAVAILABLE);
+  }
   const org = await prisma.organization.findFirst({
-    orderBy: { createdAt: "asc" },
+    where: { id: configured },
     select: { id: true },
   });
   if (!org) {
-    throw new DomainError("El formulario no está disponible ahora. Inténtalo más tarde.");
+    throw new DomainError(PUBLIC_FORM_UNAVAILABLE);
   }
   return org.id;
 }

@@ -1,0 +1,305 @@
+{
+  "audit": {
+    "repo": "noermorales98/jh-crm",
+    "branch": "main",
+    "sha": "9445bff96631083fc875a6dfdbedf5426814ee52",
+    "date": "2026-10-08",
+    "method": "INSPECCIONADO. Lint, tsc, build y smokes NO EJECUTADOS.",
+    "matrix": "docs/auditoria/2026-10-08/02-matriz-funcional.csv"
+  },
+  "items": [
+    {
+      "id": "PR-SEC-01",
+      "title": "Abrir en el proxy solo el webhook de Stripe, /pay y /a",
+      "module": "auth",
+      "status": "IMPLEMENTADO Y PROBADO",
+      "priority": "P0",
+      "evidence": "isAnonymousPath en src/server/auth/public-paths.ts; auth.config.ts. Smoke npm run smoke:auth-paths exit 0 (2026-10-08). Curl HTTP anónimo NO EJECUTADO.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "isAnonymousPath marca públicos /api/webhooks/stripe/, /pay/success, /pay/cancel y /a/.",
+        "/api/files, /api/ai/chat y /crm siguen cerrados.",
+        "Smoke sin base de datos sale 0.",
+        "POST anónimo al webhook sin firma responde 400 y no redirige a /login."
+      ],
+      "estimate_assumptions": "0.5 a 1 día. Sin migración. No se toca la verificación de firma."
+    },
+    {
+      "id": "PR-SEC-02",
+      "title": "Atar el contacto público a PUBLIC_ORG_ID y limitar la ráfaga",
+      "module": "leads",
+      "status": "IMPLEMENTADO Y PROBADO",
+      "priority": "P0",
+      "evidence": "PUBLIC_ORG_ID en resolvePublicOrganizationId; rate limit IP+email en contact/route.ts. Smoke npm run smoke:contact-public exit 0 (2026-10-08).",
+      "dependencies": ["PR-SEC-01"],
+      "acceptance_criteria": [
+        "Sin PUBLIC_ORG_ID el POST no escribe.",
+        "El body no puede elegir organizationId.",
+        "El lead sintético queda en la org configurada aunque exista otra más antigua.",
+        "Una ráfaga responde 429."
+      ],
+      "estimate_assumptions": "1 a 2 días. Requiere el id real solo en el entorno, no en git."
+    },
+    {
+      "id": "PR-SEC-PII",
+      "title": "No adjuntar el PDF de crédito al modelo y redactar el texto",
+      "module": "credito",
+      "status": "PARCIAL",
+      "priority": "P0",
+      "evidence": "classifyAndExtractFromPdf en src/server/credit-import/extract.ts envía texto y, si es escaso, pdfBytes. El prompt pide ssnLast4 y dateOfBirth.",
+      "dependencies": ["PR-SEC-01"],
+      "acceptance_criteria": [
+        "No queda rama type file hacia OpenRouter.",
+        "Un SSN sintético 123-45-6789 no aparece en el prompt.",
+        "Texto escaso produce warning de revisión y no llama al modelo.",
+        "La confirmación humana del job se mantiene."
+      ],
+      "estimate_assumptions": "1 a 2 días. La extracción de escaneos empeora a propósito."
+    },
+    {
+      "id": "PR-SEC-RET",
+      "title": "Purgar solo documentos ya en papelera",
+      "module": "documentos",
+      "status": "PARCIAL",
+      "priority": "P1",
+      "evidence": "src/server/retention/index.ts puede borrar por antigüedad.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Un documento sintético antiguo sin deletedAt sobrevive al cron de sandbox.",
+        "Uno con purgeAfter vencido se elimina del bucket de prueba y queda marcado."
+      ],
+      "estimate_assumptions": "1 día. El rollback no restaura objetos ya borrados; por eso el smoke va antes de producción."
+    },
+    {
+      "id": "PR-PY-IDEM",
+      "title": "Tratar el webhook de Stripe duplicado como ya aplicado",
+      "module": "pagos",
+      "status": "PARCIAL",
+      "priority": "P1",
+      "evidence": "Unique stripeCheckoutSessionId. handleStripeWebhook inserta después de comprobar.",
+      "dependencies": ["PR-SEC-01"],
+      "acceptance_criteria": [
+        "Dos aplicaciones del mismo id sintético dejan un solo Payment.",
+        "La segunda responde handled.",
+        "Otra unique violation distinta no se esconde."
+      ],
+      "estimate_assumptions": "0.5 a 1 día. Stripe CLI en modo test, sin tarjeta de cliente."
+    },
+    {
+      "id": "PR-DC-CONFIRM",
+      "title": "Comprobar tamaño y tipo al confirmar el upload",
+      "module": "documentos",
+      "status": "PARCIAL",
+      "priority": "P1",
+      "evidence": "src/lib/storage/s3.ts firma sin ContentLength. confirm no hace HeadObject.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Un objeto mayor que UPLOAD_MAX_MB no crea Document.",
+        "Un content-type fuera de PDF JPEG PNG no crea Document.",
+        "Staff, portal e intake envían el tamaño."
+      ],
+      "estimate_assumptions": "1 a 2 días. Bucket sandbox."
+    },
+    {
+      "id": "PR-CL-IMPORT",
+      "title": "Preview de importación CSV y duplicados por email",
+      "module": "clientes",
+      "status": "PARCIAL",
+      "priority": "P1",
+      "evidence": "clients-action-bar.tsx usa file.text() e importClientsCsv. No hay findDuplicate.",
+      "dependencies": ["PR-SEC-02"],
+      "acceptance_criteria": [
+        "Preview no escribe.",
+        "Email ya existente en la org sale exists y no se crea solo.",
+        "Fila sin email no se crea.",
+        "Un xlsx se rechaza mientras no haya parser."
+      ],
+      "estimate_assumptions": "2 a 4 días. No se importa el formato de Dispute Fox."
+    },
+    {
+      "id": "PR-CL-MERGE",
+      "title": "Persistir la unión de expedientes",
+      "module": "clientes",
+      "status": "SOLO UI/MOCK",
+      "priority": "P1",
+      "evidence": "agency-client-detail.tsx modal merge dice que no está implementado.",
+      "dependencies": ["PR-CL-IMPORT"],
+      "acceptance_criteria": [
+        "Dos clientes de la misma org: el reporte del origen pasa al destino.",
+        "El origen queda ARCHIVED.",
+        "Orgs distintas se rechazan.",
+        "Hay AuditLog y confirmación con el nombre destino."
+      ],
+      "estimate_assumptions": "3 a 5 días. Irreversible en datos; solo sandbox."
+    },
+    {
+      "id": "PR-AN-QUAL",
+      "title": "Calificación de crédito distinta del status comercial",
+      "module": "analisis",
+      "status": "PARCIAL",
+      "priority": "P1",
+      "evidence": "mapClientToFondifyStatus en src/lib/fondify/status.ts traduce ClientStatus.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "ACTIVE sin reportes no se muestra como listo para fondeo.",
+        "El estimado lleva copy de heurística, no de aprobación.",
+        "No se copian umbrales ni tarifas de Fondify como reglas fijas."
+      ],
+      "estimate_assumptions": "2 a 3 días. Sin migración. El filtro de lista puede seguir usando el status si el rótulo no habla de crédito."
+    },
+    {
+      "id": "PR-DOCS-README",
+      "title": "Alinear README y el comentario del flag de consultas",
+      "module": "docs",
+      "status": "PARCIAL",
+      "priority": "P2",
+      "evidence": "Meta responde 410. /crm/atribucion redirige. .env.example describe FEATURE_CONSULTATION_PAYMENTS como opt-in.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "El README no presenta Meta ni atribución como funciones vivas.",
+        "El comentario del flag dice que false lo bloquea."
+      ],
+      "estimate_assumptions": "0.5 día. Puede adelantarse; no cambia runtime salvo el comentario."
+    },
+    {
+      "id": "PR-RD-FLAGS",
+      "title": "Alcance y método en el ítem de disputa",
+      "module": "rondas",
+      "status": "IMPLEMENTADO SIN PRUEBA",
+      "priority": "P2",
+      "evidence": "CreditRound y DisputeItem no tienen method ni scope de primer nivel.",
+      "dependencies": ["PR-AN-QUAL"],
+      "acceptance_criteria": [
+        "Default fuera de alcance.",
+        "La comparación no etiqueta funcionó por la disputa."
+      ],
+      "estimate_assumptions": "3 a 4 días. Migración aditiva nullable."
+    },
+    {
+      "id": "PR-SCORE-SIM",
+      "title": "Simulación de utilización como función pura y estimada",
+      "module": "analisis",
+      "status": "PARCIAL",
+      "priority": "P2",
+      "evidence": "useMemo en agency-client-detail.tsx.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "La función tiene pruebas con saldos sintéticos.",
+        "La UI dice que no es un score de buró.",
+        "No se porta la curva P(r) de Fondify."
+      ],
+      "estimate_assumptions": "1 a 2 días. Sin migración."
+    },
+    {
+      "id": "PR-CT-SMOKE",
+      "title": "Smoke de contrato y de login de portal",
+      "module": "contratos",
+      "status": "IMPLEMENTADO SIN PRUEBA",
+      "priority": "P2",
+      "evidence": "src/server/contracts/index.ts no tiene smoke. Portal apagado por flag.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Plantilla, versión y firma sintética persisten en sandbox.",
+        "Revocar el portal invalida la sesión."
+      ],
+      "estimate_assumptions": "1 a 2 días. FEATURE_CLIENT_PORTAL=true solo en sandbox."
+    },
+    {
+      "id": "PR-TM-INVITE",
+      "title": "Invitación de equipo sin dejar la contraseña en la respuesta",
+      "module": "equipo",
+      "status": "IMPLEMENTADO SIN PRUEBA",
+      "priority": "P2",
+      "evidence": "inviteUser en src/server/users/index.ts entrega contraseña temporal y no envía correo.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "Con SMTP sandbox el alta llega al buzón de prueba.",
+        "Sin SMTP, el secreto se muestra una vez y no se loguea.",
+        "VIEWER no invita."
+      ],
+      "estimate_assumptions": "1 a 2 días."
+    },
+    {
+      "id": "PR-TPL",
+      "title": "Plantillas mínimas de correo y WhatsApp",
+      "module": "comunicaciones",
+      "status": "FALTA",
+      "priority": "P2",
+      "evidence": "No hay modelo Template. Hay textos fijos en notificaciones.",
+      "dependencies": ["PR-TM-INVITE"],
+      "acceptance_criteria": [
+        "Una plantilla por org y canal se usa en un envío de sandbox.",
+        "No hay campañas ni importación de listas."
+      ],
+      "estimate_assumptions": "3 a 4 días."
+    },
+    {
+      "id": "PR-AI-PERM",
+      "title": "Exigir permiso para el chat de IA",
+      "module": "ia",
+      "status": "PARCIAL",
+      "priority": "P2",
+      "evidence": "app/api/ai/chat/route.ts solo exige organización.",
+      "dependencies": ["PR-SEC-PII"],
+      "acceptance_criteria": [
+        "VIEWER recibe denegado.",
+        "SPECIALIST de la misma org puede usar el chat si el permiso lo incluye."
+      ],
+      "estimate_assumptions": "0.5 a 1 día."
+    },
+    {
+      "id": "PR-AVANCE-REVOKE",
+      "title": "Token de avance con revocación y TTL menor",
+      "module": "portal",
+      "status": "IMPLEMENTADO SIN PRUEBA",
+      "priority": "P2",
+      "evidence": "src/server/avance/share.ts TTL 180 días, HMAC, sin id revocable.",
+      "dependencies": ["PR-SEC-01"],
+      "acceptance_criteria": [
+        "Un token revocado no abre el avance.",
+        "El TTL nuevo queda escrito en código y en la matriz."
+      ],
+      "estimate_assumptions": "1 a 2 días. Migración aditiva. Los enlaces viejos caducan o se aceptan hasta su exp actual, decisión a fijar en el PR."
+    },
+    {
+      "id": "CI-001",
+      "title": "Workflow de lint y smokes sin base de datos",
+      "module": "plataforma",
+      "status": "FALTA",
+      "priority": "P3",
+      "evidence": "No existe .github/workflows.",
+      "dependencies": ["PR-SEC-01"],
+      "acceptance_criteria": [
+        "El workflow corre eslint y los smokes que no leen DATABASE_URL.",
+        "No corre migrate ni seed."
+      ],
+      "estimate_assumptions": "1 día. Después de que exista smoke:auth-paths."
+    },
+    {
+      "id": "AFF-001",
+      "title": "No construir afiliados ni el producto consumidor de Fondify",
+      "module": "producto",
+      "status": "NO APLICA",
+      "priority": "P3",
+      "evidence": "No hay módulo. docs/PENDING_IMPLEMENTATION.md aplaza AU-007. El informe de Fondify describe IDIQ, ofertas y dashboard de consumidor.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "No entra al roadmap de implementación salvo pedido explícito del negocio."
+      ],
+      "estimate_assumptions": "0. Decisión de no hacer."
+    },
+    {
+      "id": "BUREAU-001",
+      "title": "No integrar burós de pago todavía",
+      "module": "credito",
+      "status": "NO APLICA",
+      "priority": "P3",
+      "evidence": "AU-006 aplazado. No hay cliente IDIQ.",
+      "dependencies": [],
+      "acceptance_criteria": [
+        "La carga sigue siendo PDF o alta manual con revisión humana."
+      ],
+      "estimate_assumptions": "0 hasta que exista proveedor y criterio de cumplimiento."
+    }
+  ]
+}

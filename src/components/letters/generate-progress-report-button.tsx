@@ -5,13 +5,19 @@ import { useRouter } from "next/navigation";
 import { Alert, Button, Field, Modal, Textarea } from "@/src/components/ui";
 import { generateClientProgressReport } from "@/src/actions/letters";
 import { playActionResult } from "@/src/lib/cuelume";
+import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
 
 export function GenerateProgressReportButton({
   caseId,
   roundId,
+  stayOnPage = false,
+  onCreated,
 }: {
   caseId: string;
   roundId?: string | null;
+  /** Si true, no navega a /crm/casos/.../reportes. */
+  stayOnPage?: boolean;
+  onCreated?: (reportId: string) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -35,7 +41,16 @@ export function GenerateProgressReportButton({
       }
       playActionResult(true);
       setOpen(false);
-      router.push(`/crm/casos/${result.data.caseId}/reportes/${result.data.reportId}`);
+      onCreated?.(result.data.reportId);
+      notifyEmbedRefresh();
+      if (stayOnPage) {
+        router.refresh();
+        window.open(`/api/progress-reports/${result.data.reportId}/pdf`, "_blank");
+        return;
+      }
+      router.push(
+        `/crm/casos/${result.data.caseId}/reportes/${result.data.reportId}`,
+      );
       router.refresh();
     });
   }
@@ -72,7 +87,11 @@ export function GenerateProgressReportButton({
               Cancelar
             </Button>
             <Button type="submit" disabled={pending}>
-              {pending ? "Generando…" : "Generar y ver"}
+              {pending
+                ? "Generando…"
+                : stayOnPage
+                  ? "Generar"
+                  : "Generar y ver"}
             </Button>
           </div>
         </form>

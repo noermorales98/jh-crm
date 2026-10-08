@@ -92,25 +92,25 @@ export function CrmShell({
           id="crm-sidebar"
           aria-label="Navegación"
           inert={!drawerOpen ? true : undefined}
-          className={`crm-brand fixed inset-y-0 left-0 z-dropdown flex w-72 max-w-[85vw] flex-col border-r border-border-subtle/70 bg-surface-panel pt-[env(safe-area-inset-top)] transition-transform duration-200 ease-out motion-reduce:transition-none lg:z-auto lg:w-64 lg:max-w-none lg:translate-x-0 ${
+          className={`crm-brand fixed inset-y-0 left-0 z-dropdown flex w-64 max-w-[85vw] flex-col border-r border-border-subtle/70 bg-surface-panel pt-[env(safe-area-inset-top)] transition-transform duration-200 ease-out motion-reduce:transition-none lg:z-auto lg:w-56 lg:max-w-none lg:translate-x-0 ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <div className="flex h-16 shrink-0 items-center justify-between gap-2 px-5">
+          <div className="flex h-12 shrink-0 items-center justify-between gap-2 px-3">
             {brand}
             <button
               type="button"
-              className="flex size-9 shrink-0 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink lg:hidden motion-reduce:transition-none"
+              className="flex size-8 shrink-0 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink lg:hidden motion-reduce:transition-none"
               aria-label="Cerrar menú"
               onClick={() => setOpen(false)}
             >
-              <X className="size-5" aria-hidden />
+              <X className="size-4" aria-hidden />
             </button>
           </div>
           {sidebar}
         </aside>
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-64">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-56">
           {header}
           {children}
           <CrmMobileBottomNav />

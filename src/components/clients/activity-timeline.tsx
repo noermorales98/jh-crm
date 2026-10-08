@@ -147,17 +147,20 @@ function ActivityIcon({
 }
 
 /**
- * Línea de tiempo interactiva (HIG): iconos Lucide peso uniforme,
- * color intenso por categoría, selector segmentado en el header.
+ * Línea de tiempo (HIG): iconos Lucide peso uniforme, color por categoría.
+ * `compact`: eje vertical de solo lectura para el hub (sin cards ni filas clicables).
+ * Modo completo: selector de orientación + detalle en modal.
  */
 export function ActivityTimeline({
   clientId,
   clientName,
   events,
+  compact = false,
 }: {
   clientId: string;
   clientName: string;
   events: TimelineEvent[];
+  compact?: boolean;
 }) {
   // Mismo valor en SSR y primer paint del cliente (evita hydration mismatch).
   // Tras montar: horizontal en desktop, vertical en móvil.
@@ -166,6 +169,7 @@ export function ActivityTimeline({
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   useEffect(() => {
+    if (compact) return;
     const mq = window.matchMedia(DESKTOP_MQ);
     function syncDefault() {
       if (orientationTouched) return;
@@ -174,7 +178,7 @@ export function ActivityTimeline({
     syncDefault();
     mq.addEventListener("change", syncDefault);
     return () => mq.removeEventListener("change", syncDefault);
-  }, [orientationTouched]);
+  }, [orientationTouched, compact]);
 
   const selected = useMemo(
     () => events.find((e) => e.id === selectedId) ?? null,
@@ -202,6 +206,91 @@ export function ActivityTimeline({
     selected?.case?.summary?.trim() ||
     selected?.serviceCase?.notes?.trim() ||
     null;
+
+  if (compact) {
+    if (events.length === 0) {
+      return (
+        <p className="py-3 text-[13px] leading-relaxed text-text-secondary">
+          Aún no hay actividad registrada
+          {clientName ? ` para ${clientName}` : ""}.
+        </p>
+      );
+    }
+    // Historial de solo lectura: eje centrado en nodos opacos (sin soft/alpha).
+    return (
+      <ol className="relative">
+        <span
+          aria-hidden
+          className="absolute bottom-2 left-[9.5px] top-2 w-px bg-border-subtle"
+        />
+        {events.map((event, index) => {
+          const visual = getActivityVisual(event.type);
+          const links = resolveActivityLinks({
+            type: event.type,
+            clientId,
+            caseId: event.caseId,
+            roundId: event.roundId,
+            metadata: event.metadata,
+          });
+          const actor =
+            event.actor?.name?.trim() || event.actor?.email || null;
+          const isLast = index === events.length - 1;
+          return (
+            <li
+              key={event.id}
+              className={`relative flex gap-3 ${isLast ? "pb-0" : "pb-5"}`}
+            >
+              <span
+                className="relative z-10 flex size-5 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface-panel"
+                aria-hidden
+              >
+                <ActivityIcon
+                  name={visual.icon}
+                  className={`size-2.5 ${visual.iconClass}`}
+                />
+              </span>
+              <div className="min-w-0 flex-1 pt-px">
+                <time
+                  dateTime={
+                    typeof event.createdAt === "string"
+                      ? event.createdAt
+                      : event.createdAt.toISOString()
+                  }
+                  className="block text-[11px] tabular-nums tracking-wide text-text-placeholder"
+                >
+                  {formatDateTime(event.createdAt)}
+                </time>
+                <p className="mt-0.5 text-[13px] font-medium tracking-[-0.01em] text-ink">
+                  {labelFor(ACTIVITY_TYPE_LABELS, event.type)}
+                </p>
+                <p className="mt-0.5 text-[12px] leading-snug text-text-secondary">
+                  {event.description}
+                </p>
+                {actor ? (
+                  <p className="mt-1 text-[11px] text-text-placeholder">
+                    {actor}
+                  </p>
+                ) : null}
+                {links.length > 0 ? (
+                  <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">
+                    {links.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        className="font-medium text-action-primary underline-offset-2 hover:underline"
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </p>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
 
   return (
     <Card>

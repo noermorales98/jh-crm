@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Select } from "@/src/components/ui";
 import { updateDisputeItem } from "@/src/actions/disputes";
 import { playActionResult } from "@/src/lib/cuelume";
+import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
 import { DISPUTE_OUTCOME_LABELS } from "@/src/lib/labels";
 
 export function DisputeOutcomeSelect({
@@ -31,7 +32,10 @@ export function DisputeOutcomeSelect({
               : {}),
           });
           playActionResult(result.ok);
-          if (result.ok) router.refresh();
+          if (result.ok) {
+            router.refresh();
+            notifyEmbedRefresh();
+          }
         });
       }}
       className="min-h-9 py-1.5 text-xs"

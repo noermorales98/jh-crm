@@ -125,6 +125,11 @@ export type ClientOverviewResult = {
     phone: string | null;
     source: string | null;
     leadChannel: string | null;
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    state: string | null;
+    postalCode: string | null;
     status: string;
     assignedToId: string | null;
     assignedTo: { id: string; name: string | null; email: string } | null;
@@ -272,16 +277,17 @@ function emptyOutcome(): OutcomeSummary {
   return { deleted: 0, updated: 0, verified: 0, other: 0 };
 }
 
-function tallyOutcomes(
-  rows: { outcome: DisputeOutcome | null }[],
+function tallyOutcomeGroups(
+  groups: Array<{ outcome: DisputeOutcome | null; _count: { _all: number } }>,
 ): OutcomeSummary {
   const out = emptyOutcome();
-  for (const row of rows) {
+  for (const row of groups) {
     if (!row.outcome) continue;
-    if (row.outcome === "DELETED") out.deleted += 1;
-    else if (row.outcome === "UPDATED") out.updated += 1;
-    else if (row.outcome === "VERIFIED") out.verified += 1;
-    else out.other += 1;
+    const n = row._count._all;
+    if (row.outcome === "DELETED") out.deleted += n;
+    else if (row.outcome === "UPDATED") out.updated += n;
+    else if (row.outcome === "VERIFIED") out.verified += n;
+    else out.other += n;
   }
   return out;
 }
@@ -302,6 +308,11 @@ export async function getClientOverview(
       phone: true,
       source: true,
       leadChannel: true,
+      addressLine1: true,
+      addressLine2: true,
+      city: true,
+      state: true,
+      postalCode: true,
       status: true,
       assignedToId: true,
       assignedTo: { select: { id: true, name: true, email: true } },
@@ -421,7 +432,7 @@ export async function getClientOverview(
         actor: { select: { name: true } },
       },
       orderBy: { createdAt: "desc" },
-      take: 3,
+      take: 10,
     }),
     prisma.document.groupBy({
       by: ["category"],
@@ -621,7 +632,7 @@ export async function getClientOverview(
 
   const caseId = creditCaseId;
 
-  const [roundsSummary, roundsTotal, itemGroups, disputeOutcomes] =
+  const [roundsSummary, roundsTotal, itemGroups, disputeOutcomeGroups, creditOverview] =
     await Promise.all([
       prisma.creditRound.findMany({
         where: { organizationId: ctx.organizationId, caseId },
@@ -637,21 +648,22 @@ export async function getClientOverview(
         where: { organizationId: ctx.organizationId, caseId },
         _count: { _all: true },
       }),
-      prisma.disputeItem.findMany({
+      prisma.disputeItem.groupBy({
+        by: ["outcome"],
         where: {
           organizationId: ctx.organizationId,
           outcome: { not: null },
           round: { caseId },
         },
-        select: { outcome: true },
-        take: 500,
+        _count: { _all: true },
       }),
+      canViewCredit
+        ? getCaseCreditOverview(ctx, caseId, {
+            includeReports: false,
+            take: 40,
+          })
+        : Promise.resolve(null as CaseCreditOverview | null),
     ]);
-
-  let creditOverview: CaseCreditOverview | null = null;
-  if (canViewCredit) {
-    creditOverview = await getCaseCreditOverview(ctx, caseId);
-  }
 
   const lifecycleCounts = new Map(
     itemGroups.map((g) => [g.lifecycleStatus, g._count._all]),
@@ -729,7 +741,7 @@ export async function getClientOverview(
         resolved: itemsResolved,
         negative: itemsNegative,
       },
-      outcomeSummary: tallyOutcomes(disputeOutcomes),
+      outcomeSummary: tallyOutcomeGroups(disputeOutcomeGroups),
       counts: {
         ...baseCounts,
         itemsActive,

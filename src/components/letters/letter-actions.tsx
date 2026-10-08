@@ -9,6 +9,7 @@ import {
   markDisputeLetterSent,
 } from "@/src/actions/letters";
 import { playActionResult } from "@/src/lib/cuelume";
+import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
 
 export function LetterActions({
   letterId,
@@ -16,6 +17,8 @@ export function LetterActions({
   caseId,
   roundId,
   compact = false,
+  onViewLetter,
+  onChanged,
 }: {
   letterId: string;
   status: string;
@@ -23,23 +26,47 @@ export function LetterActions({
   roundId: string;
   /** En la tabla de la ronda: solo acciones + enlace Ver. */
   compact?: boolean;
+  /** Si se pasa, Ver no navega a /crm/casos (embed en modal). */
+  onViewLetter?: (letterId: string) => void;
+  onChanged?: () => void;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const viewHref = `/crm/casos/${caseId}/rondas/${roundId}/cartas/${letterId}`;
   const pdfHref = `/api/letters/${letterId}/pdf`;
 
+  function afterMutation() {
+    router.refresh();
+    notifyEmbedRefresh();
+    onChanged?.();
+  }
+
+  function ViewControl() {
+    if (onViewLetter) {
+      return (
+        <button
+          type="button"
+          onClick={() => onViewLetter(letterId)}
+          className="text-sm font-medium text-action-primary hover:text-action-secondary"
+        >
+          Ver
+        </button>
+      );
+    }
+    return (
+      <Link
+        href={viewHref}
+        className="text-sm font-medium text-action-primary hover:text-action-secondary"
+      >
+        Ver
+      </Link>
+    );
+  }
+
   if (status === "READY_FOR_REVIEW" || status === "DRAFT") {
     return (
       <div className="flex flex-wrap items-center justify-end gap-2">
-        {compact ? (
-          <Link
-            href={viewHref}
-            className="text-sm font-medium text-action-primary hover:text-action-secondary"
-          >
-            Ver
-          </Link>
-        ) : null}
+        {compact ? <ViewControl /> : null}
         <Button
           size="sm"
           disabled={pending}
@@ -47,7 +74,7 @@ export function LetterActions({
             startTransition(async () => {
               const result = await finalizeDisputeLetter(letterId);
               playActionResult(result.ok);
-              if (result.ok) router.refresh();
+              if (result.ok) afterMutation();
             });
           }}
         >
@@ -60,12 +87,7 @@ export function LetterActions({
   if (status === "FINAL") {
     return (
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Link
-          href={viewHref}
-          className="text-sm font-medium text-action-primary hover:text-action-secondary"
-        >
-          Ver
-        </Link>
+        <ViewControl />
         <a
           href={pdfHref}
           className="text-sm font-medium text-action-primary hover:text-action-secondary"
@@ -80,7 +102,7 @@ export function LetterActions({
             startTransition(async () => {
               const result = await markDisputeLetterSent(letterId, {});
               playActionResult(result.ok);
-              if (result.ok) router.refresh();
+              if (result.ok) afterMutation();
             });
           }}
         >
@@ -93,12 +115,7 @@ export function LetterActions({
   if (status === "SENT") {
     return (
       <div className="flex flex-wrap items-center justify-end gap-2">
-        <Link
-          href={viewHref}
-          className="text-sm font-medium text-action-primary hover:text-action-secondary"
-        >
-          Ver
-        </Link>
+        <ViewControl />
         <a
           href={pdfHref}
           className="text-sm font-medium text-action-primary hover:text-action-secondary"
@@ -109,12 +126,5 @@ export function LetterActions({
     );
   }
 
-  return (
-    <Link
-      href={viewHref}
-      className="text-sm font-medium text-action-primary hover:text-action-secondary"
-    >
-      Ver
-    </Link>
-  );
+  return <ViewControl />;
 }

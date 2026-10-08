@@ -30,6 +30,10 @@ const SUGGESTIONS = [
   "¿Cómo agrego un cliente?",
 ];
 
+function callScriptPrompt(clientId: string): string {
+  return `Redacta un guion corto de llamada o WhatsApp para el cliente con id ${clientId}. Usa getClient para conocer su nombre y contexto. Tono amable y profesional, listo para copiar: saludo, hallazgo breve del expediente, propuesta de siguiente paso y cierre con pregunta para agendar.`;
+}
+
 function messageText(message: UIMessage): string {
   return message.parts
     .filter((part): part is { type: "text"; text: string } => part.type === "text")
@@ -100,10 +104,13 @@ export function AiChatPanel({
   chatId,
   initialMessages = [],
   variant = "page",
+  clientId,
 }: {
   chatId?: string;
   initialMessages?: UIMessage[];
   variant?: "page" | "widget";
+  /** Cliente de la ruta actual (widget contextual). */
+  clientId?: string;
 }) {
   const [input, setInput] = useState("");
   const [configured, setConfigured] = useState<boolean | null>(null);
@@ -211,22 +218,38 @@ export function AiChatPanel({
       {messages.length === 0 && configured !== false ? (
         <div className="space-y-3">
           <p className="text-sm text-text-secondary">
-            Pregunta sobre el CRM, un cliente o cómo hacer algo. Te llevo a la pantalla.
+            {clientId
+              ? "Puedo redactar un guion para este cliente o ayudarte con el CRM."
+              : "Pregunta sobre el CRM, un cliente o cómo hacer algo. Te llevo a la pantalla."}
           </p>
           <div className={`flex ${compact ? "flex-col" : "flex-wrap"} gap-2`}>
-            {SUGGESTIONS.map((suggestion) => (
+            {clientId ? (
               <button
-                key={suggestion}
                 type="button"
-                onClick={() => ask(suggestion)}
+                onClick={() => ask(callScriptPrompt(clientId))}
                 disabled={busy}
                 data-cuelume-press="press"
                 data-cuelume-release="release"
-                className="rounded-full bg-surface-elevated px-3.5 py-2 text-left text-sm text-ink ring-1 ring-border-subtle/50 transition-colors hover:bg-nav-hover disabled:opacity-60"
+                className="rounded-full bg-action-primary px-3.5 py-2 text-left text-sm font-medium text-action-primary-foreground transition-colors hover:bg-action-secondary disabled:opacity-60"
               >
-                {suggestion}
+                Guion de llamada / WhatsApp
               </button>
-            ))}
+            ) : null}
+            {(compact ? SUGGESTIONS.slice(0, 3) : SUGGESTIONS).map(
+              (suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => ask(suggestion)}
+                  disabled={busy}
+                  data-cuelume-press="press"
+                  data-cuelume-release="release"
+                  className="rounded-full bg-surface-elevated px-3.5 py-2 text-left text-sm text-ink ring-1 ring-border-subtle/50 transition-colors hover:bg-nav-hover disabled:opacity-60"
+                >
+                  {suggestion}
+                </button>
+              ),
+            )}
           </div>
         </div>
       ) : null}

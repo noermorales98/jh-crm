@@ -30,11 +30,25 @@ export function ClientsActionBar({
     const firstName = String(formData.get("firstName") ?? "").trim();
     const lastName = String(formData.get("lastName") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
+    const phone = String(formData.get("phone") ?? "").trim();
+    const source = String(formData.get("source") ?? "").trim();
+    const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
+    const addressLine2 = String(formData.get("addressLine2") ?? "").trim();
+    const city = String(formData.get("city") ?? "").trim();
+    const state = String(formData.get("state") ?? "").trim();
+    const postalCode = String(formData.get("postalCode") ?? "").trim();
     startTransition(async () => {
       const result = await createClient({
         firstName,
         lastName: lastName || undefined,
         email: email || undefined,
+        phone: phone || undefined,
+        source: source || undefined,
+        addressLine1: addressLine1 || undefined,
+        addressLine2: addressLine2 || undefined,
+        city: city || undefined,
+        state: state || undefined,
+        postalCode: postalCode || undefined,
       });
       if (!result.ok) {
         setError(result.error);
@@ -45,6 +59,9 @@ export function ClientsActionBar({
       router.refresh();
     });
   }
+
+  const fieldClass =
+    "w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25";
 
   function onImport(formData: FormData) {
     setError(null);
@@ -118,40 +135,71 @@ export function ClientsActionBar({
         open={addOpen}
         onClose={() => setAddOpen(false)}
         title="Agregar cliente"
+        size="lg"
       >
-        <form action={onAdd} className="space-y-3">
+        <form action={onAdd} className="grid gap-3 sm:grid-cols-2">
           <label className="block text-[13px]">
             <span className="mb-1 block font-medium text-ink">Nombre</span>
-            <input
-              name="firstName"
-              required
-              className="w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25"
-            />
+            <input name="firstName" required className={fieldClass} />
           </label>
           <label className="block text-[13px]">
             <span className="mb-1 block font-medium text-ink">Apellido</span>
-            <input
-              name="lastName"
-              className="w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25"
-            />
+            <input name="lastName" className={fieldClass} />
           </label>
           <label className="block text-[13px]">
             <span className="mb-1 block font-medium text-ink">Correo</span>
+            <input name="email" type="email" className={fieldClass} />
+          </label>
+          <label className="block text-[13px]">
+            <span className="mb-1 block font-medium text-ink">Teléfono</span>
+            <input name="phone" type="tel" className={fieldClass} />
+          </label>
+          <label className="block text-[13px] sm:col-span-2">
+            <span className="mb-1 block font-medium text-ink">Fuente</span>
             <input
-              name="email"
-              type="email"
-              className="w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25"
+              name="source"
+              placeholder="Referido, web, Facebook…"
+              className={fieldClass}
             />
           </label>
+          <label className="block text-[13px] sm:col-span-2">
+            <span className="mb-1 block font-medium text-ink">Dirección</span>
+            <input name="addressLine1" className={fieldClass} />
+          </label>
+          <label className="block text-[13px] sm:col-span-2">
+            <span className="mb-1 block font-medium text-ink">
+              Dirección (línea 2)
+            </span>
+            <input name="addressLine2" className={fieldClass} />
+          </label>
+          <label className="block text-[13px]">
+            <span className="mb-1 block font-medium text-ink">Ciudad</span>
+            <input name="city" className={fieldClass} />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-[13px]">
+              <span className="mb-1 block font-medium text-ink">Estado</span>
+              <input
+                name="state"
+                maxLength={2}
+                placeholder="TX"
+                className={`${fieldClass} uppercase`}
+              />
+            </label>
+            <label className="block text-[13px]">
+              <span className="mb-1 block font-medium text-ink">C.P.</span>
+              <input name="postalCode" className={fieldClass} />
+            </label>
+          </div>
           {error ? (
-            <p className="text-[13px] text-danger" role="alert">
+            <p className="text-[13px] text-danger sm:col-span-2" role="alert">
               {error}
             </p>
           ) : null}
           <Button
             type="submit"
             variant="primary"
-            className="w-full"
+            className="w-full sm:col-span-2"
             disabled={pending}
           >
             Agregar

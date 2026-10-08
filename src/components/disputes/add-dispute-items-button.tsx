@@ -12,6 +12,7 @@ import {
 } from "@/src/components/ui";
 import { addDisputeItemsBulk } from "@/src/actions/disputes";
 import { playActionResult } from "@/src/lib/cuelume";
+import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
 import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
 import { formatMoney } from "@/src/lib/format";
 
@@ -76,6 +77,7 @@ export function AddDisputeItemsButton({
       setAction("Disputar");
       setDetails("");
       router.refresh();
+      notifyEmbedRefresh();
     });
   }
 

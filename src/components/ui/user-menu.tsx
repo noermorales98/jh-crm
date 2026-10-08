@@ -153,15 +153,15 @@ export function UserMenu({
         onClick={() => setOpen((v) => !v)}
         onKeyDown={onButtonKeyDown}
         data-cuelume-toggle="toggle"
-        className="relative size-9 overflow-hidden rounded-full ring-1 ring-border-subtle transition-opacity duration-200 hover:opacity-90 motion-reduce:transition-none"
+        className="relative size-8 overflow-hidden rounded-full ring-1 ring-border-subtle transition-opacity duration-200 hover:opacity-90 motion-reduce:transition-none"
       >
         <Image
           src="/avatar.png"
           alt=""
-          width={36}
-          height={36}
-          className="size-9 object-cover"
-          sizes="36px"
+          width={32}
+          height={32}
+          className="size-8 object-cover"
+          sizes="32px"
         />
       </button>
 

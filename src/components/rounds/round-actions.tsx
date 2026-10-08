@@ -17,6 +17,7 @@ import {
   markRoundReviewed,
   markRoundSent,
 } from "@/src/actions/rounds";
+import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
 
 /**
  * Acciones de una ronda según su estado:
@@ -67,6 +68,7 @@ export function RoundActions({
       setSentOpen(false);
       setExpectedReviewAt("");
       router.refresh();
+      notifyEmbedRefresh();
     });
   }
 
@@ -93,6 +95,7 @@ export function RoundActions({
             });
             if (!result.ok) return result.error;
             router.refresh();
+            notifyEmbedRefresh();
           }}
         />
       ) : null}
@@ -111,6 +114,7 @@ export function RoundActions({
             const result = await cancelRound(roundId);
             if (!result.ok) return result.error;
             router.refresh();
+            notifyEmbedRefresh();
           }}
         />
       ) : null}

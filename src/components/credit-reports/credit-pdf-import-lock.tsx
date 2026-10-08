@@ -89,10 +89,16 @@ function writeDismissedReady(ids: Set<string>) {
  * - captura clics en enlaces internos
  * - chip flotante + overlay de advertencia
  */
+const POLL_ACTIVE_MS = 2500;
+const POLL_IDLE_MS = 45_000;
+
 export function CreditPdfImportLockProvider({
   children,
+  canManageCreditImports = true,
 }: {
   children: ReactNode;
+  /** Si false, no se hace polling (rol sin creditReports.manage). */
+  canManageCreditImports?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -238,12 +244,28 @@ export function CreditPdfImportLockProvider({
     return () => window.clearTimeout(t);
   }, [pathname, lock, router]);
 
-  // Poll chip jobs
+  // Poll chip jobs — frecuente solo con jobs activos; idle / pestaña oculta = backoff
   useEffect(() => {
+    if (!canManageCreditImports) {
+      setChipJobs([]);
+      return;
+    }
+
     let cancelled = false;
+    let timer: number | null = null;
+    let hasActiveJobs = Boolean(lock);
+
     async function refresh() {
+      if (cancelled) return;
+      if (document.visibilityState === "hidden") {
+        scheduleNext();
+        return;
+      }
       const result = await listActiveCreditPdfImportJobsAction();
-      if (cancelled || !result.ok) return;
+      if (cancelled || !result.ok) {
+        scheduleNext();
+        return;
+      }
       setChipJobs(
         result.data.map((j) => ({
           id: j.id,
@@ -254,6 +276,9 @@ export function CreditPdfImportLockProvider({
           phase: j.phase,
         })),
       );
+      hasActiveJobs = result.data.some(
+        (j) => j.status === "QUEUED" || j.status === "RUNNING",
+      );
       if (lock) {
         const mine = result.data.find((j) => j.id === lock.jobId);
         if (
@@ -263,14 +288,37 @@ export function CreditPdfImportLockProvider({
           releaseLock();
         }
       }
+      scheduleNext();
     }
+
+    function scheduleNext() {
+      if (cancelled) return;
+      if (timer != null) window.clearTimeout(timer);
+      const delay =
+        document.visibilityState === "hidden"
+          ? POLL_IDLE_MS
+          : hasActiveJobs || lock
+            ? POLL_ACTIVE_MS
+            : POLL_IDLE_MS;
+      timer = window.setTimeout(() => {
+        void refresh();
+      }, delay);
+    }
+
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") {
+        void refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
     void refresh();
-    const id = window.setInterval(refresh, 2500);
+
     return () => {
       cancelled = true;
-      window.clearInterval(id);
+      if (timer != null) window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [lock, releaseLock]);
+  }, [lock, releaseLock, canManageCreditImports]);
 
   const value = useMemo(
     () => ({

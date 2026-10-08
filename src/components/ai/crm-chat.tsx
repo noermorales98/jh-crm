@@ -7,10 +7,19 @@ import { useEffect, useState } from "react";
 import { AiChatPanel } from "@/src/components/ai/ai-chat-panel";
 import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
 
+function clientIdFromPath(pathname: string): string | undefined {
+  const match = pathname.match(/^\/crm\/clientes\/([^/]+)/);
+  if (!match) return undefined;
+  const id = match[1];
+  if (!id || id === "nuevo") return undefined;
+  return id;
+}
+
 export function CrmChat() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const hidden = pathname.startsWith("/crm/chats");
+  const clientId = clientIdFromPath(pathname);
 
   useEffect(() => {
     if (!open) return;
@@ -52,7 +61,7 @@ export function CrmChat() {
             </button>
           </header>
           <div className="flex min-h-0 flex-1 flex-col px-4 pb-3 pt-2">
-            <AiChatPanel variant="widget" />
+            <AiChatPanel variant="widget" clientId={clientId} />
           </div>
         </section>
       ) : null}

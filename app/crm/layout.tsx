@@ -3,7 +3,6 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { IBM_Plex_Mono, Space_Grotesk } from "next/font/google";
-import { auth } from "@/auth";
 import { BrandLockup } from "@/src/components/brand/brand-lockup";
 import { UserMenu } from "@/src/components/ui";
 import { NotificationBell } from "@/src/components/notifications/notification-bell";
@@ -11,6 +10,8 @@ import {
   countUnreadNotifications,
   listNotificationsForUser,
 } from "@/src/server/notifications";
+import { getAuth } from "@/src/server/auth/cached-auth";
+import { can } from "@/src/server/auth/permissions";
 import { CrmShell } from "@/src/components/layout/crm-shell";
 import { SidebarNav } from "./SidebarNav";
 import { CrmHeader, HeaderTitleProvider } from "./CrmHeader";
@@ -40,7 +41,7 @@ const ibmPlexMono = IBM_Plex_Mono({
 
 export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
   // Barrera de servidor: el layout nunca renderiza sin sesión de staff.
-  const session = await auth();
+  const session = await getAuth();
   if (!session?.user?.id) {
     redirect("/login");
   }
@@ -50,6 +51,7 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
 
   const userName = session.user.name ?? session.user.email ?? "Usuario";
   const organizationId = session.user.currentOrganizationId;
+  const canManageCreditImports = can(session.user.role, "creditReports.manage");
   const [inbox, unreadCount] = organizationId
     ? await Promise.all([
         listNotificationsForUser(organizationId, session.user.id),
@@ -59,7 +61,9 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
 
   return (
     <div className={`${spaceGrotesk.variable} ${ibmPlexMono.variable}`}>
-      <CreditPdfImportLockProvider>
+      <CreditPdfImportLockProvider
+        canManageCreditImports={canManageCreditImports}
+      >
         <HeaderTitleProvider>
           <CrmShell
             brand={
@@ -68,7 +72,7 @@ export default async function CrmLayout({ children }: LayoutProps<"/crm">) {
                 className="brand"
                 aria-label="J&H MultiServices LLC — Inicio"
               >
-                <BrandLockup tag="Multiservices LLC" size={40} priority />
+                <BrandLockup tag="Multiservices LLC" size={32} priority />
               </Link>
             }
             sidebar={

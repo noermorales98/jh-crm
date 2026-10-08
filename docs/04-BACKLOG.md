@@ -252,9 +252,7 @@ Mostrar:
 ## CL-004 — Reportes de crédito por cliente (evolución)
 **Prioridad:** P1
 
-**Estado:** TODO (backlog — otro sprint)
-
-Nueva sección **Reportes** (`/crm/reportes` o pestaña en ficha cliente) donde cada cliente tenga su reporte agregado. Mover aquí la **Evolución del crédito** (puntajes actuales, diferencia vs reporte anterior, historial cronológico) que hoy vive en `/crm/casos/:id/credito`.
+**Estado:** DONE (2026-10-07). Sección **Reportes** en hub Fondify: `/crm/clientes/:id/reportes` (cápsula Action Center). `getClientCreditOverview` agrega por `clientId`; puntajes actuales, delta vs reporte anterior e historial cronológico. Detalle de reporte / import / comparaciones siguen en rutas técnicas `/crm/casos/:id/credito/*`.
 
 **Acceptance Criteria:**
 

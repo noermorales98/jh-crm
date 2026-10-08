@@ -58,7 +58,7 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
               <dt className="text-[12px] text-text-secondary">Caso</dt>
               <dd className="text-[13px]">
                 <Link
-                  href={`/crm/casos/${round.case.id}/rondas`}
+                  href={`/crm/clientes/${round.case.client.id}?panel=avance&roundId=${encodeURIComponent(round.id)}`}
                   className="font-medium text-action-primary hover:text-action-secondary"
                 >
                   {round.case.caseCode}

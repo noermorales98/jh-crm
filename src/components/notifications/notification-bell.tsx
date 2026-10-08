@@ -79,11 +79,11 @@ export function NotificationBell({
         }
         onClick={() => setOpen((v) => !v)}
         data-cuelume-toggle="toggle"
-        className="relative flex size-9 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink motion-reduce:transition-none"
+        className="relative flex size-8 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink motion-reduce:transition-none"
       >
-        <Bell className="size-5" aria-hidden />
+        <Bell className="size-4" aria-hidden />
         {unreadCount > 0 ? (
-          <span className="absolute -right-0.5 -top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-action-primary px-1 text-[11px] font-semibold text-action-primary-foreground">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-action-primary px-1 text-[10px] font-semibold text-action-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         ) : null}

@@ -15,7 +15,6 @@ import {
 import { ChatBlobatar } from "@/src/components/ai/chat-blobatar";
 import { SpotlightSearch } from "@/src/components/search/spotlight-search";
 import type { Role } from "@prisma/client";
-import { HelpCircle, Sparkles } from "lucide-react";
 
 const SECTION_TITLES: Record<string, string> = {
   dashboard: "Inicio",
@@ -216,28 +215,28 @@ export function CrmHeader({
   const hideSpotlight = /^\/crm\/chats\/[^/]+/.test(pathname);
 
   return (
-    <header className="jh-toolbar sticky top-0 z-sticky flex h-14 items-center justify-between gap-3 px-4 pt-[env(safe-area-inset-top)] lg:h-16 lg:px-6">
-      <div className="flex min-w-0 items-center gap-1.5">
+    <header className="jh-toolbar sticky top-0 z-sticky flex h-12 items-center justify-between gap-2 px-3 pt-[env(safe-area-inset-top)] lg:px-4">
+      <div className="flex min-w-0 items-center gap-1">
         {backHref ? (
           <Link
             href={backHref}
             aria-label="Volver"
             data-cuelume-hover="tick"
-            className="flex size-9 shrink-0 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink motion-reduce:transition-none"
+            className="flex size-8 shrink-0 items-center justify-center rounded-full text-text-secondary-strong transition-colors duration-200 hover:bg-nav-hover hover:text-ink motion-reduce:transition-none"
           >
-            <ChevronLeft className="size-5" aria-hidden />
+            <ChevronLeft className="size-4" aria-hidden />
           </Link>
         ) : null}
         {override.blobatarName ? (
           <ChatBlobatar
             name={override.blobatarName}
-            size={28}
+            size={24}
             className="shrink-0"
             title={label}
           />
         ) : null}
         <p
-          className={`truncate text-[15px] font-semibold tracking-[-0.01em] text-ink ${
+          className={`truncate text-[14px] font-semibold tracking-[-0.01em] text-ink ${
             showTitle ? "" : "hidden"
           }`}
         >
@@ -249,27 +248,7 @@ export function CrmHeader({
       ) : (
         <SpotlightSearch role={role} />
       )}
-      <div className="flex shrink-0 items-center gap-1">
-        <button
-          type="button"
-          disabled
-          title="Próximamente"
-          className="hidden items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[12px] font-medium text-text-secondary opacity-60 sm:inline-flex"
-        >
-          <Sparkles className="size-3.5" aria-hidden />
-          Novedades
-        </button>
-        <button
-          type="button"
-          disabled
-          title="Próximamente"
-          aria-label="Ayuda"
-          className="hidden size-9 items-center justify-center rounded-full text-text-secondary opacity-60 sm:inline-flex"
-        >
-          <HelpCircle className="size-4" aria-hidden />
-        </button>
-        {children}
-      </div>
+      <div className="flex shrink-0 items-center gap-1">{children}</div>
     </header>
   );
 }

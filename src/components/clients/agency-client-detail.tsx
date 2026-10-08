@@ -11,12 +11,9 @@ import {
   type ReactNode,
 } from "react";
 import {
-  ArrowLeft,
   Pencil,
   Trash2,
   Merge,
-  Copy,
-  X,
   ListChecks,
   Search,
   TrendingUp,
@@ -31,7 +28,9 @@ import {
   StickyNote,
   MessageSquareQuote,
   FileText,
+  FileBarChart,
   MoreHorizontal,
+  History,
   type LucideIcon,
 } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
@@ -55,6 +54,38 @@ import {
   ActivityTimeline,
   type TimelineEvent,
 } from "@/src/components/clients/activity-timeline";
+import { ClientServicesPanel } from "@/src/components/clients/client-services-panel";
+import { ClientTasksPanel } from "@/src/components/clients/client-tasks-panel";
+import { ClientDocumentsPanel } from "@/src/components/clients/client-documents-panel";
+import { ClientPaymentsPanel } from "@/src/components/clients/client-payments-panel";
+import { ClientNotesPanel } from "@/src/components/clients/client-notes-panel";
+import { ClientTestimonialsPanel } from "@/src/components/clients/client-testimonials-panel";
+import { AnalyzePdfImportButton } from "@/src/components/credit-reports/analyze-pdf-import";
+import { ClientNegativeAnalysisPanel } from "@/src/components/clients/client-negative-analysis-panel";
+import { ClientAvancePanel } from "@/src/components/clients/client-avance-panel";
+import { ClientQuoteHubPanel } from "@/src/components/clients/client-quote-hub-panel";
+import { ClientContractHubPanel } from "@/src/components/clients/client-contract-hub-panel";
+import {
+  loadClientActionPlanHub,
+  type ClientActionPlanHubDto,
+} from "@/src/actions/credit-reports";
+import {
+  CreditReportEmptyPanel,
+  CreditReportListModal,
+  useCreditReportEntry,
+  type CreditReportPdfDto,
+} from "@/src/components/clients/client-credit-report-entry";
+import { formatDate } from "@/src/lib/format";
+import {
+  loadClientOpsPanelAction,
+  type ClientOpsPanel,
+  type ClientOpsPanelPayload,
+} from "@/src/actions/client-ops-panel";
+import type {
+  BureauProgress,
+  ClientOverviewRound,
+  ScoreHistoryPointDto,
+} from "@/src/server/clients/overview";
 
 export type AgencyClientDetailProps = {
   client: {
@@ -62,6 +93,13 @@ export type AgencyClientDetailProps = {
     firstName: string;
     lastName: string | null;
     email: string | null;
+    phone: string | null;
+    source: string | null;
+    addressLine1: string | null;
+    addressLine2: string | null;
+    city: string | null;
+    state: string | null;
+    postalCode: string | null;
     status: ClientStatus;
   };
   fullName: string;
@@ -69,6 +107,7 @@ export type AgencyClientDetailProps = {
   roundNumber: number | null;
   nextReviewAt: Date | null;
   caseId: string | null;
+  caseState: string | null;
   documentsCount: number;
   kpis: {
     porArreglar: number;
@@ -77,8 +116,11 @@ export type AgencyClientDetailProps = {
   };
   quoteHref: string;
   contractHref: string;
-  reportHref: string | null;
-  avanceHref: string | null;
+  reportHref: string;
+  /** Deep-link: abrir Avance al montar (`?panel=avance`). */
+  openAvance?: boolean;
+  /** Deep-link: ronda inicial en Gestión (`?roundId=`). */
+  initialAvanceRoundId?: string | null;
   intakeUrl: string | null;
   intakeEnabled: boolean;
   intakeCases: { id: string; caseCode: string }[];
@@ -94,7 +136,14 @@ export type AgencyClientDetailProps = {
   }[];
   canEdit: boolean;
   canIntake: boolean;
-  salesScript: string;
+  canCreateRound: boolean;
+  creditWorkspace: {
+    canView: boolean;
+    bureaus: BureauProgress[];
+    scoreHistory: ScoreHistoryPointDto[];
+    hasChartData: boolean;
+    rounds: ClientOverviewRound[];
+  } | null;
   quickAdd: {
     members: { id: string; name: string }[];
     stages: StageOption[];
@@ -106,15 +155,37 @@ export type AgencyClientDetailProps = {
     canService: boolean;
   };
   activityEvents: TimelineEvent[];
-  /** Paneles de operación (slots RSC) */
-  opsPanels: {
-    services: ReactNode;
-    tasks: ReactNode;
-    documents: ReactNode;
-    payments: ReactNode;
-    notes: ReactNode;
-    testimonials: ReactNode | null;
-    credit: ReactNode;
+  /** Hay más actividad en servidor que el preview SSR. */
+  activityHasMore?: boolean;
+  /** Meta ligera para paneles lazy (sin datos de lista). */
+  opsMeta: {
+    showTestimonials: boolean;
+    storageReady: boolean;
+    negativeCount: number;
+  };
+  /** PDFs de crédito (Action Center → Reporte de crédito). */
+  pdfReports: CreditReportPdfDto[];
+  organizationName: string;
+  /** Estados cápsulas Cierre (Fondify-like). */
+  cierre: {
+    quote: { label: string; id: string | null; href: string };
+    contract: {
+      label: string;
+      id: string | null;
+      status: string | null;
+      href: string;
+    };
+    intake: { label: string };
+  };
+  quoteHub: {
+    services: { id: string; name: string; defaultPrice: number }[];
+    packages: { id: string; name: string; defaultPrice: number }[];
+    defaultTaxRate: string;
+    defaultTerms: string;
+  } | null;
+  contractHub: {
+    canManage: boolean;
+    templates: { id: string; name: string; version: string }[];
   };
 };
 
@@ -123,20 +194,23 @@ type Panel =
   | "edit"
   | "delete"
   | "merge"
-  | "plan"
   | "analisis"
   | "score"
   | "fondeo"
   | "script"
+  | "quote"
+  | "contract"
+  | "avance"
   | "services"
   | "tasks"
   | "documents"
   | "payments"
   | "notes"
   | "testimonials"
-  | "credit"
   | "activity"
-  | "more";
+  | "more"
+  | "reportEmpty"
+  | "reportList";
 
 /** Chip horizontal (Ahora / Cierre): cápsula con icono + título. */
 function ActionCapsule({
@@ -215,37 +289,22 @@ function CapsuleGroup({
   );
 }
 
-function InlinePanel({
-  title,
-  onClose,
-  children,
-}: {
-  title: string;
-  onClose: () => void;
-  children: ReactNode;
-}) {
+const LAZY_PANELS = new Set<Panel>([
+  "services",
+  "tasks",
+  "documents",
+  "payments",
+  "notes",
+  "testimonials",
+  "activity",
+]);
+
+function OpsPanelSkeleton() {
   return (
-    <div className="fixed inset-0 z-overlay flex flex-col bg-surface-app">
-      <div className="flex items-center justify-between border-b border-border-subtle bg-surface-panel px-4 py-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-action-primary"
-        >
-          <ArrowLeft className="size-4" aria-hidden />
-          Volver
-        </button>
-        <h2 className="text-[15px] font-semibold text-ink">{title}</h2>
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex size-8 items-center justify-center rounded-full hover:bg-nav-hover"
-          aria-label="Cerrar"
-        >
-          <X className="size-4" aria-hidden />
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4">{children}</div>
+    <div className="space-y-3 animate-pulse" aria-busy="true" aria-live="polite">
+      <div className="h-4 w-1/3 rounded bg-nav-hover" />
+      <div className="h-24 rounded-xl bg-nav-hover/70" />
+      <div className="h-24 rounded-xl bg-nav-hover/50" />
     </div>
   );
 }
@@ -253,11 +312,16 @@ function InlinePanel({
 export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const [panel, setPanel] = useState<Panel>(null);
+  const [panel, setPanel] = useState<Panel>(
+    props.openAvance ? "avance" : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
-  const [utilPct, setUtilPct] = useState(45);
+  const [utilPct, setUtilPct] = useState(10);
+  const [planHub, setPlanHub] = useState<ClientActionPlanHubDto | null>(null);
+  const [planHubLoading, setPlanHubLoading] = useState(false);
+  const [planHubError, setPlanHubError] = useState<string | null>(null);
   const [fondeoForm, setFondeoForm] = useState({
     business: "",
     months: "12",
@@ -265,13 +329,65 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     cash: "",
   });
   const [fondeoResult, setFondeoResult] = useState<string | null>(null);
+  const [opsCache, setOpsCache] = useState<
+    Partial<Record<ClientOpsPanel, ClientOpsPanelPayload>>
+  >({});
+  const [opsLoading, setOpsLoading] = useState(false);
+  const [opsError, setOpsError] = useState<string | null>(null);
+  const opsLoadedRef = useRef(new Set<ClientOpsPanel>());
+  const [activeReportId, setActiveReportId] = useState<string | null>(
+    props.pdfReports[0]?.id ?? null,
+  );
+  const { enterCreditReport, openReport } = useCreditReportEntry({
+    clientId: props.client.id,
+    pdfReports: props.pdfReports,
+  });
 
   const bucket = mapClientToFondifyStatus(props.client.status);
   const days = props.nextReviewAt ? daysUntil(props.nextReviewAt) : null;
   const soon = days != null && isReviewSoon(days);
-  const showRepairBanner = bucket === "repair" && props.kpis.porArreglar > 0;
 
-  const activityPreview = props.activityEvents.slice(0, 5);
+  useEffect(() => {
+    if (
+      activeReportId &&
+      props.pdfReports.some((r) => r.id === activeReportId)
+    ) {
+      return;
+    }
+    setActiveReportId(props.pdfReports[0]?.id ?? null);
+  }, [props.pdfReports, activeReportId]);
+
+  function onCreditReportCapsule() {
+    const result = enterCreditReport();
+    if (result === "empty") setPanel("reportEmpty");
+    if (result === "list") setPanel("reportList");
+  }
+
+  useEffect(() => {
+    if (!panel || !LAZY_PANELS.has(panel)) return;
+    if (panel === "testimonials" && !props.opsMeta.showTestimonials) return;
+    const key = panel as ClientOpsPanel;
+    if (opsLoadedRef.current.has(key)) return;
+    opsLoadedRef.current.add(key);
+
+    let cancelled = false;
+    setOpsLoading(true);
+    setOpsError(null);
+    void loadClientOpsPanelAction(props.client.id, key).then((result) => {
+      if (cancelled) return;
+      setOpsLoading(false);
+      if (!result.ok) {
+        opsLoadedRef.current.delete(key);
+        setOpsError(result.error || "No se pudo cargar el panel.");
+        return;
+      }
+      setOpsCache((prev) => ({ ...prev, [key]: result.data }));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [panel, props.client.id, props.opsMeta.showTestimonials]);
+  const showRepairBanner = bucket === "repair" && props.kpis.porArreglar > 0;
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -282,33 +398,78 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [moreOpen]);
 
+  useEffect(() => {
+    if (panel !== "score" && panel !== "fondeo") return;
+    let cancelled = false;
+    setPlanHubLoading(true);
+    setPlanHubError(null);
+    void loadClientActionPlanHub({
+      clientId: props.client.id,
+      reportId: activeReportId,
+    }).then((res) => {
+      if (cancelled) return;
+      setPlanHubLoading(false);
+      if (!res.ok) {
+        setPlanHub(null);
+        setPlanHubError(res.error);
+        return;
+      }
+      setPlanHub(res.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [panel, props.client.id, activeReportId]);
+
   const scoreOrder = useMemo(() => {
+    const cards = planHub?.revolving.cards ?? [];
+    const withLimit = cards
+      .filter((c) => c.limit != null && c.limit > 0)
+      .map((c) => {
+        const limit = c.limit!;
+        const balance = c.balance ?? 0;
+        const currentPct =
+          c.utilization ?? (limit > 0 ? (balance / limit) * 100 : 0);
+        const targetBalance = limit * (utilPct / 100);
+        const amount = Math.max(0, Math.round(balance - targetBalance));
+        return {
+          name: c.creditorName,
+          pct: Math.round(currentPct),
+          amount,
+        };
+      })
+      .sort((a, b) => b.pct - a.pct);
+    if (withLimit.length > 0) return withLimit;
     const base = Math.max(100, Math.round(5000 * (utilPct / 100)));
     return [
-      { name: "Tarjeta principal", pct: Math.min(utilPct, 90), amount: base },
-      {
-        name: "Segunda línea",
-        pct: Math.max(5, Math.round(utilPct * 0.6)),
-        amount: Math.round(base * 0.55),
-      },
-      {
-        name: "Tercera línea",
-        pct: Math.max(3, Math.round(utilPct * 0.35)),
-        amount: Math.round(base * 0.3),
-      },
+      { name: "Sin tarjetas en reporte", pct: utilPct, amount: base },
     ];
-  }, [utilPct]);
+  }, [planHub, utilPct]);
 
   function onEdit(formData: FormData) {
     setError(null);
     const firstName = String(formData.get("firstName") ?? "").trim();
     const lastName = String(formData.get("lastName") ?? "").trim();
     const email = String(formData.get("email") ?? "").trim();
+    const phone = String(formData.get("phone") ?? "").trim();
+    const source = String(formData.get("source") ?? "").trim();
+    const addressLine1 = String(formData.get("addressLine1") ?? "").trim();
+    const addressLine2 = String(formData.get("addressLine2") ?? "").trim();
+    const city = String(formData.get("city") ?? "").trim();
+    const state = String(formData.get("state") ?? "").trim();
+    const postalCode = String(formData.get("postalCode") ?? "").trim();
     startTransition(async () => {
       const result = await updateClient(props.client.id, {
         firstName,
         lastName: lastName || undefined,
         email: email || undefined,
+        phone: phone || undefined,
+        source: source || undefined,
+        addressLine1: addressLine1 || undefined,
+        addressLine2: addressLine2 || undefined,
+        city: city || undefined,
+        state: state || undefined,
+        postalCode: postalCode || undefined,
       });
       if (!result.ok) {
         setError(result.error);
@@ -332,10 +493,6 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     });
   }
 
-  async function copyScript() {
-    await navigator.clipboard.writeText(props.salesScript);
-  }
-
   async function copyIntake() {
     if (!props.intakeUrl) return;
     await navigator.clipboard.writeText(props.intakeUrl);
@@ -354,6 +511,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             </div>
             <p className="mt-1 text-[13px] text-text-secondary">
               {props.client.email ?? "Sin correo"}
+              {` · ${props.pdfReports.length} reporte${props.pdfReports.length === 1 ? "" : "s"}`}
               {props.documentsCount > 0
                 ? ` · ${props.documentsCount} docs`
                 : null}
@@ -375,9 +533,52 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                   {reviewInLabel(days)}
                 </span>
               ) : null}
+              <button
+                type="button"
+                className="font-medium text-action-primary"
+                onClick={() => setPanel("avance")}
+              >
+                Abrir centro de rondas →
+              </button>
             </div>
+            {props.pdfReports.length > 0 ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary">
+                  Historial
+                </span>
+                {props.pdfReports.map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setActiveReportId(r.id)}
+                    className={`rounded-full px-3 py-1 font-mono text-[12px] tabular-nums transition-colors ${
+                      activeReportId === r.id
+                        ? "bg-action-primary text-action-primary-foreground"
+                        : "bg-surface-app text-text-secondary ring-1 ring-border-subtle hover:text-action-primary"
+                    }`}
+                  >
+                    {formatDate(r.reportDate)}
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setPanel("documents")}
+            >
+              Documentos
+              {props.documentsCount > 0 ? ` ${props.documentsCount}` : ""}
+            </Button>
+            {props.quickAdd.canReport && props.caseId ? (
+              <AnalyzePdfImportButton
+                caseId={props.caseId}
+                label="Subir reporte"
+              />
+            ) : null}
             <div ref={moreRef} className="relative">
               <Button
                 type="button"
@@ -441,6 +642,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             <ClientQuickAdd
               clientId={props.client.id}
               caseId={props.caseId}
+              caseState={props.caseState}
               members={props.quickAdd.members}
               stages={props.quickAdd.stages}
               services={props.quickAdd.services}
@@ -505,11 +707,19 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
 
         <CapsuleGroup label="Ahora">
           <ActionCapsule
+            icon={FileBarChart}
+            title="Reporte de crédito"
+            subtitle="El documento completo"
+            onClick={onCreditReportCapsule}
+          />
+          <ActionCapsule
             icon={ListChecks}
             title="Plan de Acción"
-            subtitle="Pasos a dar"
+            subtitle="Lectura + pasos a dar"
             badge="Nuevo"
-            onClick={() => setPanel("plan")}
+            href={`/crm/clientes/${props.client.id}/plan-de-accion${
+              activeReportId ? `?reportId=${activeReportId}` : ""
+            }`}
           />
           <ActionCapsule
             icon={Search}
@@ -519,12 +729,14 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 ? `${props.kpis.porArreglar} negativos`
                 : "Negativos"
             }
+            badge="Beta"
             onClick={() => setPanel("analisis")}
           />
           <ActionCapsule
             icon={TrendingUp}
             title="Score Plan"
             subtitle="Sube el puntaje"
+            badge="Beta"
             onClick={() => setPanel("score")}
           />
           <ActionCapsule
@@ -535,13 +747,14 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           />
           <ActionCapsule
             icon={GitCompare}
-            title="Crédito"
+            title="Avance"
             subtitle={
               props.roundNumber != null
                 ? `Ronda ${props.roundNumber}`
-                : `${props.reportsCount} reportes`
+                : "Progreso por rondas"
             }
-            onClick={() => setPanel("credit")}
+            badge="Beta"
+            onClick={() => setPanel("avance")}
           />
         </CapsuleGroup>
 
@@ -549,25 +762,19 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           <ActionCapsule
             icon={Receipt}
             title="Cotización"
-            subtitle="Propuesta"
-            href={props.quoteHref}
+            subtitle={props.cierre.quote.label}
+            onClick={() => setPanel("quote")}
           />
           <ActionCapsule
             icon={Scale}
             title="Contrato"
-            subtitle="Firma"
-            href={props.contractHref}
+            subtitle={props.cierre.contract.label}
+            onClick={() => setPanel("contract")}
           />
           <ActionCapsule
             icon={ClipboardList}
-            title="Iniciación"
-            subtitle={
-              props.intakeUrl
-                ? "Copiar enlace"
-                : props.intakeEnabled
-                  ? "Generar"
-                  : "Sin enlace"
-            }
+            title="Formulario"
+            subtitle={props.cierre.intake.label}
             onClick={() => setPanel("script")}
           />
         </CapsuleGroup>
@@ -578,6 +785,16 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             title="Servicios"
             subtitle="Expedientes"
             onClick={() => setPanel("services")}
+          />
+          <ActionCapsule
+            icon={FileBarChart}
+            title="Evolución"
+            subtitle={
+              props.reportsCount > 0
+                ? `${props.reportsCount} score${props.reportsCount === 1 ? "" : "s"}`
+                : "Scores"
+            }
+            href={props.reportHref}
           />
           <ActionCapsule
             icon={CheckSquare}
@@ -607,7 +824,19 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             subtitle="Internas"
             onClick={() => setPanel("notes")}
           />
-          {props.opsPanels.testimonials ? (
+          <ActionCapsule
+            icon={History}
+            title="Actividad"
+            subtitle={
+              props.activityEvents.length > 0
+                ? props.activityHasMore
+                  ? `${props.activityEvents.length}+ eventos`
+                  : `${props.activityEvents.length} evento${props.activityEvents.length === 1 ? "" : "s"}`
+                : "Timeline"
+            }
+            onClick={() => setPanel("activity")}
+          />
+          {props.opsMeta.showTestimonials ? (
             <ActionCapsule
               icon={MessageSquareQuote}
               title="Testimonios"
@@ -616,72 +845,15 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             />
           ) : null}
         </CapsuleGroup>
-
-        <details className="group rounded-surface bg-surface-panel">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 marker:content-none [&::-webkit-details-marker]:hidden">
-            <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-ink">
-              ¿Qué le digo al cliente?
-            </h3>
-            <span className="text-[13px] font-medium text-action-primary group-open:hidden">
-              Ver guion
-            </span>
-            <span className="hidden text-[13px] font-medium text-action-primary group-open:inline">
-              Ocultar
-            </span>
-          </summary>
-          <div className="border-t border-border-subtle px-4 pb-4 pt-3">
-            <div className="mb-2 flex justify-end">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={copyScript}
-              >
-                <Copy className="size-3.5" aria-hidden />
-                Copiar guion
-              </Button>
-            </div>
-            <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-text-secondary">
-              {props.salesScript}
-            </p>
-          </div>
-        </details>
-      </section>
-
-      <section id="actividad" className="space-y-3">
-        <div className="flex items-center justify-between gap-2">
-          <h2 className="text-[20px] font-semibold tracking-[-0.02em] text-ink">
-            Actividad
-          </h2>
-          {props.activityEvents.length > 5 ? (
-            <button
-              type="button"
-              className="text-[13px] font-medium text-action-primary"
-              onClick={() => setPanel("activity")}
-            >
-              Ver toda
-            </button>
-          ) : null}
-        </div>
-        {activityPreview.length === 0 ? (
-          <p className="rounded-surface bg-surface-panel px-4 py-6 text-center text-[13px] text-text-secondary">
-            Aún no hay actividad registrada.
-          </p>
-        ) : (
-          <ActivityTimeline
-            clientId={props.client.id}
-            clientName={props.fullName}
-            events={activityPreview}
-          />
-        )}
       </section>
 
       <AgencyModal
         open={panel === "edit"}
         onClose={() => setPanel(null)}
         title="Editar cliente"
+        size="lg"
       >
-        <form action={onEdit} className="space-y-3">
+        <form action={onEdit} className="grid gap-3 sm:grid-cols-2">
           <label className="block text-[13px]">
             <span className="mb-1 block font-medium">Nombre</span>
             <input
@@ -708,12 +880,78 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
             />
           </label>
+          <label className="block text-[13px]">
+            <span className="mb-1 block font-medium">Teléfono</span>
+            <input
+              name="phone"
+              type="tel"
+              defaultValue={props.client.phone ?? ""}
+              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
+            />
+          </label>
+          <label className="block text-[13px] sm:col-span-2">
+            <span className="mb-1 block font-medium">Fuente</span>
+            <input
+              name="source"
+              defaultValue={props.client.source ?? ""}
+              placeholder="Referido, web, Facebook…"
+              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
+            />
+          </label>
+          <label className="block text-[13px] sm:col-span-2">
+            <span className="mb-1 block font-medium">Dirección</span>
+            <input
+              name="addressLine1"
+              defaultValue={props.client.addressLine1 ?? ""}
+              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
+            />
+          </label>
+          <label className="block text-[13px] sm:col-span-2">
+            <span className="mb-1 block font-medium">Dirección (línea 2)</span>
+            <input
+              name="addressLine2"
+              defaultValue={props.client.addressLine2 ?? ""}
+              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
+            />
+          </label>
+          <label className="block text-[13px]">
+            <span className="mb-1 block font-medium">Ciudad</span>
+            <input
+              name="city"
+              defaultValue={props.client.city ?? ""}
+              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
+            />
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block text-[13px]">
+              <span className="mb-1 block font-medium">Estado</span>
+              <input
+                name="state"
+                defaultValue={props.client.state ?? ""}
+                maxLength={2}
+                className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm uppercase"
+              />
+            </label>
+            <label className="block text-[13px]">
+              <span className="mb-1 block font-medium">C.P.</span>
+              <input
+                name="postalCode"
+                defaultValue={props.client.postalCode ?? ""}
+                className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
+              />
+            </label>
+          </div>
           {error ? (
-            <p className="text-[13px] text-danger" role="alert">
+            <p className="text-[13px] text-danger sm:col-span-2" role="alert">
               {error}
             </p>
           ) : null}
-          <Button type="submit" variant="primary" className="w-full" disabled={pending}>
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full sm:col-span-2"
+            disabled={pending}
+          >
             Guardar cambios
           </Button>
         </form>
@@ -766,265 +1004,503 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
       </AgencyModal>
 
       <AgencyModal
+        open={panel === "quote"}
+        onClose={() => setPanel(null)}
+        title="Cotización"
+        size="xl"
+      >
+        {panel === "quote" && props.quoteHub ? (
+          <ClientQuoteHubPanel
+            clientId={props.client.id}
+            clientLabel={props.fullName}
+            caseId={props.caseId}
+            reportId={activeReportId}
+            existingQuoteId={props.cierre.quote.id}
+            quoteStatusLabel={props.cierre.quote.label}
+            services={props.quoteHub.services}
+            packages={props.quoteHub.packages}
+            defaultTaxRate={props.quoteHub.defaultTaxRate}
+            defaultTerms={props.quoteHub.defaultTerms}
+          />
+        ) : panel === "quote" ? (
+          <div className="space-y-3 text-center">
+            <p className="text-[13px] text-text-secondary">
+              Estado:{" "}
+              <strong className="text-ink">{props.cierre.quote.label}</strong>
+            </p>
+            <Link
+              href={props.cierre.quote.href}
+              className="inline-flex rounded-control bg-action-primary px-4 py-2 text-sm font-medium text-action-primary-foreground"
+            >
+              {props.cierre.quote.id ? "Abrir cotización" : "Nueva cotización"}
+            </Link>
+          </div>
+        ) : null}
+      </AgencyModal>
+
+      <AgencyModal
+        open={panel === "contract"}
+        onClose={() => setPanel(null)}
+        title="Contrato"
+        size="lg"
+      >
+        {panel === "contract" ? (
+          <ClientContractHubPanel
+            clientId={props.client.id}
+            contractId={props.cierre.contract.id}
+            contractStatus={props.cierre.contract.status}
+            statusLabel={props.cierre.contract.label}
+            templates={props.contractHub.templates}
+            canManage={props.contractHub.canManage}
+          />
+        ) : null}
+      </AgencyModal>
+
+      <AgencyModal
         open={panel === "script"}
         onClose={() => setPanel(null)}
         title="Formulario de iniciación"
+        size="lg"
       >
-        {props.intakeUrl ? (
-          <div className="space-y-3">
-            <p className="break-all rounded-control bg-surface-app px-3 py-2 font-mono text-[12px]">
-              {props.intakeUrl}
-            </p>
-            <Button type="button" variant="primary" className="w-full" onClick={copyIntake}>
-              Copiar enlace
-            </Button>
-            {props.intakeEnabled && props.canIntake ? (
-              <div className="border-t border-border-subtle pt-3">
-                <p className="mb-2 text-[12px] text-text-secondary">
-                  O genera un enlace nuevo:
-                </p>
-                <CreateIntakeLinkCard
-                  clientId={props.client.id}
-                  cases={props.intakeCases}
-                  existingLinks={props.intakeLinks}
-                  compact
-                />
-              </div>
-            ) : null}
-          </div>
-        ) : props.intakeEnabled && props.canIntake ? (
-          <CreateIntakeLinkCard
-            clientId={props.client.id}
-            cases={props.intakeCases}
-            existingLinks={props.intakeLinks}
-          />
-        ) : (
-          <p className="text-[13px] text-text-secondary">
-            No hay enlace de intake activo. Activa FEATURE_PUBLIC_INTAKE o
-            genera uno con Añadir → Solicitar información.
+        <div className="space-y-3">
+          <p className="text-center text-[13px] text-text-secondary">
+            Estado:{" "}
+            <strong className="text-ink">{props.cierre.intake.label}</strong>
           </p>
-        )}
+          {props.intakeUrl ? (
+            <>
+              <p className="break-all rounded-control bg-surface-app px-3 py-2 font-mono text-[12px]">
+                {props.intakeUrl}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="flex-1"
+                  onClick={copyIntake}
+                >
+                  Copiar enlace
+                </Button>
+                <a
+                  href={`mailto:${props.client.email ?? ""}?subject=${encodeURIComponent(
+                    "Formulario de iniciación",
+                  )}&body=${encodeURIComponent(
+                    `Hola ${props.fullName},\n\nCompleta tu formulario aquí:\n${props.intakeUrl}\n`,
+                  )}`}
+                  className="inline-flex flex-1 items-center justify-center rounded-control bg-surface-panel px-3 py-2 text-sm font-medium text-ink ring-1 ring-border-subtle"
+                >
+                  Enviar por email
+                </a>
+              </div>
+              {props.intakeEnabled && props.canIntake ? (
+                <div className="border-t border-border-subtle pt-3">
+                  <p className="mb-2 text-[12px] text-text-secondary">
+                    O genera un enlace nuevo:
+                  </p>
+                  <CreateIntakeLinkCard
+                    clientId={props.client.id}
+                    cases={props.intakeCases}
+                    existingLinks={props.intakeLinks}
+                    compact
+                  />
+                </div>
+              ) : null}
+            </>
+          ) : props.intakeEnabled && props.canIntake ? (
+            <CreateIntakeLinkCard
+              clientId={props.client.id}
+              cases={props.intakeCases}
+              existingLinks={props.intakeLinks}
+            />
+          ) : (
+            <p className="text-[13px] text-text-secondary">
+              No hay enlace de intake activo. Activa FEATURE_PUBLIC_INTAKE o
+              genera uno con Añadir → Solicitar información.
+            </p>
+          )}
+        </div>
       </AgencyModal>
 
-      {panel === "plan" ? (
-        <InlinePanel title="Análisis de Crédito y Plan de Acción" onClose={() => setPanel(null)}>
-          <div className="mx-auto max-w-2xl space-y-4">
+      <AgencyModal
+        open={panel === "analisis"}
+        onClose={() => setPanel(null)}
+        title="Análisis · cuentas negativas"
+        size="lg"
+      >
+        {panel === "analisis" ? (
+          <ClientNegativeAnalysisPanel
+            clientId={props.client.id}
+            reportId={activeReportId}
+          />
+        ) : null}
+      </AgencyModal>
+
+      <AgencyModal
+        open={panel === "avance"}
+        onClose={() => setPanel(null)}
+        title="Avance"
+        size="xl"
+      >
+        {panel === "avance" ? (
+          <ClientAvancePanel
+            clientId={props.client.id}
+            reportId={activeReportId}
+            caseId={props.caseId}
+            canCreateRound={props.canCreateRound}
+            initialRoundId={props.initialAvanceRoundId ?? null}
+            initialTab={
+              props.initialAvanceRoundId || props.openAvance
+                ? "gestion"
+                : undefined
+            }
+          />
+        ) : null}
+      </AgencyModal>
+
+      <AgencyModal
+        open={panel === "score"}
+        onClose={() => setPanel(null)}
+        title="Score Plan"
+        size="lg"
+        centerBody
+      >
+        <div className="space-y-4">
+          {planHubLoading ? (
             <p className="text-center text-[13px] text-text-secondary">
-              Analizando a: <strong className="text-ink">{props.fullName}</strong>
+              Cargando revolving del reporte…
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <Capsule tone="danger">No calificado</Capsule>
-              <Capsule tone="warning">Estimado fondeo —</Capsule>
-              <Capsule tone="accent">{props.reportsCount} reportes</Capsule>
-            </div>
-            <div className="rounded-surface bg-surface-panel p-4">
-              <h3 className="font-semibold text-ink">1 · Desglose por buró</h3>
-              <p className="mt-2 text-[13px] text-text-secondary">
-                {props.reportsCount > 0
-                  ? "Usa el reporte de crédito del caso para scores y utilización. Umbrales guía: score 720 · utilización 10%."
-                  : "Aún no hay reporte parseado. Sube un reporte de crédito para llenar este plan."}
-              </p>
-              {props.reportHref ? (
-                <Link
-                  href={props.reportHref}
-                  className="mt-3 inline-block text-[13px] font-medium text-action-primary"
-                >
-                  Ver reporte →
-                </Link>
-              ) : null}
-            </div>
-            <div className="rounded-surface bg-surface-panel p-4">
-              <h3 className="font-semibold text-ink">2 · Estructura</h3>
-              <p className="mt-2 text-[13px] text-text-secondary">
-                Orden sugerido: bajar utilización → disputar negativos →
-                estabilizar 30 días → evaluar fondeo.
-              </p>
-            </div>
-          </div>
-        </InlinePanel>
-      ) : null}
-
-      {panel === "analisis" ? (
-        <InlinePanel title="Cuentas negativas" onClose={() => setPanel(null)}>
-          <div className="mx-auto max-w-xl space-y-3">
-            <p className="text-[13px] text-text-secondary">
-              Negativos: <strong>{props.kpis.porArreglar}</strong>
+          ) : null}
+          {planHubError ? (
+            <p className="text-center text-sm text-danger">{planHubError}</p>
+          ) : null}
+          {planHub ? (
+            <p className="text-center text-[12px] text-text-secondary">
+              Util. actual:{" "}
+              {planHub.revolving.utilPct != null
+                ? `${planHub.revolving.utilPct.toFixed(1)}%`
+                : "—"}{" "}
+              · {planHub.revolving.openCards} tarjetas
+              {planHub.avgScore != null ? ` · score ${planHub.avgScore}` : ""}
             </p>
-            {props.kpis.porArreglar === 0 ? (
-              <p className="rounded-surface bg-surface-panel px-4 py-6 text-center text-[13px] text-text-secondary">
-                No hay cuentas negativas cargadas (o no hay reporte parseado).
-              </p>
-            ) : (
-              <p className="rounded-surface bg-surface-panel px-4 py-4 text-[13px] text-text-secondary">
-                Hay {props.kpis.porArreglar} ítems negativos en el caso. Abre el
-                crédito para ver acreedor, buró y disputa.
-                {props.caseId ? (
-                  <>
-                    {" "}
-                    <button
-                      type="button"
-                      className="font-medium text-action-primary"
-                      onClick={() => setPanel("credit")}
-                    >
-                      Ir a crédito y rondas →
-                    </button>
-                  </>
-                ) : null}
-              </p>
-            )}
-          </div>
-        </InlinePanel>
-      ) : null}
-
-      {panel === "score" ? (
-        <InlinePanel title="Score Plan" onClose={() => setPanel(null)}>
-          <div className="mx-auto max-w-lg space-y-4">
-            <label className="block text-[13px]">
-              <span className="mb-1 block font-medium">
-                Utilización simulada: {utilPct}%
-              </span>
-              <input
-                type="range"
-                min={5}
-                max={95}
-                value={utilPct}
-                onChange={(e) => setUtilPct(Number(e.target.value))}
-                className="w-full"
-              />
-              <span className="text-text-secondary">Targets: 30% / 10%</span>
-            </label>
-            <div className="space-y-2">
-              <p className="text-[13px] font-semibold text-ink">
-                1 · Paga en este orden
-              </p>
-              {scoreOrder.map((row) => (
-                <div
-                  key={row.name}
-                  className="flex items-center justify-between rounded-control bg-surface-panel px-3 py-2 text-[13px]"
-                >
-                  <span>
-                    {row.name} · {row.pct}%
-                  </span>
-                  <span className="font-mono tabular-nums">
-                    ${row.amount.toLocaleString("en-US")}
-                  </span>
-                </div>
-              ))}
-            </div>
-            <Button
-              type="button"
-              variant="secondary"
+          ) : null}
+          <label className="block text-[13px]">
+            <span className="mb-1 block font-medium">
+              Utilización objetivo: {utilPct}%
+            </span>
+            <input
+              type="range"
+              min={5}
+              max={95}
+              value={utilPct}
+              onChange={(e) => setUtilPct(Number(e.target.value))}
               className="w-full"
-              onClick={() =>
-                navigator.clipboard.writeText(
-                  scoreOrder
-                    .map(
-                      (r) =>
-                        `${r.name}: ${r.pct}% · $${r.amount.toLocaleString("en-US")}`,
-                    )
-                    .join("\n"),
-                )
-              }
-            >
-              Copiar plan para el cliente
-            </Button>
-          </div>
-        </InlinePanel>
-      ) : null}
-
-      {panel === "fondeo" ? (
-        <InlinePanel title="Calculadora de Fondeo" onClose={() => setPanel(null)}>
-          <div className="mx-auto max-w-lg space-y-3">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-text-secondary">
-              Datos del negocio
+            />
+            <span className="text-text-secondary">
+              Meta típica 30% / 10% — monto = pagar para llegar a la meta
+            </span>
+          </label>
+          <div className="space-y-2">
+            <p className="text-[13px] font-semibold text-ink">
+              1 · Paga en este orden
             </p>
-            {(
-              [
-                ["business", "Nombre del negocio"],
-                ["months", "Meses operando"],
-                ["naics", "NAICS"],
-                ["cash", "Cash en banco (USD)"],
-              ] as const
-            ).map(([key, label]) => (
-              <label key={key} className="block text-[13px]">
-                <span className="mb-1 block font-medium">{label}</span>
-                <input
-                  value={fondeoForm[key]}
-                  onChange={(e) =>
-                    setFondeoForm((prev) => ({ ...prev, [key]: e.target.value }))
-                  }
-                  className="w-full rounded-control bg-surface-panel px-3 py-2.5"
-                />
-              </label>
+            {scoreOrder.map((row) => (
+              <div
+                key={`${row.name}-${row.pct}`}
+                className="flex items-center justify-between rounded-control bg-nav-hover/50 px-3 py-2 text-[13px]"
+              >
+                <span>
+                  {row.name} · ahora {row.pct}%
+                </span>
+                <span className="font-mono tabular-nums">
+                  ${row.amount.toLocaleString("en-US")}
+                </span>
+              </div>
             ))}
-            <Button
-              type="button"
-              variant="primary"
-              className="w-full"
-              onClick={() => {
-                const cash = Number(fondeoForm.cash) || 0;
-                const months = Number(fondeoForm.months) || 0;
-                const estimate = Math.round(cash * 2.5 + months * 1500);
-                setFondeoResult(
-                  `Estimado heurístico (no API Fondify): $${estimate.toLocaleString("en-US")}`,
-                );
-              }}
-            >
-              Calcular fondeo
-            </Button>
-            {fondeoResult ? (
-              <p className="rounded-control bg-surface-panel px-3 py-3 text-[14px] font-semibold text-ink">
-                {fondeoResult}
-              </p>
-            ) : null}
           </div>
-        </InlinePanel>
-      ) : null}
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={() =>
+              navigator.clipboard.writeText(
+                scoreOrder
+                  .map(
+                    (r) =>
+                      `${r.name}: ahora ${r.pct}% → pagar $${r.amount.toLocaleString("en-US")} (meta ${utilPct}%)`,
+                  )
+                  .join("\n"),
+              )
+            }
+          >
+            Copiar plan para el cliente
+          </Button>
+        </div>
+      </AgencyModal>
 
-      {panel === "services" ? (
-        <InlinePanel title="Servicios" onClose={() => setPanel(null)}>
-          {props.opsPanels.services}
-        </InlinePanel>
-      ) : null}
-      {panel === "tasks" ? (
-        <InlinePanel title="Tareas" onClose={() => setPanel(null)}>
-          {props.opsPanels.tasks}
-        </InlinePanel>
-      ) : null}
-      {panel === "documents" ? (
-        <InlinePanel title="Documentos" onClose={() => setPanel(null)}>
-          {props.opsPanels.documents}
-        </InlinePanel>
-      ) : null}
-      {panel === "payments" ? (
-        <InlinePanel title="Pagos" onClose={() => setPanel(null)}>
-          {props.opsPanels.payments}
-        </InlinePanel>
-      ) : null}
-      {panel === "notes" ? (
-        <InlinePanel title="Notas" onClose={() => setPanel(null)}>
-          {props.opsPanels.notes}
-        </InlinePanel>
-      ) : null}
-      {panel === "testimonials" && props.opsPanels.testimonials ? (
-        <InlinePanel title="Testimonios" onClose={() => setPanel(null)}>
-          {props.opsPanels.testimonials}
-        </InlinePanel>
-      ) : null}
-      {panel === "credit" ? (
-        <InlinePanel title="Crédito y rondas" onClose={() => setPanel(null)}>
-          {props.opsPanels.credit}
-        </InlinePanel>
-      ) : null}
-      {panel === "activity" ? (
-        <InlinePanel title="Actividad" onClose={() => setPanel(null)}>
+      <AgencyModal
+        open={panel === "fondeo"}
+        onClose={() => setPanel(null)}
+        title="Calculadora de Fondeo"
+        size="lg"
+        centerBody
+      >
+        <div className="space-y-3">
+          {planHubLoading ? (
+            <p className="text-center text-[13px] text-text-secondary">
+              Cargando perfil crediticio…
+            </p>
+          ) : null}
+          {planHubError ? (
+            <p className="text-center text-sm text-danger">{planHubError}</p>
+          ) : null}
+          {planHub ? (
+            <div className="rounded-surface bg-nav-hover/40 px-3 py-3 text-center text-[13px]">
+              <p
+                className={`font-semibold ${
+                  planHub.qualified ? "text-success-ink" : "text-danger-ink"
+                }`}
+              >
+                {planHub.qualified
+                  ? "Perfil con señales de elegibilidad"
+                  : "No calificado actualmente"}
+              </p>
+              <p className="mt-1 text-text-secondary">
+                {planHub.bureausApproved}/3 burós · score{" "}
+                {planHub.avgScore ?? "—"} · util{" "}
+                {planHub.avgUtilization != null
+                  ? `${planHub.avgUtilization}%`
+                  : "—"}
+              </p>
+              <p className="mt-2 text-[12px] text-text-secondary">
+                {planHub.verdict}
+              </p>
+              <Link
+                href={`/crm/clientes/${props.client.id}/plan-de-accion?reportId=${planHub.reportId}`}
+                className="mt-2 inline-flex text-[12px] font-medium text-action-primary"
+              >
+                Ver plan de acción completo →
+              </Link>
+            </div>
+          ) : null}
+          <p className="text-center text-[12px] font-semibold uppercase tracking-wide text-text-secondary">
+            Datos del negocio (estimado)
+          </p>
+          {(
+            [
+              ["business", "Nombre del negocio"],
+              ["months", "Meses operando"],
+              ["naics", "NAICS"],
+              ["cash", "Cash en banco (USD)"],
+            ] as const
+          ).map(([key, label]) => (
+            <label key={key} className="block text-[13px]">
+              <span className="mb-1 block font-medium">{label}</span>
+              <input
+                value={fondeoForm[key]}
+                onChange={(e) =>
+                  setFondeoForm((prev) => ({ ...prev, [key]: e.target.value }))
+                }
+                className="w-full rounded-control bg-nav-hover px-3 py-2.5"
+              />
+            </label>
+          ))}
+          <Button
+            type="button"
+            variant="primary"
+            className="w-full"
+            onClick={() => {
+              const cash = Number(fondeoForm.cash) || 0;
+              const months = Number(fondeoForm.months) || 0;
+              const raw = Math.round(cash * 2.5 + months * 1500);
+              const blocked = planHub != null && !planHub.qualified;
+              const estimate = blocked ? 0 : raw;
+              const note = blocked
+                ? "Perfil no calificado — estimado $0 hasta mejorar burós. "
+                : planHub?.qualified
+                  ? "Perfil con señales de elegibilidad. "
+                  : "";
+              setFondeoResult(
+                `${note}Estimado heurístico: $${estimate.toLocaleString("en-US")}`,
+              );
+            }}
+          >
+            Calcular fondeo
+          </Button>
+          {fondeoResult ? (
+            <p className="rounded-control bg-nav-hover/50 px-3 py-3 text-center text-[14px] font-semibold text-ink">
+              {fondeoResult}
+            </p>
+          ) : null}
+        </div>
+      </AgencyModal>
+
+      <AgencyModal
+        open={panel === "services"}
+        onClose={() => setPanel(null)}
+        title="Servicios"
+        size="xl"
+      >
+        {opsLoading && !opsCache.services ? (
+          <OpsPanelSkeleton />
+        ) : opsError && !opsCache.services ? (
+          <p className="text-sm text-danger">{opsError}</p>
+        ) : opsCache.services?.panel === "services" ? (
+          <ClientServicesPanel
+            clientId={props.client.id}
+            clientArchived={opsCache.services.clientArchived}
+            serviceCases={opsCache.services.serviceCases}
+            orphanCases={opsCache.services.orphanCases}
+            canManage={opsCache.services.canManage}
+            services={opsCache.services.services}
+            members={opsCache.services.members}
+          />
+        ) : null}
+      </AgencyModal>
+      <AgencyModal
+        open={panel === "tasks"}
+        onClose={() => setPanel(null)}
+        title="Tareas"
+        size="xl"
+      >
+        {opsLoading && !opsCache.tasks ? (
+          <OpsPanelSkeleton />
+        ) : opsError && !opsCache.tasks ? (
+          <p className="text-sm text-danger">{opsError}</p>
+        ) : opsCache.tasks?.panel === "tasks" ? (
+          <ClientTasksPanel
+            clientId={props.client.id}
+            tasks={opsCache.tasks.tasks}
+            members={opsCache.tasks.members}
+            canManage={opsCache.tasks.canManage}
+            timezone={opsCache.tasks.timezone}
+            cases={opsCache.tasks.cases}
+          />
+        ) : null}
+      </AgencyModal>
+      <AgencyModal
+        open={panel === "documents"}
+        onClose={() => setPanel(null)}
+        title="Documentos"
+        size="xl"
+      >
+        {opsLoading && !opsCache.documents ? (
+          <OpsPanelSkeleton />
+        ) : opsError && !opsCache.documents ? (
+          <p className="text-sm text-danger">{opsError}</p>
+        ) : opsCache.documents?.panel === "documents" ? (
+          <ClientDocumentsPanel
+            clientId={props.client.id}
+            documents={opsCache.documents.documents}
+            canUpload={opsCache.documents.canUpload}
+            storageReady={props.opsMeta.storageReady}
+          />
+        ) : null}
+      </AgencyModal>
+      <AgencyModal
+        open={panel === "payments"}
+        onClose={() => setPanel(null)}
+        title="Pagos"
+        size="xl"
+      >
+        {opsLoading && !opsCache.payments ? (
+          <OpsPanelSkeleton />
+        ) : opsError && !opsCache.payments ? (
+          <p className="text-sm text-danger">{opsError}</p>
+        ) : opsCache.payments?.panel === "payments" ? (
+          <ClientPaymentsPanel
+            clientId={props.client.id}
+            payments={opsCache.payments.payments}
+            canRegister={opsCache.payments.canRegister}
+            cases={opsCache.payments.cases}
+          />
+        ) : null}
+      </AgencyModal>
+      <AgencyModal
+        open={panel === "notes"}
+        onClose={() => setPanel(null)}
+        title="Notas"
+        size="xl"
+      >
+        {opsLoading && !opsCache.notes ? (
+          <OpsPanelSkeleton />
+        ) : opsError && !opsCache.notes ? (
+          <p className="text-sm text-danger">{opsError}</p>
+        ) : opsCache.notes?.panel === "notes" ? (
+          <ClientNotesPanel
+            clientId={props.client.id}
+            notes={opsCache.notes.notes}
+            canEdit={opsCache.notes.canEdit}
+          />
+        ) : null}
+      </AgencyModal>
+      <AgencyModal
+        open={panel === "testimonials" && props.opsMeta.showTestimonials}
+        onClose={() => setPanel(null)}
+        title="Testimonios"
+        size="xl"
+      >
+        {opsLoading && !opsCache.testimonials ? (
+          <OpsPanelSkeleton />
+        ) : opsError && !opsCache.testimonials ? (
+          <p className="text-sm text-danger">{opsError}</p>
+        ) : opsCache.testimonials?.panel === "testimonials" ? (
+          <ClientTestimonialsPanel
+            clientId={props.client.id}
+            defaultName={opsCache.testimonials.defaultName}
+            rows={opsCache.testimonials.rows}
+            cases={opsCache.testimonials.cases}
+            manage={opsCache.testimonials.manage}
+            publish={opsCache.testimonials.publish}
+          />
+        ) : null}
+      </AgencyModal>
+      <AgencyModal
+        open={panel === "activity"}
+        onClose={() => setPanel(null)}
+        title="Actividad"
+        size="lg"
+      >
+        {opsLoading && !opsCache.activity ? (
+          <OpsPanelSkeleton />
+        ) : opsError && !opsCache.activity ? (
+          <p className="text-sm text-danger">{opsError}</p>
+        ) : (
           <ActivityTimeline
             clientId={props.client.id}
             clientName={props.fullName}
-            events={props.activityEvents}
+            events={
+              opsCache.activity?.panel === "activity"
+                ? opsCache.activity.events
+                : props.activityEvents
+            }
+            compact
           />
-        </InlinePanel>
-      ) : null}
+        )}
+      </AgencyModal>
+
+      <AgencyModal
+        open={panel === "reportEmpty"}
+        onClose={() => setPanel(null)}
+        title="Reporte de crédito"
+        size="md"
+        centerBody
+      >
+        <CreditReportEmptyPanel
+          caseId={props.caseId}
+          canManage={props.quickAdd.canReport}
+        />
+      </AgencyModal>
+
+      <CreditReportListModal
+        open={panel === "reportList"}
+        onClose={() => setPanel(null)}
+        reports={props.pdfReports}
+        onSelect={(reportId) => {
+          setPanel(null);
+          setActiveReportId(reportId);
+          openReport(reportId);
+        }}
+      />
     </div>
   );
 }

@@ -36,6 +36,7 @@ const disabledItemClass =
 export function ClientQuickAdd({
   clientId,
   caseId,
+  caseState = null,
   members,
   stages = [],
   services = [],
@@ -51,6 +52,8 @@ export function ClientQuickAdd({
 }: {
   clientId: string;
   caseId: string | null;
+  /** Estado del CreditCase activo (OPEN requerido para rondas). */
+  caseState?: string | null;
   members: MemberOption[];
   stages?: StageOption[];
   services?: ServiceOption[];
@@ -73,6 +76,14 @@ export function ClientQuickAdd({
   canService: boolean;
   canIntake: boolean;
 }) {
+  const canCreateRound = Boolean(
+    canRound && caseId && caseState === "OPEN",
+  );
+  const roundBlockedReason = !caseId
+    ? "Crea un servicio de crédito primero"
+    : caseState && caseState !== "OPEN"
+      ? "El caso debe estar abierto para crear rondas"
+      : null;
   const [open, setOpen] = useState(false);
   const [intakeOpen, setIntakeOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -114,22 +125,28 @@ export function ClientQuickAdd({
           className="absolute right-0 z-40 mt-1 min-w-[15rem] overflow-hidden rounded-control border border-border-subtle bg-surface-panel py-1 shadow-lg"
         >
           {canRound ? (
-            caseId ? (
+            canCreateRound && caseId ? (
               <div onClick={() => setOpen(false)}>
                 <CreateRoundButton
                   caseId={caseId}
                   menuItem
                   label="Rondas"
+                  stayOnPage
                 />
               </div>
             ) : (
               <div
                 role="menuitem"
                 className={disabledItemClass}
-                title="Crea un servicio de crédito primero"
+                title={roundBlockedReason ?? "No se puede crear ronda"}
               >
                 <RefreshCcw className="size-3.5 shrink-0" aria-hidden />
                 Rondas
+                {roundBlockedReason ? (
+                  <span className="ml-auto max-w-[6.5rem] truncate text-[10px]">
+                    {caseId ? "Caso cerrado" : "Sin caso"}
+                  </span>
+                ) : null}
               </div>
             )
           ) : null}

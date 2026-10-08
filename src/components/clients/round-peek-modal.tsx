@@ -118,7 +118,7 @@ export function RoundPeekModal({
           )}
 
           <Link
-            href={`/crm/casos/${caseId}/rondas/${data.id}`}
+            href={`/crm/clientes/${data.clientId}?panel=avance&roundId=${encodeURIComponent(data.id)}`}
             className="inline-block text-xs font-medium text-action-primary hover:text-action-secondary"
             onClick={onClose}
           >

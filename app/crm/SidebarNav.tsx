@@ -61,7 +61,7 @@ const MAIL_FOLDERS: readonly {
 const MAIL_HREF = "/crm/mails?folder=inbox";
 
 const linkClass = (active: boolean, extra = "") =>
-  `flex min-h-11 lg:min-h-10 items-center gap-3 rounded-xl px-3 py-2 text-[14px] font-medium tracking-[-0.01em] transition-[color,background-color] duration-200 motion-reduce:transition-none ${
+  `flex min-h-8 items-center gap-2 rounded-lg px-2.5 py-1.5 text-[13px] font-medium tracking-[-0.01em] transition-[color,background-color] duration-200 motion-reduce:transition-none ${
     active
       ? "bg-nav-active text-action-primary"
       : "text-ink hover:bg-nav-hover"
@@ -104,7 +104,7 @@ export function SidebarNav() {
   return (
     <>
       <nav
-        className="flex-1 space-y-1 overflow-y-auto px-3 py-3"
+        className="flex-1 space-y-0.5 overflow-y-auto px-2 py-2"
         aria-label="Principal"
       >
         {PRIMARY_ITEMS.map(({ href, label, icon: Lucide, mails, chats }) => {
@@ -123,7 +123,7 @@ export function SidebarNav() {
                 className={linkClass(active)}
               >
                 <Lucide
-                  className="size-[18px] shrink-0"
+                  className="size-4 shrink-0"
                   strokeWidth={1.75}
                   aria-hidden
                 />
@@ -132,7 +132,7 @@ export function SidebarNav() {
 
               {mails && inMails ? (
                 <div
-                  className="mt-1 ml-4 space-y-0.5 border-border-subtle border-l pl-2"
+                  className="mt-0.5 ml-3 space-y-px border-border-subtle border-l pl-2"
                   role="group"
                   aria-label="Carpetas de correo"
                 >
@@ -147,7 +147,7 @@ export function SidebarNav() {
                         data-cuelume-hover="tick"
                         className={linkClass(
                           folderActive,
-                          "min-h-9 py-1.5 text-[13px]",
+                          "min-h-7 py-1 text-[12px]",
                         )}
                       >
                         <FolderIcon
@@ -174,7 +174,7 @@ export function SidebarNav() {
           className={`${linkClass(moreActive && !settingsActive)} w-full text-left`}
         >
           <Ellipsis
-            className="size-[18px] shrink-0"
+            className="size-4 shrink-0"
             strokeWidth={1.75}
             aria-hidden
           />
@@ -182,7 +182,7 @@ export function SidebarNav() {
         </button>
       </nav>
 
-      <div className="shrink-0 border-border-subtle border-t px-3 py-3">
+      <div className="shrink-0 border-border-subtle border-t px-2 py-2">
         <Link
           href="/crm/configuracion"
           aria-current={settingsActive ? "page" : undefined}
@@ -190,7 +190,7 @@ export function SidebarNav() {
           className={linkClass(settingsActive)}
         >
           <Settings
-            className="size-[18px] shrink-0"
+            className="size-4 shrink-0"
             strokeWidth={1.75}
             aria-hidden
           />

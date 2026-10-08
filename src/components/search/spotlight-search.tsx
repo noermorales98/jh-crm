@@ -369,11 +369,11 @@ export function SpotlightSearch({ role }: { role: Role | null }) {
         aria-label="Buscar en el CRM"
         aria-haspopup="dialog"
         aria-keyshortcuts="Meta+K Control+K"
-        className="jh-spotlight-field flex h-11 w-full max-w-2xl items-center gap-2.5 rounded-full bg-[color-mix(in_srgb,var(--color-surface-elevated)_78%,transparent)] px-4 text-left text-[15px] text-text-secondary ring-1 ring-border-subtle/40 backdrop-blur-xl transition-colors hover:bg-[color-mix(in_srgb,var(--color-surface-elevated)_92%,transparent)] focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 lg:h-12 lg:px-5 motion-reduce:transition-none"
+        className="jh-spotlight-field flex h-9 w-full max-w-2xl items-center gap-2 rounded-full bg-[color-mix(in_srgb,var(--color-surface-elevated)_78%,transparent)] px-3 text-left text-[13px] text-text-secondary ring-1 ring-border-subtle/40 backdrop-blur-xl transition-colors hover:bg-[color-mix(in_srgb,var(--color-surface-elevated)_92%,transparent)] focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 motion-reduce:transition-none"
       >
-        <Search className="size-[18px] shrink-0 text-text-secondary-strong" aria-hidden />
+        <Search className="size-4 shrink-0 text-text-secondary-strong" aria-hidden />
         <span className="min-w-0 flex-1 truncate">Buscar o preguntar…</span>
-        <kbd className="hidden rounded-md border border-border-subtle/70 bg-[color-mix(in_srgb,var(--color-surface-elevated)_55%,transparent)] px-1.5 py-0.5 text-[11px] font-medium text-text-secondary sm:inline">
+        <kbd className="hidden rounded-md border border-border-subtle/70 bg-[color-mix(in_srgb,var(--color-surface-elevated)_55%,transparent)] px-1.5 py-0.5 text-[10px] font-medium text-text-secondary sm:inline">
           {shortcut}
         </kbd>
       </button>

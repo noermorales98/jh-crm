@@ -103,7 +103,7 @@ Archivos ancla:
 | 4 | Contrato popup | ✓ |
 | 5 | Formulario iniciación | ✓ |
 | 6 | Polish Action Center ficha | ✓ |
-| 7+ | Nav agency (lista, resumen, equipo, marca…) | Diferido (backlog) |
+| 7+ | Nav agency (lista, resumen, equipo, marca…) | Lista ✓ parcial; resto diferido |
 
 ### Avance Gestión (post F2)
 
@@ -111,9 +111,9 @@ Archivos ancla:
 - Deep-link: `?panel=avance&roundId=`.
 - Legacy `/crm/casos/:caseId/rondas*` redirige al hub.
 
-### Fase 7+ backlog (no implementar en este batch)
+### Fase 7+ backlog
 
-1. Lista Clientes: filtros Todos / Listos fondeo / Estructuración / Reparación + import/share
+1. ~~Lista Clientes: filtros + import/share~~ — **hecho** (`FilterPills`, CSV, share). Aliases `?status=LEAD|ACTIVE` → buckets Fondify.
 2. Resumen dashboard: KPIs, actualizar reporte, listos fondeo, “qué funciona”
 3. Mi Equipo / Mi Marca / Reportes agency
 4. Email Marketing / Prospección / Afiliados (evaluar integraciones externas)

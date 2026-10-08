@@ -559,7 +559,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
     widgets: {
       activeClients: {
         count: activeClients,
-        link: "/crm/clientes?status=ACTIVE",
+        link: "/crm/clientes?status=repair",
       },
       openCases: {
         count: openCases,
@@ -647,7 +647,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       },
       newLeads: {
         count: newLeads,
-        link: "/crm/clientes?status=LEAD",
+        link: "/crm/clientes?status=struct",
       },
       leadsToContact: {
         count: leadsToContactItems.length,
@@ -657,7 +657,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       },
       conversions: {
         count: conversions,
-        link: "/crm/clientes?status=ACTIVE",
+        link: "/crm/clientes?status=repair",
       },
       disputedItems: {
         count: disputedItems,

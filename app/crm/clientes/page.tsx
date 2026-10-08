@@ -19,10 +19,14 @@ export const metadata: Metadata = {
   title: "Clientes",
 };
 
+/** Fondify buckets + aliases legacy del dashboard (`ClientStatus`). */
 function parseFondifyStatus(
   raw: string | undefined,
 ): FondifyBucket | undefined {
   if (raw === "repair" || raw === "struct" || raw === "ready") return raw;
+  if (raw === "LEAD") return "struct";
+  if (raw === "ACTIVE" || raw === "PAUSED") return "repair";
+  if (raw === "COMPLETED") return "ready";
   return undefined;
 }
 

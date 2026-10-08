@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Button, ConfirmDialog } from "@/src/components/ui";
 import { cancelDisputeItem } from "@/src/actions/disputes";
+import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
 
 export function CancelDisputeItemButton({
   disputeItemId,
@@ -28,6 +29,7 @@ export function CancelDisputeItemButton({
         const result = await cancelDisputeItem(disputeItemId);
         if (!result.ok) return result.error;
         router.refresh();
+        notifyEmbedRefresh();
       }}
     />
   );

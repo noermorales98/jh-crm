@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "@/src/lib/db";
 import type { Role } from "@prisma/client";
 
@@ -12,33 +13,34 @@ export type AuthTokenState = {
 /**
  * Estado actual del usuario para el JWT. null = sesión inválida
  * (inexistente, inactivo o sin derecho a permanecer autenticado).
+ * cache() evita hits repetidos a sessionVersion en el mismo request.
  */
-export async function loadAuthTokenState(
-  userId: string,
-): Promise<AuthTokenState | null> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      name: true,
-      isActive: true,
-      sessionVersion: true,
-      memberships: {
-        orderBy: { createdAt: "asc" },
-        take: 1,
-        select: { organizationId: true, role: true },
+export const loadAuthTokenState = cache(
+  async (userId: string): Promise<AuthTokenState | null> => {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        name: true,
+        isActive: true,
+        sessionVersion: true,
+        memberships: {
+          orderBy: { createdAt: "asc" },
+          take: 1,
+          select: { organizationId: true, role: true },
+        },
       },
-    },
-  });
-  if (!user || !user.isActive) return null;
-  const membership = user.memberships[0] ?? null;
-  return {
-    userId,
-    name: user.name,
-    currentOrganizationId: membership?.organizationId ?? null,
-    role: membership?.role ?? null,
-    sessionVersion: user.sessionVersion,
-  };
-}
+    });
+    if (!user || !user.isActive) return null;
+    const membership = user.memberships[0] ?? null;
+    return {
+      userId,
+      name: user.name,
+      currentOrganizationId: membership?.organizationId ?? null,
+      role: membership?.role ?? null,
+      sessionVersion: user.sessionVersion,
+    };
+  },
+);
 
 export function isTokenSessionCurrent(
   tokenSessionVersion: unknown,

@@ -136,6 +136,15 @@ async function getCaseInOrg(ctx: OrganizationContext, caseId: string) {
   return creditCase;
 }
 
+async function getClientInOrg(ctx: OrganizationContext, clientId: string) {
+  const client = await prisma.client.findFirst({
+    where: { id: clientId, organizationId: ctx.organizationId },
+    select: { id: true },
+  });
+  if (!client) throw new DomainError("Cliente no encontrado.");
+  return client;
+}
+
 async function getReportOrThrow(ctx: OrganizationContext, reportId: string) {
   const report = await prisma.creditReport.findFirst({
     where: { id: reportId, organizationId: ctx.organizationId },
@@ -395,7 +404,12 @@ export async function deleteCreditItem(ctx: OrganizationContext, itemId: string)
     caseId: item.caseId,
     metadata: { reportId: item.reportId, itemId: item.id },
   });
-  return { id: item.id, caseId: item.caseId, reportId: item.reportId };
+  return {
+    id: item.id,
+    caseId: item.caseId,
+    clientId: item.clientId,
+    reportId: item.reportId,
+  };
 }
 
 export async function listReportsForCase(ctx: OrganizationContext, caseId: string) {
@@ -407,6 +421,118 @@ export async function listReportsForCase(ctx: OrganizationContext, caseId: strin
       snapshots: { orderBy: { bureau: "asc" } },
       _count: { select: { items: true } },
       document: { select: { id: true, displayName: true, originalName: true, category: true } },
+    },
+  });
+}
+
+/** Scores para hub/overview: sin document ni _count.items. */
+export async function listReportScoresForCase(
+  ctx: OrganizationContext,
+  caseId: string,
+  options?: { take?: number },
+) {
+  await getCaseInOrg(ctx, caseId);
+  return prisma.creditReport.findMany({
+    where: { organizationId: ctx.organizationId, caseId },
+    orderBy: [{ reportDate: "asc" }, { importedAt: "asc" }],
+    take: options?.take ?? 40,
+    select: {
+      id: true,
+      caseId: true,
+      reportDate: true,
+      type: true,
+      snapshots: {
+        orderBy: { bureau: "asc" },
+        select: { bureau: true, score: true },
+      },
+    },
+  });
+}
+
+export async function listReportsForClient(
+  ctx: OrganizationContext,
+  clientId: string,
+) {
+  await getClientInOrg(ctx, clientId);
+  return prisma.creditReport.findMany({
+    where: { organizationId: ctx.organizationId, clientId },
+    orderBy: [{ reportDate: "asc" }, { importedAt: "asc" }],
+    include: {
+      snapshots: { orderBy: { bureau: "asc" } },
+      _count: { select: { items: true } },
+      document: {
+        select: {
+          id: true,
+          displayName: true,
+          originalName: true,
+          category: true,
+          mimeType: true,
+        },
+      },
+    },
+  });
+}
+
+export type ClientCreditReportPdf = {
+  id: string;
+  caseId: string;
+  reportDate: Date;
+  type: CreditReportType;
+  documentId: string;
+  fileName: string;
+};
+
+/** Reportes del cliente con PDF adjunto (Action Center → Reporte de crédito). */
+export async function listClientCreditReportPdfs(
+  ctx: OrganizationContext,
+  clientId: string,
+): Promise<ClientCreditReportPdf[]> {
+  const reports = await listReportsForClient(ctx, clientId);
+  return reports
+    .filter((r) => {
+      if (r.documentId == null || r.document == null) return false;
+      const mime = r.document.mimeType ?? "";
+      const original = r.document.originalName ?? "";
+      const display = r.document.displayName ?? "";
+      return (
+        mime === "application/pdf" ||
+        /\.pdf$/i.test(original) ||
+        /\.pdf$/i.test(display)
+      );
+    })
+    .map((r) => ({
+      id: r.id,
+      caseId: r.caseId,
+      reportDate: r.reportDate,
+      type: r.type,
+      documentId: r.documentId!,
+      fileName:
+        r.document!.displayName || r.document!.originalName || "reporte.pdf",
+    }))
+    // listReportsForClient is asc; HISTORIAL wants newest first
+    .reverse();
+}
+
+/** Scores agregados por cliente (CL-004): sin document ni _count.items. */
+export async function listReportScoresForClient(
+  ctx: OrganizationContext,
+  clientId: string,
+  options?: { take?: number },
+) {
+  await getClientInOrg(ctx, clientId);
+  return prisma.creditReport.findMany({
+    where: { organizationId: ctx.organizationId, clientId },
+    orderBy: [{ reportDate: "asc" }, { importedAt: "asc" }],
+    take: options?.take ?? 40,
+    select: {
+      id: true,
+      caseId: true,
+      reportDate: true,
+      type: true,
+      snapshots: {
+        orderBy: { bureau: "asc" },
+        select: { bureau: true, score: true },
+      },
     },
   });
 }
@@ -444,6 +570,7 @@ export async function getReportDetail(ctx: OrganizationContext, reportId: string
 
 export type ScoreRow = {
   reportId: string;
+  caseId: string;
   reportDate: Date;
   type: CreditReportType;
   label: string;
@@ -467,18 +594,29 @@ export type CaseCreditOverview = {
   negativeItemCount: number;
 };
 
+export type ClientCreditOverview = {
+  clientId: string;
+  current: BureauScoreCurrent[];
+  history: ScoreRow[];
+  reports: Awaited<ReturnType<typeof listReportsForClient>>;
+  negativeItemCount: number;
+};
+
 function typeLabel(type: CreditReportType, index: number): string {
   if (type === "INITIAL") return "Inicio";
   if (type === "UPDATE") return `Actualización ${index}`;
   return `Manual ${index}`;
 }
 
-export async function getCaseCreditOverview(
-  ctx: OrganizationContext,
-  caseId: string,
-): Promise<CaseCreditOverview> {
-  const reports = await listReportsForCase(ctx, caseId);
-
+function buildScoreHistory(
+  reports: Array<{
+    id: string;
+    caseId: string;
+    reportDate: Date;
+    type: CreditReportType;
+    snapshots: Array<{ bureau: CreditBureau; score: number | null }>;
+  }>,
+): { history: ScoreRow[]; current: BureauScoreCurrent[] } {
   let updateIndex = 0;
   let manualIndex = 0;
   const history: ScoreRow[] = reports.map((report) => {
@@ -501,6 +639,7 @@ export async function getCaseCreditOverview(
     }
     return {
       reportId: report.id,
+      caseId: report.caseId,
       reportDate: report.reportDate,
       type: report.type,
       label,
@@ -528,11 +667,85 @@ export async function getCaseCreditOverview(
     };
   });
 
-  const negativeItemCount = await prisma.creditItem.count({
-    where: { organizationId: ctx.organizationId, caseId, isNegative: true },
-  });
+  return { history, current };
+}
 
+export async function getCaseCreditOverview(
+  ctx: OrganizationContext,
+  caseId: string,
+  options?: { includeReports?: boolean; take?: number },
+): Promise<CaseCreditOverview> {
+  const includeReports = options?.includeReports !== false;
+  const take = options?.take ?? 40;
+
+  if (!includeReports) {
+    const [scoreReports, negativeItemCount] = await Promise.all([
+      listReportScoresForCase(ctx, caseId, { take }),
+      prisma.creditItem.count({
+        where: { organizationId: ctx.organizationId, caseId, isNegative: true },
+      }),
+    ]);
+    const { history, current } = buildScoreHistory(scoreReports);
+    return {
+      caseId,
+      current,
+      history,
+      reports: [] as CaseCreditOverview["reports"],
+      negativeItemCount,
+    };
+  }
+
+  const [reports, negativeItemCount] = await Promise.all([
+    listReportsForCase(ctx, caseId),
+    prisma.creditItem.count({
+      where: { organizationId: ctx.organizationId, caseId, isNegative: true },
+    }),
+  ]);
+  const { history, current } = buildScoreHistory(reports);
   return { caseId, current, history, reports, negativeItemCount };
+}
+
+export async function getClientCreditOverview(
+  ctx: OrganizationContext,
+  clientId: string,
+  options?: { includeReports?: boolean; take?: number },
+): Promise<ClientCreditOverview> {
+  const includeReports = options?.includeReports !== false;
+  const take = options?.take ?? 40;
+
+  if (!includeReports) {
+    const [scoreReports, negativeItemCount] = await Promise.all([
+      listReportScoresForClient(ctx, clientId, { take }),
+      prisma.creditItem.count({
+        where: {
+          organizationId: ctx.organizationId,
+          clientId,
+          isNegative: true,
+        },
+      }),
+    ]);
+    const { history, current } = buildScoreHistory(scoreReports);
+    return {
+      clientId,
+      current,
+      history,
+      reports: [] as ClientCreditOverview["reports"],
+      negativeItemCount,
+    };
+  }
+
+  const [reports, negativeItemCount] = await Promise.all([
+    listReportsForClient(ctx, clientId),
+    prisma.creditItem.count({
+      where: {
+        organizationId: ctx.organizationId,
+        clientId,
+        isNegative: true,
+      },
+    }),
+  ]);
+  const { history, current } = buildScoreHistory(reports);
+  return { clientId, current, history, reports, negativeItemCount };
 }
 
 const ACTIVE_LIFECYCLE: CreditItemLifecycleStatus[] = [

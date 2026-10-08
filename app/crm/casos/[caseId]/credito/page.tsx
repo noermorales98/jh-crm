@@ -31,8 +31,7 @@ import { CreateCreditReportButton } from "@/src/components/credit-reports/create
 import { AnalyzePdfImportButton } from "@/src/components/credit-reports/analyze-pdf-import";
 import { CreateComparisonButton } from "@/src/components/comparisons/create-comparison-button";
 import { GenerateProgressReportButton } from "@/src/components/letters/generate-progress-report-button";
-import { ScoreEvolutionChart } from "@/src/components/credit-reports/score-evolution-chart";
-import { BureauScoreStrip } from "@/src/components/credit-reports/bureau-score-strip";
+import { CreditEvolutionSection } from "@/src/components/credit-reports/credit-evolution-section";
 import { CaseHeader } from "../case-header";
 
 export const metadata: Metadata = {
@@ -72,12 +71,6 @@ export default async function CaseCreditPage({
     : [];
   const { case: creditCase } = detail;
 
-  const chartHistory = overview.history.map((row) => ({
-    label: row.label,
-    reportDate: row.reportDate.toISOString().slice(0, 10),
-    scores: row.scores,
-  }));
-
   return (
     <div className="space-y-6">
       <CaseHeader
@@ -107,74 +100,16 @@ export default async function CaseCreditPage({
         }
       />
 
-      <Card>
-        <CardHeader
-          title="Evolución del crédito"
-          description="Puntajes actuales, diferencia respecto al reporte anterior e historial cronológico."
-        />
-        {overview.history.length === 0 ? (
-          <EmptyState
-            icon={LineChart}
-            title="Sin reportes registrados"
-            description="Registra el reporte inicial para comenzar a seguir la evolución de puntajes."
-            action={
-              canManage ? <CreateCreditReportButton caseId={creditCase.id} /> : null
-            }
-          />
-        ) : (
-          <div className="space-y-6 px-4 pb-4 sm:px-5">
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] lg:items-start">
-              <BureauScoreStrip
-                layout="stackOnDesktop"
-                rows={overview.current.map((row) => ({
-                  bureau: row.bureau,
-                  score: row.score,
-                  previousScore: row.previousScore,
-                  delta: row.delta,
-                }))}
-              />
-
-              {overview.history.some((h) =>
-                Object.values(h.scores).some((s) => s != null),
-              ) ? (
-                <ScoreEvolutionChart history={chartHistory} fillDesktop />
-              ) : null}
-            </div>
-
-            <Table>
-              <THead>
-                <TR>
-                  <TH>Periodo</TH>
-                  <TH>Fecha</TH>
-                  <TH>Experian</TH>
-                  <TH>Equifax</TH>
-                  <TH>TransUnion</TH>
-                </TR>
-              </THead>
-              <TBody>
-                {overview.history.map((row) => (
-                  <TR key={row.reportId}>
-                    <TD>
-                      <Link
-                        href={`/crm/casos/${caseId}/credito/reportes/${row.reportId}`}
-                        className="font-medium text-action-primary hover:text-action-secondary"
-                      >
-                        {row.label}
-                      </Link>
-                    </TD>
-                    <TD className="tabular-nums text-text-secondary">
-                      {formatDate(row.reportDate)}
-                    </TD>
-                    <TD className="tabular-nums">{row.scores.EXPERIAN ?? "—"}</TD>
-                    <TD className="tabular-nums">{row.scores.EQUIFAX ?? "—"}</TD>
-                    <TD className="tabular-nums">{row.scores.TRANSUNION ?? "—"}</TD>
-                  </TR>
-                ))}
-              </TBody>
-            </Table>
-          </div>
-        )}
-      </Card>
+      <CreditEvolutionSection
+        current={overview.current}
+        history={overview.history}
+        emptyAction={
+          canManage ? <CreateCreditReportButton caseId={creditCase.id} /> : null
+        }
+        reportHref={(row) =>
+          `/crm/casos/${row.caseId}/credito/reportes/${row.reportId}`
+        }
+      />
 
       <Card>
         <CardHeader

@@ -105,6 +105,8 @@ export function QuoteForm({
   initialClientId = "",
   initialCaseId = "",
   initial,
+  embedded = false,
+  onSaved,
 }: {
   mode: "create" | "edit";
   quoteId?: string;
@@ -117,6 +119,9 @@ export function QuoteForm({
   initialClientId?: string;
   initialCaseId?: string;
   initial?: QuoteFormInitial;
+  /** Hub cliente: oculta selects cliente/caso y no navega al guardar. */
+  embedded?: boolean;
+  onSaved?: (quoteId: string) => void;
 }) {
   const router = useRouter();
   const [clientId, setClientId] = useState(
@@ -266,7 +271,11 @@ export function QuoteForm({
       }
       playActionResult(true);
       const id = mode === "create" ? result.data.id : (quoteId as string);
-      router.push(`/crm/cotizaciones/${id}`);
+      if (onSaved) {
+        onSaved(id);
+      } else {
+        router.push(`/crm/cotizaciones/${id}`);
+      }
     });
   }
 
@@ -274,59 +283,66 @@ export function QuoteForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {error ? <Alert tone="error">{error}</Alert> : null}
 
-      <Card>
-        <CardHeader
-          title="Cliente y caso"
-          description="La cotización siempre pertenece a un cliente; el caso es opcional."
-        />
-        <CardBody>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Cliente" htmlFor="quote-client" required>
-              <Select
-                id="quote-client"
-                value={clientId}
-                onChange={(e) => handleClientChange(e.target.value)}
-                required
-                disabled={mode === "edit"}
-              >
-                <option value="" disabled>
-                  Selecciona un cliente…
-                </option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
+      {!embedded ? (
+        <Card>
+          <CardHeader
+            title="Cliente y caso"
+            description="La cotización siempre pertenece a un cliente; el caso es opcional."
+          />
+          <CardBody>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <Field label="Cliente" htmlFor="quote-client" required>
+                <Select
+                  id="quote-client"
+                  value={clientId}
+                  onChange={(e) => handleClientChange(e.target.value)}
+                  required
+                  disabled={mode === "edit"}
+                >
+                  <option value="" disabled>
+                    Selecciona un cliente…
                   </option>
-                ))}
-              </Select>
-            </Field>
-            <Field
-              label="Caso (opcional)"
-              htmlFor="quote-case"
-              hint={
-                clientId
-                  ? clientCases.length === 0
-                    ? "Este cliente no tiene casos."
-                    : undefined
-                  : "Primero selecciona un cliente."
-              }
-            >
-              <Select
-                id="quote-case"
-                value={caseId}
-                onChange={(e) => setCaseId(e.target.value)}
-                disabled={!clientId || mode === "edit"}
+                  {clients.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+              <Field
+                label="Caso (opcional)"
+                htmlFor="quote-case"
+                hint={
+                  clientId
+                    ? clientCases.length === 0
+                      ? "Este cliente no tiene casos."
+                      : undefined
+                    : "Primero selecciona un cliente."
+                }
               >
-                <option value="">Sin caso</option>
-                {clientCases.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-        </CardBody>
-      </Card>
+                <Select
+                  id="quote-case"
+                  value={caseId}
+                  onChange={(e) => setCaseId(e.target.value)}
+                  disabled={!clientId || mode === "edit"}
+                >
+                  <option value="">Sin caso</option>
+                  {clientCases.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          </CardBody>
+        </Card>
+      ) : (
+        <p className="text-[12px] text-text-secondary">
+          Cotización para este cliente
+          {caseId ? " · caso vinculado" : ""}.
+        </p>
+      )}
 
       <Card>
         <CardHeader

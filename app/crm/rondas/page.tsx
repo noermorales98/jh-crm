@@ -100,7 +100,7 @@ export default async function RoundsPage({
                       </TD>
                       <TD>
                         <Link
-                          href={`/crm/casos/${round.case.id}/rondas`}
+                          href={`/crm/clientes/${round.case.client.id}?panel=avance&roundId=${encodeURIComponent(round.id)}`}
                           className="text-action-primary hover:text-action-secondary"
                         >
                           {round.case.caseCode}
@@ -182,7 +182,7 @@ export default async function RoundsPage({
                     </TD>
                     <TD>
                       <Link
-                        href={`/crm/casos/${round.case.id}/rondas`}
+                        href={`/crm/clientes/${round.case.client.id}?panel=avance&roundId=${encodeURIComponent(round.id)}`}
                         className="text-action-primary hover:text-action-secondary"
                       >
                         {round.case.caseCode}

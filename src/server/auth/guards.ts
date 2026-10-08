@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { auth } from "@/auth";
 import type { Role } from "@prisma/client";
 import { can, type PermissionAction } from "./permissions";
+import { getAuth } from "./cached-auth";
 import type { PortalContext } from "@/src/server/portal";
 import { isPortalEnabled } from "@/src/server/portal";
 
@@ -25,7 +25,7 @@ export class UnauthorizedError extends Error {
 }
 
 export async function requireSession() {
-  const session = await auth();
+  const session = await getAuth();
   if (!session?.user?.id) {
     redirect("/login");
   }
@@ -64,7 +64,7 @@ export async function requireRole(
  * redirigir a /login, que no tiene sentido en una respuesta JSON.
  */
 export async function requireApiOrganization(): Promise<OrganizationContext> {
-  const session = await auth();
+  const session = await getAuth();
   if (!session?.user?.id) {
     throw new UnauthorizedError();
   }
@@ -103,7 +103,7 @@ export async function requirePortalSession(): Promise<PortalContext> {
   if (!isPortalEnabled()) {
     redirect("/portal/login");
   }
-  const session = await auth();
+  const session = await getAuth();
   const user = session?.user;
   if (
     !user?.id ||
@@ -125,7 +125,7 @@ export async function requireApiPortalSession(): Promise<PortalContext> {
   if (!isPortalEnabled()) {
     throw new ForbiddenError("El portal de clientes está desactivado.");
   }
-  const session = await auth();
+  const session = await getAuth();
   const user = session?.user;
   if (
     !user?.id ||

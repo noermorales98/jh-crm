@@ -3,18 +3,11 @@ import { notFound } from "next/navigation";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import { getClientOverview } from "@/src/server/clients/overview";
-import * as clientService from "@/src/server/clients";
-import * as taskService from "@/src/server/tasks";
-import * as documentService from "@/src/server/documents";
-import * as paymentService from "@/src/server/payments";
-import * as notesService from "@/src/server/notes";
 import { listClientIntakeLinks } from "@/src/server/intake/links";
 import { isIntakeEnabled } from "@/src/server/intake";
 import { listStages } from "@/src/server/config";
 import { listVerticalServiceOptions } from "@/src/server/services/verticals";
 import { isStorageConfigured } from "@/src/lib/storage/s3";
-import { getOrganizationTimezone } from "@/src/server/org-timezone";
-import { testimonialPageData } from "@/src/server/testimonials/page-data";
 import {
   clientFullName,
   firstParam,
@@ -22,25 +15,16 @@ import {
   type SearchParams,
 } from "@/src/server/page-helpers";
 import { AgencyClientDetail } from "@/src/components/clients/agency-client-detail";
-import { ClientServicesPanel } from "@/src/components/clients/client-services-panel";
-import { ClientTasksPanel } from "@/src/components/clients/client-tasks-panel";
-import { ClientDocumentsPanel } from "@/src/components/clients/client-documents-panel";
-import { ClientPaymentsPanel } from "@/src/components/clients/client-payments-panel";
-import { ClientNotesPanel } from "@/src/components/clients/client-notes-panel";
-import { ClientTestimonialsPanel } from "@/src/components/clients/client-testimonials-panel";
-import { ClientCreditRoundsPanel } from "@/src/components/clients/client-credit-rounds-panel";
-import { prisma } from "@/src/lib/db";
 import { formatMoney } from "@/src/lib/format";
+import * as creditReports from "@/src/server/credit-reports";
+import * as catalog from "@/src/server/services";
+import * as configService from "@/src/server/config";
+import * as contractsService from "@/src/server/contracts";
+import { prisma } from "@/src/lib/db";
 
 export const metadata: Metadata = {
   title: "Cliente",
 };
-
-const DEFAULT_SCRIPT = `Hola, revisé tu expediente de crédito.
-
-Hoy veo oportunidades claras de reparación y un camino para mejorar score y acceso a fondeo.
-
-Te envío la cotización y el siguiente paso del plan. ¿Agendamos 15 minutos para repasarlo juntos?`;
 
 export default async function ClientSummaryPage({
   params,
@@ -75,36 +59,34 @@ export default async function ClientSummaryPage({
   const canRegister = can(ctx.role, "payments.register");
   const canViewTestimonials = can(ctx.role, "testimonials.view");
   const intakeEnabled = isIntakeEnabled();
+  const needsQuickAddMeta =
+    canEdit || canManageTasks || canManageCases;
+
+  const canViewCredit = can(ctx.role, "creditReports.view");
+
+  const canViewQuotes = can(ctx.role, "quotes.view");
+  const canManageQuotes = can(ctx.role, "quotes.manage");
+  const canViewContracts = can(ctx.role, "contracts.view");
+  const canManageContracts = can(ctx.role, "contracts.manage");
 
   const [
-    latestReport,
     intakeLinks,
     members,
     stages,
     verticalServices,
-    detail,
-    timezone,
-    tasks,
-    documents,
-    payments,
-    notes,
-    testimonials,
+    pdfReports,
+    org,
+    latestQuote,
+    latestContract,
+    quoteServices,
+    quotePackages,
+    quoteSettings,
+    contractTemplates,
   ] = await Promise.all([
-    activeCaseId
-      ? prisma.creditReport.findFirst({
-          where: {
-            organizationId: ctx.organizationId,
-            clientId,
-            caseId: activeCaseId,
-          },
-          orderBy: { reportDate: "desc" },
-          select: { id: true },
-        })
-      : Promise.resolve(null),
     intakeEnabled
       ? listClientIntakeLinks(ctx, clientId)
       : Promise.resolve([]),
-    canEdit || canManageTasks || canManageCases
+    needsQuickAddMeta
       ? listMemberOptions(ctx)
       : Promise.resolve([] as Awaited<ReturnType<typeof listMemberOptions>>),
     canManageCases
@@ -115,18 +97,92 @@ export default async function ClientSummaryPage({
       : Promise.resolve(
           [] as Awaited<ReturnType<typeof listVerticalServiceOptions>>,
         ),
-    clientService.getClientDetail(ctx, clientId).catch(() => null),
-    getOrganizationTimezone(ctx.organizationId),
-    taskService.listTasks(ctx, { clientId, limit: 50 }),
-    documentService.listDocuments(ctx, { clientId, limit: 50 }),
-    paymentService.listPayments(ctx, { clientId, limit: 50 }),
-    notesService.listClientNotes(ctx, clientId, { limit: 80 }),
-    canViewTestimonials
-      ? testimonialPageData(ctx, clientId).catch(() => null)
+    canViewCredit
+      ? creditReports.listClientCreditReportPdfs(ctx, clientId)
+      : Promise.resolve([]),
+    prisma.organization.findFirst({
+      where: { id: ctx.organizationId },
+      select: { name: true },
+    }),
+    canViewQuotes
+      ? prisma.quote.findFirst({
+          where: { organizationId: ctx.organizationId, clientId },
+          orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+          select: { id: true, status: true },
+        })
       : Promise.resolve(null),
+    canViewContracts
+      ? prisma.clientContract.findFirst({
+          where: { organizationId: ctx.organizationId, clientId },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: { id: true, status: true },
+        })
+      : Promise.resolve(null),
+    canManageQuotes
+      ? catalog.listServices(ctx)
+      : Promise.resolve([]),
+    canManageQuotes
+      ? catalog.listPackages(ctx)
+      : Promise.resolve([]),
+    canManageQuotes
+      ? configService.getSettings(ctx)
+      : Promise.resolve(null),
+    canManageContracts
+      ? contractsService.listTemplates(ctx, true)
+      : Promise.resolve([]),
   ]);
 
   const intakeUrl = intakeLinks.find((l) => l.usable)?.url ?? null;
+  const intakeUsed = intakeLinks.some((l) => l.useCount > 0);
+
+  function quoteStatusLabel(
+    status: string | undefined,
+  ): string {
+    if (!status) return "Sin enviar";
+    switch (status) {
+      case "DRAFT":
+        return "Sin enviar";
+      case "SENT":
+        return "Enviada";
+      case "ACCEPTED":
+        return "Aceptada";
+      case "PAID":
+      case "PARTIAL":
+        return "Pagada";
+      case "REJECTED":
+        return "Rechazada";
+      case "CANCELLED":
+      case "EXPIRED":
+        return "Cerrada";
+      default:
+        return status;
+    }
+  }
+
+  function contractStatusLabel(status: string | undefined): string {
+    if (!status) return "Borrador";
+    switch (status) {
+      case "DRAFT":
+        return "Borrador";
+      case "SENT":
+        return "Enviado";
+      case "SIGNED":
+        return "Firmado";
+      case "CANCELLED":
+      case "EXPIRED":
+        return "Cerrado";
+      default:
+        return status;
+    }
+  }
+
+  const intakeStatusLabel = !intakeEnabled
+    ? "Desactivado"
+    : !intakeUrl && !intakeUsed
+      ? "Sin enlace"
+      : intakeUsed
+        ? "Completado"
+        : "Sin llenar";
 
   const currency = overview.paymentsSummary.currency || "USD";
   const asesoria =
@@ -138,26 +194,24 @@ export default async function ClientSummaryPage({
     ? `/crm/cotizaciones/${overview.paymentsSummary.payableQuote.id}`
     : `/crm/cotizaciones/nueva?clientId=${clientId}`;
 
-  const reportHref =
-    latestReport && activeCaseId
-      ? `/crm/casos/${activeCaseId}/credito/reportes/${latestReport.id}`
-      : activeCaseId
-        ? `/crm/casos/${activeCaseId}/credito`
-        : null;
-  const avanceHref = activeCaseId
-    ? `/crm/casos/${activeCaseId}/rondas`
-    : null;
+  const reportHref = `/crm/clientes/${clientId}/reportes`;
+  const panelParam = firstParam(sp, "panel");
+  const roundIdParam = firstParam(sp, "roundId");
+  const openAvance = panelParam === "avance";
 
   const isCreditRepair = overview.activeService?.kind === "CREDIT_REPAIR";
-  const serviceCases = detail?.serviceCases ?? [];
-  const cases = detail?.cases ?? [];
-  const linkedCreditIds = new Set(
-    serviceCases
-      .map((sc) => sc.creditCase?.id)
-      .filter((id): id is string => Boolean(id)),
-  );
-  const orphanCases = cases.filter((c) => !linkedCreditIds.has(c.id));
-  const clientArchived = overview.client.status === "ARCHIVED";
+  const caseState = overview.activeService?.state ?? null;
+  const canCreateRound =
+    can(ctx.role, "rounds.manage") &&
+    Boolean(activeCaseId) &&
+    caseState === "OPEN";
+
+  const activityPreview = overview.latestActivities.map((a) => ({
+    id: a.id,
+    type: a.type,
+    description: a.description,
+    createdAt: a.createdAt,
+  }));
 
   return (
     <AgencyClientDetail
@@ -166,6 +220,13 @@ export default async function ClientSummaryPage({
         firstName: overview.client.firstName,
         lastName: overview.client.lastName,
         email: overview.client.email,
+        phone: overview.client.phone,
+        source: overview.client.source,
+        addressLine1: overview.client.addressLine1,
+        addressLine2: overview.client.addressLine2,
+        city: overview.client.city,
+        state: overview.client.state,
+        postalCode: overview.client.postalCode,
         status: overview.client.status as
           | "LEAD"
           | "ACTIVE"
@@ -183,6 +244,7 @@ export default async function ClientSummaryPage({
         null
       }
       caseId={activeCaseId}
+      caseState={caseState}
       documentsCount={overview.documentsSummary.count}
       kpis={{
         porArreglar: overview.credit?.itemsSummary.negative ?? 0,
@@ -192,7 +254,8 @@ export default async function ClientSummaryPage({
       quoteHref={quoteHref}
       contractHref={`/crm/contratos?clientId=${clientId}`}
       reportHref={reportHref}
-      avanceHref={avanceHref}
+      openAvance={openAvance}
+      initialAvanceRoundId={roundIdParam}
       intakeUrl={intakeUrl}
       intakeEnabled={intakeEnabled}
       intakeCases={overview.services
@@ -204,7 +267,18 @@ export default async function ClientSummaryPage({
       intakeLinks={intakeLinks}
       canEdit={canEdit}
       canIntake={canEdit || canManageCases}
-      salesScript={DEFAULT_SCRIPT}
+      canCreateRound={canCreateRound}
+      creditWorkspace={
+        overview.credit
+          ? {
+              canView: overview.credit.canView,
+              bureaus: overview.credit.bureaus,
+              scoreHistory: overview.credit.scoreHistory,
+              hasChartData: overview.credit.hasChartData,
+              rounds: overview.credit.roundsSummary,
+            }
+          : null
+      }
       quickAdd={{
         members,
         stages: stages.map((s) => ({
@@ -223,72 +297,67 @@ export default async function ClientSummaryPage({
           (isCreditRepair || activeCaseId != null),
         canService: canManageCases,
       }}
-      activityEvents={detail?.timeline ?? []}
-      opsPanels={{
-        services: (
-          <ClientServicesPanel
-            clientId={clientId}
-            clientArchived={clientArchived}
-            serviceCases={serviceCases}
-            orphanCases={orphanCases}
-            canManage={canManageCases}
-            services={verticalServices}
-            members={members}
-          />
-        ),
-        tasks: (
-          <ClientTasksPanel
-            clientId={clientId}
-            tasks={tasks.items}
-            members={members}
-            canManage={canManageTasks}
-            timezone={timezone}
-            cases={cases.map((c) => ({ id: c.id, caseCode: c.caseCode }))}
-          />
-        ),
-        documents: (
-          <ClientDocumentsPanel
-            clientId={clientId}
-            documents={documents.items}
-            canUpload={canUpload}
-            storageReady={isStorageConfigured()}
-          />
-        ),
-        payments: (
-          <ClientPaymentsPanel
-            clientId={clientId}
-            payments={payments.items}
-            canRegister={canRegister}
-            cases={cases.map((c) => ({ id: c.id, caseCode: c.caseCode }))}
-          />
-        ),
-        notes: (
-          <ClientNotesPanel
-            clientId={clientId}
-            notes={notes}
-            canEdit={canEdit}
-          />
-        ),
-        testimonials: testimonials ? (
-          <ClientTestimonialsPanel
-            clientId={clientId}
-            defaultName={overview.client.firstName}
-            rows={testimonials.rows}
-            cases={testimonials.cases}
-            manage={can(ctx.role, "testimonials.manage")}
-            publish={can(ctx.role, "testimonials.publish")}
-          />
-        ) : null,
-        credit: (
-          <ClientCreditRoundsPanel
-            caseId={activeCaseId}
-            reportHref={reportHref}
-            avanceHref={avanceHref}
-            reportsCount={overview.credit?.reportCount ?? 0}
-            roundNumber={overview.credit?.round?.roundNumber ?? null}
-            negativeCount={overview.credit?.itemsSummary.negative ?? 0}
-          />
-        ),
+      activityEvents={activityPreview}
+      activityHasMore={overview.latestActivities.length >= 10}
+      opsMeta={{
+        showTestimonials: canViewTestimonials,
+        storageReady: isStorageConfigured(),
+        negativeCount: overview.credit?.itemsSummary.negative ?? 0,
+      }}
+      pdfReports={pdfReports.map((r) => ({
+        id: r.id,
+        caseId: r.caseId,
+        reportDate: r.reportDate.toISOString(),
+        type: r.type,
+        documentId: r.documentId,
+        fileName: r.fileName,
+      }))}
+      organizationName={org?.name ?? "Agencia"}
+      cierre={{
+        quote: {
+          label: quoteStatusLabel(latestQuote?.status),
+          id: latestQuote?.id ?? null,
+          href: latestQuote
+            ? `/crm/cotizaciones/${latestQuote.id}`
+            : quoteHref,
+        },
+        contract: {
+          label: contractStatusLabel(latestContract?.status),
+          id: latestContract?.id ?? null,
+          status: latestContract?.status ?? null,
+          href: `/crm/contratos?clientId=${clientId}`,
+        },
+        intake: {
+          label: intakeStatusLabel,
+        },
+      }}
+      quoteHub={
+        canManageQuotes && quoteSettings
+          ? {
+              services: quoteServices.map((s) => ({
+                id: s.id,
+                name: s.name,
+                defaultPrice: Number(s.defaultPrice.toString()),
+              })),
+              packages: quotePackages.map((p) => ({
+                id: p.id,
+                name: p.name,
+                defaultPrice: Number(p.defaultPrice.toString()),
+              })),
+              defaultTaxRate: quoteSettings.defaultTaxRate.toString(),
+              defaultTerms: quoteSettings.defaultTerms ?? "",
+            }
+          : null
+      }
+      contractHub={{
+        canManage: canManageContracts,
+        templates: contractTemplates
+          .filter((t) => t.active)
+          .map((t) => ({
+            id: t.id,
+            name: t.name,
+            version: t.version,
+          })),
       }}
     />
   );

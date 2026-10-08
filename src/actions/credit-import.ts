@@ -2,7 +2,11 @@
 
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
-import { requirePermission } from "@/src/server/auth/guards";
+import {
+  requireOrganization,
+  requirePermission,
+} from "@/src/server/auth/guards";
+import { can } from "@/src/server/auth/permissions";
 import {
   actionFail,
   actionOk,
@@ -102,7 +106,10 @@ export async function listActiveCreditPdfImportJobsAction(): Promise<
   ActionResult<Awaited<ReturnType<typeof listActiveCreditPdfImportJobs>>>
 > {
   try {
-    const ctx = await requirePermission("creditReports.manage");
+    const ctx = await requireOrganization();
+    if (!can(ctx.role, "creditReports.manage")) {
+      return actionOk([]);
+    }
     const jobs = await listActiveCreditPdfImportJobs(ctx);
     return actionOk(jobs);
   } catch (error) {
@@ -120,6 +127,7 @@ export async function confirmCreditPdfImportAction(
     const result = await creditImport.confirmCreditPdfImport(ctx, data);
     revalidateCredit(result.caseId, result.reportId);
     revalidatePath(`/crm/clientes/${result.clientId}`);
+    revalidatePath(`/crm/clientes/${result.clientId}/reportes`);
     return actionOk({ reportId: result.reportId, caseId: result.caseId });
   } catch (error) {
     if (isNextControlError(error)) throw error;

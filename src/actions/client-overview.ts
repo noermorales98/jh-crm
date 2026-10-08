@@ -20,6 +20,7 @@ export async function peekRoundAction(
     disputedItemsCount: number;
     caseId: string;
     caseCode: string;
+    clientId: string;
     items: {
       id: string;
       bureau: string;
@@ -44,6 +45,7 @@ export async function peekRoundAction(
       disputedItemsCount: round.disputedItemsCount,
       caseId: round.case.id,
       caseCode: round.case.caseCode,
+      clientId: round.case.client.id,
       items: summary.items.map((it) => ({
         id: it.id,
         bureau: it.bureau,

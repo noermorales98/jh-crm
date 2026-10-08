@@ -17,6 +17,7 @@ import {
   previewDisputeLetter,
 } from "@/src/actions/letters";
 import { playActionResult } from "@/src/lib/cuelume";
+import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
 import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
 
 type TemplateOption = { id: string; name: string; bureau: string | null };
@@ -114,6 +115,7 @@ export function CreateLetterButton({
       playActionResult(true);
       setOpen(false);
       router.refresh();
+      notifyEmbedRefresh();
     });
   }
 

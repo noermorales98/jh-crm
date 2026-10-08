@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { Download } from "lucide-react";
 import { buttonClasses } from "@/src/components/ui";
@@ -16,6 +18,7 @@ export function LetterHtmlView({
   roundId,
   downloadHref,
   backHref,
+  onBack,
 }: {
   organizationName: string;
   organizationContact?: string | null;
@@ -29,21 +32,28 @@ export function LetterHtmlView({
   roundId: string;
   downloadHref: string;
   backHref: string;
+  onBack?: () => void;
 }) {
   const paragraphs = body
     .split(/\n+/)
     .map((p) => p.trim())
     .filter(Boolean);
 
+  const backClass =
+    "text-sm font-medium text-action-primary hover:text-action-secondary";
+
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <Link
-          href={backHref}
-          className="text-sm font-medium text-action-primary hover:text-action-secondary"
-        >
-          ← Volver a la ronda
-        </Link>
+        {onBack ? (
+          <button type="button" onClick={onBack} className={backClass}>
+            ← Volver a la ronda
+          </button>
+        ) : (
+          <Link href={backHref} className={backClass}>
+            ← Volver a la ronda
+          </Link>
+        )}
         <a href={downloadHref} className={buttonClasses("primary", "sm")}>
           <Download className="size-4" aria-hidden />
           Descargar PDF

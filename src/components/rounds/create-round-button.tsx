@@ -22,10 +22,15 @@ export function CreateRoundButton({
   caseId,
   menuItem = false,
   label = "Nueva ronda",
+  /** Si true, no navega al detalle de ronda; solo refresh (hub cliente). */
+  stayOnPage = false,
+  onCreated,
 }: {
   caseId: string;
   menuItem?: boolean;
   label?: string;
+  stayOnPage?: boolean;
+  onCreated?: (roundId: string) => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -52,6 +57,12 @@ export function CreateRoundButton({
       setOpen(false);
       setNotes("");
       setLettersCount("");
+      onCreated?.(result.data.id);
+      if (stayOnPage) {
+        router.refresh();
+        return;
+      }
+      // Legacy push: la ruta de casos redirige al hub con Avance abierto.
       router.push(`/crm/casos/${caseId}/rondas/${result.data.id}`);
       router.refresh();
     });

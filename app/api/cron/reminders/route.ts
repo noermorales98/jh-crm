@@ -171,7 +171,14 @@ export async function GET(request: Request) {
     },
     select: {
       id: true, organizationId: true, roundNumber: true, expectedReviewAt: true,
-      case: { select: { id: true, caseCode: true, assignedToId: true } },
+      case: {
+        select: {
+          id: true,
+          caseCode: true,
+          assignedToId: true,
+          clientId: true,
+        },
+      },
     },
   });
   for (const round of roundsToReview) {
@@ -183,7 +190,7 @@ export async function GET(request: Request) {
         type: "ROUND_REVIEW_DUE",
         title: "Revisión de ronda pendiente",
         body: `La ronda ${round.roundNumber} del caso ${round.case.caseCode} espera actualización.`,
-        link: `/crm/casos/${round.case.id}/rondas`,
+        link: `/crm/clientes/${round.case.clientId}?panel=avance&roundId=${encodeURIComponent(round.id)}`,
         dedupeKey: `round:${round.id}:review:${day}`,
       });
     }

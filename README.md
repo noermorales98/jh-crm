@@ -14,7 +14,7 @@ Sitio público: [jh-multiservices.com](https://jh-multiservices.com). El CRM int
 
 ## Qué hace
 
-Una **persona** entra como prospecto (web, Meta, alta manual) y se convierte en **cliente**. Sobre esa persona se abren **expedientes de servicio** (crédito, comprador de casa, préstamo, web, etc.). Cada expediente lleva etapas, tareas, documentos, notas, cotizaciones y pagos.
+Una **persona** entra como prospecto (formulario web o alta manual) y se convierte en **cliente**. Sobre esa persona se abren **expedientes de servicio** (crédito, comprador de casa, préstamo, web, etc.). Cada expediente lleva etapas, tareas, documentos, notas, cotizaciones y pagos.
 
 El servicio principal es **reparación de crédito**: reportes de Experian / Equifax / TransUnion, ítems a disputar, rondas, cartas y comparación de avances. El CRM no promete puntajes ni “borrar todo lo negativo”; registra lo que sí ocurrió.
 
@@ -44,14 +44,14 @@ El intake público (`/intake/[token]`) captura documentos del cliente con un enl
 
 ```text
 Captación          Venta                 Operación              Cierre
-web / Meta / alta  Lead → consulta →    expediente + tareas    pago, recibo,
+web / alta manual  Lead → consulta →    expediente + tareas    pago, recibo,
                    cotización           crédito / rondas       contrato, testimonio
         │               │                     │
         └───────────────┴─────────────────────┘
                          Cliente (una persona)
 ```
 
-1. Llega un lead (formulario, Facebook/Instagram o alta en Clientes).
+1. Llega un lead (formulario web o alta en Clientes).
 2. Se da seguimiento en **Leads** hasta ganarlo o perderlo.
 3. Al ganar, el cliente pasa a activo y se abre un **caso / expediente**.
 4. Se piden documentos, se cotiza, se cobra (o se arma un plan de cuotas).
@@ -72,10 +72,11 @@ La barra izquierda es el trabajo de cada día. El resto está en **Más**. **Con
 | **Pendientes** | `/crm/tareas` | Tareas con tipo, prioridad, vencimiento y asignado. También se crean desde el cliente o el caso. |
 | **Leads** | `/crm/oportunidades` | Kanban comercial (nuevo → contactado → consulta → intake → propuesta → pago → ganado/perdido). Ganar abre caso y activa al cliente. |
 | **Clientes** | `/crm/clientes` | Personas. Estados: prospecto, activo, pausado, completado, cancelado, archivado. Alta en `/crm/clientes/nuevo`. |
-| **Casos** | `/crm/casos` | Expedientes de servicio. El de crédito es el núcleo: etapa, responsable, próxima revisión. |
 | **Cobrar** | `/crm/pagos` | Pagos pendientes y recibidos. Alta en `/crm/pagos/nuevo`. Al marcar recibido se emite recibo con folio. |
 | **Mensajes** | `/crm/mails` | Bandeja de la organización (entrada, enviados, borradores, archivo, spam, papelera). IMAP cada minuto; envío por SMTP. |
 | **Chats** | `/crm/chats` | Historial con el asistente de IA. El globo de la esquina también abre el chat. |
+
+En escritorio **no** hay un ítem “Casos” en la barra principal: el hub de expedientes vive en la ficha del cliente. La ruta `/crm/casos` redirige a Clientes. En la navegación inferior móvil sí aparece Casos.
 
 ### Ficha de cliente
 
@@ -119,9 +120,10 @@ Las rondas de todos los casos también se listan en **Más → Rondas** (`/crm/r
 
 Otras pantallas de staff:
 
-- **Atribución** (`/crm/atribucion`) — de dónde vienen los leads (web, Meta, referido, UTM).
 - **Usuarios** (`/crm/usuarios`) — miembros e invitaciones.
 - **Auditoría** (`/crm/auditoria`) — eventos sensibles (SSN, documentos, recibos, cambios de rol).
+
+La pantalla de atribución (`/crm/atribucion`) está retirada: redirige al dashboard.
 
 ### Configuración
 
@@ -174,11 +176,11 @@ Cada vertical tiene sus propias etapas. El flujo de crédito (reportes, rondas, 
 
 **Portal.** Flag `FEATURE_CLIENT_PORTAL`. El admin invita desde la ficha. El cliente ve progreso, documentos, reportes, pagos y puede firmar contratos.
 
-**Meta Lead Ads.** Flag `FEATURE_META_LEAD_ADS`. El webhook crea o actualiza cliente + lead (Facebook/Instagram) sin duplicar el mismo anuncio.
+**Meta Lead Ads.** Retirado del producto: el webhook público responde 410 y no crea leads desde Meta.
 
 **Correo.** IMAP importa la bandeja; SMTP envía. Traducción al español en el detalle. Avisos a campana y WhatsApp.
 
-**Pagos.** Registro manual o Checkout de Stripe (claves por organización). Consultas de $1 no se marcan pagadas sin `FEATURE_CONSULTATION_PAYMENTS` y pasarela.
+**Pagos.** Registro manual o Checkout de Stripe (claves por organización). Los cobros de consulta se bloquean si `FEATURE_CONSULTATION_PAYMENTS=false` (opt-out de emergencia). Si el flag no está en `false`, aplica la pasarela configurada en la organización; sin pasarela real no se marca PAID automáticamente.
 
 **IA.** Chat con datos de la org (clientes, casos, cotizaciones, pagos) y enlaces reales `/crm/...`. No descifra SSN ni inventa eliminaciones en burós. Requiere `OPENROUTER_API_KEY`.
 

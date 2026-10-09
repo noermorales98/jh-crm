@@ -151,9 +151,9 @@
       "id": "PR-DOCS-README",
       "title": "Alinear README y el comentario del flag de consultas",
       "module": "docs",
-      "status": "PARCIAL",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P2",
-      "evidence": "Meta responde 410. /crm/atribucion redirige. .env.example describe FEATURE_CONSULTATION_PAYMENTS como opt-in.",
+      "evidence": "README sin Meta/atribución vivas; Casos fuera de barra desktop. .env.example: false bloquea consultas. Revisado 2026-10-09.",
       "dependencies": [],
       "acceptance_criteria": [
         "El README no presenta Meta ni atribución como funciones vivas.",

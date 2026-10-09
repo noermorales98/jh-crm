@@ -33,6 +33,7 @@
     "smoke:credit-pdf-import": "tsx scripts/smoke/credit-pdf-import-smoke.ts",
     "smoke:credit-pdf-pii": "tsx scripts/smoke/credit-pdf-pii.ts",
     "smoke:retention-soft": "tsx --env-file=.env.local scripts/smoke/retention-soft-only.ts",
+    "smoke:stripe-idem": "tsx --env-file=.env.local scripts/smoke/stripe-webhook-idempotency.ts",
     "smoke:upload-confirm": "tsx --env-file=.env.local scripts/smoke/upload-confirm-head.ts",
     "smoke:ts-due": "tsx scripts/smoke/ts-due-rules.ts",
     "smoke:work-badge": "tsx scripts/smoke/ts-work-badge.ts",

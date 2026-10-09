@@ -74,9 +74,9 @@
       "id": "PR-PY-IDEM",
       "title": "Tratar el webhook de Stripe duplicado como ya aplicado",
       "module": "pagos",
-      "status": "PARCIAL",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P1",
-      "evidence": "Unique stripeCheckoutSessionId. handleStripeWebhook inserta después de comprobar.",
+      "evidence": "P2002 stripeCheckoutSessionId → handled. Smoke npm run smoke:stripe-idem exit 0 (2026-10-09).",
       "dependencies": ["PR-SEC-01"],
       "acceptance_criteria": [
         "Dos aplicaciones del mismo id sintético dejan un solo Payment.",

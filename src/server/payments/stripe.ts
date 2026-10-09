@@ -429,37 +429,78 @@ export async function handleStripeWebhook(
       ? session.payment_intent
       : session.payment_intent?.id ?? null;
 
-  if (meta.kind === "consultation" && meta.consultationId) {
-    await fulfillConsultationPayment({
-      organizationId,
-      consultationId: meta.consultationId,
-      clientId: meta.clientId,
-      amount,
-      currency,
-      sessionId,
-      paymentIntentId,
-    });
-    return { handled: true, kind: "consultation" };
-  }
+  try {
+    if (meta.kind === "consultation" && meta.consultationId) {
+      await fulfillConsultationPayment({
+        organizationId,
+        consultationId: meta.consultationId,
+        clientId: meta.clientId,
+        amount,
+        currency,
+        sessionId,
+        paymentIntentId,
+      });
+      return { handled: true, kind: "consultation" };
+    }
 
-  if (meta.kind === "quote" && meta.quoteId) {
-    await fulfillQuotePayment({
-      organizationId,
-      quoteId: meta.quoteId,
-      clientId: meta.clientId,
-      caseId: meta.caseId || null,
-      amount,
-      currency,
-      sessionId,
-      paymentIntentId,
-    });
-    return { handled: true, kind: "quote" };
+    if (meta.kind === "quote" && meta.quoteId) {
+      await fulfillQuotePayment({
+        organizationId,
+        quoteId: meta.quoteId,
+        clientId: meta.clientId,
+        caseId: meta.caseId || null,
+        amount,
+        currency,
+        sessionId,
+        paymentIntentId,
+      });
+      return { handled: true, kind: "quote" };
+    }
+  } catch (error) {
+    if (await isHandledStripeSessionDuplicate(organizationId, sessionId, error)) {
+      return { handled: true, kind: meta.kind ?? "duplicate" };
+    }
+    throw error;
   }
 
   return { handled: false };
 }
 
-async function fulfillConsultationPayment(input: {
+/** P2002 solo sobre stripeCheckoutSessionId (Payment o Consultation). */
+export function isStripeCheckoutSessionUniqueConflict(
+  error: unknown,
+): boolean {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== "P2002"
+  ) {
+    return false;
+  }
+  const target = error.meta?.target;
+  const fields = Array.isArray(target)
+    ? target.join(",")
+    : String(target ?? "");
+  return fields.includes("stripeCheckoutSessionId");
+}
+
+async function isHandledStripeSessionDuplicate(
+  organizationId: string,
+  sessionId: string,
+  error: unknown,
+): Promise<boolean> {
+  if (!isStripeCheckoutSessionUniqueConflict(error)) return false;
+  const existing = await prisma.payment.findFirst({
+    where: { organizationId, stripeCheckoutSessionId: sessionId },
+    select: { id: true },
+  });
+  return Boolean(existing);
+}
+
+/**
+ * Cumple checkout de consulta. Exportado para smoke de idempotencia
+ * (sin firma Stripe). Ante carrera P2002 en sessionId, no-op si ya hay pago.
+ */
+export async function fulfillConsultationPayment(input: {
   organizationId: string;
   consultationId: string;
   clientId: string;
@@ -479,67 +520,80 @@ async function fulfillConsultationPayment(input: {
   }
   if (consultation.paymentId) return;
 
-  await prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.create({
-      data: {
-        organizationId: input.organizationId,
-        clientId: consultation.clientId,
-        amount: input.amount,
-        currency: input.currency,
-        method: "STRIPE",
-        status: "RECEIVED",
-        receivedAt: new Date(),
-        reference: input.sessionId,
-        notes: "Pago Stripe (consulta)",
-        stripeCheckoutSessionId: input.sessionId,
-        stripePaymentIntentId: input.paymentIntentId,
-      },
-    });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          organizationId: input.organizationId,
+          clientId: consultation.clientId,
+          amount: input.amount,
+          currency: input.currency,
+          method: "STRIPE",
+          status: "RECEIVED",
+          receivedAt: new Date(),
+          reference: input.sessionId,
+          notes: "Pago Stripe (consulta)",
+          stripeCheckoutSessionId: input.sessionId,
+          stripePaymentIntentId: input.paymentIntentId,
+        },
+      });
 
-    const { folio, folioNumber } = await nextReceiptFolio(
-      tx,
-      input.organizationId,
-    );
-    await tx.receipt.create({
-      data: {
-        organizationId: input.organizationId,
-        paymentId: payment.id,
-        clientId: consultation.clientId,
-        folioNumber,
-        folio,
-        amount: input.amount,
-        currency: input.currency,
-        paymentMethod: "STRIPE",
-      },
-    });
+      const { folio, folioNumber } = await nextReceiptFolio(
+        tx,
+        input.organizationId,
+      );
+      await tx.receipt.create({
+        data: {
+          organizationId: input.organizationId,
+          paymentId: payment.id,
+          clientId: consultation.clientId,
+          folioNumber,
+          folio,
+          amount: input.amount,
+          currency: input.currency,
+          paymentMethod: "STRIPE",
+        },
+      });
 
-    await tx.consultation.update({
-      where: { id: consultation.id },
-      data: {
-        status: "PAID",
-        paymentId: payment.id,
-        stripeCheckoutSessionId: input.sessionId,
-      },
-    });
-
-    await writeActivityLog(
-      { organizationId: input.organizationId, actorUserId: null },
-      {
-        type: "PAYMENT_RECORDED",
-        description: `Consulta pagada con Stripe (${input.amount.toString()} ${input.currency}).`,
-        clientId: consultation.clientId,
-        metadata: {
-          consultationId: consultation.id,
+      await tx.consultation.update({
+        where: { id: consultation.id },
+        data: {
+          status: "PAID",
           paymentId: payment.id,
           stripeCheckoutSessionId: input.sessionId,
         },
-      },
-      tx,
-    );
-  });
+      });
+
+      await writeActivityLog(
+        { organizationId: input.organizationId, actorUserId: null },
+        {
+          type: "PAYMENT_RECORDED",
+          description: `Consulta pagada con Stripe (${input.amount.toString()} ${input.currency}).`,
+          clientId: consultation.clientId,
+          metadata: {
+            consultationId: consultation.id,
+            paymentId: payment.id,
+            stripeCheckoutSessionId: input.sessionId,
+          },
+        },
+        tx,
+      );
+    });
+  } catch (error) {
+    if (
+      await isHandledStripeSessionDuplicate(
+        input.organizationId,
+        input.sessionId,
+        error,
+      )
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
 
-async function fulfillQuotePayment(input: {
+export async function fulfillQuotePayment(input: {
   organizationId: string;
   quoteId: string;
   clientId: string;
@@ -554,87 +608,109 @@ async function fulfillQuotePayment(input: {
   });
   if (!quote) throw new DomainError("Cotización no encontrada en webhook.");
 
-  await prisma.$transaction(async (tx) => {
-    const payment = await tx.payment.create({
-      data: {
-        organizationId: input.organizationId,
-        clientId: quote.clientId,
-        caseId: quote.caseId ?? input.caseId,
-        quoteId: quote.id,
-        amount: input.amount,
-        currency: input.currency,
-        method: "STRIPE",
-        status: "RECEIVED",
-        receivedAt: new Date(),
-        reference: input.sessionId,
-        notes: "Pago Stripe (cotización)",
-        stripeCheckoutSessionId: input.sessionId,
-        stripePaymentIntentId: input.paymentIntentId,
-      },
-    });
-
-    const { folio, folioNumber } = await nextReceiptFolio(
-      tx,
-      input.organizationId,
-    );
-    await tx.receipt.create({
-      data: {
-        organizationId: input.organizationId,
-        paymentId: payment.id,
-        clientId: quote.clientId,
-        folioNumber,
-        folio,
-        amount: input.amount,
-        currency: input.currency,
-        paymentMethod: "STRIPE",
-      },
-    });
-
-    const received = await tx.payment.aggregate({
-      where: { quoteId: quote.id, status: "RECEIVED" },
-      _sum: { amount: true },
-    });
-    const paid = money(received._sum.amount ?? new Prisma.Decimal(0));
-    const total = money(quote.total);
-    const nextStatus =
-      paid.gte(total) ? "PAID" : paid.gt(0) ? "PARTIAL" : quote.status;
-
-    if (nextStatus !== quote.status) {
-      await tx.quote.update({
-        where: { id: quote.id },
-        data: { status: nextStatus },
-      });
-    }
-
-    await tx.quoteEvent.create({
-      data: {
-        organizationId: input.organizationId,
-        quoteId: quote.id,
-        type: "PAYMENT_RECORDED",
-        description: `Pago Stripe: ${input.amount.toString()} ${input.currency}.`,
-        metadata: {
-          paymentId: payment.id,
-          stripeCheckoutSessionId: input.sessionId,
-        },
-      },
-    });
-
-    await writeActivityLog(
-      { organizationId: input.organizationId, actorUserId: null },
-      {
-        type: "PAYMENT_RECORDED",
-        description: `Pago Stripe de cotización ${quote.folio} (${input.amount.toString()} ${input.currency}).`,
-        clientId: quote.clientId,
-        caseId: quote.caseId,
-        metadata: {
-          quoteId: quote.id,
-          paymentId: payment.id,
-          stripeCheckoutSessionId: input.sessionId,
-        },
-      },
-      tx,
-    );
+  const already = await prisma.payment.findFirst({
+    where: {
+      organizationId: input.organizationId,
+      stripeCheckoutSessionId: input.sessionId,
+    },
+    select: { id: true },
   });
+  if (already) return;
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.create({
+        data: {
+          organizationId: input.organizationId,
+          clientId: quote.clientId,
+          caseId: quote.caseId ?? input.caseId,
+          quoteId: quote.id,
+          amount: input.amount,
+          currency: input.currency,
+          method: "STRIPE",
+          status: "RECEIVED",
+          receivedAt: new Date(),
+          reference: input.sessionId,
+          notes: "Pago Stripe (cotización)",
+          stripeCheckoutSessionId: input.sessionId,
+          stripePaymentIntentId: input.paymentIntentId,
+        },
+      });
+
+      const { folio, folioNumber } = await nextReceiptFolio(
+        tx,
+        input.organizationId,
+      );
+      await tx.receipt.create({
+        data: {
+          organizationId: input.organizationId,
+          paymentId: payment.id,
+          clientId: quote.clientId,
+          folioNumber,
+          folio,
+          amount: input.amount,
+          currency: input.currency,
+          paymentMethod: "STRIPE",
+        },
+      });
+
+      const received = await tx.payment.aggregate({
+        where: { quoteId: quote.id, status: "RECEIVED" },
+        _sum: { amount: true },
+      });
+      const paid = money(received._sum.amount ?? new Prisma.Decimal(0));
+      const total = money(quote.total);
+      const nextStatus =
+        paid.gte(total) ? "PAID" : paid.gt(0) ? "PARTIAL" : quote.status;
+
+      if (nextStatus !== quote.status) {
+        await tx.quote.update({
+          where: { id: quote.id },
+          data: { status: nextStatus },
+        });
+      }
+
+      await tx.quoteEvent.create({
+        data: {
+          organizationId: input.organizationId,
+          quoteId: quote.id,
+          type: "PAYMENT_RECORDED",
+          description: `Pago Stripe: ${input.amount.toString()} ${input.currency}.`,
+          metadata: {
+            paymentId: payment.id,
+            stripeCheckoutSessionId: input.sessionId,
+          },
+        },
+      });
+
+      await writeActivityLog(
+        { organizationId: input.organizationId, actorUserId: null },
+        {
+          type: "PAYMENT_RECORDED",
+          description: `Pago Stripe de cotización ${quote.folio} (${input.amount.toString()} ${input.currency}).`,
+          clientId: quote.clientId,
+          caseId: quote.caseId,
+          metadata: {
+            quoteId: quote.id,
+            paymentId: payment.id,
+            stripeCheckoutSessionId: input.sessionId,
+          },
+        },
+        tx,
+      );
+    });
+  } catch (error) {
+    if (
+      await isHandledStripeSessionDuplicate(
+        input.organizationId,
+        input.sessionId,
+        error,
+      )
+    ) {
+      return;
+    }
+    throw error;
+  }
 }
 
 export function stripeWebhookUrl(organizationId: string): string {

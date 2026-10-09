@@ -165,9 +165,9 @@
       "id": "PR-RD-FLAGS",
       "title": "Alcance y método en el ítem de disputa",
       "module": "rondas",
-      "status": "IMPLEMENTADO SIN PRUEBA",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P2",
-      "evidence": "CreditRound y DisputeItem no tienen method ni scope de primer nivel.",
+      "evidence": "DisputeItem.scope/method + UI Avance. Smoke npm run smoke:dispute-flags exit 0 (2026-10-09).",
       "dependencies": ["PR-AN-QUAL"],
       "acceptance_criteria": [
         "Default fuera de alcance.",

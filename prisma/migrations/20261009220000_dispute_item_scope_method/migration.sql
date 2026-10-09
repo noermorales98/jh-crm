@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE `DisputeItem` ADD COLUMN `scope` VARCHAR(191) NULL;
+ALTER TABLE `DisputeItem` ADD COLUMN `method` VARCHAR(191) NULL;

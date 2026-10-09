@@ -38,6 +38,7 @@
     "smoke:client-import": "tsx --env-file=.env.local scripts/smoke/client-import-preview.ts",
     "smoke:client-merge": "tsx --env-file=.env.local scripts/smoke/client-merge.ts",
     "smoke:credit-qual": "tsx scripts/smoke/credit-qualification.ts",
+    "smoke:dispute-flags": "tsx --env-file=.env.local scripts/smoke/dispute-scope-method.ts",
     "smoke:ts-due": "tsx scripts/smoke/ts-due-rules.ts",
     "smoke:work-badge": "tsx scripts/smoke/ts-work-badge.ts",
     "smoke:org-date": "tsx scripts/smoke/ts-org-date-input.ts",

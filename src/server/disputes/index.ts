@@ -4,6 +4,12 @@ import type {
   Prisma,
 } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
+import {
+  DEFAULT_DISPUTE_METHOD,
+  DEFAULT_DISPUTE_SCOPE,
+  type DisputeMethod,
+  type DisputeScope,
+} from "@/src/lib/validation/disputes";
 import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
@@ -50,6 +56,8 @@ export interface AddDisputeItemData {
   creditItemId: string;
   disputeReason: string;
   action: string;
+  scope?: DisputeScope;
+  method?: DisputeMethod;
   disputeDetails?: string | null;
   bureau?: "EXPERIAN" | "EQUIFAX" | "TRANSUNION";
   notes?: string | null;
@@ -65,6 +73,8 @@ export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeI
   if (!action || action.length > 100) {
     throw new DomainError("Indica la acción (máximo 100 caracteres).");
   }
+  const scope = data.scope ?? DEFAULT_DISPUTE_SCOPE;
+  const method = data.method ?? DEFAULT_DISPUTE_METHOD;
 
   const creditItem = await prisma.creditItem.findFirst({
     where: {
@@ -94,6 +104,8 @@ export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeI
           bureau: data.bureau ?? creditItem.bureau,
           disputeReason: data.disputeReason.trim(),
           action,
+          scope,
+          method,
           disputeDetails: emptyToNull(data.disputeDetails),
           status: data.status ?? "SELECTED",
           outcome: null,
@@ -109,6 +121,8 @@ export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeI
           bureau: data.bureau ?? creditItem.bureau,
           disputeReason: data.disputeReason.trim(),
           action,
+          scope,
+          method,
           disputeDetails: emptyToNull(data.disputeDetails),
           status: data.status ?? "SELECTED",
           notes: emptyToNull(data.notes),
@@ -147,6 +161,8 @@ export async function addDisputeItemsBulk(
     creditItemIds: string[];
     disputeReason: string;
     action: string;
+    scope?: DisputeScope;
+    method?: DisputeMethod;
     disputeDetails?: string | null;
   },
 ) {
@@ -158,6 +174,8 @@ export async function addDisputeItemsBulk(
         creditItemId,
         disputeReason: data.disputeReason,
         action: data.action,
+        scope: data.scope,
+        method: data.method,
         disputeDetails: data.disputeDetails,
       }),
     );
@@ -168,6 +186,8 @@ export async function addDisputeItemsBulk(
 export interface UpdateDisputeItemData {
   disputeReason?: string;
   action?: string;
+  scope?: DisputeScope;
+  method?: DisputeMethod;
   disputeDetails?: string | null;
   status?: DisputeItemStatus;
   outcome?: DisputeOutcome | null;
@@ -202,6 +222,8 @@ export async function updateDisputeItem(
           ? { disputeReason: data.disputeReason.trim() }
           : {}),
         ...(data.action !== undefined ? { action: data.action.trim() } : {}),
+        ...(data.scope !== undefined ? { scope: data.scope } : {}),
+        ...(data.method !== undefined ? { method: data.method } : {}),
         ...(data.disputeDetails !== undefined
           ? { disputeDetails: emptyToNull(data.disputeDetails) }
           : {}),
@@ -287,6 +309,8 @@ export type RoundDisputeSummary = {
     outcome: DisputeOutcome | null;
     disputeReason: string;
     action: string | null;
+    scope: string | null;
+    method: string | null;
     disputeDetails: string | null;
     notes: string | null;
     bureau: string;

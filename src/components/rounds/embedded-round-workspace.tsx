@@ -23,8 +23,11 @@ import {
   CREDIT_BUREAU_LABELS,
   DISPUTE_ITEM_STATUS_LABELS,
   DISPUTE_LETTER_STATUS_LABELS,
+  DISPUTE_METHOD_LABELS,
+  DISPUTE_SCOPE_LABELS,
   labelFor,
 } from "@/src/lib/labels";
+import { DEFAULT_DISPUTE_SCOPE } from "@/src/lib/validation/disputes";
 import { AddDisputeItemsButton } from "@/src/components/disputes/add-dispute-items-button";
 import { DisputeOutcomeSelect } from "@/src/components/disputes/dispute-outcome-select";
 import { CancelDisputeItemButton } from "@/src/components/disputes/cancel-dispute-item-button";
@@ -190,6 +193,8 @@ export function EmbeddedRoundWorkspace({
                 <TH>Buró</TH>
                 <TH>Motivo</TH>
                 <TH>Acción</TH>
+                <TH>Alcance</TH>
+                <TH>Método</TH>
                 <TH>Estado</TH>
                 <TH>Resultado</TH>
                 {permissions.canManageDisputes ? <TH /> : null}
@@ -215,6 +220,17 @@ export function EmbeddedRoundWorkspace({
                   </TD>
                   <TD className="text-sm text-text-secondary-strong">
                     {item.action ?? "—"}
+                  </TD>
+                  <TD className="text-sm text-text-secondary-strong">
+                    {labelFor(
+                      DISPUTE_SCOPE_LABELS,
+                      item.scope ?? DEFAULT_DISPUTE_SCOPE,
+                    )}
+                  </TD>
+                  <TD className="text-sm text-text-secondary-strong">
+                    {item.method
+                      ? labelFor(DISPUTE_METHOD_LABELS, item.method)
+                      : "—"}
                   </TD>
                   <TD>
                     <Pill tone="slate">

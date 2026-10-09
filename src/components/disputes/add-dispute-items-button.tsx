@@ -13,8 +13,18 @@ import {
 import { addDisputeItemsBulk } from "@/src/actions/disputes";
 import { playActionResult } from "@/src/lib/cuelume";
 import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
-import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
+import {
+  CREDIT_BUREAU_LABELS,
+  DISPUTE_METHOD_LABELS,
+  DISPUTE_SCOPE_LABELS,
+} from "@/src/lib/labels";
 import { formatMoney } from "@/src/lib/format";
+import {
+  DEFAULT_DISPUTE_METHOD,
+  DEFAULT_DISPUTE_SCOPE,
+  type DisputeMethod,
+  type DisputeScope,
+} from "@/src/lib/validation/disputes";
 
 export type EligibleItem = {
   id: string;
@@ -37,6 +47,8 @@ export function AddDisputeItemsButton({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [reason, setReason] = useState("");
   const [action, setAction] = useState("Disputar");
+  const [scope, setScope] = useState<DisputeScope>(DEFAULT_DISPUTE_SCOPE);
+  const [method, setMethod] = useState<DisputeMethod>(DEFAULT_DISPUTE_METHOD);
   const [details, setDetails] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -63,6 +75,8 @@ export function AddDisputeItemsButton({
         creditItemIds: [...selected],
         disputeReason: reason,
         action,
+        scope,
+        method,
         ...(details.trim() ? { disputeDetails: details.trim() } : {}),
       });
       if (!result.ok) {
@@ -75,6 +89,8 @@ export function AddDisputeItemsButton({
       setSelected(new Set());
       setReason("");
       setAction("Disputar");
+      setScope(DEFAULT_DISPUTE_SCOPE);
+      setMethod(DEFAULT_DISPUTE_METHOD);
       setDetails("");
       router.refresh();
       notifyEmbedRefresh();
@@ -122,6 +138,38 @@ export function AddDisputeItemsButton({
               <option value="Actualizar">Actualizar</option>
             </select>
           </Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Alcance" htmlFor="dispute-scope" required>
+              <select
+                id="dispute-scope"
+                required
+                value={scope}
+                onChange={(e) => setScope(e.target.value as DisputeScope)}
+                className="w-full rounded-control border border-border-subtle bg-surface-panel px-3 py-2 text-sm text-ink"
+              >
+                {Object.entries(DISPUTE_SCOPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Método" htmlFor="dispute-method" required>
+              <select
+                id="dispute-method"
+                required
+                value={method}
+                onChange={(e) => setMethod(e.target.value as DisputeMethod)}
+                className="w-full rounded-control border border-border-subtle bg-surface-panel px-3 py-2 text-sm text-ink"
+              >
+                {Object.entries(DISPUTE_METHOD_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+          </div>
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-control border border-border-subtle p-2">
             {eligible.map((item) => (
               <label

@@ -338,6 +338,18 @@ export const DISPUTE_OUTCOME_LABELS: Record<string, string> = {
   OTHER: "Otro",
 };
 
+export const DISPUTE_SCOPE_LABELS: Record<string, string> = {
+  OUT_OF_SCOPE: "Fuera de alcance",
+  IN_SCOPE: "En alcance",
+};
+
+export const DISPUTE_METHOD_LABELS: Record<string, string> = {
+  MAIL: "Correo",
+  ONLINE: "En línea",
+  PHONE: "Teléfono",
+  OTHER: "Otro",
+};
+
 export const COMPARISON_RESULT_LABELS: Record<string, string> = {
   DELETED: "Eliminado",
   UPDATED: "Actualizado",

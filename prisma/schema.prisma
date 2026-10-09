@@ -1839,6 +1839,10 @@ model DisputeItem {
   disputeReason   String
   /** Acción pedida al buró (p.ej. Disputar, Verificar, Eliminar). CR-006. */
   action          String?
+  /** Alcance: OUT_OF_SCOPE | IN_SCOPE (PR-RD-FLAGS). */
+  scope           String?
+  /** Método: MAIL | ONLINE | PHONE | OTHER (PR-RD-FLAGS). */
+  method          String?
   disputeDetails  String?           @db.Text
   status          DisputeItemStatus @default(SELECTED)
   outcome         DisputeOutcome?

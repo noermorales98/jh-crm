@@ -554,7 +554,7 @@ export function SettingsForm({
           <Field
             label="Retención máxima (días desde creación)"
             htmlFor="documentMaxRetentionDays"
-            hint="Vacío = sin límite. El cron de retención purga documentos más antiguos."
+            hint="Informativo: no borra archivos activos. El cron solo purga la papelera cuando vence «días en papelera» (purgeAfter)."
           >
             <Input
               id="documentMaxRetentionDays"

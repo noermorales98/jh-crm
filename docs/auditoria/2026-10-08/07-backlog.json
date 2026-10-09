@@ -60,9 +60,9 @@
       "id": "PR-SEC-RET",
       "title": "Purgar solo documentos ya en papelera",
       "module": "documentos",
-      "status": "PARCIAL",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P1",
-      "evidence": "src/server/retention/index.ts puede borrar por antigüedad.",
+      "evidence": "purgeDueDocuments solo deletedAt+purgeAfter. Smoke npm run smoke:retention-soft exit 0 (2026-10-09).",
       "dependencies": [],
       "acceptance_criteria": [
         "Un documento sintético antiguo sin deletedAt sobrevive al cron de sandbox.",

@@ -37,6 +37,8 @@ export type EmbeddedRoundDetail = {
       action: string | null;
       status: string;
       outcome: string | null;
+      scope: string | null;
+      method: string | null;
       creditItem: {
         creditorName: string;
         accountNumberMasked: string | null;
@@ -155,6 +157,8 @@ export async function getEmbeddedRoundDetail(
         action: item.action,
         status: item.status,
         outcome: item.outcome,
+        scope: item.scope,
+        method: item.method,
         creditItem: {
           creditorName: item.creditItem.creditorName,
           accountNumberMasked: item.creditItem.accountNumberMasked,

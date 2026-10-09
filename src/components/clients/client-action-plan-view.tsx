@@ -60,15 +60,15 @@ export function ClientActionPlanView({
             }`}
           >
             {plan.qualified
-              ? "Perfil con señales de elegibilidad"
-              : "No calificado actualmente"}
+              ? "Señales heurísticas a revisar"
+              : "Heurística: preparar perfil primero"}
           </span>
           <span className="rounded-full bg-warning-soft px-3 py-1 text-[12px] font-medium text-warning-ink">
             Estimado de fondeo:{" "}
-            {plan.qualified ? "Revisar secuencia" : "Califica primero"}
+            {plan.qualified ? "Revisar secuencia" : "Preparar perfil"}
           </span>
           <span className="rounded-full bg-action-primary/10 px-3 py-1 text-[12px] font-medium text-action-primary">
-            {plan.bureausApproved} de 3 bureaus aprobados
+            {plan.bureausApproved} de 3 burós cumplen la heurística interna
           </span>
         </div>
       </header>
@@ -330,8 +330,8 @@ export function ClientActionPlanView({
         </h2>
         <p className="mt-2 text-[14px] font-semibold text-ink">
           {plan.qualified
-            ? "Financiamiento potencialmente disponible"
-            : "Financiamiento no disponible"}
+            ? "Estimado: secuencia a revisar (heurística)"
+            : "Estimado: preparar perfil (heurística)"}
         </p>
         <p className="mt-1 text-[13px] text-text-secondary">{plan.verdict}</p>
         <div className="mt-4 grid grid-cols-3 gap-2 text-center">
@@ -343,8 +343,8 @@ export function ClientActionPlanView({
             }
           />
           <Kpi
-            label="Fondeo"
-            value={plan.qualified ? "Revisar" : "Califica primero"}
+            label="Fondeo (est.)"
+            value={plan.qualified ? "Revisar" : "Preparar"}
           />
         </div>
       </section>

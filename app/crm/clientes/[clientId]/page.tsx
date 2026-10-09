@@ -15,6 +15,7 @@ import {
   type SearchParams,
 } from "@/src/server/page-helpers";
 import { AgencyClientDetail } from "@/src/components/clients/agency-client-detail";
+import { qualifyCreditProfile } from "@/src/lib/credit/qualification";
 import { formatMoney } from "@/src/lib/format";
 import * as creditReports from "@/src/server/credit-reports";
 import * as catalog from "@/src/server/services";
@@ -213,6 +214,12 @@ export default async function ClientSummaryPage({
     createdAt: a.createdAt,
   }));
 
+  const creditQualification = qualifyCreditProfile({
+    hasReport: (overview.credit?.reportCount ?? 0) > 0,
+    snapshotCount: overview.credit?.bureaus?.length ?? 0,
+    openNegativeCount: overview.credit?.itemsSummary.negative ?? 0,
+  });
+
   return (
     <AgencyClientDetail
       client={{
@@ -237,6 +244,7 @@ export default async function ClientSummaryPage({
       }}
       fullName={clientFullName(overview.client)}
       reportsCount={overview.credit?.reportCount ?? 0}
+      creditQualification={creditQualification}
       roundNumber={overview.credit?.round?.roundNumber ?? null}
       nextReviewAt={
         overview.nextAction?.at ??

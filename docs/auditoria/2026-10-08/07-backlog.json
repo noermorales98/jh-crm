@@ -136,9 +136,9 @@
       "id": "PR-AN-QUAL",
       "title": "Calificación de crédito distinta del status comercial",
       "module": "analisis",
-      "status": "PARCIAL",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P1",
-      "evidence": "mapClientToFondifyStatus en src/lib/fondify/status.ts traduce ClientStatus.",
+      "evidence": "qualifyCreditProfile + rótulos pipeline honestos. Smoke npm run smoke:credit-qual exit 0 (2026-10-09).",
       "dependencies": [],
       "acceptance_criteria": [
         "ACTIVE sin reportes no se muestra como listo para fondeo.",

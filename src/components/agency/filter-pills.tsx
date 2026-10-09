@@ -23,7 +23,15 @@ export function FilterPills({
   ];
 
   return (
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filtros">
+    <div className="space-y-1.5">
+      <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
+        Estado del cliente
+      </p>
+      <div
+        className="flex flex-wrap gap-1.5"
+        role="group"
+        aria-label="Estado del cliente"
+      >
       {items.map((item) => {
         const href =
           item.key === "all"
@@ -56,6 +64,7 @@ export function FilterPills({
           </Link>
         );
       })}
+      </div>
     </div>
   );
 }

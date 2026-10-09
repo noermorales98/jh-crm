@@ -5,6 +5,7 @@ import {
   mapClientToFondifyStatus,
   type FondifyBucket,
 } from "@/src/lib/fondify/status";
+import type { CreditQualificationKind } from "@/src/lib/credit/qualification";
 
 /**
  * Cápsula HIG: fill suave, sin borde ni ring.
@@ -55,4 +56,24 @@ export function FondifyStatusCapsule({ status }: { status: ClientStatus }) {
   return (
     <Capsule tone={BUCKET_TONE[bucket]}>{FONDIFY_BUCKET_LABELS[bucket]}</Capsule>
   );
+}
+
+const QUAL_TONE: Record<
+  CreditQualificationKind,
+  "neutral" | "warning" | "accent"
+> = {
+  sin_datos: "neutral",
+  revision: "warning",
+  heuristica: "accent",
+};
+
+/** Calificación crediticia (reporte), no pipeline comercial. */
+export function CreditQualificationCapsule({
+  kind,
+  label,
+}: {
+  kind: CreditQualificationKind;
+  label: string;
+}) {
+  return <Capsule tone={QUAL_TONE[kind]}>{label}</Capsule>;
 }

@@ -358,8 +358,8 @@ export async function getClientActionPlan(
     bureausApproved,
     qualified,
     verdict: qualified
-      ? "Tu perfil muestra señales de elegibilidad. Revisa la secuencia de financiamiento y confirma requisitos del prestamista."
-      : "Tu perfil crediticio no califica actualmente para financiamiento. Sigue el plan de acción de la Sección 6 para mejorar tu elegibilidad.",
+      ? "Estimado heurístico interno: el perfil muestra señales a revisar. No es una aprobación ni una oferta; confirma requisitos con el prestamista."
+      : "Estimado heurístico interno: el perfil aún no cumple la secuencia de preparación. No es una denegación formal; sigue el plan de acción de la Sección 6.",
     priorities,
     negativeCount: negatives.length,
     totalItems: items.length,

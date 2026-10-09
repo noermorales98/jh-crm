@@ -36,7 +36,12 @@ import {
 import type { ClientStatus } from "@prisma/client";
 import { Button } from "@/src/components/ui";
 import { AgencyModal } from "@/src/components/agency/agency-modal";
-import { Capsule, FondifyStatusCapsule } from "@/src/components/agency/capsule";
+import {
+  Capsule,
+  CreditQualificationCapsule,
+  FondifyStatusCapsule,
+} from "@/src/components/agency/capsule";
+import type { CreditQualificationResult } from "@/src/lib/credit/qualification";
 import {
   archiveClient,
   mergeClients,
@@ -110,6 +115,8 @@ export type AgencyClientDetailProps = {
   };
   fullName: string;
   reportsCount: number;
+  /** Calificación crediticia (reporte); distinta del pipeline comercial. */
+  creditQualification: CreditQualificationResult;
   roundNumber: number | null;
   nextReviewAt: Date | null;
   caseId: string | null;
@@ -563,7 +570,14 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 {props.fullName}
               </h1>
               <FondifyStatusCapsule status={props.client.status} />
+              <CreditQualificationCapsule
+                kind={props.creditQualification.kind}
+                label={props.creditQualification.label}
+              />
             </div>
+            <p className="mt-1 text-[12px] text-text-secondary">
+              {props.creditQualification.hint}
+            </p>
             <p className="mt-1 text-[13px] text-text-secondary">
               {props.client.email ?? "Sin correo"}
               {` · ${props.pdfReports.length} reporte${props.pdfReports.length === 1 ? "" : "s"}`}
@@ -1429,11 +1443,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 }`}
               >
                 {planHub.qualified
-                  ? "Perfil con señales de elegibilidad"
-                  : "No calificado actualmente"}
+                  ? "Señales heurísticas a revisar"
+                  : "Heurística: preparar perfil primero"}
               </p>
               <p className="mt-1 text-text-secondary">
-                {planHub.bureausApproved}/3 burós · score{" "}
+                {planHub.bureausApproved}/3 burós cumplen heurística · score{" "}
                 {planHub.avgScore ?? "—"} · util{" "}
                 {planHub.avgUtilization != null
                   ? `${planHub.avgUtilization}%`
@@ -1483,12 +1497,12 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               const blocked = planHub != null && !planHub.qualified;
               const estimate = blocked ? 0 : raw;
               const note = blocked
-                ? "Perfil no calificado — estimado $0 hasta mejorar burós. "
+                ? "Heurística: preparar perfil — estimado $0 hasta mejorar burós. "
                 : planHub?.qualified
-                  ? "Perfil con señales de elegibilidad. "
+                  ? "Heurística interna con señales a revisar. "
                   : "";
               setFondeoResult(
-                `${note}Estimado heurístico: $${estimate.toLocaleString("en-US")}`,
+                `${note}Estimado heurístico (no es aprobación ni oferta): $${estimate.toLocaleString("en-US")}`,
               );
             }}
           >

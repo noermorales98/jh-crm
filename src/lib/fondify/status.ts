@@ -1,19 +1,20 @@
 import type { ClientStatus } from "@prisma/client";
 
 /**
- * Mapper Fondify Agency → jh-crm ClientStatus.
- * Baseline documentado (TODO: refinar con etapa real del CreditCase).
+ * Mapper de pipeline comercial (ClientStatus → bucket de lista/filtro).
+ * No es calificación crediticia (ver src/lib/credit/qualification.ts).
  * - LEAD → ESTRUCTURACIÓN
- * - ACTIVE / PAUSED → REPARACIÓN
- * - COMPLETED → LISTOS PARA FONDEO
+ * - ACTIVE / PAUSED → EN REPARACIÓN
+ * - COMPLETED → COMPLETADOS
  * - CANCELLED / ARCHIVED → fuera de pills de dominio
  */
 export type FondifyBucket = "repair" | "struct" | "ready";
 
+/** Rótulos de estado del cliente (pipeline), no de elegibilidad de fondeo. */
 export const FONDIFY_BUCKET_LABELS: Record<FondifyBucket, string> = {
-  repair: "REPARACIÓN",
+  repair: "EN REPARACIÓN",
   struct: "ESTRUCTURACIÓN",
-  ready: "LISTOS PARA FONDEO",
+  ready: "COMPLETADOS",
 };
 
 export function mapClientToFondifyStatus(

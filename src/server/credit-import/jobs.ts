@@ -149,7 +149,6 @@ export async function processCreditPdfImportJob(jobId: string): Promise<void> {
     await setPhase(jobId, "ai");
     const proposal = await classifyAndExtractFromPdf({
       extract,
-      pdfBytes,
       fileName,
     });
 

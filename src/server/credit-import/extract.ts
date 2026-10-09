@@ -1,5 +1,6 @@
 /**
  * CR-PDF-001 — classify + extract via OpenRouter (JSON tipado).
+ * PR-SEC-PII: solo texto embebido ya redactado; nunca se adjunta el PDF.
  */
 import { generateText } from "ai";
 import {
@@ -12,6 +13,10 @@ import {
   type CreditPdfExtractionProposal,
 } from "@/src/lib/validation/credit-import";
 import type { PdfExtractResult } from "./pdf-text";
+import { redactBureauText } from "./redact";
+
+/** Mínimo de caracteres útiles para llamar al modelo (alineado con pdf-text). */
+const MIN_USEFUL_CHARS = 800;
 
 function requireAi() {
   if (!isOpenRouterConfigured()) {
@@ -62,17 +67,35 @@ Responde SOLO JSON válido (sin markdown) con esta forma:
 Reglas:
 - No inventes scores ni cuentas. Si no está en el texto, usa null / omite.
 - Scores FICO típicos 300-850; si dudoso, warning.
-- Prioriza identidad, scores por buró y cuentas negativas.
+- Prioriza identidad (nombre), scores por buró y cuentas negativas.
 - Máximo 200 items; prefiere negativos/colecciones.
 - Para CLIENT_PROGRESS_REPORT: llena snapshots de scores; items [].
-- ssnLast4 solo 4 dígitos; NUNCA el SSN completo en el JSON.
-- Fechas ISO YYYY-MM-DD.`;
+- NO extraigas SSN, ITIN ni fecha de nacimiento: deja ssnLast4 y dateOfBirth siempre en null (el texto puede venir redactado).
+- NO extraigas número de cuenta completo; solo accountNumberMasked si ya viene enmascarado (****1234).
+- Fechas ISO YYYY-MM-DD solo para reportDate / cuentas, no DOB.`;
+
+function emptyManualReviewProposal(
+  warnings: string[],
+): CreditPdfExtractionProposal {
+  return creditPdfExtractionProposalSchema.parse({
+    documentKind: "UNKNOWN",
+    confidence: "low",
+    warnings,
+    client: null,
+    report: { snapshots: [], items: [] },
+    progress: null,
+  });
+}
 
 function normalizeProposal(raw: unknown): CreditPdfExtractionProposal {
   const parsed = creditPdfExtractionProposalSchema.safeParse(raw);
   if (parsed.success) {
     const data = parsed.data;
-    // Drop invalid scores already handled by zod; trim items
+    // Defensa: nunca persistir DOB/SSN propuestos por el modelo.
+    if (data.client) {
+      data.client.dateOfBirth = null;
+      data.client.ssnLast4 = null;
+    }
     if (data.report?.items && data.report.items.length > 200) {
       data.report.items = data.report.items.slice(0, 200);
       data.warnings = [
@@ -83,7 +106,6 @@ function normalizeProposal(raw: unknown): CreditPdfExtractionProposal {
     return data;
   }
 
-  // Soft recover: kind + empty
   const kind =
     raw &&
     typeof raw === "object" &&
@@ -108,7 +130,6 @@ function normalizeProposal(raw: unknown): CreditPdfExtractionProposal {
 }
 
 function chunkText(text: string): string {
-  // Prefer head (identity/scores) + a mid slice for accounts
   if (text.length <= 28_000) return text;
   const head = text.slice(0, 16_000);
   const midStart = Math.floor(text.length * 0.25);
@@ -116,70 +137,40 @@ function chunkText(text: string): string {
   return `${head}\n\n---\n\n${mid}`;
 }
 
+/**
+ * Extrae propuesta desde texto embebido del PDF.
+ * No acepta ni envía bytes del archivo (PR-SEC-PII).
+ */
 export async function classifyAndExtractFromPdf(input: {
   extract: PdfExtractResult;
-  pdfBytes?: Buffer;
   fileName: string;
 }): Promise<CreditPdfExtractionProposal> {
+  const { extract, fileName } = input;
+
+  if (extract.mode !== "text" || extract.charCount < MIN_USEFUL_CHARS) {
+    return emptyManualReviewProposal([
+      "PDF con poco texto embebido o escaneado; no se adjuntó el PDF al modelo ni se envió extracción automática. Completa a mano lo que falte y revisa con cuidado.",
+    ]);
+  }
+
   requireAi();
-  const { extract, pdfBytes, fileName } = input;
-
-  if (extract.mode === "text") {
-    const { text } = await generateText({
-      model: createOpenRouterModel(),
-      system: SYSTEM,
-      prompt: `Archivo: ${fileName}\nPáginas: ${extract.pageCount}\nChars útiles: ${extract.charCount}\n\nTexto del PDF:\n${chunkText(extract.text)}`,
-      maxRetries: 1,
-    });
-    return normalizeProposal(parseJsonObject(text));
-  }
-
-  // Sparse text: try multimodal file if bytes available and small enough
-  if (pdfBytes && pdfBytes.byteLength <= 4_5 * 1024 * 1024) {
-    const { text } = await generateText({
-      model: createOpenRouterModel(),
-      system: SYSTEM,
-      messages: [
-        {
-          role: "user",
-          content: [
-            {
-              type: "text",
-              text: `Archivo: ${fileName}. Páginas≈${extract.pageCount}. Texto embebido escaso (${extract.charCount} chars). Extrae del PDF adjunto. Texto parcial:\n${extract.text.slice(0, 2000)}`,
-            },
-            {
-              type: "file",
-              data: pdfBytes,
-              mediaType: "application/pdf",
-              filename: fileName.endsWith(".pdf") ? fileName : `${fileName}.pdf`,
-            },
-          ],
-        },
-      ],
-      maxRetries: 1,
-    });
-    const proposal = normalizeProposal(parseJsonObject(text));
-    if (!proposal.warnings.some((w) => w.includes("escaso"))) {
-      proposal.warnings = [
-        ...proposal.warnings,
-        "PDF con poco texto embebido; extracción multimodal — revisa con cuidado.",
-      ];
-    }
-    return proposal;
-  }
-
-  // Last resort: sparse text only
+  const redacted = redactBureauText(chunkText(extract.text));
   const { text } = await generateText({
     model: createOpenRouterModel(),
     system: SYSTEM,
-    prompt: `Archivo: ${fileName}. Texto muy limitado (${extract.charCount} chars). Extrae lo posible; marca confidence low.\n\n${extract.text}`,
+    prompt: `Archivo: ${fileName}\nPáginas: ${extract.pageCount}\nChars útiles: ${extract.charCount}\n\nTexto del PDF (PII redactada):\n${redacted}`,
     maxRetries: 1,
   });
   const proposal = normalizeProposal(parseJsonObject(text));
-  proposal.confidence = "low";
-  proposal.warnings = [
-    ...proposal.warnings,
-    "No se pudo adjuntar el PDF al modelo; solo texto escaso.",
-  ];
+  if (
+    !proposal.warnings.some((w) =>
+      w.toLowerCase().includes("revis"),
+    )
+  ) {
+    proposal.warnings = [
+      ...proposal.warnings,
+      "Extracción automática: revisa scores y cuentas antes de confirmar.",
+    ];
+  }
   return proposal;
 }

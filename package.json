@@ -31,6 +31,7 @@
     "smoke:client-whatsapp": "tsx --env-file=.env.local scripts/smoke/client-whatsapp-smoke.ts",
     "smoke:au-005": "tsx --env-file=.env.local scripts/smoke/au-005-stripe-smoke.ts",
     "smoke:credit-pdf-import": "tsx scripts/smoke/credit-pdf-import-smoke.ts",
+    "smoke:credit-pdf-pii": "tsx scripts/smoke/credit-pdf-pii.ts",
     "smoke:ts-due": "tsx scripts/smoke/ts-due-rules.ts",
     "smoke:work-badge": "tsx scripts/smoke/ts-work-badge.ts",
     "smoke:org-date": "tsx scripts/smoke/ts-org-date-input.ts",

@@ -44,9 +44,9 @@
       "id": "PR-SEC-PII",
       "title": "No adjuntar el PDF de crédito al modelo y redactar el texto",
       "module": "credito",
-      "status": "PARCIAL",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P0",
-      "evidence": "classifyAndExtractFromPdf en src/server/credit-import/extract.ts envía texto y, si es escaso, pdfBytes. El prompt pide ssnLast4 y dateOfBirth.",
+      "evidence": "redactBureauText + extract sin pdfBytes. Smoke npm run smoke:credit-pdf-pii exit 0 (2026-10-09).",
       "dependencies": ["PR-SEC-01"],
       "acceptance_criteria": [
         "No queda rama type file hacia OpenRouter.",

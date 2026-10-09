@@ -125,7 +125,6 @@ export async function analyzeCreditPdf(
 
   const proposal = await classifyAndExtractFromPdf({
     extract,
-    pdfBytes,
     fileName,
   });
 

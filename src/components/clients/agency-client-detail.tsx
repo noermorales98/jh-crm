@@ -37,7 +37,13 @@ import type { ClientStatus } from "@prisma/client";
 import { Button } from "@/src/components/ui";
 import { AgencyModal } from "@/src/components/agency/agency-modal";
 import { Capsule, FondifyStatusCapsule } from "@/src/components/agency/capsule";
-import { archiveClient, updateClient } from "@/src/actions/clients";
+import {
+  archiveClient,
+  mergeClients,
+  searchMergeTargets,
+  updateClient,
+  type MergeTargetDto,
+} from "@/src/actions/clients";
 import {
   daysUntil,
   isReviewSoon,
@@ -338,6 +344,10 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const [activeReportId, setActiveReportId] = useState<string | null>(
     props.pdfReports[0]?.id ?? null,
   );
+  const [mergeQuery, setMergeQuery] = useState("");
+  const [mergeTargets, setMergeTargets] = useState<MergeTargetDto[]>([]);
+  const [mergeDest, setMergeDest] = useState<MergeTargetDto | null>(null);
+  const [mergeConfirmName, setMergeConfirmName] = useState("");
   const { enterCreditReport, openReport } = useCreditReportEntry({
     clientId: props.client.id,
     pdfReports: props.pdfReports,
@@ -493,6 +503,51 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     });
   }
 
+  function resetMergeForm() {
+    setMergeQuery("");
+    setMergeTargets([]);
+    setMergeDest(null);
+    setMergeConfirmName("");
+    setError(null);
+  }
+
+  function onSearchMergeTargets() {
+    setError(null);
+    const q = mergeQuery.trim();
+    if (!q) {
+      setMergeTargets([]);
+      return;
+    }
+    startTransition(async () => {
+      const result = await searchMergeTargets(props.client.id, q);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setMergeTargets(result.data.items);
+    });
+  }
+
+  function onMerge() {
+    if (!mergeDest) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await mergeClients({
+        sourceClientId: props.client.id,
+        destinationClientId: mergeDest.id,
+        confirmDestinationName: mergeConfirmName,
+      });
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      resetMergeForm();
+      setPanel(null);
+      router.push(`/crm/clientes/${result.data.destinationClientId}`);
+      router.refresh();
+    });
+  }
+
   async function copyIntake() {
     if (!props.intakeUrl) return;
     await navigator.clipboard.writeText(props.intakeUrl);
@@ -610,18 +665,21 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                       Editar
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    role="menuitem"
-                    className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover"
-                    onClick={() => {
-                      setMoreOpen(false);
-                      setPanel("merge");
-                    }}
-                  >
-                    <Merge className="size-3.5 text-text-secondary" aria-hidden />
-                    Unir expedientes
-                  </button>
+                  {props.canEdit ? (
+                    <button
+                      type="button"
+                      role="menuitem"
+                      className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover"
+                      onClick={() => {
+                        setMoreOpen(false);
+                        resetMergeForm();
+                        setPanel("merge");
+                      }}
+                    >
+                      <Merge className="size-3.5 text-text-secondary" aria-hidden />
+                      Unir expedientes
+                    </button>
+                  ) : null}
                   {props.canEdit ? (
                     <button
                       type="button"
@@ -994,13 +1052,123 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
 
       <AgencyModal
         open={panel === "merge"}
-        onClose={() => setPanel(null)}
+        onClose={() => {
+          setPanel(null);
+          resetMergeForm();
+        }}
         title="Unir expedientes"
       >
-        <p className="text-[13px] text-text-secondary">
-          Unir expedientes aún no está implementado en jh-crm. Esta UI queda
-          lista; el merge server llega en un paso posterior.
-        </p>
+        <div className="space-y-3">
+          <p className="text-[13px] text-text-secondary">
+            Este cliente (<span className="font-medium text-ink">{props.fullName}</span>)
+            se archivará y su expediente pasará al destino. No se puede deshacer.
+          </p>
+          <div className="flex gap-2">
+            <input
+              value={mergeQuery}
+              onChange={(e) => {
+                setMergeQuery(e.target.value);
+                setMergeDest(null);
+              }}
+              placeholder="Buscar destino (código, nombre, correo)"
+              className="w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25"
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending || !mergeQuery.trim()}
+              onClick={onSearchMergeTargets}
+            >
+              Buscar
+            </Button>
+          </div>
+          {mergeTargets.length > 0 ? (
+            <ul className="max-h-40 space-y-1 overflow-auto rounded-control border border-border-subtle p-1">
+              {mergeTargets.map((t) => (
+                <li key={t.id}>
+                  <button
+                    type="button"
+                    className={`w-full rounded-control px-2 py-1.5 text-left text-[13px] ${
+                      mergeDest?.id === t.id
+                        ? "bg-action-primary/10 text-ink"
+                        : "hover:bg-nav-hover text-ink"
+                    }`}
+                    onClick={() => {
+                      setMergeDest(t);
+                      setMergeConfirmName("");
+                    }}
+                  >
+                    <span className="font-medium">{t.fullName}</span>
+                    <span className="ml-2 font-mono text-[11px] text-text-secondary">
+                      {t.clientCode}
+                    </span>
+                    {t.email ? (
+                      <span className="block text-[11px] text-text-secondary">
+                        {t.email}
+                      </span>
+                    ) : null}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {mergeDest ? (
+            <>
+              <p className="text-[13px] text-ink">
+                Destino:{" "}
+                <span className="font-medium">{mergeDest.fullName}</span>{" "}
+                <span className="font-mono text-[11px] text-text-secondary">
+                  ({mergeDest.clientCode})
+                </span>
+              </p>
+              <label className="block text-[13px]">
+                <span className="mb-1 block font-medium text-ink">
+                  Escribe el nombre completo del destino para confirmar
+                </span>
+                <input
+                  value={mergeConfirmName}
+                  onChange={(e) => setMergeConfirmName(e.target.value)}
+                  placeholder={mergeDest.fullName}
+                  className="w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25"
+                  autoComplete="off"
+                />
+              </label>
+            </>
+          ) : null}
+          {error ? (
+            <p className="text-[13px] text-danger" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              className="flex-1"
+              disabled={pending}
+              onClick={() => {
+                setPanel(null);
+                resetMergeForm();
+              }}
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              className="flex-1"
+              disabled={
+                pending ||
+                !mergeDest ||
+                mergeConfirmName.trim().toLowerCase() !==
+                  mergeDest.fullName.trim().toLowerCase()
+              }
+              onClick={onMerge}
+            >
+              Unir
+            </Button>
+          </div>
+        </div>
       </AgencyModal>
 
       <AgencyModal

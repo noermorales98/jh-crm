@@ -120,9 +120,9 @@
       "id": "PR-CL-MERGE",
       "title": "Persistir la unión de expedientes",
       "module": "clientes",
-      "status": "SOLO UI/MOCK",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P1",
-      "evidence": "agency-client-detail.tsx modal merge dice que no está implementado.",
+      "evidence": "mergeClients TX + AuditLog CLIENT_MERGED. Smoke npm run smoke:client-merge exit 0 (2026-10-09).",
       "dependencies": ["PR-CL-IMPORT"],
       "acceptance_criteria": [
         "Dos clientes de la misma org: el reporte del origen pasa al destino.",

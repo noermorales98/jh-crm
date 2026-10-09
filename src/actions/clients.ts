@@ -24,6 +24,10 @@ import {
   commitClientImport as commitClientImportService,
   previewClientImport as previewClientImportService,
 } from "@/src/server/clients/import-preview";
+import {
+  destinationDisplayName,
+  mergeClients as mergeClientsService,
+} from "@/src/server/clients/merge";
 
 function revalidateClients(clientId?: string) {
   revalidatePath("/crm/clientes");
@@ -187,4 +191,64 @@ export async function importClientsCsv(
   ActionResult<{ created: number; errors: Array<{ row: number; message: string }> }>
 > {
   return commitClientImport(csvText);
+}
+
+export type MergeTargetDto = {
+  id: string;
+  clientCode: string;
+  fullName: string;
+  email: string | null;
+};
+
+/** Busca candidatos a destino para unir (excluye origen y archivados). */
+export async function searchMergeTargets(
+  sourceClientId: string,
+  q: string,
+): Promise<ActionResult<{ items: MergeTargetDto[] }>> {
+  try {
+    const ctx = await requirePermission("clients.edit");
+    const sourceId = cuidSchema.parse(sourceClientId);
+    const query = q.trim();
+    if (query.length < 1) {
+      return actionOk({ items: [] });
+    }
+    const result = await clientService.listClients(ctx, {
+      q: query,
+      limit: 10,
+    });
+    const items = result.items
+      .filter((c) => c.id !== sourceId && c.status !== "ARCHIVED")
+      .map((c) => ({
+        id: c.id,
+        clientCode: c.clientCode,
+        fullName: destinationDisplayName(c.firstName, c.lastName),
+        email: c.email,
+      }));
+    return actionOk({ items });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+const mergeSchema = z.object({
+  sourceClientId: cuidSchema,
+  destinationClientId: cuidSchema,
+  confirmDestinationName: z.string().trim().min(1),
+});
+
+export async function mergeClients(
+  input: unknown,
+): Promise<ActionResult<{ destinationClientId: string }>> {
+  try {
+    const ctx = await requirePermission("clients.edit");
+    const data = mergeSchema.parse(input);
+    const result = await mergeClientsService(ctx, data);
+    revalidateClients(result.sourceClientId);
+    revalidateClients(result.destinationClientId);
+    return actionOk({ destinationClientId: result.destinationClientId });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
 }

@@ -89,9 +89,9 @@
       "id": "PR-DC-CONFIRM",
       "title": "Comprobar tamaño y tipo al confirmar el upload",
       "module": "documentos",
-      "status": "PARCIAL",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P1",
-      "evidence": "src/lib/storage/s3.ts firma sin ContentLength. confirm no hace HeadObject.",
+      "evidence": "assertStoredObjectMatchesClaim + HeadObject en confirm staff/portal/intake. Smoke npm run smoke:upload-confirm exit 0 (2026-10-09). Sin ContentLength en firma PUT.",
       "dependencies": [],
       "acceptance_criteria": [
         "Un objeto mayor que UPLOAD_MAX_MB no crea Document.",

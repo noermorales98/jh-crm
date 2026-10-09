@@ -9,6 +9,13 @@ import {
 } from "@/src/lib/storage/s3";
 import { assertAllowedFile, buildStorageKey } from "@/src/lib/storage/policy";
 import { DomainError } from "@/src/server/errors";
+import { writeActivityLog } from "@/src/server/activity";
+import { writeAuditLog } from "@/src/server/audit";
+import type { OrganizationContext } from "@/src/server/auth/guards";
+import { can } from "@/src/server/auth/permissions";
+import { ForbiddenError } from "@/src/server/auth/guards";
+import { toActivityContext, toAuditContext } from "@/src/server/context";
+import { assertStoredObjectMatchesClaim } from "@/src/server/storage/assert-stored-upload";
 
 /** Convierte los errores de política de archivos en errores de dominio (400). */
 function assertFileAllowed(mimeType: string, sizeBytes: number) {
@@ -18,12 +25,6 @@ function assertFileAllowed(mimeType: string, sizeBytes: number) {
     throw new DomainError(error instanceof Error ? error.message : "Archivo no permitido.");
   }
 }
-import { writeActivityLog } from "@/src/server/activity";
-import { writeAuditLog } from "@/src/server/audit";
-import type { OrganizationContext } from "@/src/server/auth/guards";
-import { can } from "@/src/server/auth/permissions";
-import { ForbiddenError } from "@/src/server/auth/guards";
-import { toActivityContext, toAuditContext } from "@/src/server/context";
 
 /**
  * Documentos: metadata en MySQL, binario en bucket privado S3.
@@ -138,6 +139,12 @@ export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploa
     throw new DomainError("La clave de almacenamiento no pertenece a esta organización.");
   }
 
+  const verified = await assertStoredObjectMatchesClaim({
+    storageKey: data.storageKey,
+    mimeType: data.mimeType,
+    sizeBytes: data.sizeBytes,
+  });
+
   return prisma.$transaction(async (tx) => {
     const document = await tx.document.create({
       data: {
@@ -152,7 +159,7 @@ export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploa
         originalName: data.originalName.slice(0, 255),
         displayName: data.displayName?.slice(0, 255) ?? null,
         mimeType: data.mimeType,
-        sizeBytes: data.sizeBytes,
+        sizeBytes: verified.sizeBytes,
         storageKey: data.storageKey,
         checksumSha256: data.checksumSha256 ?? null,
         uploadedById: ctx.userId,

@@ -11,6 +11,7 @@ import { DomainError } from "@/src/server/errors";
 import { nextClientCode } from "@/src/server/folios";
 import { writeAuditLog } from "@/src/server/audit";
 import type { IntakePayloadInput } from "@/src/lib/validation/intake-payload";
+import { assertStoredObjectMatchesClaim } from "@/src/server/storage/assert-stored-upload";
 
 function assertFileAllowed(mimeType: string, sizeBytes: number) {
   try {
@@ -129,6 +130,27 @@ export async function submitIntake(
   meta: RequestMeta,
 ) {
   const orgId = link.organizationId;
+  const expectedPrefix = `org/${orgId}/documents/`;
+
+  // HeadObject fuera de la TX: valida tamaño/MIME reales antes de crear filas.
+  type IntakeDoc = NonNullable<IntakeSubmitData["documents"]>[number];
+  const verifiedDocuments: IntakeDoc[] = [];
+  for (const doc of data.documents ?? []) {
+    if (!doc.storageKey.startsWith(expectedPrefix)) {
+      throw new DomainError(
+        "La clave de almacenamiento no pertenece a esta organización.",
+      );
+    }
+    const verified = await assertStoredObjectMatchesClaim({
+      storageKey: doc.storageKey,
+      mimeType: doc.mimeType,
+      sizeBytes: doc.sizeBytes,
+    });
+    verifiedDocuments.push({
+      ...doc,
+      sizeBytes: verified.sizeBytes,
+    });
+  }
 
   return prisma.$transaction(async (tx) => {
     // Re-validar usos dentro de la transacción (condición de carrera).
@@ -213,8 +235,7 @@ export async function submitIntake(
       },
     });
 
-    // Documentos subidos vía upload-url del intake (storageKey de la org).
-    const expectedPrefix = `org/${orgId}/documents/`;
+    // Documentos ya verificados con HeadObject (upload-url del intake).
     let intakeServiceCaseId: string | null = null;
     if (link.caseId) {
       const creditCase = await tx.creditCase.findFirst({
@@ -223,8 +244,7 @@ export async function submitIntake(
       });
       intakeServiceCaseId = creditCase?.serviceCaseId ?? null;
     }
-    for (const doc of data.documents ?? []) {
-      if (!doc.storageKey.startsWith(expectedPrefix)) continue;
+    for (const doc of verifiedDocuments) {
       await tx.document.create({
         data: {
           organizationId: orgId,

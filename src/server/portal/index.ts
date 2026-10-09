@@ -14,6 +14,7 @@ import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { clientFullName } from "@/src/server/page-helpers";
+import { assertStoredObjectMatchesClaim } from "@/src/server/storage/assert-stored-upload";
 
 /**
  * Portal del cliente (FEATURE_CLIENT_PORTAL).
@@ -586,6 +587,12 @@ export async function confirmPortalUpload(
     );
   }
 
+  const verified = await assertStoredObjectMatchesClaim({
+    storageKey: data.storageKey,
+    mimeType: data.mimeType,
+    sizeBytes: data.sizeBytes,
+  });
+
   return prisma.$transaction(async (tx) => {
     const document = await tx.document.create({
       data: {
@@ -598,7 +605,7 @@ export async function confirmPortalUpload(
         originalName: data.originalName.slice(0, 255),
         displayName: data.displayName?.slice(0, 255) ?? null,
         mimeType: data.mimeType,
-        sizeBytes: data.sizeBytes,
+        sizeBytes: verified.sizeBytes,
         storageKey: data.storageKey,
         checksumSha256: data.checksumSha256 ?? null,
         uploadedById: null,

@@ -1,6 +1,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -175,6 +176,47 @@ export async function deleteObject(storageKey: string): Promise<void> {
       Key: storageKey,
     }),
   );
+}
+
+export type HeadObjectMeta = {
+  contentLength: number;
+  contentType: string | null;
+};
+
+/**
+ * Metadatos del objeto (PR-DC-CONFIRM). Devuelve null si no existe.
+ */
+export async function headObjectMeta(
+  storageKey: string,
+): Promise<HeadObjectMeta | null> {
+  try {
+    const response = await getClient().send(
+      new HeadObjectCommand({
+        Bucket: getBucket(),
+        Key: storageKey,
+      }),
+    );
+    const contentLength = response.ContentLength;
+    if (typeof contentLength !== "number" || contentLength < 0) {
+      return null;
+    }
+    const contentType = response.ContentType?.split(";")[0]?.trim() || null;
+    return { contentLength, contentType };
+  } catch (error) {
+    const name =
+      error && typeof error === "object" && "name" in error
+        ? String((error as { name: string }).name)
+        : "";
+    const status =
+      error && typeof error === "object" && "$metadata" in error
+        ? (error as { $metadata?: { httpStatusCode?: number } }).$metadata
+            ?.httpStatusCode
+        : undefined;
+    if (name === "NotFound" || name === "NoSuchKey" || status === 404) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 /** Subida server-side (evita CORS del browser → R2). */

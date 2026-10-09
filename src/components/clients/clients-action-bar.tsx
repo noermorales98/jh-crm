@@ -6,9 +6,41 @@ import { Link2, Plus, Upload } from "lucide-react";
 import { Button } from "@/src/components/ui";
 import { AgencyModal } from "@/src/components/agency/agency-modal";
 import {
+  commitClientImport,
   createClient,
-  importClientsCsv,
+  previewClientImport,
+  type ClientImportPreviewActionResult,
 } from "@/src/actions/clients";
+
+const STATUS_LABEL: Record<
+  keyof ClientImportPreviewActionResult["counts"],
+  string
+> = {
+  create: "Nuevos",
+  exists: "Ya existen",
+  no_email: "Sin correo",
+  invalid: "Inválidos",
+  duplicate_in_file: "Duplicados en archivo",
+};
+
+const PREVIEW_ROW_LIMIT = 50;
+
+function rejectNonCsvFile(file: File): string | null {
+  const name = file.name.trim().toLowerCase();
+  const mime = (file.type ?? "").trim().toLowerCase();
+  if (
+    name.endsWith(".xlsx") ||
+    name.endsWith(".xls") ||
+    mime.includes("spreadsheet") ||
+    mime.includes("excel")
+  ) {
+    return "Solo se admiten archivos CSV. El formato Excel no está soportado todavía.";
+  }
+  if (name.includes(".") && !name.endsWith(".csv")) {
+    return "Solo se admiten archivos CSV.";
+  }
+  return null;
+}
 
 export function ClientsActionBar({
   canCreate,
@@ -24,6 +56,21 @@ export function ClientsActionBar({
   const [shareOpen, setShareOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<string | null>(null);
+  const [csvText, setCsvText] = useState<string | null>(null);
+  const [fileMeta, setFileMeta] = useState<{
+    fileName: string;
+    mimeType: string | null;
+  } | null>(null);
+  const [preview, setPreview] =
+    useState<ClientImportPreviewActionResult | null>(null);
+
+  function resetImportState() {
+    setError(null);
+    setImportResult(null);
+    setCsvText(null);
+    setFileMeta(null);
+    setPreview(null);
+  }
 
   function onAdd(formData: FormData) {
     setError(null);
@@ -63,29 +110,64 @@ export function ClientsActionBar({
   const fieldClass =
     "w-full rounded-control bg-nav-hover px-3 py-2.5 text-sm outline-none focus:bg-surface-app focus:ring-2 focus:ring-focus/25";
 
-  function onImport(formData: FormData) {
+  function onPreview(formData: FormData) {
     setError(null);
     setImportResult(null);
+    setPreview(null);
     const file = formData.get("file");
     if (!(file instanceof File) || file.size === 0) {
       setError("Selecciona un archivo CSV.");
       return;
     }
+    const reject = rejectNonCsvFile(file);
+    if (reject) {
+      setError(reject);
+      return;
+    }
     startTransition(async () => {
       const text = await file.text();
-      const result = await importClientsCsv(text);
+      const meta = { fileName: file.name, mimeType: file.type || null };
+      const result = await previewClientImport(text, meta);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setCsvText(text);
+      setFileMeta(meta);
+      setPreview(result.data);
+    });
+  }
+
+  function onConfirmImport() {
+    if (!csvText || !preview || preview.counts.create === 0) return;
+    setError(null);
+    setImportResult(null);
+    startTransition(async () => {
+      const result = await commitClientImport(
+        csvText,
+        fileMeta ?? undefined,
+      );
       if (!result.ok) {
         setError(result.error);
         return;
       }
       setImportResult(
-        `Importados: ${result.data.created}. Errores: ${result.data.errors.length}.`,
+        `Importados: ${result.data.created}. Omitidos (existen/sin correo/inválidos): ${
+          result.data.counts.exists +
+          result.data.counts.no_email +
+          result.data.counts.invalid +
+          result.data.counts.duplicate_in_file
+        }.`,
       );
-      if (result.data.errors.length === 0) {
+      setPreview(null);
+      setCsvText(null);
+      setFileMeta(null);
+      if (result.data.created > 0) {
+        router.refresh();
+      }
+      if (result.data.errors.length === 0 && result.data.created > 0) {
         setImportOpen(false);
-        router.refresh();
-      } else {
-        router.refresh();
+        resetImportState();
       }
     });
   }
@@ -209,45 +291,145 @@ export function ClientsActionBar({
 
       <AgencyModal
         open={importOpen}
-        onClose={() => setImportOpen(false)}
+        onClose={() => {
+          setImportOpen(false);
+          resetImportState();
+        }}
         title="Importar clientes"
       >
-        <form action={onImport} className="space-y-3">
+        <div className="space-y-3">
           <p className="text-[13px] text-text-secondary">
             CSV con columnas <code className="font-mono">name,email</code> (o{" "}
             <code className="font-mono">firstName,lastName,email</code>).
-            Compatible con exportaciones tipo Dispute Fox / Credit Repair Cloud.
+            Primero previsualiza; solo se crean filas nuevas con correo.
           </p>
-          <label className="flex cursor-pointer flex-col items-center justify-center rounded-surface bg-nav-hover px-4 py-8 text-center">
-            <Upload className="mb-2 size-6 text-action-primary" aria-hidden />
-            <span className="text-[13px] font-medium text-ink">
-              Arrastra o elige un CSV / XLSX
-            </span>
-            <input
-              name="file"
-              type="file"
-              accept=".csv,text/csv"
-              className="sr-only"
-              required
-            />
-          </label>
-          {error ? (
-            <p className="text-[13px] text-danger" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {importResult ? (
-            <p className="text-[13px] text-text-secondary">{importResult}</p>
-          ) : null}
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-full"
-            disabled={pending}
-          >
-            Importar
-          </Button>
-        </form>
+          {!preview ? (
+            <form action={onPreview} className="space-y-3">
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-surface bg-nav-hover px-4 py-8 text-center">
+                <Upload className="mb-2 size-6 text-action-primary" aria-hidden />
+                <span className="text-[13px] font-medium text-ink">
+                  Arrastra o elige un CSV
+                </span>
+                <input
+                  name="file"
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="sr-only"
+                  required
+                />
+              </label>
+              {error ? (
+                <p className="text-[13px] text-danger" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {importResult ? (
+                <p className="text-[13px] text-text-secondary">{importResult}</p>
+              ) : null}
+              <Button
+                type="submit"
+                variant="primary"
+                className="w-full"
+                disabled={pending}
+              >
+                Previsualizar
+              </Button>
+            </form>
+          ) : (
+            <div className="space-y-3">
+              <ul className="grid grid-cols-2 gap-2 text-[12px] text-text-secondary sm:grid-cols-3">
+                {(
+                  Object.keys(STATUS_LABEL) as Array<
+                    keyof typeof STATUS_LABEL
+                  >
+                ).map((key) => (
+                  <li
+                    key={key}
+                    className="rounded-control bg-nav-hover px-2 py-1.5"
+                  >
+                    <span className="font-medium text-ink">
+                      {preview.counts[key]}
+                    </span>{" "}
+                    {STATUS_LABEL[key]}
+                  </li>
+                ))}
+              </ul>
+              <div className="max-h-56 overflow-auto rounded-control border border-border-subtle">
+                <table className="w-full text-left text-[12px]">
+                  <thead className="sticky top-0 bg-surface-app text-text-secondary">
+                    <tr>
+                      <th className="px-2 py-1.5 font-medium">Fila</th>
+                      <th className="px-2 py-1.5 font-medium">Nombre</th>
+                      <th className="px-2 py-1.5 font-medium">Correo</th>
+                      <th className="px-2 py-1.5 font-medium">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {preview.rows.slice(0, PREVIEW_ROW_LIMIT).map((row) => (
+                      <tr key={row.row} className="border-t border-border-subtle">
+                        <td className="px-2 py-1 tabular-nums">{row.row}</td>
+                        <td className="px-2 py-1">
+                          {[row.firstName, row.lastName]
+                            .filter(Boolean)
+                            .join(" ") || "—"}
+                        </td>
+                        <td className="px-2 py-1 font-mono text-[11px]">
+                          {row.email ?? "—"}
+                        </td>
+                        <td className="px-2 py-1">
+                          {STATUS_LABEL[row.status]}
+                          {row.message ? (
+                            <span className="block text-text-secondary">
+                              {row.message}
+                            </span>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {preview.rows.length > PREVIEW_ROW_LIMIT ? (
+                <p className="text-[12px] text-text-secondary">
+                  y {preview.rows.length - PREVIEW_ROW_LIMIT} filas más…
+                </p>
+              ) : null}
+              {error ? (
+                <p className="text-[13px] text-danger" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              {importResult ? (
+                <p className="text-[13px] text-text-secondary">{importResult}</p>
+              ) : null}
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={pending}
+                  onClick={() => {
+                    resetImportState();
+                  }}
+                >
+                  Otro archivo
+                </Button>
+                <Button
+                  type="button"
+                  variant="primary"
+                  className="w-full"
+                  disabled={pending || preview.counts.create === 0}
+                  onClick={onConfirmImport}
+                >
+                  Confirmar importación
+                  {preview.counts.create > 0
+                    ? ` (${preview.counts.create})`
+                    : ""}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </AgencyModal>
 
       <AgencyModal

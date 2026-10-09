@@ -16,6 +16,14 @@ import {
 } from "@/src/lib/validation";
 import { cuidSchema } from "@/src/lib/validation/common";
 import * as clientService from "@/src/server/clients";
+import {
+  assertImportFileMeta,
+  type ClassifiedImportRow,
+} from "@/src/server/clients/import-csv";
+import {
+  commitClientImport as commitClientImportService,
+  previewClientImport as previewClientImportService,
+} from "@/src/server/clients/import-preview";
 
 function revalidateClients(clientId?: string) {
   revalidatePath("/crm/clientes");
@@ -114,114 +122,69 @@ export async function updateSensitiveProfile(
   }
 }
 
-function parseCsvRows(text: string): string[][] {
-  const lines = text
-    .replace(/^\uFEFF/, "")
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
-  return lines.map((line) => {
-    const cells: string[] = [];
-    let current = "";
-    let inQuotes = false;
-    for (let i = 0; i < line.length; i++) {
-      const ch = line[i];
-      if (ch === '"') {
-        inQuotes = !inQuotes;
-        continue;
-      }
-      if (ch === "," && !inQuotes) {
-        cells.push(current.trim());
-        current = "";
-        continue;
-      }
-      current += ch;
+export type ClientImportPreviewActionResult = {
+  rows: ClassifiedImportRow[];
+  counts: {
+    create: number;
+    exists: number;
+    no_email: number;
+    invalid: number;
+    duplicate_in_file: number;
+  };
+};
+
+/** Dry-run: no escribe. */
+export async function previewClientImport(
+  csvText: string,
+  fileMeta?: { fileName?: string; mimeType?: string | null },
+): Promise<ActionResult<ClientImportPreviewActionResult>> {
+  try {
+    const ctx = await requirePermission("clients.create");
+    if (fileMeta?.fileName) {
+      assertImportFileMeta(fileMeta.fileName, fileMeta.mimeType);
     }
-    cells.push(current.trim());
-    return cells;
-  });
+    const result = await previewClientImportService(ctx, csvText);
+    return actionOk(result);
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
 }
 
-/** Importa CSV name,email o firstName,lastName,email. */
+/** Commit tras preview: solo crea filas `create`. */
+export async function commitClientImport(
+  csvText: string,
+  fileMeta?: { fileName?: string; mimeType?: string | null },
+): Promise<
+  ActionResult<{
+    created: number;
+    errors: Array<{ row: number; message: string }>;
+    counts: ClientImportPreviewActionResult["counts"];
+  }>
+> {
+  try {
+    const ctx = await requirePermission("clients.create");
+    if (fileMeta?.fileName) {
+      assertImportFileMeta(fileMeta.fileName, fileMeta.mimeType);
+    }
+    const result = await commitClientImportService(ctx, csvText);
+    revalidateClients();
+    return actionOk({
+      created: result.created,
+      errors: result.errors,
+      counts: result.counts,
+    });
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+/** @deprecated Usa previewClientImport + commitClientImport. */
 export async function importClientsCsv(
   csvText: string,
 ): Promise<
   ActionResult<{ created: number; errors: Array<{ row: number; message: string }> }>
 > {
-  try {
-    const ctx = await requirePermission("clients.create");
-    const rows = parseCsvRows(csvText);
-    if (rows.length === 0) {
-      return actionFail(new Error("El CSV está vacío."));
-    }
-
-    const header = rows[0].map((h) => h.toLowerCase());
-    const hasHeader =
-      header.includes("email") ||
-      header.includes("name") ||
-      header.includes("firstname") ||
-      header.includes("first_name");
-    const dataRows = hasHeader ? rows.slice(1) : rows;
-    const col = (names: string[]) =>
-      names
-        .map((n) => header.indexOf(n))
-        .find((i) => i >= 0);
-
-    const nameIdx = hasHeader
-      ? (col(["name", "nombre", "full_name", "fullname"]) ?? -1)
-      : 0;
-    const firstIdx = hasHeader
-      ? (col(["firstname", "first_name", "first", "nombre"]) ?? -1)
-      : -1;
-    const lastIdx = hasHeader
-      ? (col(["lastname", "last_name", "last", "apellido"]) ?? -1)
-      : -1;
-    const emailIdx = hasHeader
-      ? (col(["email", "correo", "mail"]) ?? -1)
-      : 1;
-
-    let created = 0;
-    const errors: Array<{ row: number; message: string }> = [];
-
-    for (let i = 0; i < dataRows.length; i++) {
-      const row = dataRows[i];
-      const rowNum = i + (hasHeader ? 2 : 1);
-      try {
-        let firstName = "";
-        let lastName = "";
-        if (firstIdx >= 0) {
-          firstName = row[firstIdx] ?? "";
-          lastName = lastIdx >= 0 ? (row[lastIdx] ?? "") : "";
-        } else if (nameIdx >= 0) {
-          const parts = (row[nameIdx] ?? "").trim().split(/\s+/);
-          firstName = parts[0] ?? "";
-          lastName = parts.slice(1).join(" ");
-        } else {
-          firstName = row[0] ?? "";
-        }
-        const email =
-          emailIdx >= 0 ? (row[emailIdx] ?? "").trim() : (row[1] ?? "").trim();
-
-        const data = clientCreateSchema.parse({
-          firstName,
-          lastName: lastName || undefined,
-          email: email || undefined,
-        });
-        await clientService.createClient(ctx, data);
-        created += 1;
-      } catch (error) {
-        errors.push({
-          row: rowNum,
-          message:
-            error instanceof Error ? error.message : "Fila inválida.",
-        });
-      }
-    }
-
-    revalidateClients();
-    return actionOk({ created, errors });
-  } catch (error) {
-    if (isNextControlError(error)) throw error;
-    return actionFail(error);
-  }
+  return commitClientImport(csvText);
 }

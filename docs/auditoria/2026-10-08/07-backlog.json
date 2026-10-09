@@ -104,9 +104,9 @@
       "id": "PR-CL-IMPORT",
       "title": "Preview de importación CSV y duplicados por email",
       "module": "clientes",
-      "status": "PARCIAL",
+      "status": "IMPLEMENTADO Y PROBADO",
       "priority": "P1",
-      "evidence": "clients-action-bar.tsx usa file.text() e importClientsCsv. No hay findDuplicate.",
+      "evidence": "preview/commit en import-preview.ts; dedupe email; xlsx rechazado. Smoke npm run smoke:client-import exit 0 (2026-10-09).",
       "dependencies": ["PR-SEC-02"],
       "acceptance_criteria": [
         "Preview no escribe.",

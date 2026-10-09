@@ -35,6 +35,7 @@
     "smoke:retention-soft": "tsx --env-file=.env.local scripts/smoke/retention-soft-only.ts",
     "smoke:stripe-idem": "tsx --env-file=.env.local scripts/smoke/stripe-webhook-idempotency.ts",
     "smoke:upload-confirm": "tsx --env-file=.env.local scripts/smoke/upload-confirm-head.ts",
+    "smoke:client-import": "tsx --env-file=.env.local scripts/smoke/client-import-preview.ts",
     "smoke:ts-due": "tsx scripts/smoke/ts-due-rules.ts",
     "smoke:work-badge": "tsx scripts/smoke/ts-work-badge.ts",
     "smoke:org-date": "tsx scripts/smoke/ts-org-date-input.ts",

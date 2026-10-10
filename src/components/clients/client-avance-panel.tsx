@@ -9,6 +9,11 @@ import type { AvanceViewData } from "@/src/server/avance/view";
 import { Button } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
 import { ROUND_STATUS_LABELS, labelFor } from "@/src/lib/labels";
+import {
+  CreateCaseButton,
+  type ServiceOption,
+  type StageOption,
+} from "@/src/components/cases/create-case-button";
 import { CreateRoundButton } from "@/src/components/rounds/create-round-button";
 import { EmbeddedRoundWorkspace } from "@/src/components/rounds/embedded-round-workspace";
 import { EmbeddedLetterPanel } from "@/src/components/rounds/embedded-letter-panel";
@@ -24,6 +29,11 @@ export function ClientAvancePanel({
   reportId,
   caseId,
   canCreateRound = false,
+  canManageCases = false,
+  canManageRounds = false,
+  stages = [],
+  services = [],
+  members = [],
   initialRoundId = null,
   initialTab,
 }: {
@@ -31,6 +41,13 @@ export function ClientAvancePanel({
   reportId: string | null;
   caseId: string | null;
   canCreateRound?: boolean;
+  /** Permiso `cases.manage` (crear expediente Credit Repair). */
+  canManageCases?: boolean;
+  /** Permiso `rounds.manage` (independiente de tener caso). */
+  canManageRounds?: boolean;
+  stages?: StageOption[];
+  services?: ServiceOption[];
+  members?: { id: string; name: string }[];
   /** Deep-link: abrir detalle de ronda en Gestión. */
   initialRoundId?: string | null;
   initialTab?: "gestion" | "cliente";
@@ -44,33 +61,49 @@ export function ClientAvancePanel({
       : { kind: "list" },
   );
   const [data, setData] = useState<AvanceViewData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [shareMsg, setShareMsg] = useState<string | null>(null);
   const [listKey, setListKey] = useState(0);
+  /** Caso creado en este panel antes de que `router.refresh` actualice props. */
+  const [createdCaseId, setCreatedCaseId] = useState<string | null>(null);
+  const [settledKey, setSettledKey] = useState<string | null>(null);
+
+  const effectiveCaseId = caseId ?? createdCaseId;
+  const effectiveCanCreateRound =
+    Boolean(effectiveCaseId) &&
+    (canCreateRound || (Boolean(createdCaseId) && canManageRounds));
+  const loadKey = `${clientId}:${reportId ?? ""}:${effectiveCaseId ?? ""}:${listKey}`;
+  const loading = settledKey !== loadKey;
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(null);
-    void loadClientAvance({ clientId, reportId, caseId }).then((res) => {
+    void loadClientAvance({
+      clientId,
+      reportId,
+      caseId: effectiveCaseId,
+    }).then((res) => {
       if (cancelled) return;
-      setLoading(false);
       if (!res.ok) {
         setError(res.error);
         setData(null);
-        return;
+      } else {
+        setError(null);
+        setData(res.data);
       }
-      setData(res.data);
+      setSettledKey(loadKey);
     });
     return () => {
       cancelled = true;
     };
-  }, [clientId, reportId, caseId, listKey]);
+  }, [clientId, reportId, effectiveCaseId, listKey, loadKey]);
 
   async function copyShareLink() {
     setShareMsg(null);
-    const res = await getClientAvanceShareLink({ clientId, reportId, caseId });
+    const res = await getClientAvanceShareLink({
+      clientId,
+      reportId,
+      caseId: effectiveCaseId,
+    });
     if (!res.ok) {
       setShareMsg(res.error);
       return;
@@ -80,7 +113,11 @@ export function ClientAvancePanel({
   }
 
   function emailShare() {
-    void getClientAvanceShareLink({ clientId, reportId, caseId }).then(
+    void getClientAvanceShareLink({
+      clientId,
+      reportId,
+      caseId: effectiveCaseId,
+    }).then(
       (res) => {
         if (!res.ok || !data) return;
         const subject = encodeURIComponent(
@@ -260,54 +297,80 @@ export function ClientAvancePanel({
 
       {showGestionChrome && gestionView.kind === "list" ? (
         <div className="space-y-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-[13px] text-text-secondary">
-              Crea rondas, abre el detalle y marca disputas sin salir del
-              cliente.
-            </p>
-            {canCreateRound && caseId ? (
-              <CreateRoundButton
-                caseId={caseId}
-                stayOnPage
-                onCreated={(roundId) => {
-                  refreshList();
-                  setGestionView({ kind: "round", roundId });
-                }}
-              />
-            ) : null}
-          </div>
-          {data.rounds.length === 0 ? (
-            <p className="rounded-surface bg-nav-hover/50 px-3 py-4 text-center text-[13px] text-text-secondary">
-              {caseId
-                ? canCreateRound
-                  ? "Sin rondas todavía. Crea la primera con «Nueva ronda»."
-                  : "Sin rondas todavía."
-                : "Crea un caso de Credit Repair para empezar."}
-            </p>
+          {!effectiveCaseId ? (
+            canManageCases ? (
+              <div className="rounded-surface bg-nav-hover/40 px-3 py-4 ring-1 ring-border-subtle">
+                <CreateCaseButton
+                  clientId={clientId}
+                  stages={stages}
+                  services={services}
+                  members={members}
+                  embedded
+                  lockService
+                  defaultServiceCode="CREDIT_REPAIR"
+                  stayOnPage
+                  onCreated={(result) => {
+                    if (result.caseId) setCreatedCaseId(result.caseId);
+                    refreshList();
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="rounded-surface bg-nav-hover/50 px-3 py-4 text-center text-[13px] text-text-secondary">
+                Este cliente no tiene un expediente de Credit Repair. No tienes
+                permiso para crearlo; pide a un administrador que abra el caso.
+              </p>
+            )
           ) : (
-            <ul className="divide-y divide-border-subtle rounded-surface ring-1 ring-border-subtle">
-              {data.rounds.map((r) => (
-                <li key={r.id}>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setGestionView({ kind: "round", roundId: r.id })
-                    }
-                    className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-nav-hover/60"
-                  >
-                    <span className="font-medium text-action-primary">
-                      Ronda {r.roundNumber}
-                    </span>
-                    <span className="text-text-secondary">
-                      {labelFor(ROUND_STATUS_LABELS, r.status)}
-                      {r.expectedReviewAt
-                        ? ` · revisar ${formatDate(r.expectedReviewAt)}`
-                        : ""}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-[13px] text-text-secondary">
+                  Crea rondas, abre el detalle y marca disputas sin salir del
+                  cliente.
+                </p>
+                {effectiveCanCreateRound && effectiveCaseId ? (
+                  <CreateRoundButton
+                    caseId={effectiveCaseId}
+                    stayOnPage
+                    onCreated={(roundId) => {
+                      refreshList();
+                      setGestionView({ kind: "round", roundId });
+                    }}
+                  />
+                ) : null}
+              </div>
+              {data.rounds.length === 0 ? (
+                <p className="rounded-surface bg-nav-hover/50 px-3 py-4 text-center text-[13px] text-text-secondary">
+                  {effectiveCanCreateRound
+                    ? "Sin rondas todavía. Crea la primera con «Nueva ronda»."
+                    : "Sin rondas todavía."}
+                </p>
+              ) : (
+                <ul className="divide-y divide-border-subtle rounded-surface ring-1 ring-border-subtle">
+                  {data.rounds.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setGestionView({ kind: "round", roundId: r.id })
+                        }
+                        className="flex w-full flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-left text-[13px] transition-colors hover:bg-nav-hover/60"
+                      >
+                        <span className="font-medium text-action-primary">
+                          Ronda {r.roundNumber}
+                        </span>
+                        <span className="text-text-secondary">
+                          {labelFor(ROUND_STATUS_LABELS, r.status)}
+                          {r.expectedReviewAt
+                            ? ` · revisar ${formatDate(r.expectedReviewAt)}`
+                            : ""}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </>
           )}
         </div>
       ) : null}

@@ -150,6 +150,8 @@ export type AgencyClientDetailProps = {
   canEdit: boolean;
   canIntake: boolean;
   canCreateRound: boolean;
+  /** Permiso `rounds.manage` (sin exigir caso abierto). */
+  canManageRounds?: boolean;
   creditWorkspace: {
     canView: boolean;
     bureaus: BureauProgress[];
@@ -1329,6 +1331,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             reportId={activeReportId}
             caseId={props.caseId}
             canCreateRound={props.canCreateRound}
+            canManageCases={props.quickAdd.canService}
+            canManageRounds={props.canManageRounds ?? false}
+            stages={props.quickAdd.stages}
+            services={props.quickAdd.services}
+            members={props.quickAdd.members}
             initialRoundId={props.initialAvanceRoundId ?? null}
             initialTab={
               props.initialAvanceRoundId || props.openAvance

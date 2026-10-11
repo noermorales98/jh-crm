@@ -86,6 +86,7 @@ export function ClientQuickAdd({
       : null;
   const [open, setOpen] = useState(false);
   const [intakeOpen, setIntakeOpen] = useState(false);
+  const [serviceOpen, setServiceOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -152,16 +153,21 @@ export function ClientQuickAdd({
           ) : null}
 
           {canService ? (
-            <div onClick={() => setOpen(false)}>
-              <CreateCaseButton
-                clientId={clientId}
-                stages={stages}
-                services={services}
-                members={members}
-                menuItem
-                label="Servicios"
+            <button
+              type="button"
+              role="menuitem"
+              className={itemClass}
+              onClick={() => {
+                setOpen(false);
+                setServiceOpen(true);
+              }}
+            >
+              <Package
+                className="size-3.5 shrink-0 text-text-secondary"
+                aria-hidden
               />
-            </div>
+              Servicios
+            </button>
           ) : null}
 
           {canPayment ? (
@@ -256,6 +262,19 @@ export function ClientQuickAdd({
             </button>
           ) : null}
         </div>
+      ) : null}
+
+      {canService ? (
+        <CreateCaseButton
+          clientId={clientId}
+          stages={stages}
+          services={services}
+          members={members}
+          hideTrigger
+          open={serviceOpen}
+          onOpenChange={setServiceOpen}
+          label="Servicios"
+        />
       ) : null}
 
       <Modal

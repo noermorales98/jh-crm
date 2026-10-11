@@ -33,6 +33,10 @@ export interface ServiceOption {
  * página del cliente). Con `services` permite elegir el vertical (Fase 5);
  * sin él se comporta como antes: Credit Repair con las etapas de `stages`.
  * stageId opcional: el backend usa la primera etapa activa del servicio.
+ *
+ * `embedded`: formulario inline (sin Modal), p.ej. Avance → Gestión.
+ * `open` / `onOpenChange` / `hideTrigger`: modal controlado desde el padre
+ * (p.ej. menú Añadir → Servicios sin desmontar al cerrar el menú).
  */
 export function CreateCaseButton({
   clientId,
@@ -41,6 +45,14 @@ export function CreateCaseButton({
   members,
   menuItem = false,
   label = "Nuevo expediente",
+  embedded = false,
+  defaultServiceCode,
+  lockService = false,
+  hideTrigger = false,
+  open: openProp,
+  onOpenChange,
+  stayOnPage = false,
+  onCreated,
 }: {
   clientId: string;
   stages?: StageOption[];
@@ -48,6 +60,23 @@ export function CreateCaseButton({
   members: { id: string; name: string }[];
   menuItem?: boolean;
   label?: string;
+  /** Formulario inline sin Modal ni trigger. */
+  embedded?: boolean;
+  /** Servicio preseleccionado (p.ej. CREDIT_REPAIR). */
+  defaultServiceCode?: string;
+  /** Oculta el selector de servicio. */
+  lockService?: boolean;
+  /** Solo Modal; el padre abre con `open` / `onOpenChange`. */
+  hideTrigger?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Tras crear, no navega al expediente. */
+  stayOnPage?: boolean;
+  onCreated?: (data: {
+    serviceCaseId: string;
+    caseId: string | null;
+    href: string;
+  }) => void;
 }) {
   const router = useRouter();
   const options: ServiceOption[] = useMemo(
@@ -63,10 +92,21 @@ export function CreateCaseButton({
           ],
     [services, stages],
   );
-  const multiService = options.length > 1;
+  const initialService =
+    (defaultServiceCode &&
+      options.find((s) => s.code === defaultServiceCode)?.code) ||
+    options[0]?.code ||
+    "CREDIT_REPAIR";
+  const multiService = options.length > 1 && !lockService;
 
-  const [open, setOpen] = useState(false);
-  const [serviceCode, setServiceCode] = useState(options[0]?.code ?? "CREDIT_REPAIR");
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const open = openProp ?? uncontrolledOpen;
+  function setOpen(next: boolean) {
+    onOpenChange?.(next);
+    if (openProp === undefined) setUncontrolledOpen(next);
+  }
+
+  const [serviceCode, setServiceCode] = useState(initialService);
   const [stageId, setStageId] = useState("");
   const [assignedToId, setAssignedToId] = useState(() =>
     defaultAssigneeId(members),
@@ -78,6 +118,20 @@ export function CreateCaseButton({
 
   const selected = options.find((s) => s.code === serviceCode) ?? options[0];
   const stageOptions = selected?.stages ?? [];
+
+  function resetForm() {
+    setServiceCode(initialService);
+    setStageId("");
+    setAssignedToId(defaultAssigneeId(members));
+    setSummary("");
+    setNextActionAt("");
+    setError(null);
+  }
+
+  function handleClose() {
+    setOpen(false);
+    setError(null);
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,14 +151,125 @@ export function CreateCaseButton({
         return;
       }
       play("success");
+      resetForm();
       setOpen(false);
+      onCreated?.(result.data);
+      if (stayOnPage) {
+        router.refresh();
+        return;
+      }
       router.push(result.data.href);
     });
   }
 
+  const form = (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {error ? <Alert tone="error">{error}</Alert> : null}
+      <div className="grid gap-4 sm:grid-cols-2">
+        {multiService ? (
+          <Field label="Servicio" htmlFor="case-service">
+            <Select
+              id="case-service"
+              value={serviceCode}
+              onChange={(e) => {
+                setServiceCode(e.target.value);
+                setStageId("");
+              }}
+            >
+              {options.map((s) => (
+                <option key={s.code} value={s.code}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+        {stageOptions.length > 0 ? (
+          <Field label="Etapa inicial" htmlFor="case-stage">
+            <Select
+              id="case-stage"
+              value={stageId}
+              onChange={(e) => setStageId(e.target.value)}
+            >
+              <option value="">Primera etapa activa</option>
+              {stageOptions.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : null}
+        <Field label="Próxima acción" htmlFor="case-next-action">
+          <DateInput
+            id="case-next-action"
+            value={nextActionAt}
+            onChange={(e) => setNextActionAt(e.target.value)}
+            pickerTitle="Elegir fecha de próxima acción"
+          />
+        </Field>
+      </div>
+      {multiService && stageOptions.length === 0 ? (
+        <p className="text-xs text-text-secondary">
+          Este servicio aún no tiene etapas: se crearán las etapas por
+          defecto al abrir el expediente.
+        </p>
+      ) : null}
+      {!multiService && lockService ? (
+        <p className="text-xs text-text-secondary">
+          Servicio:{" "}
+          <span className="font-medium text-ink">
+            {selected?.name ?? "Credit Repair"}
+          </span>
+        </p>
+      ) : null}
+      <Field label="Resumen" htmlFor="case-summary">
+        <Textarea
+          id="case-summary"
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          maxLength={5000}
+          placeholder="Situación del cliente, objetivos del expediente…"
+        />
+      </Field>
+      <div className="flex justify-end gap-2">
+        {!embedded ? (
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleClose}
+            disabled={pending}
+          >
+            Cancelar
+          </Button>
+        ) : null}
+        <Button type="submit" disabled={pending}>
+          {pending ? "Creando…" : "Crear expediente"}
+        </Button>
+      </div>
+    </form>
+  );
+
+  if (embedded) {
+    return (
+      <div className="space-y-3">
+        <div>
+          <h4 className="text-[14px] font-semibold text-ink">
+            Crear expediente
+          </h4>
+          <p className="mt-0.5 text-[12px] text-text-secondary">
+            Abre un expediente de Credit Repair. Si no eliges etapa, usa la
+            primera activa del servicio.
+          </p>
+        </div>
+        {form}
+      </div>
+    );
+  }
+
   return (
     <>
-      {menuItem ? (
+      {hideTrigger ? null : menuItem ? (
         <button
           type="button"
           role="menuitem"
@@ -124,7 +289,7 @@ export function CreateCaseButton({
       )}
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
+        onClose={handleClose}
         title="Crear expediente"
         description={
           multiService
@@ -132,80 +297,7 @@ export function CreateCaseButton({
             : "Abre un expediente de Credit Repair. Si no eliges etapa, usa la primera activa del servicio."
         }
       >
-        <form onSubmit={handleSubmit} className="space-y-4">
-          {error ? <Alert tone="error">{error}</Alert> : null}
-          <div className="grid gap-4 sm:grid-cols-2">
-            {multiService ? (
-              <Field label="Servicio" htmlFor="case-service">
-                <Select
-                  id="case-service"
-                  value={serviceCode}
-                  onChange={(e) => {
-                    setServiceCode(e.target.value);
-                    setStageId("");
-                  }}
-                >
-                  {options.map((s) => (
-                    <option key={s.code} value={s.code}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            ) : null}
-            {stageOptions.length > 0 ? (
-              <Field label="Etapa inicial" htmlFor="case-stage">
-                <Select
-                  id="case-stage"
-                  value={stageId}
-                  onChange={(e) => setStageId(e.target.value)}
-                >
-                  <option value="">Primera etapa activa</option>
-                  {stageOptions.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-            ) : null}
-            <Field label="Próxima acción" htmlFor="case-next-action">
-              <DateInput
-                id="case-next-action"
-                value={nextActionAt}
-                onChange={(e) => setNextActionAt(e.target.value)}
-                pickerTitle="Elegir fecha de próxima acción"
-              />
-            </Field>
-          </div>
-          {multiService && stageOptions.length === 0 ? (
-            <p className="text-xs text-text-secondary">
-              Este servicio aún no tiene etapas: se crearán las etapas por
-              defecto al abrir el expediente.
-            </p>
-          ) : null}
-          <Field label="Resumen" htmlFor="case-summary">
-            <Textarea
-              id="case-summary"
-              value={summary}
-              onChange={(e) => setSummary(e.target.value)}
-              maxLength={5000}
-              placeholder="Situación del cliente, objetivos del expediente…"
-            />
-          </Field>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="secondary"
-              onClick={() => setOpen(false)}
-              disabled={pending}
-            >
-              Cancelar
-            </Button>
-            <Button type="submit" disabled={pending}>
-              {pending ? "Creando…" : "Crear expediente"}
-            </Button>
-          </div>
-        </form>
+        {form}
       </Modal>
     </>
   );

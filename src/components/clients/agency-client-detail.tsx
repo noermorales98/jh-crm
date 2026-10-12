@@ -88,6 +88,13 @@ import {
 } from "@/src/components/clients/client-credit-report-entry";
 import { formatDate } from "@/src/lib/format";
 import {
+  SCORE_PLAN_EMPTY_COPY,
+  SCORE_PLAN_INSUFFICIENT_LABEL,
+  buildScorePlan,
+  formatScorePlanCopy,
+  formatScorePlanMoney,
+} from "@/src/lib/credit/score-plan";
+import {
   loadClientOpsPanelAction,
   type ClientOpsPanel,
   type ClientOpsPanelPayload,
@@ -440,30 +447,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     };
   }, [panel, props.client.id, activeReportId]);
 
-  const scoreOrder = useMemo(() => {
-    const cards = planHub?.revolving.cards ?? [];
-    const withLimit = cards
-      .filter((c) => c.limit != null && c.limit > 0)
-      .map((c) => {
-        const limit = c.limit!;
-        const balance = c.balance ?? 0;
-        const currentPct =
-          c.utilization ?? (limit > 0 ? (balance / limit) * 100 : 0);
-        const targetBalance = limit * (utilPct / 100);
-        const amount = Math.max(0, Math.round(balance - targetBalance));
-        return {
-          name: c.creditorName,
-          pct: Math.round(currentPct),
-          amount,
-        };
-      })
-      .sort((a, b) => b.pct - a.pct);
-    if (withLimit.length > 0) return withLimit;
-    const base = Math.max(100, Math.round(5000 * (utilPct / 100)));
-    return [
-      { name: "Sin tarjetas en reporte", pct: utilPct, amount: base },
-    ];
-  }, [planHub, utilPct]);
+  const scoreRows = useMemo(
+    () => buildScorePlan(planHub?.revolving.cards ?? [], utilPct),
+    [planHub, utilPct],
+  );
+  const scorePlanReady = Boolean(planHub) && !planHubLoading && !planHubError;
 
   function onEdit(formData: FormData) {
     setError(null);
@@ -1362,14 +1350,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           {planHubError ? (
             <p className="text-center text-sm text-danger">{planHubError}</p>
           ) : null}
-          {planHub ? (
+          {scorePlanReady ? (
             <p className="text-center text-[12px] text-text-secondary">
-              Util. actual:{" "}
-              {planHub.revolving.utilPct != null
-                ? `${planHub.revolving.utilPct.toFixed(1)}%`
-                : "—"}{" "}
-              · {planHub.revolving.openCards} tarjetas
-              {planHub.avgScore != null ? ` · score ${planHub.avgScore}` : ""}
+              {scoreRows.length}{" "}
+              {scoreRows.length === 1 ? "registro" : "registros"}
+              {planHub?.avgScore != null ? ` · score ${planHub.avgScore}` : ""}
             </p>
           ) : null}
           <label className="block text-[13px]">
@@ -1388,38 +1373,58 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               Meta típica 30% / 10% — monto = pagar para llegar a la meta
             </span>
           </label>
-          <div className="space-y-2">
-            <p className="text-[13px] font-semibold text-ink">
-              1 · Paga en este orden
-            </p>
-            {scoreOrder.map((row) => (
-              <div
-                key={`${row.name}-${row.pct}`}
-                className="flex items-center justify-between rounded-control bg-nav-hover/50 px-3 py-2 text-[13px]"
-              >
-                <span>
-                  {row.name} · ahora {row.pct}%
-                </span>
-                <span className="font-mono tabular-nums">
-                  ${row.amount.toLocaleString("en-US")}
-                </span>
-              </div>
-            ))}
-          </div>
+          {scorePlanReady ? (
+            <div className="space-y-2">
+              <p className="text-[13px] font-semibold text-ink">
+                Estimación por cuenta
+              </p>
+              <p className="text-[12px] text-text-secondary">
+                Las cifras calculables son estimaciones del reporte. Revísalas
+                antes de compartirlas.
+              </p>
+              {scoreRows.length === 0 ? (
+                <p className="text-[13px] text-text-secondary">
+                  {SCORE_PLAN_EMPTY_COPY}
+                </p>
+              ) : (
+                scoreRows.map((row, index) => (
+                  <div
+                    key={`${row.name}-${index}`}
+                    className="flex items-center justify-between gap-3 rounded-control bg-nav-hover/50 px-3 py-2 text-[13px]"
+                  >
+                    {row.kind === "ready" ? (
+                      <>
+                        <span>
+                          {row.name} · ahora {row.pct}%
+                        </span>
+                        <span className="font-mono tabular-nums">
+                          ${formatScorePlanMoney(row.amount)}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span>{row.name}</span>
+                        <span className="text-text-secondary">
+                          {SCORE_PLAN_INSUFFICIENT_LABEL}
+                        </span>
+                      </>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          ) : null}
           <Button
             type="button"
             variant="secondary"
             className="w-full"
-            onClick={() =>
-              navigator.clipboard.writeText(
-                scoreOrder
-                  .map(
-                    (r) =>
-                      `${r.name}: ahora ${r.pct}% → pagar $${r.amount.toLocaleString("en-US")} (meta ${utilPct}%)`,
-                  )
-                  .join("\n"),
-              )
-            }
+            disabled={!scorePlanReady}
+            onClick={() => {
+              if (!scorePlanReady) return;
+              void navigator.clipboard.writeText(
+                formatScorePlanCopy(scoreRows, utilPct),
+              );
+            }}
           >
             Copiar plan para el cliente
           </Button>

@@ -94,6 +94,7 @@ import {
   formatScorePlanCopy,
   formatScorePlanMoney,
 } from "@/src/lib/credit/score-plan";
+import { buildFundingPrepPanel } from "@/src/lib/credit/funding-prep";
 import {
   loadClientOpsPanelAction,
   type ClientOpsPanel,
@@ -342,15 +343,10 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const moreRef = useRef<HTMLDivElement>(null);
   const [utilPct, setUtilPct] = useState(10);
   const [planHub, setPlanHub] = useState<ClientActionPlanHubDto | null>(null);
-  const [planHubLoading, setPlanHubLoading] = useState(false);
   const [planHubError, setPlanHubError] = useState<string | null>(null);
-  const [fondeoForm, setFondeoForm] = useState({
-    business: "",
-    months: "12",
-    naics: "",
-    cash: "",
-  });
-  const [fondeoResult, setFondeoResult] = useState<string | null>(null);
+  const [planHubSettledKey, setPlanHubSettledKey] = useState<string | null>(
+    null,
+  );
   const [opsCache, setOpsCache] = useState<
     Partial<Record<ClientOpsPanel, ClientOpsPanelPayload>>
   >({});
@@ -360,6 +356,10 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const [activeReportId, setActiveReportId] = useState<string | null>(
     props.pdfReports[0]?.id ?? null,
   );
+  const effectiveReportId =
+    activeReportId && props.pdfReports.some((r) => r.id === activeReportId)
+      ? activeReportId
+      : (props.pdfReports[0]?.id ?? null);
   const [mergeQuery, setMergeQuery] = useState("");
   const [mergeTargets, setMergeTargets] = useState<MergeTargetDto[]>([]);
   const [mergeDest, setMergeDest] = useState<MergeTargetDto | null>(null);
@@ -372,16 +372,6 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const bucket = mapClientToFondifyStatus(props.client.status);
   const days = props.nextReviewAt ? daysUntil(props.nextReviewAt) : null;
   const soon = days != null && isReviewSoon(days);
-
-  useEffect(() => {
-    if (
-      activeReportId &&
-      props.pdfReports.some((r) => r.id === activeReportId)
-    ) {
-      return;
-    }
-    setActiveReportId(props.pdfReports[0]?.id ?? null);
-  }, [props.pdfReports, activeReportId]);
 
   function onCreditReportCapsule() {
     const result = enterCreditReport();
@@ -424,34 +414,61 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [moreOpen]);
 
+  const planHubKey =
+    panel === "score" || panel === "fondeo"
+      ? `${props.client.id}:${effectiveReportId ?? "none"}`
+      : null;
+  const planHubLoading =
+    planHubKey != null && planHubSettledKey !== planHubKey;
+
   useEffect(() => {
-    if (panel !== "score" && panel !== "fondeo") return;
+    if (planHubKey == null) return;
     let cancelled = false;
-    setPlanHubLoading(true);
-    setPlanHubError(null);
     void loadClientActionPlanHub({
       clientId: props.client.id,
-      reportId: activeReportId,
+      reportId: effectiveReportId,
     }).then((res) => {
       if (cancelled) return;
-      setPlanHubLoading(false);
       if (!res.ok) {
         setPlanHub(null);
         setPlanHubError(res.error);
+        setPlanHubSettledKey(planHubKey);
         return;
       }
       setPlanHub(res.data);
+      setPlanHubError(null);
+      setPlanHubSettledKey(planHubKey);
     });
     return () => {
       cancelled = true;
     };
-  }, [panel, props.client.id, activeReportId]);
+  }, [planHubKey, props.client.id, effectiveReportId]);
 
   const scoreRows = useMemo(
     () => buildScorePlan(planHub?.revolving.cards ?? [], utilPct),
     [planHub, utilPct],
   );
   const scorePlanReady = Boolean(planHub) && !planHubLoading && !planHubError;
+  // Mientras carga o hay error, no pasar hub previo (evita resumen de otro reporte).
+  const fundingPrep = useMemo(
+    () =>
+      buildFundingPrepPanel({
+        loading: planHubLoading,
+        error: planHubError,
+        hub:
+          planHubLoading || planHubError || !planHub
+            ? null
+            : {
+                reportId: planHub.reportId,
+                qualified: planHub.qualified,
+                avgScore: planHub.avgScore,
+                avgUtilization: planHub.avgUtilization,
+                bureausApproved: planHub.bureausApproved,
+                verdict: planHub.verdict,
+              },
+      }),
+    [planHub, planHubLoading, planHubError],
+  );
 
   function onEdit(formData: FormData) {
     setError(null);
@@ -611,7 +628,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                     type="button"
                     onClick={() => setActiveReportId(r.id)}
                     className={`rounded-full px-3 py-1 font-mono text-[12px] tabular-nums transition-colors ${
-                      activeReportId === r.id
+                      effectiveReportId === r.id
                         ? "bg-action-primary text-action-primary-foreground"
                         : "bg-surface-app text-text-secondary ring-1 ring-border-subtle hover:text-action-primary"
                     }`}
@@ -780,7 +797,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             subtitle="Lectura + pasos a dar"
             badge="Nuevo"
             href={`/crm/clientes/${props.client.id}/plan-de-accion${
-              activeReportId ? `?reportId=${activeReportId}` : ""
+              effectiveReportId ? `?reportId=${effectiveReportId}` : ""
             }`}
           />
           <ActionCapsule
@@ -804,7 +821,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           <ActionCapsule
             icon={Calculator}
             title="Fondeo"
-            subtitle="Estimado"
+            subtitle="Señales"
             onClick={() => setPanel("fondeo")}
           />
           <ActionCapsule
@@ -1186,7 +1203,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             clientId={props.client.id}
             clientLabel={props.fullName}
             caseId={props.caseId}
-            reportId={activeReportId}
+            reportId={effectiveReportId}
             existingQuoteId={props.cierre.quote.id}
             quoteStatusLabel={props.cierre.quote.label}
             services={props.quoteHub.services}
@@ -1302,7 +1319,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         {panel === "analisis" ? (
           <ClientNegativeAnalysisPanel
             clientId={props.client.id}
-            reportId={activeReportId}
+            reportId={effectiveReportId}
           />
         ) : null}
       </AgencyModal>
@@ -1316,7 +1333,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         {panel === "avance" ? (
           <ClientAvancePanel
             clientId={props.client.id}
-            reportId={activeReportId}
+            reportId={effectiveReportId}
             caseId={props.caseId}
             canCreateRound={props.canCreateRound}
             canManageCases={props.quickAdd.canService}
@@ -1434,96 +1451,46 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
       <AgencyModal
         open={panel === "fondeo"}
         onClose={() => setPanel(null)}
-        title="Calculadora de Fondeo"
+        title="Preparación para Fondeo"
         size="lg"
         centerBody
       >
         <div className="space-y-3">
-          {planHubLoading ? (
+          {fundingPrep.kind === "loading" ? (
             <p className="text-center text-[13px] text-text-secondary">
-              Cargando perfil crediticio…
+              {fundingPrep.message}
             </p>
           ) : null}
-          {planHubError ? (
-            <p className="text-center text-sm text-danger">{planHubError}</p>
+          {fundingPrep.kind === "error" ? (
+            <p className="text-center text-sm text-danger">
+              {fundingPrep.message}
+            </p>
           ) : null}
-          {planHub ? (
+          {fundingPrep.kind === "ready" ? (
             <div className="rounded-surface bg-nav-hover/40 px-3 py-3 text-center text-[13px]">
               <p
                 className={`font-semibold ${
-                  planHub.qualified ? "text-success-ink" : "text-danger-ink"
+                  fundingPrep.tone === "review"
+                    ? "text-success-ink"
+                    : "text-danger-ink"
                 }`}
               >
-                {planHub.qualified
-                  ? "Señales heurísticas a revisar"
-                  : "Heurística: preparar perfil primero"}
+                {fundingPrep.title}
               </p>
-              <p className="mt-1 text-text-secondary">
-                {planHub.bureausApproved}/3 burós cumplen heurística · score{" "}
-                {planHub.avgScore ?? "—"} · util{" "}
-                {planHub.avgUtilization != null
-                  ? `${planHub.avgUtilization}%`
-                  : "—"}
+              <p className="mt-1 text-text-secondary">{fundingPrep.summary}</p>
+              <p className="mt-2 text-[12px] text-text-secondary">
+                {fundingPrep.verdict}
               </p>
               <p className="mt-2 text-[12px] text-text-secondary">
-                {planHub.verdict}
+                {fundingPrep.disclaimer}
               </p>
               <Link
-                href={`/crm/clientes/${props.client.id}/plan-de-accion?reportId=${planHub.reportId}`}
+                href={`/crm/clientes/${props.client.id}/plan-de-accion?reportId=${fundingPrep.reportId}`}
                 className="mt-2 inline-flex text-[12px] font-medium text-action-primary"
               >
                 Ver plan de acción completo →
               </Link>
             </div>
-          ) : null}
-          <p className="text-center text-[12px] font-semibold uppercase tracking-wide text-text-secondary">
-            Datos del negocio (estimado)
-          </p>
-          {(
-            [
-              ["business", "Nombre del negocio"],
-              ["months", "Meses operando"],
-              ["naics", "NAICS"],
-              ["cash", "Cash en banco (USD)"],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="block text-[13px]">
-              <span className="mb-1 block font-medium">{label}</span>
-              <input
-                value={fondeoForm[key]}
-                onChange={(e) =>
-                  setFondeoForm((prev) => ({ ...prev, [key]: e.target.value }))
-                }
-                className="w-full rounded-control bg-nav-hover px-3 py-2.5"
-              />
-            </label>
-          ))}
-          <Button
-            type="button"
-            variant="primary"
-            className="w-full"
-            onClick={() => {
-              const cash = Number(fondeoForm.cash) || 0;
-              const months = Number(fondeoForm.months) || 0;
-              const raw = Math.round(cash * 2.5 + months * 1500);
-              const blocked = planHub != null && !planHub.qualified;
-              const estimate = blocked ? 0 : raw;
-              const note = blocked
-                ? "Heurística: preparar perfil — estimado $0 hasta mejorar burós. "
-                : planHub?.qualified
-                  ? "Heurística interna con señales a revisar. "
-                  : "";
-              setFondeoResult(
-                `${note}Estimado heurístico (no es aprobación ni oferta): $${estimate.toLocaleString("en-US")}`,
-              );
-            }}
-          >
-            Calcular fondeo
-          </Button>
-          {fondeoResult ? (
-            <p className="rounded-control bg-nav-hover/50 px-3 py-3 text-center text-[14px] font-semibold text-ink">
-              {fondeoResult}
-            </p>
           ) : null}
         </div>
       </AgencyModal>

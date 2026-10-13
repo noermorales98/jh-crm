@@ -33,7 +33,7 @@ Spec de implementación a partir del scraping de `https://fondify.io/agency/clie
 | Plan de Acción (NUEVO) | lectura + pasos a dar | Pantalla full «Análisis de Crédito y Plan de Acción» |
 | Análisis (BETA) | cuentas negativas | Modal categorizado |
 | Score Plan (BETA) | sube el puntaje ya | Herramienta utilización |
-| Fondeo | cuánto puede conseguir | Calculadora |
+| Fondeo | señales del reporte (no monto) | Preparación para Fondeo |
 | Avance (BETA) | progreso por rondas | Centro de rondas / progreso |
 
 ### 1.4 Action Center — «2 · CIERRA LA VENTA»
@@ -89,8 +89,10 @@ Modal BETA: resumen + categorías (charge-off, pagos tardíos, datos personales,
 | Análisis categorizado | ✅ charge-off / late / datos personales / inquiries / other | — |
 | AU / edad en plan | ✅ AU por texto de ítem; edad desde `dateOpened` o «Sin dato» | — |
 | Descargar PDF del plan | ✅ `/api/clients/:id/action-plan/pdf` (jsPDF) | — |
-| Score Plan / Fondeo / Avance | ✅ revolving real / veredicto plan / link rondas | Pixel-perfect Fondify (fuera de alcance) |
+| Score Plan / Fondeo / Avance | ✅ revolving real / veredicto plan / link rondas; Fondeo = señales heurísticas sin monto | Pixel-perfect Fondify (fuera de alcance) |
 | Evolución scores CL-004 | ✅ `/reportes` aparte del PDF | — |
+
+**Nota (Fondeo):** no hay fórmula de monto de fondeo aprobada en jh-crm. El panel «Preparación para Fondeo» solo muestra señales del reporte (plan de acción / `fundingMatrix`); no calcula ofertas ni elegibilidad.
 
 Archivos clave:
 

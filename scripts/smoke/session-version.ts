@@ -68,15 +68,19 @@ async function main() {
     throw new Error("Usuario inactivo debe devolver null");
   }
 
-  if (SESSION_MAX_AGE_SECONDS < 60 * 60 * 24 * 365 * 5) {
-    throw new Error("maxAge demasiado corto para sesión permanente");
+  // JH-005: TTL operativo = 30 días (no “permanente” de 10 años).
+  const day = 60 * 60 * 24;
+  if (SESSION_MAX_AGE_SECONDS < day || SESSION_MAX_AGE_SECONDS > day * 365) {
+    throw new Error(
+      `SESSION_MAX_AGE_SECONDS fuera de rango esperado (1d–365d): ${SESSION_MAX_AGE_SECONDS}`,
+    );
   }
 
   await prisma.organization.delete({ where: { id: org.id } });
   await prisma.user.delete({ where: { id: user.id } });
 
   console.log("SESSION_VERSION: OK");
-  console.log("PERMANENT_MAX_AGE:", SESSION_MAX_AGE_SECONDS);
+  console.log("SESSION_MAX_AGE_SECONDS:", SESSION_MAX_AGE_SECONDS);
 }
 
 main()

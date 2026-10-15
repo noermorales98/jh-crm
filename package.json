@@ -15,6 +15,7 @@
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
     "smoke:qa-baseline": "tsx scripts/smoke/qa-baseline.ts",
+    "smoke:session-ttl-org": "tsx scripts/smoke/session-ttl-org.ts",
     "smoke:credit-reports": "tsx --env-file=.env.local scripts/smoke/credit-reports-smoke.ts",
     "smoke:disputes-comparisons": "tsx --env-file=.env.local scripts/smoke/disputes-comparisons-smoke.ts",
     "smoke:letters": "tsx --env-file=.env.local scripts/smoke/letters-smoke.ts",

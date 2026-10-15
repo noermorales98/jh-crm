@@ -1,6 +1,7 @@
 import { cache } from "react";
 import { prisma } from "@/src/lib/db";
 import type { Role } from "@prisma/client";
+import { resolveActiveMembership } from "@/src/server/auth/resolve-active-membership";
 
 export type AuthTokenState = {
   userId: string;
@@ -14,6 +15,9 @@ export type AuthTokenState = {
  * Estado actual del usuario para el JWT. null = sesión inválida
  * (inexistente, inactivo o sin derecho a permanecer autenticado).
  * cache() evita hits repetidos a sessionVersion en el mismo request.
+ *
+ * Org activa: `resolveActiveMembership` (JH-005), no “primera fila” a ciegas
+ * cuando hay varias membresías.
  */
 export const loadAuthTokenState = cache(
   async (userId: string): Promise<AuthTokenState | null> => {
@@ -25,13 +29,12 @@ export const loadAuthTokenState = cache(
         sessionVersion: true,
         memberships: {
           orderBy: { createdAt: "asc" },
-          take: 1,
-          select: { organizationId: true, role: true },
+          select: { organizationId: true, role: true, createdAt: true },
         },
       },
     });
     if (!user || !user.isActive) return null;
-    const membership = user.memberships[0] ?? null;
+    const membership = resolveActiveMembership(user.memberships);
     return {
       userId,
       name: user.name,

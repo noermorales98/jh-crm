@@ -4,10 +4,11 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/src/components/ui";
+import { classifyUploadError } from "@/src/lib/uploads/fetch-error";
 
 /**
  * Botón de eliminación (soft delete) de un documento.
- * DELETE /api/files/[documentId] — trata 307 como sesión expirada.
+ * DELETE /api/files/[documentId] — errores de auth/red diferenciados.
  */
 export function DocumentDeleteButton({ documentId }: { documentId: string }) {
   const router = useRouter();
@@ -37,14 +38,28 @@ export function DocumentDeleteButton({ documentId }: { documentId: string }) {
               method: "DELETE",
               redirect: "error",
             });
-            const json = (await res.json()) as { ok: boolean; error?: string };
-            if (!json.ok) return json.error ?? "No se pudo eliminar.";
+            let json: unknown = null;
+            try {
+              json = await res.json();
+            } catch {
+              json = null;
+            }
+            const payload = json as { ok?: boolean; error?: string } | null;
+            if (!res.ok || !payload?.ok) {
+              const classified = classifyUploadError({
+                error: new Error(payload?.error ?? "No se pudo eliminar."),
+                phase: "delete",
+                httpStatus: res.status,
+                responseBody: json,
+              });
+              return classified.message;
+            }
             router.refresh();
           } catch (err) {
-            if (err instanceof TypeError) {
-              return "Tu sesión expiró. Vuelve a iniciar sesión.";
-            }
-            return "No se pudo eliminar el documento.";
+            return classifyUploadError({
+              error: err,
+              phase: "delete",
+            }).message;
           }
         }}
       />

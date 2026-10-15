@@ -52,7 +52,7 @@ check("tokens sin resolver detectados", hasUnresolvedTemplateTokens(incompleteHt
 
 const draftSections = findRequiredSections(JH_SERVICE_CONTRACT_DRAFT_HTML);
 check(
-  "plantilla JH borrador incluye todas las secciones",
+  "plantilla JH incluye todas las secciones",
   draftSections.length === REQUIRED_CONTRACT_SECTIONS.length,
 );
 check(
@@ -61,7 +61,7 @@ check(
 );
 
 const templateOk = evaluateTemplateCompleteness({
-  name: "Servicio crédito JH (borrador)",
+  name: "Servicio crédito JH",
   version: "0.1-draft",
   contentHtml: JH_SERVICE_CONTRACT_DRAFT_HTML,
   active: true,
@@ -82,7 +82,7 @@ const resolved = JH_SERVICE_CONTRACT_DRAFT_HTML.replaceAll(
 ).replaceAll("{{clientFullName}}", "Cliente Sintético QA");
 
 const ready = evaluateContractSendReadiness({
-  title: "Servicio crédito JH (borrador)",
+  title: "Servicio crédito JH",
   version: "0.1-draft",
   contentHtml: resolved,
   cancellationDeadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),

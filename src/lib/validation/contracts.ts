@@ -25,13 +25,12 @@ export const createContractSchema = z.object({
   clientId: cuidSchema,
   caseId: cuidSchema.optional().nullable(),
   templateId: cuidSchema,
+  /** Mínimo operativo 3 días (gate JH-011); pendiente revisión jurídica. */
   cancellationDeadlineDays: z.coerce
     .number()
     .int()
-    .min(1)
-    .max(365)
-    .optional()
-    .nullable(),
+    .min(3, "Mínimo 3 días de cancelación.")
+    .max(365),
 });
 
 export const signContractSchema = z.object({

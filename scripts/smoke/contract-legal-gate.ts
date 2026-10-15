@@ -1,0 +1,136 @@
+/**
+ * TEST-011 — gate jurídico/completitud de contratos (sin DB).
+ * Contrato incompleto bloqueado; versiones/plazos; plantilla JH con secciones.
+ * No afirma validez jurídica ni compliance CROA.
+ */
+import {
+  MIN_CANCELLATION_DEADLINE_DAYS,
+  REQUIRED_CONTRACT_SECTIONS,
+  assertCancellationDeadlineDays,
+  evaluateContractSendReadiness,
+  evaluateTemplateCompleteness,
+  findRequiredSections,
+  hasUnresolvedTemplateTokens,
+  isValidContractVersion,
+  missingRequiredSections,
+} from "../../src/lib/contracts/legal-gate";
+import { JH_SERVICE_CONTRACT_DRAFT_HTML } from "../../src/lib/contracts/sanitize";
+
+let failed = 0;
+
+function check(label: string, cond: boolean) {
+  if (cond) {
+    console.log(`  ✓ ${label}`);
+  } else {
+    console.error(`  ✗ ${label}`);
+    failed += 1;
+  }
+}
+
+console.log("\n[TEST-011] Contract legal gate (sintético)");
+
+check(
+  `mínimo cancelación = ${MIN_CANCELLATION_DEADLINE_DAYS}`,
+  MIN_CANCELLATION_DEADLINE_DAYS === 3,
+);
+check("días null → issue", assertCancellationDeadlineDays(null) !== null);
+check("días 2 → too short", assertCancellationDeadlineDays(2)?.code === "DEADLINE_TOO_SHORT");
+check("días 3 → ok", assertCancellationDeadlineDays(3) === null);
+check("días 5 → ok", assertCancellationDeadlineDays(5) === null);
+
+check("versión vacía inválida", !isValidContractVersion(""));
+check("versión 1.0 válida", isValidContractVersion("1.0"));
+check("versión con espacios inválida", !isValidContractVersion("1 0"));
+
+const incompleteHtml = `<h2>Contrato</h2><p>Hola {{clientName}}</p>`;
+check(
+  "HTML incompleto: faltan todas las secciones",
+  missingRequiredSections(incompleteHtml).length ===
+    REQUIRED_CONTRACT_SECTIONS.length,
+);
+check("tokens sin resolver detectados", hasUnresolvedTemplateTokens(incompleteHtml));
+
+const draftSections = findRequiredSections(JH_SERVICE_CONTRACT_DRAFT_HTML);
+check(
+  "plantilla JH borrador incluye todas las secciones",
+  draftSections.length === REQUIRED_CONTRACT_SECTIONS.length,
+);
+check(
+  "plantilla JH aún tiene token {{clientName}} (pre-emisión)",
+  hasUnresolvedTemplateTokens(JH_SERVICE_CONTRACT_DRAFT_HTML),
+);
+
+const templateOk = evaluateTemplateCompleteness({
+  name: "Servicio crédito JH (borrador)",
+  version: "0.1-draft",
+  contentHtml: JH_SERVICE_CONTRACT_DRAFT_HTML,
+  active: true,
+});
+check("plantilla JH activa pasa completitud", templateOk.ok);
+
+const templateBad = evaluateTemplateCompleteness({
+  name: "Vacía",
+  version: "1",
+  contentHtml: "<p>sin secciones</p>",
+  active: true,
+});
+check("plantilla sin secciones falla", !templateBad.ok);
+
+const resolved = JH_SERVICE_CONTRACT_DRAFT_HTML.replaceAll(
+  "{{clientName}}",
+  "Cliente Sintético QA",
+).replaceAll("{{clientFullName}}", "Cliente Sintético QA");
+
+const ready = evaluateContractSendReadiness({
+  title: "Servicio crédito JH (borrador)",
+  version: "0.1-draft",
+  contentHtml: resolved,
+  cancellationDeadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+});
+check("contrato completo listo para enviar", ready.ok);
+
+const blockedIncomplete = evaluateContractSendReadiness({
+  title: "Incompleto",
+  version: "1.0",
+  contentHtml: incompleteHtml,
+  cancellationDeadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+});
+check("contrato incompleto bloqueado", !blockedIncomplete.ok);
+
+const blockedTokens = evaluateContractSendReadiness({
+  title: "Con tokens",
+  version: "1.0",
+  contentHtml: JH_SERVICE_CONTRACT_DRAFT_HTML,
+  cancellationDeadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+});
+check("envío con tokens sin resolver bloqueado", !blockedTokens.ok);
+
+const blockedNoDeadline = evaluateContractSendReadiness({
+  title: "Sin plazo",
+  version: "1.0",
+  contentHtml: resolved,
+  cancellationDeadline: null,
+});
+check("envío sin plazo bloqueado", !blockedNoDeadline.ok);
+
+const blockedShort = evaluateContractSendReadiness({
+  title: "Plazo corto",
+  version: "1.0",
+  contentHtml: resolved,
+  cancellationDeadline: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000),
+});
+check("plazo < 3 días bloqueado", !blockedShort.ok);
+
+const blockedPast = evaluateContractSendReadiness({
+  title: "Plazo pasado",
+  version: "1.0",
+  contentHtml: resolved,
+  cancellationDeadline: new Date(Date.now() - 60_000),
+});
+check("plazo en el pasado bloqueado", !blockedPast.ok);
+
+if (failed > 0) {
+  console.error(`\nFAIL contract-legal-gate (${failed} checks)`);
+  process.exit(1);
+}
+console.log("\nOK contract-legal-gate (TEST-011)\n");

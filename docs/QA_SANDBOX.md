@@ -8,7 +8,7 @@
 | Script | Qué hace | ¿Migra? |
 |---|---|---|
 | `npm run lint` | ESLint | No |
-| `npm run typecheck` | `tsc --noEmit` | No |
+| `npm run typecheck` | `next typegen` + `tsc --noEmit` (genera `LayoutProps` / route types) | No |
 | `npm run build:qa` | `next build` directo | **No** |
 | `npm run ci:qa` | lint + typecheck + smoke TEST-007 + build:qa | **No** |
 | `npm run smoke:qa-baseline` | Verifica skip de `migrate-on-deploy` | No |

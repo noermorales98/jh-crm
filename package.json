@@ -19,6 +19,7 @@
     "smoke:ai-redaction-adversarial": "tsx scripts/smoke/ai-redaction-adversarial.ts",
     "smoke:portal-pdf-acl": "tsx scripts/smoke/portal-pdf-acl.ts",
     "smoke:csv-import-hardening": "tsx scripts/smoke/csv-import-hardening.ts",
+    "smoke:client-dedupe-policy": "tsx scripts/smoke/client-dedupe-policy.ts",
     "smoke:credit-reports": "tsx --env-file=.env.local scripts/smoke/credit-reports-smoke.ts",
     "smoke:disputes-comparisons": "tsx --env-file=.env.local scripts/smoke/disputes-comparisons-smoke.ts",
     "smoke:letters": "tsx --env-file=.env.local scripts/smoke/letters-smoke.ts",

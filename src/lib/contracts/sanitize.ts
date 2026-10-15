@@ -13,11 +13,12 @@ export function sanitizeContractHtml(html: string): string {
 }
 
 /**
- * Borrador de plantilla JH para revisión jurídica de Noe.
- * Incluye marcadores data-jh-section exigidos por el gate operativo (JH-011).
- * NO constituye asesoría legal ni cumplimiento CROA/GLBA certificado.
+ * Plantilla JH de contrato de servicio (contenido aprobado 2026-10-15 en honorarios,
+ * cancelación 3 días, partes/servicios/acuse). Versión de publicación aún pendiente
+ * (pregunta #4 abierta). NO constituye asesoría legal ni certificación CROA/GLBA/FCRA.
+ * Marcadores data-jh-section exigidos por el gate operativo (JH-011).
  */
-export const JH_SERVICE_CONTRACT_DRAFT_HTML = `<p><em>BORRADOR JH — requiere revisión jurídica. No constituye asesoría legal ni certificación de cumplimiento.</em></p>
+export const JH_SERVICE_CONTRACT_DRAFT_HTML = `<p><em>Plantilla JH — contenido aprobado 2026-10-15; versión de publicación pendiente. No constituye asesoría legal ni certificación de cumplimiento CROA/FCRA/GLBA.</em></p>
 <h2>Contrato de servicios de reparación de crédito</h2>
 <div data-jh-section="parties">
   <h3>1. Partes</h3>
@@ -29,15 +30,15 @@ export const JH_SERVICE_CONTRACT_DRAFT_HTML = `<p><em>BORRADOR JH — requiere r
 </div>
 <div data-jh-section="fees">
   <h3>3. Honorarios y cargos</h3>
-  <p>Los honorarios, cuotas y forma de pago se describirán en la cotización o plan de pago asociado a este expediente. <strong>[PENDIENTE REVISIÓN JURÍDICA: completar montos, calendario y restricciones de cobro anticipado aplicables.]</strong></p>
+  <p>Los honorarios, cuotas, montos y calendario de pago quedan definidos en la cotización o plan de pago asociado a este expediente. Este contrato no fija importes por sí mismo; rigen los del documento comercial vinculado.</p>
 </div>
 <div data-jh-section="cancellation">
   <h3>4. Cancelación</h3>
-  <p>El Cliente puede cancelar este contrato dentro del plazo indicado al emitirlo (mínimo operativo de 3 días naturales desde el envío a firma, salvo que la revisión jurídica fije otro). La cancelación debe solicitarse por escrito a la Empresa. <strong>[PENDIENTE REVISIÓN JURÍDICA: alinear con derechos federales/estatales aplicables, p. ej. ventana de cancelación y avisos.]</strong></p>
+  <p>El Cliente puede cancelar este contrato dentro del plazo indicado al emitirlo, con un mínimo de 3 días naturales desde el envío a firma. La cancelación debe solicitarse por escrito a la Empresa.</p>
 </div>
 <div data-jh-section="acknowledgement">
   <h3>5. Acuse</h3>
-  <p>Al firmar, el Cliente confirma que ha leído este documento, entiende que es un borrador sujeto a la política de la Empresa y a la revisión jurídica pendiente, y acepta los términos aquí descritos en la medida en que resulten aplicables.</p>
+  <p>Al firmar, el Cliente confirma que ha leído este documento, que los montos y el calendario de pago constan en la cotización o plan de pago asociado, y que acepta los términos aquí descritos en la medida en que resulten aplicables.</p>
 </div>`;
 
 /** @deprecated Prefer JH_SERVICE_CONTRACT_DRAFT_HTML — mismo contenido. */

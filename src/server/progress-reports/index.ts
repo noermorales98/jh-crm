@@ -10,6 +10,7 @@ import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
 import * as disputes from "@/src/server/disputes";
 import * as creditReports from "@/src/server/credit-reports";
 import type { Prisma } from "@prisma/client";
+import { progressReportPortalWhere } from "@/src/server/progress-reports/portal-acl";
 
 export type ProgressScoreSnapshot = {
   bureau: string;
@@ -250,12 +251,9 @@ export async function buildProgressReportPdfForPortal(
   reportId: string,
 ): Promise<{ pdf: Buffer; filename: string }> {
   const report = await prisma.clientProgressReport.findFirst({
-    where: {
-      id: reportId,
-      organizationId,
-      case: { clientId, organizationId },
-    },
+    where: progressReportPortalWhere({ reportId, organizationId, clientId }),
   });
+  // Mismo mensaje para no filtrar existencia cross-tenant / cross-client (JH-002).
   if (!report) throw new DomainError("Reporte de progreso no encontrado.");
   return renderProgressPdf(report);
 }

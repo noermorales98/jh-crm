@@ -1,6 +1,7 @@
 import type { NextAuthConfig } from "next-auth";
 import { NextResponse } from "next/server";
 import { isAnonymousPath } from "@/src/server/auth/public-paths";
+import { isPortalAllowedApiPath } from "@/src/server/auth/portal-api-paths";
 import { SESSION_MAX_AGE_SECONDS } from "@/src/server/auth/session-constants";
 
 /**
@@ -72,7 +73,7 @@ export const authConfig = {
         return true;
       }
 
-      // Portal de clientes (feature flag + audiencia distinta del staff).
+      // Portal UI + API portal dedicada.
       // /portal/login ya es anónimo vía isAnonymousPath.
       if (pathname.startsWith("/portal") || pathname.startsWith("/api/portal")) {
         if (!isPortalFeatureOn()) {
@@ -87,6 +88,31 @@ export const authConfig = {
           return NextResponse.redirect(new URL("/portal/login", request.nextUrl));
         }
         return true;
+      }
+
+      // JH-002: PDF de progreso para el cliente dueño (allowlist estrecha).
+      // La ownership real se valida en el route handler + Prisma.
+      if (isPortalAllowedApiPath(pathname)) {
+        if (!isPortalFeatureOn()) {
+          return NextResponse.redirect(new URL("/portal/login", request.nextUrl));
+        }
+        const portalOk =
+          auth?.user?.portalAudience === "portal" &&
+          typeof auth.user.clientId === "string" &&
+          auth.user.clientId.length > 0 &&
+          !(typeof auth.user.id === "string" && auth.user.id.length === 0);
+        if (portalOk) return true;
+        // Staff con rol también puede; el handler usa letters.view.
+        if (
+          auth?.user &&
+          !(typeof auth.user.id === "string" && auth.user.id.length === 0) &&
+          auth.user.portalAudience !== "portal" &&
+          auth.user.role
+        ) {
+          return true;
+        }
+        if (!auth?.user) return false;
+        return NextResponse.redirect(new URL("/portal/login", request.nextUrl));
       }
 
       // CRM y APIs internas: solo staff (rol presente). Rechazar sesiones portal.

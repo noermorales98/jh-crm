@@ -1,9 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FileUp, Loader2 } from "lucide-react";
-import { Alert, Button, Select } from "@/src/components/ui";
+import { Alert, Button, Field, Select } from "@/src/components/ui";
 import {
   DOCUMENT_CATEGORY_LABELS,
   DOCUMENT_SENSITIVITY_LABELS,
@@ -14,13 +15,32 @@ import {
   formatUploadMaxMb,
   getUploadMaxBytesForCategory,
 } from "@/src/lib/storage/policy";
+import { startCreditPdfImportAction } from "@/src/actions/credit-import";
+import { playActionResult } from "@/src/lib/cuelume";
+import { useCreditPdfImportLock } from "@/src/components/credit-reports/credit-pdf-import-lock";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png"];
+
+type UploadAnalysis = {
+  status: string;
+  message?: string;
+  jobId?: string;
+  caseId?: string;
+  progressPath?: string;
+  openCases?: Array<{ id: string; label: string }>;
+};
+
+type UploadOkData = {
+  id: string;
+  storageKey: string;
+  analysis?: UploadAnalysis;
+};
 
 /**
  * Wizard de subida: (1) categoría + sensibilidad → (2) archivo.
  * Híbrido: same-origin bajo 4 MB; upload-url → PUT firmado → confirm a partir de 4 MB
  * (evita el body máximo de Vercel Functions ~4.5 MB).
+ * PDFs CREDIT_REPORT/UPDATE_REPORT pueden encolar análisis automático.
  */
 export function DocumentUploader({
   clientId,
@@ -37,6 +57,7 @@ export function DocumentUploader({
   onUploaded?: () => void | Promise<void>;
 }) {
   const router = useRouter();
+  const { engageLock } = useCreditPdfImportLock();
   const fileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState<1 | 2>(wizard ? 1 : 2);
   const [category, setCategory] = useState("IDENTITY");
@@ -45,13 +66,47 @@ export function DocumentUploader({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [analysisInfo, setAnalysisInfo] = useState<UploadAnalysis | null>(null);
+  const [pendingDocId, setPendingDocId] = useState<string | null>(null);
+  const [chosenCaseId, setChosenCaseId] = useState("");
+  const [casePending, startCaseTransition] = useTransition();
 
   const maxBytes = getUploadMaxBytesForCategory(category);
   const maxMbLabel = formatUploadMaxMb(maxBytes);
 
+  function applyUploadResult(fileName: string, data: UploadOkData) {
+    setPendingDocId(data.id);
+    const analysis = data.analysis ?? null;
+    setAnalysisInfo(analysis);
+    if (analysis?.openCases?.[0]) {
+      setChosenCaseId(analysis.openCases[0].id);
+    }
+    if (
+      analysis &&
+      (analysis.status === "queued" || analysis.status === "existing") &&
+      analysis.jobId &&
+      analysis.caseId &&
+      analysis.progressPath
+    ) {
+      engageLock({
+        jobId: analysis.jobId,
+        caseId: analysis.caseId,
+        progressPath: analysis.progressPath,
+        fileName,
+      });
+      setSuccess(`“${fileName}” listo. ${analysis.message ?? ""}`.trim());
+    } else if (analysis?.message) {
+      setSuccess(`“${fileName}” listo. ${analysis.message}`);
+    } else {
+      setSuccess(`“${fileName}” listo.`);
+    }
+  }
+
   async function uploadFile(file: File) {
     setError(null);
     setSuccess(null);
+    setAnalysisInfo(null);
+    setPendingDocId(null);
 
     if (!ALLOWED.includes(file.type)) {
       setError("Solo se aceptan PDF, JPG y PNG.");
@@ -65,13 +120,12 @@ export function DocumentUploader({
     const strategy = chooseCrmUploadStrategy(file.size);
 
     try {
-      if (strategy === "same-origin") {
-        await uploadSameOrigin(file);
-      } else {
-        await uploadPresigned(file);
-      }
+      const data =
+        strategy === "same-origin"
+          ? await uploadSameOrigin(file)
+          : await uploadPresigned(file);
 
-      setSuccess(`“${file.name}” listo.`);
+      applyUploadResult(file.name, data);
       if (fileRef.current) fileRef.current.value = "";
       await onUploaded?.();
       router.refresh();
@@ -86,7 +140,7 @@ export function DocumentUploader({
     }
   }
 
-  async function uploadSameOrigin(file: File) {
+  async function uploadSameOrigin(file: File): Promise<UploadOkData> {
     setBusy("Subiendo…");
     const form = new FormData();
     form.set("file", file);
@@ -113,7 +167,7 @@ export function DocumentUploader({
     }
 
     const payload = json as
-      | { ok: true; data: Record<string, unknown> }
+      | { ok: true; data: UploadOkData }
       | { ok: false; error: string }
       | null;
 
@@ -130,9 +184,10 @@ export function DocumentUploader({
       });
       throw new Error(classified.message);
     }
+    return payload.data;
   }
 
-  async function uploadPresigned(file: File) {
+  async function uploadPresigned(file: File): Promise<UploadOkData> {
     setBusy("Preparando…");
     const prepRes = await fetch("/api/files/upload-url", {
       method: "POST",
@@ -229,7 +284,7 @@ export function DocumentUploader({
     }
 
     const confirmPayload = confirmJson as
-      | { ok: true; data: Record<string, unknown> }
+      | { ok: true; data: UploadOkData }
       | { ok: false; error: string }
       | null;
 
@@ -248,6 +303,42 @@ export function DocumentUploader({
       });
       throw new Error(classified.message);
     }
+    return confirmPayload.data;
+  }
+
+  function startAnalysisForChosenCase() {
+    if (!pendingDocId || !chosenCaseId) {
+      setError("Elige un caso de crédito.");
+      return;
+    }
+    setError(null);
+    startCaseTransition(async () => {
+      const result = await startCreditPdfImportAction({
+        caseId: chosenCaseId,
+        documentId: pendingDocId,
+      });
+      if (!result.ok) {
+        playActionResult(false);
+        setError(result.error);
+        return;
+      }
+      playActionResult(true);
+      engageLock({
+        jobId: result.data.jobId,
+        caseId: result.data.caseId,
+        progressPath: result.data.progressPath,
+        fileName: null,
+      });
+      setAnalysisInfo({
+        status: "queued",
+        jobId: result.data.jobId,
+        caseId: result.data.caseId,
+        progressPath: result.data.progressPath,
+        message: "Análisis encolado para el caso elegido.",
+      });
+      setSuccess("Análisis encolado. Puedes cerrar la app y volver luego.");
+      router.push(result.data.progressPath);
+    });
   }
 
   function takeFile(files: FileList | null) {
@@ -259,6 +350,64 @@ export function DocumentUploader({
     <div className="space-y-3">
       {error ? <Alert tone="error">{error}</Alert> : null}
       {success ? <Alert tone="success">{success}</Alert> : null}
+
+      {analysisInfo?.status === "needs_case" ? (
+        <Alert tone="info">
+          {analysisInfo.message}{" "}
+          <Link
+            href={`/crm/clientes/${clientId}`}
+            className="font-medium underline"
+          >
+            Ir al cliente
+          </Link>
+        </Alert>
+      ) : null}
+
+      {analysisInfo?.status === "needs_case_choice" &&
+      analysisInfo.openCases?.length ? (
+        <div className="space-y-2 rounded-control border border-border-subtle bg-surface-app p-3">
+          <p className="text-sm text-text-secondary">{analysisInfo.message}</p>
+          <Field label="Caso de crédito" htmlFor="upload-case-choice">
+            <Select
+              id="upload-case-choice"
+              value={chosenCaseId}
+              onChange={(e) => setChosenCaseId(e.target.value)}
+            >
+              {analysisInfo.openCases.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button
+            type="button"
+            size="sm"
+            disabled={casePending || !chosenCaseId}
+            onClick={startAnalysisForChosenCase}
+          >
+            {casePending ? "Encolando…" : "Analizar con este caso"}
+          </Button>
+        </div>
+      ) : null}
+
+      {analysisInfo &&
+      (analysisInfo.status === "queued" || analysisInfo.status === "existing") &&
+      analysisInfo.progressPath ? (
+        <Alert tone="info">
+          {analysisInfo.message}{" "}
+          <Link
+            href={analysisInfo.progressPath}
+            className="font-medium underline"
+          >
+            Ver progreso
+          </Link>
+        </Alert>
+      ) : null}
+
+      {analysisInfo?.status === "skipped_permission" ? (
+        <Alert tone="info">{analysisInfo.message}</Alert>
+      ) : null}
 
       {wizard ? (
         <p className="text-xs text-text-secondary">

@@ -34,6 +34,7 @@
     "smoke:credit-pdf-pii": "tsx scripts/smoke/credit-pdf-pii.ts",
     "smoke:credit-pdf-recovery": "tsx --env-file=.env.local scripts/smoke/credit-pdf-job-recovery.ts",
     "smoke:credit-pdf-lease": "tsx scripts/smoke/credit-pdf-job-lease.ts",
+    "smoke:credit-pdf-auto-enqueue": "tsx --env-file=.env.local scripts/smoke/credit-pdf-auto-enqueue.ts",
     "smoke:retention-soft": "tsx --env-file=.env.local scripts/smoke/retention-soft-only.ts",
     "smoke:stripe-idem": "tsx --env-file=.env.local scripts/smoke/stripe-webhook-idempotency.ts",
     "smoke:upload-confirm": "tsx --env-file=.env.local scripts/smoke/upload-confirm-head.ts",

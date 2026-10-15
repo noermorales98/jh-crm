@@ -62,9 +62,15 @@ export async function startCreditPdfImportAction(
     const ctx = await requirePermission("creditReports.manage");
     const data = analyzeCreditPdfInputSchema.parse(input);
     const started = await startCreditPdfImportJob(ctx, data);
-    after(() => processCreditPdfImportJob(started.jobId));
+    if (started.shouldProcess) {
+      after(() => processCreditPdfImportJob(started.jobId));
+    }
     revalidatePath(started.progressPath);
-    return actionOk(started);
+    return actionOk({
+      jobId: started.jobId,
+      caseId: started.caseId,
+      progressPath: started.progressPath,
+    });
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

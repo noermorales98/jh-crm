@@ -17,6 +17,18 @@ import { can } from "@/src/server/auth/permissions";
 import { ForbiddenError } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { assertStoredObjectMatchesClaim } from "@/src/server/storage/assert-stored-upload";
+import {
+  maybeEnqueueCreditPdfAnalysisAfterUpload,
+  type CreditPdfUploadAnalysisMeta,
+} from "@/src/server/credit-import/jobs";
+
+export type ConfirmUploadResult = {
+  id: string;
+  storageKey: string;
+  caseId: string | null;
+  serviceCaseId: string | null;
+  analysis?: CreditPdfUploadAnalysisMeta;
+};
 
 /** Convierte los errores de política de archivos en errores de dominio (400). */
 function assertFileAllowed(
@@ -163,7 +175,10 @@ export async function uploadDocumentDirect(
 }
 
 /** Crea el registro Document tras un upload confirmado por el browser. */
-export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploadData) {
+export async function confirmUpload(
+  ctx: OrganizationContext,
+  data: ConfirmUploadData,
+): Promise<ConfirmUploadResult> {
   assertStorage();
   const { serviceCaseId } = await validateLinks(ctx, data);
   assertFileAllowed(data.mimeType, data.sizeBytes, data.category);
@@ -216,7 +231,30 @@ export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploa
       tx,
     );
 
-    return document;
+    const analysis = await maybeEnqueueCreditPdfAnalysisAfterUpload(
+      ctx,
+      {
+        documentId: document.id,
+        clientId: data.clientId,
+        caseId: data.caseId,
+        category: data.category,
+        mimeType: data.mimeType,
+      },
+      tx,
+    );
+
+    const linked = await tx.document.findUniqueOrThrow({
+      where: { id: document.id },
+      select: { id: true, storageKey: true, caseId: true, serviceCaseId: true },
+    });
+
+    return {
+      id: linked.id,
+      storageKey: linked.storageKey,
+      caseId: linked.caseId,
+      serviceCaseId: linked.serviceCaseId,
+      analysis,
+    };
   });
 }
 

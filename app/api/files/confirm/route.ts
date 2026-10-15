@@ -1,8 +1,9 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/src/server/auth/guards";
 import { apiErrorResponse } from "@/src/server/http";
 import * as documentService from "@/src/server/documents";
+import { processCreditPdfImportJob } from "@/src/server/credit-import/jobs";
 
 const bodySchema = z.object({
   storageKey: z.string().min(1),
@@ -34,9 +35,24 @@ export async function POST(request: Request) {
     const ctx = await requireApiPermission("documents.upload");
     const body = bodySchema.parse(await request.json());
     const document = await documentService.confirmUpload(ctx, body);
+
+    if (
+      document.analysis &&
+      (document.analysis.status === "queued" ||
+        document.analysis.status === "existing") &&
+      document.analysis.shouldProcess
+    ) {
+      const jobId = document.analysis.jobId;
+      after(() => processCreditPdfImportJob(jobId));
+    }
+
     return NextResponse.json({
       ok: true,
-      data: { id: document.id, storageKey: document.storageKey },
+      data: {
+        id: document.id,
+        storageKey: document.storageKey,
+        analysis: document.analysis,
+      },
     });
   } catch (error) {
     return apiErrorResponse(error);

@@ -79,7 +79,7 @@ export function CreditPdfImportProgressClient({
   initialJob: JobView;
 }) {
   const router = useRouter();
-  const { engageLock, releaseLock, dismissReadyChip, isLocked } =
+  const { engageLock, releaseLock, dismissReadyChip } =
     useCreditPdfImportLock();
   const [job, setJob] = useState(initialJob);
   const [error, setError] = useState<string | null>(null);
@@ -233,11 +233,9 @@ export function CreditPdfImportProgressClient({
       {running ? (
         <div className="space-y-4 rounded-xl bg-surface-elevated p-6 ring-1 ring-border-subtle">
           <Alert tone="info">
-            <strong>No cierres esta pestaña ni navegues a otra página.</strong>{" "}
-            El análisis sigue en el servidor; si intentas salir verás una
-            advertencia. Cerrar la ventana también pedirá confirmación del
-            navegador.
-            {isLocked ? " Bloqueo activo." : null}
+            El análisis corre en el servidor. Puedes cerrar esta pestaña o
+            navegar a otra página; vuelve aquí o usa el aviso flotante cuando
+            quieras revisar el progreso.
           </Alert>
           <h1 className="text-xl font-semibold text-ink">
             Analizando PDF…

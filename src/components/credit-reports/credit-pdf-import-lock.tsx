@@ -10,19 +10,17 @@ import {
   type ReactNode,
 } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 import {
   getCreditPdfImportJobAction,
   listActiveCreditPdfImportJobsAction,
 } from "@/src/actions/credit-import";
-import { Button } from "@/src/components/ui";
 
-const STORAGE_KEY = "jh.creditPdfImport.lock";
+const STORAGE_KEY = "jh.creditPdfImport.follow";
 /** Persistente entre sesiones: un “Análisis listo” aceptado/cerrado no debe volver. */
 const DISMISSED_READY_KEY = "jh.creditPdfImport.dismissedReady.v1";
 
-type LockState = {
+type FollowState = {
   jobId: string;
   caseId: string;
   progressPath: string;
@@ -30,10 +28,12 @@ type LockState = {
 };
 
 type Ctx = {
-  lock: LockState | null;
-  engageLock: (lock: LockState) => void;
+  /** @deprecated Alias de follow; se conserva por callers existentes. */
+  lock: FollowState | null;
+  engageLock: (lock: FollowState) => void;
   releaseLock: () => void;
   dismissReadyChip: (jobId: string) => void;
+  /** Siempre false: el análisis no bloquea navegación ni cierre de pestaña. */
   isLocked: boolean;
 };
 
@@ -49,11 +49,13 @@ export function useCreditPdfImportLock() {
   return ctx;
 }
 
-function readStored(): LockState | null {
+function readStored(): FollowState | null {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw =
+      sessionStorage.getItem(STORAGE_KEY) ??
+      sessionStorage.getItem("jh.creditPdfImport.lock");
     if (!raw) return null;
-    return JSON.parse(raw) as LockState;
+    return JSON.parse(raw) as FollowState;
   } catch {
     return null;
   }
@@ -76,7 +78,6 @@ function writeDismissedReady(ids: Set<string>) {
   try {
     const payload = JSON.stringify([...ids].slice(-80));
     localStorage.setItem(DISMISSED_READY_KEY, payload);
-    // Limpia el almacenamiento de sesión antiguo (no persistía al reabrir).
     sessionStorage.removeItem(DISMISSED_READY_KEY);
   } catch {
     /* ignore */
@@ -84,10 +85,8 @@ function writeDismissedReady(ids: Set<string>) {
 }
 
 /**
- * Bloqueo estricto de navegación mientras hay un análisis PDF en curso.
- * - beforeunload al cerrar pestaña/ventana
- * - captura clics en enlaces internos
- * - chip flotante + overlay de advertencia
+ * Estado informativo de análisis PDF (chips + polling).
+ * No bloquea navegación ni cierre de pestaña: el job sigue en el servidor.
  */
 const POLL_ACTIVE_MS = 2500;
 const POLL_IDLE_MS = 45_000;
@@ -100,13 +99,11 @@ export function CreditPdfImportLockProvider({
   /** Si false, no se hace polling (rol sin creditReports.manage). */
   canManageCreditImports?: boolean;
 }) {
-  const pathname = usePathname();
-  const router = useRouter();
-  const [lock, setLock] = useState<LockState | null>(null);
-  const [warnOpen, setWarnOpen] = useState(false);
-  const [dismissedReady, setDismissedReady] = useState<Set<string>>(
-    () => new Set(),
-  );
+  const [follow, setFollow] = useState<FollowState | null>(null);
+  const [dismissedReady, setDismissedReady] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    return readDismissedReady();
+  });
   const [chipJobs, setChipJobs] = useState<
     Array<{
       id: string;
@@ -118,10 +115,6 @@ export function CreditPdfImportLockProvider({
     }>
   >([]);
 
-  useEffect(() => {
-    setDismissedReady(readDismissedReady());
-  }, []);
-
   const dismissReadyChip = useCallback((jobId: string) => {
     setDismissedReady((prev) => {
       const next = new Set(prev);
@@ -131,26 +124,27 @@ export function CreditPdfImportLockProvider({
     });
   }, []);
 
-  const engageLock = useCallback((next: LockState) => {
-    setLock(next);
+  const engageLock = useCallback((next: FollowState) => {
+    setFollow(next);
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      sessionStorage.removeItem("jh.creditPdfImport.lock");
     } catch {
       /* ignore */
     }
   }, []);
 
   const releaseLock = useCallback(() => {
-    setLock(null);
-    setWarnOpen(false);
+    setFollow(null);
     try {
       sessionStorage.removeItem(STORAGE_KEY);
+      sessionStorage.removeItem("jh.creditPdfImport.lock");
     } catch {
       /* ignore */
     }
   }, []);
 
-  // Restore lock after refresh if job still running
+  // Restaurar seguimiento tras refresh si el job sigue activo
   useEffect(() => {
     const stored = readStored();
     if (!stored) return;
@@ -162,10 +156,11 @@ export function CreditPdfImportLockProvider({
         result.ok &&
         (result.data.status === "QUEUED" || result.data.status === "RUNNING")
       ) {
-        setLock(stored);
+        setFollow(stored);
       } else {
         try {
           sessionStorage.removeItem(STORAGE_KEY);
+          sessionStorage.removeItem("jh.creditPdfImport.lock");
         } catch {
           /* ignore */
         }
@@ -176,84 +171,15 @@ export function CreditPdfImportLockProvider({
     };
   }, []);
 
-  // beforeunload — cierra pestaña / ventana / refresh
-  useEffect(() => {
-    if (!lock) return;
-    const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault();
-      event.returnValue =
-        "Hay un análisis de PDF en curso. Si cierras, puedes perder el progreso en pantalla (el análisis puede seguir en el servidor).";
-      return event.returnValue;
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [lock]);
-
-  // Bloquear clics de navegación interna
-  useEffect(() => {
-    if (!lock) return;
-    const onClick = (event: MouseEvent) => {
-      if (event.defaultPrevented) return;
-      if (event.button !== 0) return;
-      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
-        event.preventDefault();
-        event.stopPropagation();
-        setWarnOpen(true);
-        return;
-      }
-      const target = event.target as Element | null;
-      const anchor = target?.closest?.("a");
-      if (!anchor) return;
-      const href = anchor.getAttribute("href");
-      if (!href || href.startsWith("#")) return;
-      if (href.startsWith("mailto:") || href.startsWith("tel:")) return;
-
-      let url: URL;
-      try {
-        url = new URL(href, window.location.origin);
-      } catch {
-        return;
-      }
-      if (url.origin !== window.location.origin) {
-        event.preventDefault();
-        event.stopPropagation();
-        setWarnOpen(true);
-        return;
-      }
-      // Permitir solo la página de progreso de ESTE job
-      if (url.pathname === lock.progressPath) return;
-      if (url.pathname.startsWith(lock.progressPath + "/")) return;
-
-      event.preventDefault();
-      event.stopPropagation();
-      setWarnOpen(true);
-    };
-    document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
-  }, [lock]);
-
-  // Si por alguna razón cambiaron de ruta, forzar vuelta (sin setState síncrono)
-  useEffect(() => {
-    if (!lock) return;
-    if (pathname === lock.progressPath) return;
-    if (pathname.startsWith(lock.progressPath + "/")) return;
-    const t = window.setTimeout(() => {
-      setWarnOpen(true);
-      router.replace(lock.progressPath);
-    }, 0);
-    return () => window.clearTimeout(t);
-  }, [pathname, lock, router]);
-
   // Poll chip jobs — frecuente solo con jobs activos; idle / pestaña oculta = backoff
   useEffect(() => {
     if (!canManageCreditImports) {
-      setChipJobs([]);
       return;
     }
 
     let cancelled = false;
     let timer: number | null = null;
-    let hasActiveJobs = Boolean(lock);
+    let hasActiveJobs = Boolean(follow);
 
     async function refresh() {
       if (cancelled) return;
@@ -279,8 +205,8 @@ export function CreditPdfImportLockProvider({
       hasActiveJobs = result.data.some(
         (j) => j.status === "QUEUED" || j.status === "RUNNING",
       );
-      if (lock) {
-        const mine = result.data.find((j) => j.id === lock.jobId);
+      if (follow) {
+        const mine = result.data.find((j) => j.id === follow.jobId);
         if (
           mine &&
           (mine.status === "SUCCEEDED" || mine.status === "FAILED")
@@ -297,7 +223,7 @@ export function CreditPdfImportLockProvider({
       const delay =
         document.visibilityState === "hidden"
           ? POLL_IDLE_MS
-          : hasActiveJobs || lock
+          : hasActiveJobs || follow
             ? POLL_ACTIVE_MS
             : POLL_IDLE_MS;
       timer = window.setTimeout(() => {
@@ -318,17 +244,17 @@ export function CreditPdfImportLockProvider({
       if (timer != null) window.clearTimeout(timer);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [lock, releaseLock, canManageCreditImports]);
+  }, [follow, releaseLock, canManageCreditImports]);
 
   const value = useMemo(
     () => ({
-      lock,
+      lock: follow,
       engageLock,
       releaseLock,
       dismissReadyChip,
-      isLocked: Boolean(lock),
+      isLocked: false,
     }),
-    [lock, engageLock, releaseLock, dismissReadyChip],
+    [follow, engageLock, releaseLock, dismissReadyChip],
   );
 
   const runningChip = chipJobs.find(
@@ -350,6 +276,9 @@ export function CreditPdfImportLockProvider({
               <p className="mt-0.5 text-xs text-white/80">
                 {runningChip.fileName ?? "reporte.pdf"} · {runningChip.progress}
                 %
+              </p>
+              <p className="mt-1 text-[11px] text-white/70">
+                Puedes cerrar la app; el análisis sigue en el servidor.
               </p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/20">
                 <div
@@ -393,38 +322,6 @@ export function CreditPdfImportLockProvider({
           ) : null}
         </div>
       )}
-
-      {warnOpen && lock ? (
-        <div
-          className="fixed inset-0 z-[90] flex items-center justify-center bg-ink/50 p-4"
-          role="alertdialog"
-          aria-modal="true"
-          aria-labelledby="pdf-lock-title"
-        >
-          <div className="w-full max-w-md rounded-xl bg-surface-elevated p-5 ring-1 ring-border-subtle">
-            <h2 id="pdf-lock-title" className="text-lg font-semibold text-ink">
-              No puedes salir ahora
-            </h2>
-            <p className="mt-2 text-sm text-text-secondary">
-              Hay un análisis de PDF en curso
-              {lock.fileName ? ` (${lock.fileName})` : ""}. Quédate en la página
-              de progreso hasta que termine. Si cierras la pestaña, el navegador
-              también te pedirá confirmación.
-            </p>
-            <div className="mt-4 flex flex-wrap justify-end gap-2">
-              <Button
-                type="button"
-                onClick={() => {
-                  setWarnOpen(false);
-                  router.replace(lock.progressPath);
-                }}
-              >
-                Volver al progreso
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </CreditPdfImportLockContext.Provider>
   );
 }

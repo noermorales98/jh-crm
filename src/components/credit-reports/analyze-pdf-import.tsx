@@ -20,8 +20,8 @@ type PdfOption = {
 };
 
 /**
- * Elige PDF y encola análisis en segundo plano.
- * Redirige a la página de progreso y activa bloqueo de navegación.
+ * Elige PDF y encola análisis en segundo plano (idempotente por documento).
+ * Redirige a la página de progreso; no bloquea navegación ni cierre de pestaña.
  */
 export function AnalyzePdfImportButton({
   caseId,
@@ -33,7 +33,7 @@ export function AnalyzePdfImportButton({
   label?: string;
 }) {
   const router = useRouter();
-  const { engageLock, isLocked } = useCreditPdfImportLock();
+  const { engageLock } = useCreditPdfImportLock();
   const [open, setOpen] = useState(false);
   const [pdfs, setPdfs] = useState<PdfOption[]>([]);
   const [documentId, setDocumentId] = useState("");
@@ -90,13 +90,7 @@ export function AnalyzePdfImportButton({
         <button
           type="button"
           role="menuitem"
-          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover disabled:cursor-not-allowed disabled:text-text-placeholder"
-          disabled={isLocked}
-          title={
-            isLocked
-              ? "Hay un análisis en curso; no puedes iniciar otro"
-              : undefined
-          }
+          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm text-ink hover:bg-nav-hover"
           onClick={openModal}
         >
           <FileScan
@@ -110,12 +104,6 @@ export function AnalyzePdfImportButton({
           type="button"
           variant="secondary"
           size="sm"
-          disabled={isLocked}
-          title={
-            isLocked
-              ? "Hay un análisis en curso; no puedes iniciar otro"
-              : undefined
-          }
           onClick={openModal}
         >
           {label}
@@ -127,15 +115,15 @@ export function AnalyzePdfImportButton({
           if (!pending) setOpen(false);
         }}
         title="Analizar PDF de crédito"
-        description="El análisis corre en segundo plano. No cierres la pestaña hasta que termine."
+        description="El análisis corre en el servidor. Puedes cerrar la app y volver luego a revisar el resultado."
         size="md"
       >
         <div className="space-y-4">
           {error ? <Alert tone="error">{error}</Alert> : null}
           <Alert tone="info">
             Reportes largos pueden tardar 30–90 s. Se abrirá una página de
-            progreso y <strong>no podrás navegar fuera</strong> hasta que
-            termine. Al cerrar la pestaña el navegador pedirá confirmación.
+            progreso; puedes navegar o cerrar la pestaña — el análisis sigue
+            en el servidor y verás el aviso cuando esté listo.
           </Alert>
           {pdfs.length === 0 ? (
             <Alert tone="info">

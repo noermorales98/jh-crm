@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/src/server/auth/guards";
 import { apiErrorResponse } from "@/src/server/http";
@@ -9,6 +9,7 @@ import {
   getUploadMaxBytesForCategory,
   isAllowedMimeType,
 } from "@/src/lib/storage/policy";
+import { processCreditPdfImportJob } from "@/src/server/credit-import/jobs";
 
 export const maxDuration = 60;
 
@@ -78,10 +79,24 @@ export async function POST(request: Request) {
       body,
     });
 
+    if (
+      document.analysis &&
+      (document.analysis.status === "queued" ||
+        document.analysis.status === "existing") &&
+      document.analysis.shouldProcess
+    ) {
+      const jobId = document.analysis.jobId;
+      after(() => processCreditPdfImportJob(jobId));
+    }
+
     return NextResponse.json(
       {
         ok: true,
-        data: { id: document.id, storageKey: document.storageKey },
+        data: {
+          id: document.id,
+          storageKey: document.storageKey,
+          analysis: document.analysis,
+        },
       },
       { headers: { "Cache-Control": "no-store" } },
     );

@@ -4,6 +4,7 @@
  */
 import { randomUUID } from "node:crypto";
 import type { OrganizationContext } from "@/src/server/auth/guards";
+import { can } from "@/src/server/auth/permissions";
 import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
 import {
@@ -88,21 +89,148 @@ async function setPhase(
   });
 }
 
-export async function startCreditPdfImportJob(
+export type CreditCaseOpenOption = { id: string; label: string };
+
+export type CreditCaseResolution =
+  | { status: "resolved"; caseId: string; clientId: string; serviceCaseId: string }
+  | { status: "needs_case" }
+  | { status: "needs_case_choice"; cases: CreditCaseOpenOption[] };
+
+export type EnqueuedCreditPdfJob = {
+  jobId: string;
+  caseId: string;
+  progressPath: string;
+  /** true si se creó ahora; false si ya existía un job abierto para el documento. */
+  created: boolean;
+  /** Solo tiene sentido llamar `after(process…)` si el job sigue QUEUED. */
+  shouldProcess: boolean;
+};
+
+export type CreditPdfUploadAnalysisMeta =
+  | {
+      status: "queued" | "existing";
+      jobId: string;
+      caseId: string;
+      progressPath: string;
+      shouldProcess: boolean;
+      message: string;
+    }
+  | {
+      status: "skipped_permission";
+      message: string;
+    }
+  | {
+      status: "needs_case";
+      message: string;
+    }
+  | {
+      status: "needs_case_choice";
+      openCases: CreditCaseOpenOption[];
+      message: string;
+    };
+
+type DbClient = Prisma.TransactionClient | typeof prisma;
+
+function openJobWhere(documentId: string): Prisma.CreditPdfImportJobWhereInput {
+  return {
+    documentId,
+    OR: [
+      { status: { in: ["QUEUED", "RUNNING"] } },
+      { status: "SUCCEEDED", NOT: { phase: "confirmed" } },
+    ],
+  };
+}
+
+export async function findOpenJobForDocument(
+  documentId: string,
+  db: DbClient = prisma,
+) {
+  return db.creditPdfImportJob.findFirst({
+    where: openJobWhere(documentId),
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+/**
+ * Resuelve el CreditCase para análisis PDF.
+ * caseId explícito gana; sin él: 0 OPEN → needs_case, 1 → resolved, N → needs_case_choice.
+ */
+export async function resolveCreditCaseForPdfAnalysis(
+  ctx: OrganizationContext,
+  input: { clientId: string; caseId?: string | null },
+  db: DbClient = prisma,
+): Promise<CreditCaseResolution> {
+  if (input.caseId) {
+    const creditCase = await db.creditCase.findFirst({
+      where: {
+        id: input.caseId,
+        organizationId: ctx.organizationId,
+        clientId: input.clientId,
+      },
+      select: { id: true, clientId: true, serviceCaseId: true },
+    });
+    if (!creditCase) {
+      throw new DomainError("Caso no encontrado para este cliente.");
+    }
+    return {
+      status: "resolved",
+      caseId: creditCase.id,
+      clientId: creditCase.clientId,
+      serviceCaseId: creditCase.serviceCaseId,
+    };
+  }
+
+  const openCases = await db.creditCase.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      clientId: input.clientId,
+      state: "OPEN",
+    },
+    orderBy: [{ openedAt: "desc" }, { id: "asc" }],
+    select: { id: true, caseCode: true, serviceCaseId: true, clientId: true },
+    take: 20,
+  });
+
+  if (openCases.length === 0) return { status: "needs_case" };
+  if (openCases.length === 1) {
+    const only = openCases[0]!;
+    return {
+      status: "resolved",
+      caseId: only.id,
+      clientId: only.clientId,
+      serviceCaseId: only.serviceCaseId,
+    };
+  }
+
+  return {
+    status: "needs_case_choice",
+    cases: openCases.map((c) => ({
+      id: c.id,
+      label: c.caseCode,
+    })),
+  };
+}
+
+/**
+ * Encola (o reutiliza) un job por documentId. Idempotente.
+ * Varios QUEUED del mismo usuario están permitidos (lease + cron).
+ */
+export async function enqueueCreditPdfImportJob(
   ctx: OrganizationContext,
   input: { caseId: string; documentId: string },
-) {
+  db: DbClient = prisma,
+): Promise<EnqueuedCreditPdfJob> {
   if (!isStorageConfigured()) {
     throw new DomainError("El almacenamiento S3 no está configurado.");
   }
 
-  const creditCase = await prisma.creditCase.findFirst({
+  const creditCase = await db.creditCase.findFirst({
     where: { id: input.caseId, organizationId: ctx.organizationId },
     select: { id: true, clientId: true },
   });
   if (!creditCase) throw new DomainError("Caso no encontrado.");
 
-  const document = await prisma.document.findFirst({
+  const document = await db.document.findFirst({
     where: {
       id: input.documentId,
       organizationId: ctx.organizationId,
@@ -119,24 +247,21 @@ export async function startCreditPdfImportJob(
     throw new DomainError("Solo se pueden analizar PDFs.");
   }
 
-  const active = await prisma.creditPdfImportJob.findFirst({
-    where: {
-      organizationId: ctx.organizationId,
-      createdById: ctx.userId,
-      status: { in: ["QUEUED", "RUNNING"] },
-    },
-    select: { id: true, caseId: true },
-  });
-  if (active) {
-    throw new DomainError(
-      `Ya tienes un análisis en curso. Ábrelo en ${progressPath(active.caseId, active.id)} y espera a que termine.`,
-    );
+  const existing = await findOpenJobForDocument(document.id, db);
+  if (existing) {
+    return {
+      jobId: existing.id,
+      caseId: existing.caseId,
+      progressPath: progressPath(existing.caseId, existing.id),
+      created: false,
+      shouldProcess: existing.status === "QUEUED",
+    };
   }
 
   const fileName =
     document.displayName || document.originalName || "reporte.pdf";
 
-  const job = await prisma.creditPdfImportJob.create({
+  const job = await db.creditPdfImportJob.create({
     data: {
       organizationId: ctx.organizationId,
       caseId: creditCase.id,
@@ -155,6 +280,121 @@ export async function startCreditPdfImportJob(
     jobId: job.id,
     caseId: creditCase.id,
     progressPath: progressPath(creditCase.id, job.id),
+    created: true,
+    shouldProcess: true,
+  };
+}
+
+/** Arranque manual / action: enqueue idempotente por documento. */
+export async function startCreditPdfImportJob(
+  ctx: OrganizationContext,
+  input: { caseId: string; documentId: string },
+) {
+  const enqueued = await enqueueCreditPdfImportJob(ctx, input);
+  return {
+    jobId: enqueued.jobId,
+    caseId: enqueued.caseId,
+    progressPath: enqueued.progressPath,
+    created: enqueued.created,
+    shouldProcess: enqueued.shouldProcess,
+  };
+}
+
+/**
+ * Tras crear un Document CREDIT_REPORT/UPDATE_REPORT PDF:
+ * encola análisis si hay permiso y caso resuelto.
+ */
+export async function maybeEnqueueCreditPdfAnalysisAfterUpload(
+  ctx: OrganizationContext,
+  input: {
+    documentId: string;
+    clientId: string;
+    caseId?: string | null;
+    category: string;
+    mimeType: string;
+  },
+  db: DbClient = prisma,
+): Promise<CreditPdfUploadAnalysisMeta | undefined> {
+  if (
+    input.category !== "CREDIT_REPORT" &&
+    input.category !== "UPDATE_REPORT"
+  ) {
+    return undefined;
+  }
+  if (input.mimeType !== "application/pdf") return undefined;
+
+  if (!can(ctx.role, "creditReports.manage")) {
+    return {
+      status: "skipped_permission",
+      message:
+        "Documento guardado. No tienes permiso para iniciar el análisis automático; un colega con acceso a reportes puede analizarlo.",
+    };
+  }
+
+  const resolution = await resolveCreditCaseForPdfAnalysis(
+    ctx,
+    { clientId: input.clientId, caseId: input.caseId },
+    db,
+  );
+
+  if (resolution.status === "needs_case") {
+    return {
+      status: "needs_case",
+      message:
+        "Documento guardado. Crea un caso de crédito OPEN para este cliente antes de analizar el PDF.",
+    };
+  }
+
+  if (resolution.status === "needs_case_choice") {
+    return {
+      status: "needs_case_choice",
+      openCases: resolution.cases,
+      message:
+        "Documento guardado. Hay varios casos OPEN: elige uno para analizar el PDF (no se elige automáticamente).",
+    };
+  }
+
+  // Asociar el documento al caso resuelto si subió sin caseId.
+  const doc = await db.document.findFirst({
+    where: { id: input.documentId, organizationId: ctx.organizationId },
+    select: { id: true, caseId: true },
+  });
+  if (doc && !doc.caseId) {
+    await db.document.update({
+      where: { id: doc.id },
+      data: {
+        caseId: resolution.caseId,
+        serviceCaseId: resolution.serviceCaseId,
+      },
+    });
+  }
+
+  const enqueued = await enqueueCreditPdfImportJob(
+    ctx,
+    { caseId: resolution.caseId, documentId: input.documentId },
+    db,
+  );
+
+  if (enqueued.created) {
+    return {
+      status: "queued",
+      jobId: enqueued.jobId,
+      caseId: enqueued.caseId,
+      progressPath: enqueued.progressPath,
+      shouldProcess: enqueued.shouldProcess,
+      message:
+        "Documento guardado y análisis encolado. Puedes cerrar la app y volver a la página de progreso cuando quieras.",
+    };
+  }
+
+  return {
+    status: "existing",
+    jobId: enqueued.jobId,
+    caseId: enqueued.caseId,
+    progressPath: enqueued.progressPath,
+    shouldProcess: enqueued.shouldProcess,
+    message:
+      "Ya hay un análisis abierto para este documento. Abre el progreso para revisarlo.",
   };
 }
 

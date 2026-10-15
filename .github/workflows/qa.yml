@@ -1,0 +1,48 @@
+# QA / sandbox CI — lint, typecheck, build WITHOUT prisma migrate.
+# JH-001 / TEST-007: nunca corre migrate-on-deploy (build:qa = next build directo).
+name: QA
+
+on:
+  pull_request:
+  push:
+    branches: [main, "cursor/**"]
+
+concurrency:
+  group: qa-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa:
+    name: lint + typecheck + build:qa
+    runs-on: ubuntu-latest
+    env:
+      QA_SANDBOX: "1"
+      CI: "true"
+      # Placeholders so Next can compile; no real DB / secrets.
+      DATABASE_URL: "mysql://qa:qa@127.0.0.1:3306/jh_qa_unused"
+      AUTH_SECRET: "qa-ci-auth-secret-not-for-production-use-32b"
+      AUTH_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      # Block outbound / payments in CI
+      FEATURE_CLIENT_PORTAL: "false"
+      FEATURE_PUBLIC_INTAKE: "false"
+      FEATURE_CONSULTATION_PAYMENTS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Prisma generate
+        run: npx prisma generate
+      - name: Lint
+        run: npm run lint
+      # typecheck runs `next typegen` first so LayoutProps/route types exist in CI
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Migrate skip smoke (TEST-007)
+        run: npm run smoke:qa-baseline
+      - name: Build QA (no migrate)
+        run: npm run build:qa

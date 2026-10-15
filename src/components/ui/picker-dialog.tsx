@@ -22,7 +22,8 @@ export function PickerDialog({
   const [mounted, setMounted] = useState(false);
   const [host, setHost] = useState<HTMLElement | null>(null);
 
-  const handleClose = useEffectEvent(() => {
+  // Stable close for the Escape effect without stale onClose.
+  const handleEscapeClose = useEffectEvent(() => {
     onClose();
   });
 
@@ -50,7 +51,7 @@ export function PickerDialog({
       if (event.key === "Escape") {
         event.preventDefault();
         event.stopImmediatePropagation();
-        handleClose();
+        handleEscapeClose();
       }
     }
 
@@ -72,7 +73,7 @@ export function PickerDialog({
       aria-labelledby={labelledBy}
       className="fixed inset-0 z-[80] flex items-end justify-center bg-ink/40 p-4 backdrop-blur-[2px] sm:items-center"
       onClick={(event) => {
-        if (event.target === event.currentTarget) handleClose();
+        if (event.target === event.currentTarget) onClose();
       }}
       onMouseDown={(event) => {
         event.stopPropagation();

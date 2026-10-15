@@ -304,7 +304,7 @@ export async function createLead(ctx: OrganizationContext, data: LeadCreateData)
   });
 }
 
-export interface LeadUpdateData extends LeadCreateData {}
+export type LeadUpdateData = LeadCreateData;
 
 /**
  * LD-002 — Editar persona (Client) + deal (Opportunity). No borra ni cierra.

@@ -51,7 +51,7 @@ export async function createClientIntakeLink(
   });
   if (!client) throw new DomainError("Cliente no encontrado.");
 
-  let caseId: string | null = input.caseId ?? null;
+  const caseId: string | null = input.caseId ?? null;
   if (caseId) {
     const creditCase = await prisma.creditCase.findFirst({
       where: {

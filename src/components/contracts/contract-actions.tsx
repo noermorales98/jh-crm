@@ -18,7 +18,10 @@ import {
 import { playActionResult } from "@/src/lib/cuelume";
 import { DocumentEditor } from "@/src/components/contracts/document-editor";
 import { TemplateStudioChrome } from "@/src/components/contracts/template-studio-chrome";
-import { DEFAULT_CONTRACT_CONTENT } from "@/src/lib/contracts/sanitize";
+import {
+  DEFAULT_CONTRACT_CONTENT,
+  JH_SERVICE_CONTRACT_VERSION,
+} from "@/src/lib/contracts/sanitize";
 
 type ClientOption = { id: string; label: string };
 type TemplateOption = { id: string; name: string; version: string };
@@ -163,7 +166,9 @@ export function UpsertTemplateButton({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(initial?.name ?? "");
-  const [version, setVersion] = useState(initial?.version ?? "1.0");
+  const [version, setVersion] = useState(
+    initial?.version ?? JH_SERVICE_CONTRACT_VERSION,
+  );
   const [contentHtml, setContentHtml] = useState(
     initial?.contentHtml ?? DEFAULT_CONTRACT_CONTENT,
   );
@@ -174,7 +179,7 @@ export function UpsertTemplateButton({
 
   function openModal() {
     setName(initial?.name ?? "");
-    setVersion(initial?.version ?? "1.0");
+    setVersion(initial?.version ?? JH_SERVICE_CONTRACT_VERSION);
     setContentHtml(initial?.contentHtml ?? DEFAULT_CONTRACT_CONTENT);
     setActive(initial?.active ?? true);
     setError(null);

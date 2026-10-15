@@ -13,12 +13,12 @@ export function sanitizeContractHtml(html: string): string {
 }
 
 /**
- * Plantilla JH de contrato de servicio (contenido aprobado 2026-10-15 en honorarios,
- * cancelación 3 días, partes/servicios/acuse). Versión de publicación aún pendiente
- * (pregunta #4 abierta). NO constituye asesoría legal ni certificación CROA/GLBA/FCRA.
- * Marcadores data-jh-section exigidos por el gate operativo (JH-011).
+ * Plantilla JH de contrato de servicio — **v1.0** (contenido aprobado por Noe, 2026-10-15).
+ * Honorarios vía cotización/plan; cancelación mín. 3 días naturales; partes/servicios/acuse.
+ * Marcadores `data-jh-section` exigidos por el gate operativo (JH-011).
+ * NO constituye asesoría legal ni certificación CROA/GLBA/FCRA.
  */
-export const JH_SERVICE_CONTRACT_DRAFT_HTML = `<p><em>Plantilla JH — contenido aprobado 2026-10-15; versión de publicación pendiente. No constituye asesoría legal ni certificación de cumplimiento CROA/FCRA/GLBA.</em></p>
+export const JH_SERVICE_CONTRACT_HTML = `<p><em>Plantilla JH v1.0 — contenido aprobado por Noe (2026-10-15). No constituye asesoría legal ni certificación de cumplimiento CROA/FCRA/GLBA.</em></p>
 <h2>Contrato de servicios de reparación de crédito</h2>
 <div data-jh-section="parties">
   <h3>1. Partes</h3>
@@ -41,5 +41,11 @@ export const JH_SERVICE_CONTRACT_DRAFT_HTML = `<p><em>Plantilla JH — contenido
   <p>Al firmar, el Cliente confirma que ha leído este documento, que los montos y el calendario de pago constan en la cotización o plan de pago asociado, y que acepta los términos aquí descritos en la medida en que resulten aplicables.</p>
 </div>`;
 
-/** @deprecated Prefer JH_SERVICE_CONTRACT_DRAFT_HTML — mismo contenido. */
-export const DEFAULT_CONTRACT_CONTENT = JH_SERVICE_CONTRACT_DRAFT_HTML;
+/** @deprecated Use `JH_SERVICE_CONTRACT_HTML` (v1.0 published body). */
+export const JH_SERVICE_CONTRACT_DRAFT_HTML = JH_SERVICE_CONTRACT_HTML;
+
+/** Default TipTap seed content = published JH v1.0 template. */
+export const DEFAULT_CONTRACT_CONTENT = JH_SERVICE_CONTRACT_HTML;
+
+/** Published template version string for new JH defaults. */
+export const JH_SERVICE_CONTRACT_VERSION = "1.0";

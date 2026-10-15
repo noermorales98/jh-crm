@@ -1,6 +1,6 @@
 /**
  * TEST-011 — gate jurídico/completitud de contratos (sin DB).
- * Contrato incompleto bloqueado; versiones/plazos; plantilla JH con secciones.
+ * Contrato incompleto bloqueado; versiones/plazos; plantilla JH v1.0 con secciones.
  * No afirma validez jurídica ni compliance CROA.
  */
 import {
@@ -14,7 +14,10 @@ import {
   isValidContractVersion,
   missingRequiredSections,
 } from "../../src/lib/contracts/legal-gate";
-import { JH_SERVICE_CONTRACT_DRAFT_HTML } from "../../src/lib/contracts/sanitize";
+import {
+  JH_SERVICE_CONTRACT_HTML,
+  JH_SERVICE_CONTRACT_VERSION,
+} from "../../src/lib/contracts/sanitize";
 
 let failed = 0;
 
@@ -40,6 +43,7 @@ check("días 5 → ok", assertCancellationDeadlineDays(5) === null);
 
 check("versión vacía inválida", !isValidContractVersion(""));
 check("versión 1.0 válida", isValidContractVersion("1.0"));
+check("JH published version = 1.0", JH_SERVICE_CONTRACT_VERSION === "1.0");
 check("versión con espacios inválida", !isValidContractVersion("1 0"));
 
 const incompleteHtml = `<h2>Contrato</h2><p>Hola {{clientName}}</p>`;
@@ -50,23 +54,28 @@ check(
 );
 check("tokens sin resolver detectados", hasUnresolvedTemplateTokens(incompleteHtml));
 
-const draftSections = findRequiredSections(JH_SERVICE_CONTRACT_DRAFT_HTML);
+const sections = findRequiredSections(JH_SERVICE_CONTRACT_HTML);
 check(
-  "plantilla JH incluye todas las secciones",
-  draftSections.length === REQUIRED_CONTRACT_SECTIONS.length,
+  "plantilla JH v1.0 incluye todas las secciones",
+  sections.length === REQUIRED_CONTRACT_SECTIONS.length,
 );
 check(
   "plantilla JH aún tiene token {{clientName}} (pre-emisión)",
-  hasUnresolvedTemplateTokens(JH_SERVICE_CONTRACT_DRAFT_HTML),
+  hasUnresolvedTemplateTokens(JH_SERVICE_CONTRACT_HTML),
+);
+check(
+  "banner v1.0 (sin ‘versión pendiente’)",
+  JH_SERVICE_CONTRACT_HTML.includes("Plantilla JH v1.0") &&
+    !JH_SERVICE_CONTRACT_HTML.includes("versión de publicación pendiente"),
 );
 
 const templateOk = evaluateTemplateCompleteness({
   name: "Servicio crédito JH",
-  version: "0.1-draft",
-  contentHtml: JH_SERVICE_CONTRACT_DRAFT_HTML,
+  version: JH_SERVICE_CONTRACT_VERSION,
+  contentHtml: JH_SERVICE_CONTRACT_HTML,
   active: true,
 });
-check("plantilla JH activa pasa completitud", templateOk.ok);
+check("plantilla JH v1.0 activa pasa completitud", templateOk.ok);
 
 const templateBad = evaluateTemplateCompleteness({
   name: "Vacía",
@@ -76,14 +85,14 @@ const templateBad = evaluateTemplateCompleteness({
 });
 check("plantilla sin secciones falla", !templateBad.ok);
 
-const resolved = JH_SERVICE_CONTRACT_DRAFT_HTML.replaceAll(
+const resolved = JH_SERVICE_CONTRACT_HTML.replaceAll(
   "{{clientName}}",
   "Cliente Sintético QA",
 ).replaceAll("{{clientFullName}}", "Cliente Sintético QA");
 
 const ready = evaluateContractSendReadiness({
   title: "Servicio crédito JH",
-  version: "0.1-draft",
+  version: JH_SERVICE_CONTRACT_VERSION,
   contentHtml: resolved,
   cancellationDeadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
 });
@@ -100,7 +109,7 @@ check("contrato incompleto bloqueado", !blockedIncomplete.ok);
 const blockedTokens = evaluateContractSendReadiness({
   title: "Con tokens",
   version: "1.0",
-  contentHtml: JH_SERVICE_CONTRACT_DRAFT_HTML,
+  contentHtml: JH_SERVICE_CONTRACT_HTML,
   cancellationDeadline: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
 });
 check("envío con tokens sin resolver bloqueado", !blockedTokens.ok);

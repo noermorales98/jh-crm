@@ -11,6 +11,11 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
 import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import { ymdInZone, zonedDateAtHour } from "@/src/lib/format/dates";
+import {
+  allocateInstallmentCents,
+  centsToDollars,
+  dollarsToCents,
+} from "@/src/lib/money/installments";
 
 const dec = (v: Prisma.Decimal | number | string) => new Prisma.Decimal(v);
 const money = (v: Prisma.Decimal) =>
@@ -155,10 +160,10 @@ export async function createPaymentPlan(
   }
 
   const timezone = await getOrganizationTimezone(ctx.organizationId);
-  const baseInstallment = money(totalAmount.div(n));
-  const lastInstallment = money(
-    totalAmount.sub(baseInstallment.mul(n - 1)),
-  );
+  // JH-009: cuotas en centavos; última absorbe residuo; suma exacta = total.
+  const totalCents = dollarsToCents(totalAmount.toNumber());
+  const installmentCents = allocateInstallmentCents(totalCents, n);
+  const baseInstallment = money(dec(centsToDollars(installmentCents[0] ?? 0)));
 
   return prisma.$transaction(async (tx) => {
     const plan = await tx.paymentPlan.create({
@@ -180,7 +185,7 @@ export async function createPaymentPlan(
 
     for (let i = 0; i < n; i += 1) {
       const sequence = i + 1;
-      const amount = i === n - 1 ? lastInstallment : baseInstallment;
+      const amount = money(dec(centsToDollars(installmentCents[i] ?? 0)));
       const dueAt = addInstallmentDate(
         data.startDate,
         data.frequency,

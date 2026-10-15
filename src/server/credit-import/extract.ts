@@ -13,7 +13,7 @@ import {
   type CreditPdfExtractionProposal,
 } from "@/src/lib/validation/credit-import";
 import type { PdfExtractResult } from "./pdf-text";
-import { redactBureauText } from "./redact";
+import { redactBureauText, sanitizeFileNameForAI } from "./redact";
 
 /** Mínimo de caracteres útiles para llamar al modelo (alineado con pdf-text). */
 const MIN_USEFUL_CHARS = 800;
@@ -155,10 +155,11 @@ export async function classifyAndExtractFromPdf(input: {
 
   requireAi();
   const redacted = redactBureauText(chunkText(extract.text));
+  const safeName = sanitizeFileNameForAI(fileName);
   const { text } = await generateText({
     model: createOpenRouterModel(),
     system: SYSTEM,
-    prompt: `Archivo: ${fileName}\nPáginas: ${extract.pageCount}\nChars útiles: ${extract.charCount}\n\nTexto del PDF (PII redactada):\n${redacted}`,
+    prompt: `Archivo: ${safeName}\nPáginas: ${extract.pageCount}\nChars útiles: ${extract.charCount}\n\nTexto del PDF (PII redactada):\n${redacted}`,
     maxRetries: 1,
   });
   const proposal = normalizeProposal(parseJsonObject(text));

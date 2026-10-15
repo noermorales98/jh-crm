@@ -1738,7 +1738,7 @@ model CreditPdfImportJob {
   documentId          String
   createdById         String
   status              CreditPdfImportJobStatus @default(QUEUED)
-  /** download | extract | ai | validate | done */
+  /** download | extract | ai | validate | done | confirmed */
   phase               String?
   progress            Int                      @default(0)
   fileName            String?
@@ -1748,6 +1748,19 @@ model CreditPdfImportJob {
   pageCount           Int?
   suggestedReportType String?
   currentClientJson   Json?
+  /** Intentos de claim (after + cron). Al superar el máximo → FAILED. */
+  attempts            Int                      @default(0)
+  /** Token del worker que posee el lease; escrituras sin match se ignoran. */
+  leaseToken          String?
+  /** Fin del lease; RUNNING con lease vencido es recuperable. */
+  leaseExpiresAt      DateTime?
+  /** Último heartbeat de fase (opcional; el lease se renueva en cada fase). */
+  heartbeatAt         DateTime?
+  /**
+   * Auditoría + notificación de éxito aplicadas.
+   * SUCCEEDED con null = análisis listo pero efectos pendientes (recuperable sin re-analizar).
+   */
+  effectsSettledAt    DateTime?
   startedAt           DateTime?
   finishedAt          DateTime?
   createdAt           DateTime                 @default(now())
@@ -1762,6 +1775,9 @@ model CreditPdfImportJob {
   @@index([organizationId, createdById, status])
   @@index([organizationId, caseId, status])
   @@index([documentId])
+  @@index([status, leaseExpiresAt])
+  @@index([status, createdAt])
+  @@index([status, effectsSettledAt])
 }
 
 /** Snapshot de scores y contadores por buró dentro de un CreditReport. */

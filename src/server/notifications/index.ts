@@ -1,4 +1,4 @@
-import type { NotificationType, Prisma } from "@prisma/client";
+import { Prisma, type NotificationType } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { decrypt } from "@/src/lib/security/encryption";
 import {
@@ -62,9 +62,32 @@ export async function createNotification(
     }
   }
 
-  const created = await client.notification.create({
-    data: { ...data, dedupeKey: dedupeKey ?? null },
-  });
+  let created;
+  try {
+    created = await client.notification.create({
+      data: { ...data, dedupeKey: dedupeKey ?? null },
+    });
+  } catch (error) {
+    // Carrera create-or-find: otro worker insertó el mismo dedupeKey.
+    if (
+      dedupeKey &&
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      const raced = await client.notification.findUnique({ where: { dedupeKey } });
+      if (raced) {
+        return client.notification.update({
+          where: { id: raced.id },
+          data: {
+            title: input.title,
+            body: input.body ?? null,
+            link: input.link ?? null,
+          },
+        });
+      }
+    }
+    throw error;
+  }
 
   if (!tx) {
     if (!skipWhatsapp) {

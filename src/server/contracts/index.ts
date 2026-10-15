@@ -7,6 +7,12 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import type { PortalContext } from "@/src/server/portal";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { clientFullName } from "@/src/server/page-helpers";
+import {
+  assertCancellationDeadlineDays,
+  evaluateContractSendReadiness,
+  evaluateTemplateCompleteness,
+  formatContractGateIssues,
+} from "@/src/lib/contracts/legal-gate";
 
 /**
  * Contratos de servicio: plantillas + emisión + firma (CRM o portal).
@@ -49,34 +55,56 @@ export async function upsertTemplate(
 ) {
   const name = data.name.trim();
   const contentHtml = data.contentHtml.trim();
-  if (!name) throw new DomainError("El nombre de la plantilla es obligatorio.");
-  if (!contentHtml) throw new DomainError("El contenido del contrato es obligatorio.");
 
   if (data.id) {
     const existing = await prisma.contractTemplate.findFirst({
       where: { id: data.id, organizationId: ctx.organizationId },
     });
     if (!existing) throw new DomainError("Plantilla no encontrada.");
+    const nextVersion =
+      data.version !== undefined
+        ? data.version.trim() || existing.version
+        : existing.version;
+    const nextActive = data.active !== undefined ? data.active : existing.active;
+    const updateGate = evaluateTemplateCompleteness({
+      name,
+      version: nextVersion,
+      contentHtml,
+      active: nextActive,
+    });
+    if (!updateGate.ok) {
+      throw new DomainError(formatContractGateIssues(updateGate.issues));
+    }
     return prisma.contractTemplate.update({
       where: { id: existing.id },
       data: {
         name,
         contentHtml,
-        ...(data.version !== undefined
-          ? { version: data.version.trim() || existing.version }
-          : {}),
+        version: nextVersion,
         ...(data.active !== undefined ? { active: data.active } : {}),
       },
     });
+  }
+
+  const version = data.version?.trim() || "1.0";
+  const active = data.active ?? true;
+  const createGate = evaluateTemplateCompleteness({
+    name,
+    version,
+    contentHtml,
+    active,
+  });
+  if (!createGate.ok) {
+    throw new DomainError(formatContractGateIssues(createGate.issues));
   }
 
   return prisma.contractTemplate.create({
     data: {
       organizationId: ctx.organizationId,
       name,
-      version: data.version?.trim() || "1.0",
+      version,
       contentHtml,
-      active: data.active ?? true,
+      active,
     },
   });
 }
@@ -105,6 +133,16 @@ export async function createContractFromTemplate(
   });
   if (!template) throw new DomainError("Plantilla no encontrada o inactiva.");
 
+  const templateGate = evaluateTemplateCompleteness({
+    name: template.name,
+    version: template.version,
+    contentHtml: template.contentHtml,
+    active: true,
+  });
+  if (!templateGate.ok) {
+    throw new DomainError(formatContractGateIssues(templateGate.issues));
+  }
+
   if (data.caseId) {
     const creditCase = await prisma.creditCase.findFirst({
       where: {
@@ -120,10 +158,12 @@ export async function createContractFromTemplate(
   }
 
   const days = data.cancellationDeadlineDays;
-  const cancellationDeadline =
-    days != null && Number.isFinite(days) && days > 0
-      ? addDays(new Date(), Math.floor(days))
-      : null;
+  const daysIssue = assertCancellationDeadlineDays(days);
+  if (daysIssue) throw new DomainError(daysIssue.message);
+  const cancellationDeadline = addDays(
+    new Date(),
+    Math.floor(Number(days)),
+  );
 
   const contentSnapshot = template.contentHtml
     .replaceAll("{{clientName}}", clientFullName(client))
@@ -249,6 +289,16 @@ export async function markSent(ctx: OrganizationContext, contractId: string) {
   if (!contract) throw new DomainError("Contrato no encontrado.");
   if (contract.status !== "DRAFT") {
     throw new DomainError("Solo se pueden enviar contratos en borrador.");
+  }
+
+  const readiness = evaluateContractSendReadiness({
+    title: contract.title,
+    version: contract.version,
+    contentHtml: contract.contentSnapshot,
+    cancellationDeadline: contract.cancellationDeadline,
+  });
+  if (!readiness.ok) {
+    throw new DomainError(formatContractGateIssues(readiness.issues));
   }
 
   return prisma.clientContract.update({

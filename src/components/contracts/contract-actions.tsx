@@ -51,13 +51,16 @@ export function CreateContractButton({
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const days = Number(deadlineDays);
+    if (!Number.isFinite(days) || days < 3) {
+      setError("Indica al menos 3 días de cancelación.");
+      return;
+    }
     startTransition(async () => {
       const result = await createContractAction({
         clientId,
         templateId,
-        cancellationDeadlineDays: deadlineDays.trim()
-          ? Number(deadlineDays)
-          : null,
+        cancellationDeadlineDays: days,
       });
       if (!result.ok) {
         playActionResult(false);
@@ -113,14 +116,16 @@ export function CreateContractButton({
             </Select>
           </Field>
           <Field
-            label="Días de cancelación (opcional)"
+            label="Días de cancelación (mín. 3)"
             htmlFor="contract-deadline"
+            required
           >
             <Input
               id="contract-deadline"
               type="number"
-              min="1"
+              min="3"
               max="365"
+              required
               value={deadlineDays}
               onChange={(e) => setDeadlineDays(e.target.value)}
             />

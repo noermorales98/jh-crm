@@ -8,13 +8,14 @@ import {
   DOCUMENT_CATEGORY_LABELS,
   DOCUMENT_SENSITIVITY_LABELS,
 } from "@/src/lib/labels";
+import { classifyUploadError } from "@/src/lib/uploads/fetch-error";
 
 const MAX_BYTES = 15 * 1024 * 1024;
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png"];
 
 /**
  * Wizard de subida: (1) categoría + sensibilidad → (2) archivo.
- * Usar dentro de un Modal o como flujo completo.
+ * Sube por POST same-origin a /api/files/upload (sin PUT al bucket).
  */
 export function DocumentUploader({
   clientId,
@@ -40,20 +41,6 @@ export function DocumentUploader({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  async function postJson(url: string, body: unknown) {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-      redirect: "error",
-    });
-    const json = (await res.json()) as
-      | { ok: true; data: Record<string, unknown> }
-      | { ok: false; error: string };
-    if (!json.ok) throw new Error(json.error);
-    return json.data;
-  }
-
   async function uploadFile(file: File) {
     setError(null);
     setSuccess(null);
@@ -68,50 +55,58 @@ export function DocumentUploader({
     }
 
     try {
-      setBusy("Preparando…");
-      const linkInfo = {
-        clientId,
-        ...(caseId ? { caseId } : {}),
-        ...(roundId ? { roundId } : {}),
-      };
-      const upload = await postJson("/api/files/upload-url", {
-        ...linkInfo,
-        category,
-        sensitivity,
-        originalName: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
-      });
-
       setBusy("Subiendo…");
-      const put = await fetch(upload.url as string, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!put.ok) throw new Error("La subida al almacenamiento falló.");
+      const form = new FormData();
+      form.set("file", file);
+      form.set("clientId", clientId);
+      if (caseId) form.set("caseId", caseId);
+      if (roundId) form.set("roundId", roundId);
+      form.set("category", category);
+      form.set("sensitivity", sensitivity);
+      form.set("originalName", file.name);
 
-      setBusy("Registrando…");
-      await postJson("/api/files/confirm", {
-        ...linkInfo,
-        storageKey: upload.storageKey,
-        category,
-        sensitivity,
-        originalName: file.name,
-        mimeType: file.type,
-        sizeBytes: file.size,
+      const res = await fetch("/api/files/upload", {
+        method: "POST",
+        body: form,
+        redirect: "error",
       });
+
+      let json: unknown = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
+
+      const payload = json as
+        | { ok: true; data: Record<string, unknown> }
+        | { ok: false; error: string }
+        | null;
+
+      if (!res.ok || !payload || payload.ok !== true) {
+        const classified = classifyUploadError({
+          error: new Error(
+            payload && "error" in payload && typeof payload.error === "string"
+              ? payload.error
+              : "No se pudo subir el archivo.",
+          ),
+          phase: "upload",
+          httpStatus: res.status,
+          responseBody: json,
+        });
+        throw new Error(classified.message);
+      }
 
       setSuccess(`“${file.name}” listo.`);
       if (fileRef.current) fileRef.current.value = "";
       router.refresh();
       onUploaded?.();
     } catch (err) {
-      if (err instanceof TypeError) {
-        setError("Tu sesión expiró. Vuelve a iniciar sesión e intenta de nuevo.");
-      } else {
-        setError(err instanceof Error ? err.message : "No se pudo subir el archivo.");
-      }
+      const classified = classifyUploadError({
+        error: err,
+        phase: "upload",
+      });
+      setError(classified.message);
     } finally {
       setBusy(null);
     }

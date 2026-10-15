@@ -6,6 +6,7 @@ import {
   createPresignedUploadUrl,
   deleteObject,
   isStorageConfigured,
+  putObjectBytes,
 } from "@/src/lib/storage/s3";
 import { assertAllowedFile, buildStorageKey } from "@/src/lib/storage/policy";
 import { DomainError } from "@/src/server/errors";
@@ -125,6 +126,36 @@ export async function requestUpload(ctx: OrganizationContext, data: RequestUploa
     expiresInSeconds: upload.expiresInSeconds,
     maxBytes: data.sizeBytes,
   };
+}
+
+/**
+ * Subida CRM vía servidor (browser → API → R2 → Document).
+ * Evita el PUT cross-origin del browser (CORS en Previews de Vercel).
+ */
+export async function uploadDocumentDirect(
+  ctx: OrganizationContext,
+  data: RequestUploadData & { body: Uint8Array },
+) {
+  assertStorage();
+  await validateLinks(ctx, data);
+  assertFileAllowed(data.mimeType, data.body.byteLength);
+
+  if (data.sizeBytes !== data.body.byteLength) {
+    throw new DomainError("El tamaño declarado no coincide con el archivo.");
+  }
+
+  const storageKey = buildStorageKey(ctx.organizationId, crypto.randomUUID());
+  await putObjectBytes({
+    storageKey,
+    mimeType: data.mimeType,
+    body: data.body,
+  });
+
+  return confirmUpload(ctx, {
+    ...data,
+    storageKey,
+    sizeBytes: data.body.byteLength,
+  });
 }
 
 /** Crea el registro Document tras un upload confirmado por el browser. */

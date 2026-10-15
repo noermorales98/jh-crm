@@ -24,6 +24,7 @@
     "smoke:quote-installment-math": "tsx scripts/smoke/quote-installment-math.ts",
     "smoke:credit-field-provenance": "tsx scripts/smoke/credit-field-provenance.ts",
     "smoke:contract-legal-gate": "tsx scripts/smoke/contract-legal-gate.ts",
+    "smoke:credit-e2e-synthetic": "tsx scripts/smoke/credit-e2e-synthetic.ts",
     "smoke:credit-reports": "tsx --env-file=.env.local scripts/smoke/credit-reports-smoke.ts",
     "smoke:disputes-comparisons": "tsx --env-file=.env.local scripts/smoke/disputes-comparisons-smoke.ts",
     "smoke:letters": "tsx --env-file=.env.local scripts/smoke/letters-smoke.ts",

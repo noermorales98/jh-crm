@@ -9,6 +9,7 @@ import {
   countImportStatuses,
   normalizeImportEmail,
   parseImportCsv,
+  shouldSkipCreateForExistingEmail,
   type ClassifiedImportRow,
 } from "@/src/server/clients/import-csv";
 
@@ -89,6 +90,7 @@ export async function commitClientImport(
   }
 
   const createdClientIds: string[] = [];
+  let skippedExists = 0;
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -96,6 +98,25 @@ export async function commitClientImport(
         if (!row.email) {
           throw new DomainError(`Fila ${row.row}: correo requerido para crear.`);
         }
+
+        // Re-check concurrente (JH-004): otro import pudo crear el mismo email.
+        const raced = await tx.client.findFirst({
+          where: {
+            organizationId: ctx.organizationId,
+            email: row.email,
+          },
+          select: { id: true, email: true },
+        });
+        const liveMap = new Map<string, string>();
+        if (raced?.email) {
+          liveMap.set(normalizeImportEmail(raced.email), raced.id);
+        }
+        const skip = shouldSkipCreateForExistingEmail(row.email, liveMap);
+        if (skip.skip) {
+          skippedExists += 1;
+          continue;
+        }
+
         const { code } = await nextClientCode(tx, ctx.organizationId);
         const client = await tx.client.create({
           data: {
@@ -131,7 +152,11 @@ export async function commitClientImport(
 
   return {
     created: createdClientIds.length,
-    counts,
+    counts: {
+      ...counts,
+      create: Math.max(0, counts.create - skippedExists),
+      exists: counts.exists + skippedExists,
+    },
     errors,
     createdClientIds,
   };

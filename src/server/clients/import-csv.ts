@@ -314,3 +314,18 @@ export function countImportStatuses(rows: ClassifiedImportRow[]) {
   }
   return counts;
 }
+
+/**
+ * JH-004 — si el email ya existe en org (re-check concurrente), no crear.
+ * Ver docs/CLIENT_DEDUPE_POLICY.md.
+ */
+export function shouldSkipCreateForExistingEmail(
+  email: string | null | undefined,
+  existingByEmail: Map<string, string>,
+): { skip: true; existingClientId: string } | { skip: false } {
+  if (!email) return { skip: false };
+  const key = normalizeImportEmail(email);
+  const existingClientId = existingByEmail.get(key);
+  if (existingClientId) return { skip: true, existingClientId };
+  return { skip: false };
+}

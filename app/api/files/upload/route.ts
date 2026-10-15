@@ -4,7 +4,11 @@ import { requireApiPermission } from "@/src/server/auth/guards";
 import { apiErrorResponse } from "@/src/server/http";
 import * as documentService from "@/src/server/documents";
 import { DomainError } from "@/src/server/errors";
-import { getUploadMaxBytes, isAllowedMimeType } from "@/src/lib/storage/policy";
+import {
+  formatUploadMaxMb,
+  getUploadMaxBytesForCategory,
+  isAllowedMimeType,
+} from "@/src/lib/storage/policy";
 
 export const maxDuration = 60;
 
@@ -42,11 +46,6 @@ export async function POST(request: Request) {
     if (!isAllowedMimeType(file.type)) {
       throw new DomainError("Solo se aceptan PDF, JPG y PNG.");
     }
-    if (file.size <= 0 || file.size > getUploadMaxBytes()) {
-      throw new DomainError(
-        `El archivo excede el límite de ${process.env.UPLOAD_MAX_MB ?? "15"} MB.`,
-      );
-    }
 
     const meta = metaSchema.parse({
       clientId: form.get("clientId"),
@@ -57,6 +56,13 @@ export async function POST(request: Request) {
       sensitivity: emptyToNull(form.get("sensitivity")) ?? undefined,
       originalName: emptyToNull(form.get("originalName")) ?? undefined,
     });
+
+    const maxBytes = getUploadMaxBytesForCategory(meta.category);
+    if (file.size <= 0 || file.size > maxBytes) {
+      throw new DomainError(
+        `El archivo excede el límite de ${formatUploadMaxMb(maxBytes)} MB.`,
+      );
+    }
 
     const body = new Uint8Array(await file.arrayBuffer());
     const document = await documentService.uploadDocumentDirect(ctx, {

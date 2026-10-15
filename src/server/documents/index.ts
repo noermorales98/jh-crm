@@ -19,9 +19,13 @@ import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { assertStoredObjectMatchesClaim } from "@/src/server/storage/assert-stored-upload";
 
 /** Convierte los errores de política de archivos en errores de dominio (400). */
-function assertFileAllowed(mimeType: string, sizeBytes: number) {
+function assertFileAllowed(
+  mimeType: string,
+  sizeBytes: number,
+  category?: string | null,
+) {
   try {
-    assertAllowedFile(mimeType, sizeBytes);
+    assertAllowedFile(mimeType, sizeBytes, category);
   } catch (error) {
     throw new DomainError(error instanceof Error ? error.message : "Archivo no permitido.");
   }
@@ -111,7 +115,7 @@ async function validateLinks(ctx: OrganizationContext, data: RequestUploadData) 
 export async function requestUpload(ctx: OrganizationContext, data: RequestUploadData) {
   assertStorage();
   await validateLinks(ctx, data); // valida enlaces; el dual-write ocurre en confirmUpload
-  assertFileAllowed(data.mimeType, data.sizeBytes);
+  assertFileAllowed(data.mimeType, data.sizeBytes, data.category);
 
   const storageKey = buildStorageKey(ctx.organizationId, crypto.randomUUID());
   const upload = await createPresignedUploadUrl({
@@ -138,7 +142,7 @@ export async function uploadDocumentDirect(
 ) {
   assertStorage();
   await validateLinks(ctx, data);
-  assertFileAllowed(data.mimeType, data.body.byteLength);
+  assertFileAllowed(data.mimeType, data.body.byteLength, data.category);
 
   if (data.sizeBytes !== data.body.byteLength) {
     throw new DomainError("El tamaño declarado no coincide con el archivo.");
@@ -162,7 +166,7 @@ export async function uploadDocumentDirect(
 export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploadData) {
   assertStorage();
   const { serviceCaseId } = await validateLinks(ctx, data);
-  assertFileAllowed(data.mimeType, data.sizeBytes);
+  assertFileAllowed(data.mimeType, data.sizeBytes, data.category);
 
   // El storageKey debe pertenecer a la organización (prefijo org/<orgId>/).
   const expectedPrefix = `org/${ctx.organizationId}/documents/`;
@@ -174,6 +178,7 @@ export async function confirmUpload(ctx: OrganizationContext, data: ConfirmUploa
     storageKey: data.storageKey,
     mimeType: data.mimeType,
     sizeBytes: data.sizeBytes,
+    category: data.category,
   });
 
   return prisma.$transaction(async (tx) => {

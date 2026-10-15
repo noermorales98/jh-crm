@@ -9,13 +9,18 @@ import {
   DOCUMENT_SENSITIVITY_LABELS,
 } from "@/src/lib/labels";
 import { classifyUploadError } from "@/src/lib/uploads/fetch-error";
+import { chooseCrmUploadStrategy } from "@/src/lib/uploads/crm-upload-strategy";
+import {
+  formatUploadMaxMb,
+  getUploadMaxBytesForCategory,
+} from "@/src/lib/storage/policy";
 
-const MAX_BYTES = 15 * 1024 * 1024;
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png"];
 
 /**
  * Wizard de subida: (1) categoría + sensibilidad → (2) archivo.
- * Sube por POST same-origin a /api/files/upload (sin PUT al bucket).
+ * Híbrido: same-origin bajo 4 MB; upload-url → PUT firmado → confirm a partir de 4 MB
+ * (evita el body máximo de Vercel Functions ~4.5 MB).
  */
 export function DocumentUploader({
   clientId,
@@ -29,7 +34,7 @@ export function DocumentUploader({
   roundId?: string;
   /** Si true, pide categoría/sensibilidad antes de mostrar el dropzone. */
   wizard?: boolean;
-  onUploaded?: () => void;
+  onUploaded?: () => void | Promise<void>;
 }) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -41,6 +46,9 @@ export function DocumentUploader({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
+  const maxBytes = getUploadMaxBytesForCategory(category);
+  const maxMbLabel = formatUploadMaxMb(maxBytes);
+
   async function uploadFile(file: File) {
     setError(null);
     setSuccess(null);
@@ -49,66 +57,196 @@ export function DocumentUploader({
       setError("Solo se aceptan PDF, JPG y PNG.");
       return;
     }
-    if (file.size > MAX_BYTES) {
-      setError("El archivo excede el límite de 15 MB.");
+    if (file.size > maxBytes) {
+      setError(`El archivo excede el límite de ${maxMbLabel} MB.`);
       return;
     }
 
+    const strategy = chooseCrmUploadStrategy(file.size);
+
     try {
-      setBusy("Subiendo…");
-      const form = new FormData();
-      form.set("file", file);
-      form.set("clientId", clientId);
-      if (caseId) form.set("caseId", caseId);
-      if (roundId) form.set("roundId", roundId);
-      form.set("category", category);
-      form.set("sensitivity", sensitivity);
-      form.set("originalName", file.name);
-
-      const res = await fetch("/api/files/upload", {
-        method: "POST",
-        body: form,
-        redirect: "error",
-      });
-
-      let json: unknown = null;
-      try {
-        json = await res.json();
-      } catch {
-        json = null;
-      }
-
-      const payload = json as
-        | { ok: true; data: Record<string, unknown> }
-        | { ok: false; error: string }
-        | null;
-
-      if (!res.ok || !payload || payload.ok !== true) {
-        const classified = classifyUploadError({
-          error: new Error(
-            payload && "error" in payload && typeof payload.error === "string"
-              ? payload.error
-              : "No se pudo subir el archivo.",
-          ),
-          phase: "upload",
-          httpStatus: res.status,
-          responseBody: json,
-        });
-        throw new Error(classified.message);
+      if (strategy === "same-origin") {
+        await uploadSameOrigin(file);
+      } else {
+        await uploadPresigned(file);
       }
 
       setSuccess(`“${file.name}” listo.`);
       if (fileRef.current) fileRef.current.value = "";
+      await onUploaded?.();
       router.refresh();
-      onUploaded?.();
     } catch (err) {
       const classified = classifyUploadError({
         error: err,
-        phase: "upload",
+        phase: strategy === "presigned" ? "put" : "upload",
       });
       setError(classified.message);
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function uploadSameOrigin(file: File) {
+    setBusy("Subiendo…");
+    const form = new FormData();
+    form.set("file", file);
+    form.set("clientId", clientId);
+    if (caseId) form.set("caseId", caseId);
+    if (roundId) form.set("roundId", roundId);
+    form.set("category", category);
+    form.set("sensitivity", sensitivity);
+    form.set("originalName", file.name);
+
+    const res = await fetch("/api/files/upload", {
+      method: "POST",
+      body: form,
+      redirect: "manual",
+    });
+
+    assertNotAuthRedirect(res);
+
+    let json: unknown = null;
+    try {
+      json = await res.json();
+    } catch {
+      json = null;
+    }
+
+    const payload = json as
+      | { ok: true; data: Record<string, unknown> }
+      | { ok: false; error: string }
+      | null;
+
+    if (!res.ok || !payload || payload.ok !== true) {
+      const classified = classifyUploadError({
+        error: new Error(
+          payload && "error" in payload && typeof payload.error === "string"
+            ? payload.error
+            : "No se pudo subir el archivo.",
+        ),
+        phase: "upload",
+        httpStatus: res.status,
+        responseBody: json,
+      });
+      throw new Error(classified.message);
+    }
+  }
+
+  async function uploadPresigned(file: File) {
+    setBusy("Preparando…");
+    const prepRes = await fetch("/api/files/upload-url", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        clientId,
+        caseId: caseId ?? null,
+        roundId: roundId ?? null,
+        category,
+        sensitivity,
+        originalName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+      }),
+      redirect: "manual",
+    });
+
+    assertNotAuthRedirect(prepRes);
+
+    let prepJson: unknown = null;
+    try {
+      prepJson = await prepRes.json();
+    } catch {
+      prepJson = null;
+    }
+
+    const prepPayload = prepJson as
+      | {
+          ok: true;
+          data: { url: string; storageKey: string };
+        }
+      | { ok: false; error: string }
+      | null;
+
+    if (!prepRes.ok || !prepPayload || prepPayload.ok !== true) {
+      const classified = classifyUploadError({
+        error: new Error(
+          prepPayload &&
+            "error" in prepPayload &&
+            typeof prepPayload.error === "string"
+            ? prepPayload.error
+            : "No se pudo preparar la subida.",
+        ),
+        phase: "prepare",
+        httpStatus: prepRes.status,
+        responseBody: prepJson,
+      });
+      throw new Error(classified.message);
+    }
+
+    setBusy("Subiendo…");
+    try {
+      const put = await fetch(prepPayload.data.url, {
+        method: "PUT",
+        headers: { "Content-Type": file.type },
+        body: file,
+      });
+      if (!put.ok) {
+        throw new Error("La subida al almacenamiento falló.");
+      }
+    } catch (err) {
+      const classified = classifyUploadError({
+        error: err,
+        phase: "put",
+      });
+      throw new Error(classified.message);
+    }
+
+    setBusy("Registrando…");
+    const confirmRes = await fetch("/api/files/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        storageKey: prepPayload.data.storageKey,
+        clientId,
+        caseId: caseId ?? null,
+        roundId: roundId ?? null,
+        category,
+        sensitivity,
+        originalName: file.name,
+        mimeType: file.type,
+        sizeBytes: file.size,
+      }),
+      redirect: "manual",
+    });
+
+    assertNotAuthRedirect(confirmRes);
+
+    let confirmJson: unknown = null;
+    try {
+      confirmJson = await confirmRes.json();
+    } catch {
+      confirmJson = null;
+    }
+
+    const confirmPayload = confirmJson as
+      | { ok: true; data: Record<string, unknown> }
+      | { ok: false; error: string }
+      | null;
+
+    if (!confirmRes.ok || !confirmPayload || confirmPayload.ok !== true) {
+      const classified = classifyUploadError({
+        error: new Error(
+          confirmPayload &&
+            "error" in confirmPayload &&
+            typeof confirmPayload.error === "string"
+            ? confirmPayload.error
+            : "No se pudo registrar el archivo.",
+        ),
+        phase: "confirm",
+        httpStatus: confirmRes.status,
+        responseBody: confirmJson,
+      });
+      throw new Error(classified.message);
     }
   }
 
@@ -236,7 +374,7 @@ export function DocumentUploader({
                 {busy ?? (dragging ? "Suelta el archivo" : "Suelta aquí o haz clic")}
               </span>
               <span className="block text-xs text-text-secondary">
-                PDF, JPG o PNG · máximo 15 MB
+                PDF, JPG o PNG · máximo {maxMbLabel} MB
               </span>
             </span>
           </button>
@@ -244,4 +382,16 @@ export function DocumentUploader({
       )}
     </div>
   );
+}
+
+function assertNotAuthRedirect(res: Response) {
+  if (
+    res.type === "opaqueredirect" ||
+    res.status === 0 ||
+    (res.status >= 300 && res.status < 400)
+  ) {
+    throw new Error(
+      "Tu sesión expiró. Vuelve a iniciar sesión e intenta de nuevo.",
+    );
+  }
 }

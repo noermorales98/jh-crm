@@ -6,7 +6,10 @@ import {
   headObjectMeta,
   isStorageConfigured,
 } from "@/src/lib/storage/s3";
-import { getUploadMaxBytes } from "@/src/lib/storage/policy";
+import {
+  formatUploadMaxMb,
+  getUploadMaxBytesForCategory,
+} from "@/src/lib/storage/policy";
 import { DomainError } from "@/src/server/errors";
 
 function normalizeMime(mime: string): string {
@@ -21,6 +24,8 @@ export async function assertStoredObjectMatchesClaim(input: {
   storageKey: string;
   mimeType: string;
   sizeBytes: number;
+  /** Si se indica, aplica el tope de esa categoría (p. ej. 12 MB crédito). */
+  category?: string | null;
 }): Promise<{ sizeBytes: number }> {
   if (!isStorageConfigured()) {
     throw new DomainError(
@@ -36,11 +41,11 @@ export async function assertStoredObjectMatchesClaim(input: {
     );
   }
 
-  const max = getUploadMaxBytes();
+  const max = getUploadMaxBytesForCategory(input.category);
   if (meta.contentLength > max) {
     await bestEffortDelete(input.storageKey);
     throw new DomainError(
-      `El archivo excede el límite de ${process.env.UPLOAD_MAX_MB ?? "15"} MB.`,
+      `El archivo excede el límite de ${formatUploadMaxMb(max)} MB.`,
     );
   }
 

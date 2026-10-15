@@ -3,7 +3,7 @@
  *
  * Bloquea envío incompleto (secciones, versión, plazos, tokens sin resolver).
  * NO constituye asesoría legal ni certificación CROA/GLBA/FCRA.
- * La plantilla JH es borrador pendiente de revisión jurídica de Noe.
+ * Política de cancelación mín. 3 días: contenido plantilla JH v1.0 (Noe, 2026-10-15).
  */
 
 export const MIN_CANCELLATION_DEADLINE_DAYS = 3;
@@ -91,7 +91,7 @@ export function assertCancellationDeadlineDays(
   if (n < MIN_CANCELLATION_DEADLINE_DAYS) {
     return {
       code: "DEADLINE_TOO_SHORT",
-      message: `El plazo de cancelación mínimo operativo es ${MIN_CANCELLATION_DEADLINE_DAYS} días (borrador de política JH; pendiente revisión jurídica).`,
+      message: `El plazo de cancelación mínimo operativo es ${MIN_CANCELLATION_DEADLINE_DAYS} días naturales (política JH v1.0).`,
     };
   }
   if (n > 365) {

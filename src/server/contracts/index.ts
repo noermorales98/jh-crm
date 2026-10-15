@@ -13,6 +13,7 @@ import {
   evaluateTemplateCompleteness,
   formatContractGateIssues,
 } from "@/src/lib/contracts/legal-gate";
+import { JH_SERVICE_CONTRACT_VERSION } from "@/src/lib/contracts/sanitize";
 
 /**
  * Contratos de servicio: plantillas + emisión + firma (CRM o portal).
@@ -86,7 +87,7 @@ export async function upsertTemplate(
     });
   }
 
-  const version = data.version?.trim() || "1.0";
+  const version = data.version?.trim() || JH_SERVICE_CONTRACT_VERSION;
   const active = data.active ?? true;
   const createGate = evaluateTemplateCompleteness({
     name,

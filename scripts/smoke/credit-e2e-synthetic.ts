@@ -31,7 +31,10 @@ import {
   evaluateContractSendReadiness,
   MIN_CANCELLATION_DEADLINE_DAYS,
 } from "../../src/lib/contracts/legal-gate";
-import { JH_SERVICE_CONTRACT_DRAFT_HTML } from "../../src/lib/contracts/sanitize";
+import {
+  JH_SERVICE_CONTRACT_HTML,
+  JH_SERVICE_CONTRACT_VERSION,
+} from "../../src/lib/contracts/sanitize";
 import { can } from "../../src/server/auth/permissions";
 
 let failed = 0;
@@ -108,13 +111,13 @@ async function main() {
   check("cuotas suman exacto", assertInstallmentsSumToTotal(cents, 10001));
 
   // 5) Contract gate before send
-  const resolved = JH_SERVICE_CONTRACT_DRAFT_HTML.replaceAll(
+  const resolved = JH_SERVICE_CONTRACT_HTML.replaceAll(
     "{{clientName}}",
     "Cliente Sintético",
   ).replaceAll("{{clientFullName}}", "Cliente Sintético");
   const ready = evaluateContractSendReadiness({
     title: "Servicio crédito",
-    version: "0.1-draft",
+    version: JH_SERVICE_CONTRACT_VERSION,
     contentHtml: resolved,
     cancellationDeadline: new Date(
       Date.now() + MIN_CANCELLATION_DEADLINE_DAYS * 24 * 60 * 60 * 1000 + 60_000,

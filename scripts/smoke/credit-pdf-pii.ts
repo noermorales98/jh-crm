@@ -36,6 +36,14 @@ async function main() {
   check("score de 3 dígitos se conserva", redacted.includes("720"));
   check("nombre se conserva", redacted.includes("Jane Doe"));
 
+  // JH-007: filename con PII sintética no llega crudo al prompt.
+  const { sanitizeFileNameForAI } = await import(
+    "../../src/server/credit-import/redact"
+  );
+  const safe = sanitizeFileNameForAI("scan_123-45-6789.pdf");
+  check("filename sin SSN", !safe.includes("123-45-6789"));
+  check("filename .pdf", safe.toLowerCase().endsWith(".pdf"));
+
   console.log("\n[PR-SEC-PII] classifyAndExtractFromPdf sparse (sin OpenRouter)");
 
   const sparse = await classifyAndExtractFromPdf({

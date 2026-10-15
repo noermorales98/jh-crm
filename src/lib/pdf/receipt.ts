@@ -1,4 +1,10 @@
-import { startDocument, toBuffer, MARGIN, PAGE_WIDTH } from "./base";
+import {
+  startDocument,
+  toBuffer,
+  ensureSpace,
+  MARGIN,
+  PAGE_WIDTH,
+} from "./base";
 import { formatMoney } from "../format/money";
 import { formatForPdf } from "../format/dates";
 import type { PdfOrganizationInfo } from "./base";
@@ -67,6 +73,11 @@ export function generateReceiptPdf(data: ReceiptPdfData): Buffer {
   y += 14;
 
   if (data.notes) {
+    const noteLines = doc.splitTextToSize(
+      data.notes,
+      PAGE_WIDTH - MARGIN * 2,
+    ) as string[];
+    y = ensureSpace(doc, y, 8 + noteLines.length * 4);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(90);
@@ -74,7 +85,7 @@ export function generateReceiptPdf(data: ReceiptPdfData): Buffer {
     y += 4;
     doc.setTextColor(0);
     doc.setFontSize(9);
-    doc.text(doc.splitTextToSize(data.notes, PAGE_WIDTH - MARGIN * 2), MARGIN, y);
+    doc.text(noteLines, MARGIN, y);
   }
 
   return toBuffer(doc);

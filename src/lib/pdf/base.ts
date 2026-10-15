@@ -15,6 +15,23 @@ export interface PdfOrganizationInfo {
 
 const MARGIN = 20;
 const PAGE_WIDTH = 210; // A4 mm
+const PAGE_HEIGHT = 297; // A4 mm
+/** Y máximo usable antes de forzar salto (deja margen inferior). */
+const PAGE_BOTTOM = PAGE_HEIGHT - MARGIN;
+
+/**
+ * Si no cabe `neededMm` en la página actual, añade página y reinicia Y.
+ * JH-006 / TEST-005.
+ */
+function ensureSpace(
+  doc: jsPDF,
+  y: number,
+  neededMm: number,
+): number {
+  if (y + neededMm <= PAGE_BOTTOM) return y;
+  doc.addPage();
+  return MARGIN;
+}
 
 function startDocument(org: PdfOrganizationInfo, title: string, folio: string) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -53,4 +70,12 @@ function toBuffer(doc: jsPDF): Buffer {
   return Buffer.from(doc.output("arraybuffer"));
 }
 
-export { toBuffer, startDocument, MARGIN, PAGE_WIDTH };
+export {
+  toBuffer,
+  startDocument,
+  ensureSpace,
+  MARGIN,
+  PAGE_WIDTH,
+  PAGE_HEIGHT,
+  PAGE_BOTTOM,
+};

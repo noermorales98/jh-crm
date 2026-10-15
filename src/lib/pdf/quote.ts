@@ -1,4 +1,10 @@
-import { startDocument, toBuffer, MARGIN, PAGE_WIDTH } from "./base";
+import {
+  startDocument,
+  toBuffer,
+  ensureSpace,
+  MARGIN,
+  PAGE_WIDTH,
+} from "./base";
 import { formatMoney } from "../format/money";
 import { formatForPdf } from "../format/dates";
 import type { PdfOrganizationInfo } from "./base";
@@ -97,19 +103,18 @@ export function generateQuotePdf(data: QuotePdfData): Buffer {
   doc.setFontSize(9);
   for (const item of data.items) {
     const lines = doc.splitTextToSize(item.description, 105) as string[];
-    if (y > 265) {
-      doc.addPage();
-      y = MARGIN;
-    }
+    const blockH = Math.max(lines.length * 4, 5) + 2;
+    y = ensureSpace(doc, y, blockH);
     doc.text(lines, col.description + 1, y);
     doc.text(String(item.quantity), col.qty, y, { align: "right" });
     doc.text(money(item.unitPrice), col.unit + 8, y, { align: "right" });
     doc.text(money(item.discountAmount), col.discount + 8, y, { align: "right" });
     doc.text(money(item.total), col.total, y, { align: "right" });
-    y += Math.max(lines.length * 4, 5) + 2;
+    y += blockH;
   }
 
-  // Totales
+  // Totales (bloque completo en una página)
+  y = ensureSpace(doc, y, 40);
   y += 4;
   doc.setDrawColor(200);
   doc.line(120, y, PAGE_WIDTH - MARGIN, y);
@@ -128,23 +133,33 @@ export function generateQuotePdf(data: QuotePdfData): Buffer {
 
   // Notas y términos
   if (data.notes) {
+    const noteLines = doc.splitTextToSize(
+      data.notes,
+      PAGE_WIDTH - MARGIN * 2,
+    ) as string[];
+    y = ensureSpace(doc, y, 8 + noteLines.length * 4);
     y += 4;
     doc.setFontSize(8);
     doc.setTextColor(90);
     doc.text("NOTAS", MARGIN, y);
     y += 4;
     doc.setTextColor(0);
-    doc.text(doc.splitTextToSize(data.notes, PAGE_WIDTH - MARGIN * 2), MARGIN, y);
-    y += 10;
+    doc.text(noteLines, MARGIN, y);
+    y += noteLines.length * 4 + 2;
   }
   if (data.terms) {
+    const termLines = doc.splitTextToSize(
+      data.terms,
+      PAGE_WIDTH - MARGIN * 2,
+    ) as string[];
+    y = ensureSpace(doc, y, 8 + termLines.length * 4);
     y += 2;
     doc.setFontSize(8);
     doc.setTextColor(90);
     doc.text("TÉRMINOS", MARGIN, y);
     y += 4;
     doc.setTextColor(0);
-    doc.text(doc.splitTextToSize(data.terms, PAGE_WIDTH - MARGIN * 2), MARGIN, y);
+    doc.text(termLines, MARGIN, y);
   }
 
   return toBuffer(doc);

@@ -9,6 +9,7 @@ import {
   isTokenSessionCurrent,
   loadAuthTokenState,
 } from "@/src/server/auth/session";
+import { resolveActiveMembership } from "@/src/server/auth/resolve-active-membership";
 import { verifyMfaLogin } from "@/src/server/mfa";
 import {
   authenticatePortal,
@@ -58,8 +59,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           include: {
             memberships: {
               orderBy: { createdAt: "asc" },
-              take: 1,
-              select: { organizationId: true, role: true },
+              select: { organizationId: true, role: true, createdAt: true },
             },
           },
         });
@@ -83,7 +83,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (!mfaOk) throw new MfaInvalidError();
         }
 
-        const membership = user.memberships[0] ?? null;
+        const membership = resolveActiveMembership(user.memberships);
 
         void prisma.user
           .update({ where: { id: user.id }, data: { lastLoginAt: new Date() } })

@@ -11,6 +11,7 @@ import {
   matchRecoveryCode,
   verifyTotpCode,
 } from "@/src/lib/security/mfa";
+import { resolveActiveMembership } from "@/src/server/auth/resolve-active-membership";
 import { DomainError } from "@/src/server/errors";
 
 /**
@@ -34,13 +35,12 @@ export async function getMfaStatus(userId: string) {
       email: true,
       memberships: {
         orderBy: { createdAt: "asc" },
-        take: 1,
-        select: { role: true },
+        select: { organizationId: true, role: true, createdAt: true },
       },
     },
   });
   if (!user) throw new DomainError("Usuario no encontrado.");
-  const role = user.memberships[0]?.role ?? null;
+  const role = resolveActiveMembership(user.memberships)?.role ?? null;
   return {
     mfaEnabled: user.mfaEnabled,
     mfaVerifiedAt: user.mfaVerifiedAt,

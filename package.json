@@ -47,6 +47,7 @@
     "smoke:au-005": "tsx --env-file=.env.local scripts/smoke/au-005-stripe-smoke.ts",
     "smoke:credit-pdf-import": "tsx scripts/smoke/credit-pdf-import-smoke.ts",
     "smoke:credit-pdf-ingest-test-org": "tsx --env-file=.env.local scripts/smoke/credit-pdf-ingest-test-org.ts",
+    "smoke:credit-pdf-chunk-merge": "tsx scripts/smoke/credit-pdf-chunk-merge.ts",
     "smoke:credit-pdf-pii": "tsx scripts/smoke/credit-pdf-pii.ts",
     "smoke:credit-pdf-recovery": "tsx --env-file=.env.local scripts/smoke/credit-pdf-job-recovery.ts",
     "smoke:credit-pdf-lease": "tsx scripts/smoke/credit-pdf-job-lease.ts",

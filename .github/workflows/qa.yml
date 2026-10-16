@@ -50,13 +50,10 @@ jobs:
         run: npm run smoke:agency-resumen-kpis
       - name: Agency Mi Equipo smoke
         run: npm run smoke:agency-mi-equipo
-<<<<<<< HEAD
       - name: Agency Mi Marca smoke
         run: npm run smoke:agency-mi-marca
-=======
       - name: Agency Reportes smoke
         run: npm run smoke:agency-reportes
->>>>>>> b7fa2dc (feat(agency): Reportes — org-wide credit + progress list)
       - name: Credit PDF chunk/merge + scores smoke
         run: npm run smoke:credit-pdf-chunk-merge
       - name: Credit PDF pending-confirm UI smoke

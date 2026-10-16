@@ -8,6 +8,7 @@ import type { PortalContext } from "@/src/server/portal";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { clientFullName } from "@/src/server/page-helpers";
 import {
+  addCancellationCalendarDays,
   assertCancellationDeadlineDays,
   evaluateContractSendReadiness,
   evaluateTemplateCompleteness,
@@ -23,12 +24,6 @@ function emptyToNull(v?: string | null) {
   if (v === undefined || v === null) return null;
   const t = v.trim();
   return t.length ? t : null;
-}
-
-function addDays(from: Date, days: number) {
-  const d = new Date(from);
-  d.setDate(d.getDate() + days);
-  return d;
 }
 
 export async function listTemplates(
@@ -161,7 +156,9 @@ export async function createContractFromTemplate(
   const days = data.cancellationDeadlineDays;
   const daysIssue = assertCancellationDeadlineDays(days);
   if (daysIssue) throw new DomainError(daysIssue.message);
-  const cancellationDeadline = addDays(
+  // Días naturales UTC → fin del día N (ver legal-gate). Evita el edge
+  // setDate(+3) + horas/86400000 < 3 al hacer markSent.
+  const cancellationDeadline = addCancellationCalendarDays(
     new Date(),
     Math.floor(Number(days)),
   );

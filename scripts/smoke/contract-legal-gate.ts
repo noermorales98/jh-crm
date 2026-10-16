@@ -6,7 +6,9 @@
 import {
   MIN_CANCELLATION_DEADLINE_DAYS,
   REQUIRED_CONTRACT_SECTIONS,
+  addCancellationCalendarDays,
   assertCancellationDeadlineDays,
+  cancellationCalendarDaysRemaining,
   evaluateContractSendReadiness,
   evaluateTemplateCompleteness,
   findRequiredSections,
@@ -137,6 +139,64 @@ const blockedPast = evaluateContractSendReadiness({
   cancellationDeadline: new Date(Date.now() - 60_000),
 });
 check("plazo en el pasado bloqueado", !blockedPast.ok);
+
+// --- Exactly MIN calendar days (TZ / wall-clock edge) ---
+const nowFixed = new Date("2026-10-16T18:30:00.000Z");
+const exactMinDeadline = addCancellationCalendarDays(
+  nowFixed,
+  MIN_CANCELLATION_DEADLINE_DAYS,
+);
+check(
+  "addCancellationCalendarDays(3) → fin de día UTC +3",
+  exactMinDeadline.toISOString() === "2026-10-19T23:59:59.999Z",
+);
+check(
+  "días naturales restantes exactos = 3",
+  cancellationCalendarDaysRemaining(exactMinDeadline, nowFixed) ===
+    MIN_CANCELLATION_DEADLINE_DAYS,
+);
+
+const readyExactMin = evaluateContractSendReadiness({
+  title: "Plazo exacto 3 días",
+  version: JH_SERVICE_CONTRACT_VERSION,
+  contentHtml: resolved,
+  cancellationDeadline: exactMinDeadline,
+  now: nowFixed,
+});
+check("envío con exactamente 3 días naturales OK", readyExactMin.ok);
+
+// Legacy wall-clock +3d same time-of-day (old addDays) — must still pass
+// under calendar-day gate (previously failed when ms/86400000 < 3).
+const legacySameTod = new Date(nowFixed);
+legacySameTod.setUTCDate(
+  legacySameTod.getUTCDate() + MIN_CANCELLATION_DEADLINE_DAYS,
+);
+check(
+  "legacy same-TOD +3d → 3 días naturales",
+  cancellationCalendarDaysRemaining(legacySameTod, nowFixed) === 3,
+);
+const readyLegacy = evaluateContractSendReadiness({
+  title: "Legacy setDate+3",
+  version: JH_SERVICE_CONTRACT_VERSION,
+  contentHtml: resolved,
+  cancellationDeadline: legacySameTod,
+  now: new Date(nowFixed.getTime() + 5 * 60_000), // 5 min later (walkthrough edge)
+});
+check(
+  "markSent-style: +3d same TOD + 5min still OK",
+  readyLegacy.ok,
+);
+
+// 2 calendar days remaining still blocked
+const twoDays = addCancellationCalendarDays(nowFixed, 2);
+const blockedTwo = evaluateContractSendReadiness({
+  title: "Solo 2 días",
+  version: "1.0",
+  contentHtml: resolved,
+  cancellationDeadline: twoDays,
+  now: nowFixed,
+});
+check("exactamente 2 días naturales bloqueado", !blockedTwo.ok);
 
 if (failed > 0) {
   console.error(`\nFAIL contract-legal-gate (${failed} checks)`);

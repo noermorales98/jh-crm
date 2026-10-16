@@ -4,9 +4,53 @@
  * Bloquea envío incompleto (secciones, versión, plazos, tokens sin resolver).
  * NO constituye asesoría legal ni certificación CROA/GLBA/FCRA.
  * Política de cancelación mín. 3 días: contenido plantilla JH v1.0 (Noe, 2026-10-15).
+ *
+ * Plazos en **días naturales UTC** (no horas continuas):
+ * - Al crear: N días → fin del día UTC (23:59:59.999) de la fecha calendario + N.
+ * - Al enviar: se exige diferencia de fechas UTC ≥ MIN (evita el edge
+ *   `setDate(+3)` + ms/86400000 < 3 por TZ/DST/redondeo MySQL).
  */
 
 export const MIN_CANCELLATION_DEADLINE_DAYS = 3;
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+/** Medianoche UTC del día calendario de `d`. */
+export function utcStartOfDay(d: Date): Date {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+}
+
+/**
+ * Fecha límite de cancelación: fin del día UTC, N días naturales después
+ * de la fecha calendario UTC de `from` (N=3 → hoy+3 a 23:59:59.999Z).
+ */
+export function addCancellationCalendarDays(from: Date, days: number): Date {
+  const n = Math.floor(Number(days));
+  return new Date(
+    Date.UTC(
+      from.getUTCFullYear(),
+      from.getUTCMonth(),
+      from.getUTCDate() + n,
+      23,
+      59,
+      59,
+      999,
+    ),
+  );
+}
+
+/**
+ * Días naturales UTC restantes entre `now` y `deadline` (solo fechas,
+ * ignora la hora). Negativo si el deadline es un día calendario anterior.
+ */
+export function cancellationCalendarDaysRemaining(
+  deadline: Date,
+  now: Date = new Date(),
+): number {
+  const start = utcStartOfDay(now).getTime();
+  const end = utcStartOfDay(deadline).getTime();
+  return Math.round((end - start) / MS_PER_DAY);
+}
 
 /** Secciones que el contenido debe marcar con data-jh-section. */
 export const REQUIRED_CONTRACT_SECTIONS = [
@@ -171,12 +215,14 @@ export function evaluateContractSendReadiness(
         message: "La fecha límite de cancelación ya venció.",
       });
     } else {
-      const ms = input.cancellationDeadline.getTime() - now.getTime();
-      const daysLeft = ms / (24 * 60 * 60 * 1000);
-      if (daysLeft + 1e-9 < MIN_CANCELLATION_DEADLINE_DAYS) {
+      const daysLeft = cancellationCalendarDaysRemaining(
+        input.cancellationDeadline,
+        now,
+      );
+      if (daysLeft < MIN_CANCELLATION_DEADLINE_DAYS) {
         issues.push({
           code: "DEADLINE_TOO_SHORT",
-          message: `El plazo de cancelación restante es menor a ${MIN_CANCELLATION_DEADLINE_DAYS} días.`,
+          message: `El plazo de cancelación restante es menor a ${MIN_CANCELLATION_DEADLINE_DAYS} días naturales.`,
         });
       }
     }

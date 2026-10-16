@@ -7,7 +7,7 @@
     "build": "node scripts/migrate-on-deploy.mjs && next build",
     "build:qa": "next build",
     "typecheck": "next typegen && tsc --noEmit",
-    "ci:qa": "npm run lint && npm run typecheck && npm run smoke:qa-baseline && npm run smoke:smoke-safe-org && npm run smoke:agency-resumen-kpis && npm run build:qa",
+    "ci:qa": "npm run lint && npm run typecheck && npm run smoke:qa-baseline && npm run smoke:smoke-safe-org && npm run smoke:agency-resumen-kpis && npm run smoke:credit-pdf-chunk-merge && npm run build:qa",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",

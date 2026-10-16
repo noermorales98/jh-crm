@@ -46,5 +46,7 @@ jobs:
         run: npm run smoke:qa-baseline
       - name: Smoke org allowlist (e2e/letters gate)
         run: npm run smoke:smoke-safe-org
+      - name: Agency Resumen KPIs smoke
+        run: npm run smoke:agency-resumen-kpis
       - name: Build QA (no migrate)
         run: npm run build:qa

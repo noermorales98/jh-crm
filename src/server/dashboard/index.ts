@@ -553,6 +553,50 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
   const casesWaitingUpdateItems = casesWaitingUpdate.map(toNextActionItem);
   const upcomingCaseActionItems = upcomingCaseActions.map(toNextActionItem);
   const overdueUpdateItems = overdueUpdatesList.map(toNextActionItem);
+
+  // Agency Resumen (Fondify-eq): KPIs operativos sin montos / sin “listo para fondeo”.
+  const [inRepairClients, fundingSignalClients, recentReports, reviewDueRounds] =
+    (await runBatched([
+      () =>
+        prisma.client.count({
+          where: {
+            organizationId: orgId,
+            status: { in: ["ACTIVE", "PAUSED"] },
+          },
+        }),
+      // Heurística: clientes en reparación con al menos un reporte que tenga
+      // snapshots y ningún ítem negativo abierto (alineado a qualifyCreditProfile
+      // "heuristica" — nunca afirmación de elegibilidad).
+      () =>
+        prisma.client.count({
+          where: {
+            organizationId: orgId,
+            status: { in: ["ACTIVE", "PAUSED"] },
+            creditReports: {
+              some: {
+                snapshots: { some: {} },
+                items: { none: { isNegative: true } },
+              },
+            },
+          },
+        }),
+      () =>
+        prisma.creditReport.count({
+          where: {
+            organizationId: orgId,
+            createdAt: { gte: thirtyDaysAgo },
+          },
+        }),
+      () =>
+        prisma.creditRound.count({
+          where: {
+            organizationId: orgId,
+            status: { in: ["SENT", "WAITING_UPDATE", "REVIEWING"] },
+            expectedReviewAt: { lte: in14Days },
+          },
+        }),
+    ])) as [number, number, number, number];
+
   return {
     generatedAt: now,
     timezone,
@@ -669,6 +713,23 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       },
       updatedItems: {
         count: updatedItems,
+        link: "/crm/rondas",
+      },
+      /** Agency Resumen — KPIs crédito / operación */
+      inRepair: {
+        count: inRepairClients,
+        link: "/crm/clientes?status=repair",
+      },
+      fundingSignals: {
+        count: fundingSignalClients,
+        link: "/crm/clientes?status=repair",
+      },
+      recentReports: {
+        count: recentReports,
+        link: "/crm/clientes",
+      },
+      reviewDue: {
+        count: reviewDueRounds,
         link: "/crm/rondas",
       },
     },

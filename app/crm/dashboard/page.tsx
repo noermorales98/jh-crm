@@ -12,8 +12,11 @@ import {
   FileSignature,
   FileText,
   Mail,
+  RefreshCw,
+  Sparkles,
   Users,
   Target,
+  Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -32,6 +35,13 @@ import {
   greetingForTimezone,
 } from "@/src/lib/dashboard-brief";
 import { formatDate } from "@/src/lib/format";
+import {
+  RESUMEN_KPI_DEFS,
+  RESUMEN_UPDATE_CTA_HINT,
+  RESUMEN_UPDATE_CTA_HREF,
+  RESUMEN_UPDATE_CTA_LABEL,
+  type ResumenKpiKey,
+} from "@/src/lib/dashboard/resumen-kpis";
 
 export const metadata: Metadata = {
   title: "Inicio",
@@ -159,6 +169,19 @@ export default async function DashboardPage() {
     },
   ];
 
+  const resumenCounts: Record<ResumenKpiKey, number> = {
+    fundingSignals: widgets.fundingSignals.count,
+    reviewDue: widgets.reviewDue.count,
+    inRepair: widgets.inRepair.count,
+    recentReports: widgets.recentReports.count,
+  };
+  const resumenIcons: Record<ResumenKpiKey, LucideIcon> = {
+    fundingSignals: Sparkles,
+    reviewDue: CalendarClock,
+    inRepair: Wrench,
+    recentReports: FileText,
+  };
+
   type SummaryListItem = {
     key: string;
     title: string;
@@ -268,6 +291,59 @@ export default async function DashboardPage() {
                 </p>
                 <p className="mt-2 text-[13px] font-medium text-ink">{item.label}</p>
                 <p className="mt-0.5 text-[11px] text-text-secondary">{item.hint}</p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
+
+      <section aria-labelledby="resumen-ops-heading" className="space-y-3">
+        <div className="flex flex-wrap items-start justify-between gap-3 px-0.5">
+          <div className="min-w-0">
+            <h2
+              id="resumen-ops-heading"
+              className="text-[13px] font-semibold text-text-secondary-strong"
+            >
+              Resumen operación
+            </h2>
+            <p className="mt-0.5 text-[12px] text-text-secondary">
+              Revisión, reparación y señales de fondeo (heurística JH)
+            </p>
+          </div>
+          <ButtonLink href={RESUMEN_UPDATE_CTA_HREF} size="sm" variant="secondary">
+            <RefreshCw className="size-4" aria-hidden />
+            {RESUMEN_UPDATE_CTA_LABEL}
+          </ButtonLink>
+        </div>
+        <p className="px-0.5 text-[11px] text-text-secondary">
+          {RESUMEN_UPDATE_CTA_HINT}
+        </p>
+        <div className={`grid gap-3 ${summaryCols}`}>
+          {RESUMEN_KPI_DEFS.map((def) => {
+            const Icon = resumenIcons[def.key];
+            const value = resumenCounts[def.key];
+            return (
+              <Link
+                key={def.key}
+                href={def.href}
+                className="group rounded-[18px] bg-surface-elevated p-4 ring-1 ring-border-subtle/40 transition-colors hover:bg-nav-hover sm:p-5"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="flex size-10 items-center justify-center rounded-xl bg-nav-active text-action-primary">
+                    <Icon className="size-[18px]" strokeWidth={1.75} aria-hidden />
+                  </span>
+                  <ChevronRight
+                    className="size-4 text-text-secondary opacity-0 transition-opacity group-hover:opacity-100"
+                    aria-hidden
+                  />
+                </div>
+                <p className="mt-4 text-[28px] font-bold leading-none tracking-[-0.03em] tabular-nums text-ink">
+                  {value}
+                </p>
+                <p className="mt-2 text-[13px] font-medium text-ink">{def.label}</p>
+                <p className="mt-0.5 text-[11px] leading-snug text-text-secondary">
+                  {def.hint}
+                </p>
               </Link>
             );
           })}

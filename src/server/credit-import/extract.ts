@@ -335,6 +335,8 @@ export function buildExtractionWindows(text: string): {
     };
   }
 
+  // Reservar 1 slot para pass score-focused (SYSTEM_SCORES / items []).
+  // Nunca marcar una ventana general como score-focused: eso vacía las cuentas.
   const general = splitTextWindows(
     t,
     AI_TEXT_WINDOW,
@@ -350,31 +352,9 @@ export function buildExtractionWindows(text: string): {
   );
   const scoreWin = t.slice(start, start + AI_TEXT_WINDOW);
 
-  // Si alguna ventana general ya cubre el ancla con margen, reutilizarla
-  // como pass score-focused (evita duplicar y falsos positivos por padding).
-  const step = Math.max(1, AI_TEXT_WINDOW - AI_TEXT_OVERLAP);
-  let coveringIndex: number | null = null;
-  for (let i = 0; i < general.length; i++) {
-    const winStart = i * step;
-    const winEnd = winStart + general[i].length;
-    if (anchor >= winStart + 200 && anchor <= winEnd - 400) {
-      coveringIndex = i;
-      break;
-    }
-  }
-  if (coveringIndex != null) {
-    return { windows: general, scoreWindowIndex: coveringIndex };
-  }
-
-  if (general.length >= AI_MAX_WINDOWS) {
-    // Sustituir la última ventana general por la dedicada a scores.
-    const windows = [...general.slice(0, AI_MAX_WINDOWS - 1), scoreWin];
-    return { windows, scoreWindowIndex: windows.length - 1 };
-  }
-
   return {
     windows: [...general, scoreWin].slice(0, AI_MAX_WINDOWS),
-    scoreWindowIndex: general.length,
+    scoreWindowIndex: Math.min(general.length, AI_MAX_WINDOWS - 1),
   };
 }
 
@@ -664,12 +644,20 @@ async function extractFromWindow(input: {
  * Extrae propuesta desde texto embebido del PDF.
  * No acepta ni envía bytes del archivo (PR-SEC-PII).
  * PDFs largos: varias ventanas + mergeExtractionProposals + heurística de scores.
+ *
+ * `onWindowComplete` — p.ej. renovar lease del job entre ventanas (AI puede
+ * superar CREDIT_PDF_JOB_LEASE_MS en PDFs de 5 ventanas).
  */
 export async function classifyAndExtractFromPdf(input: {
   extract: PdfExtractResult;
   fileName: string;
+  onWindowComplete?: (info: {
+    windowIndex: number;
+    windowTotal: number;
+    scoreFocused: boolean;
+  }) => Promise<void>;
 }): Promise<CreditPdfExtractionProposal> {
-  const { extract, fileName } = input;
+  const { extract, fileName, onWindowComplete } = input;
 
   if (extract.mode !== "text" || extract.charCount < MIN_USEFUL_CHARS) {
     return emptyManualReviewProposal([
@@ -681,6 +669,7 @@ export async function classifyAndExtractFromPdf(input: {
   const { windows, scoreWindowIndex } = buildExtractionWindows(extract.text);
   const parts: CreditPdfExtractionProposal[] = [];
   for (let i = 0; i < windows.length; i++) {
+    const scoreFocused = scoreWindowIndex === i;
     parts.push(
       await extractFromWindow({
         windowText: windows[i],
@@ -689,9 +678,16 @@ export async function classifyAndExtractFromPdf(input: {
         charCount: extract.charCount,
         windowIndex: i,
         windowTotal: windows.length,
-        scoreFocused: scoreWindowIndex === i,
+        scoreFocused,
       }),
     );
+    if (onWindowComplete) {
+      await onWindowComplete({
+        windowIndex: i,
+        windowTotal: windows.length,
+        scoreFocused,
+      });
+    }
   }
 
   let proposal = mergeExtractionProposals(parts);

@@ -36,24 +36,9 @@ async function syncLettersCount(tx: Prisma.TransactionClient, roundId: string) {
 }
 
 async function getOrgPdfInfo(organizationId: string) {
-  const settings = await prisma.organizationSettings.findUnique({
-    where: { organizationId },
-  });
-  const addressLine = [
-    settings?.addressLine1,
-    settings?.addressLine2,
-    [settings?.city, settings?.state, settings?.postalCode].filter(Boolean).join(", "),
-  ]
-    .filter(Boolean)
-    .join(", ");
-  return {
-    legalName: settings?.legalName ?? "J&H Multiservices LLC",
-    phone: settings?.phone,
-    email: settings?.email,
-    website: settings?.website,
-    addressLine: addressLine || null,
-    timezone: settings?.timezone ?? "America/Chicago",
-  };
+  const { loadPdfOrganization } = await import("@/src/server/pdf/org-info");
+  const { info, timezone } = await loadPdfOrganization(organizationId);
+  return { ...info, timezone };
 }
 
 export async function ensureDefaultTemplates(ctx: OrganizationContext) {

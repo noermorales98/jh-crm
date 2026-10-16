@@ -11,6 +11,7 @@ import * as disputes from "@/src/server/disputes";
 import * as creditReports from "@/src/server/credit-reports";
 import type { Prisma } from "@prisma/client";
 import { progressReportPortalWhere } from "@/src/server/progress-reports/portal-acl";
+import { loadPdfOrganization } from "@/src/server/pdf/org-info";
 
 export type ProgressScoreSnapshot = {
   bureau: string;
@@ -26,24 +27,8 @@ export type ProgressResultsSnapshot = {
 };
 
 async function getOrgPdfInfo(organizationId: string) {
-  const settings = await prisma.organizationSettings.findUnique({
-    where: { organizationId },
-  });
-  const addressLine = [
-    settings?.addressLine1,
-    settings?.addressLine2,
-    [settings?.city, settings?.state, settings?.postalCode].filter(Boolean).join(", "),
-  ]
-    .filter(Boolean)
-    .join(", ");
-  return {
-    legalName: settings?.legalName ?? "J&H Multiservices LLC",
-    phone: settings?.phone,
-    email: settings?.email,
-    website: settings?.website,
-    addressLine: addressLine || null,
-    timezone: settings?.timezone ?? "America/Chicago",
-  };
+  const { info, timezone } = await loadPdfOrganization(organizationId);
+  return { ...info, timezone };
 }
 
 function asScores(json: Prisma.JsonValue): ProgressScoreSnapshot[] {
@@ -281,6 +266,7 @@ async function renderProgressPdf(report: {
       email: org.email,
       website: org.website,
       addressLine: org.addressLine,
+      logo: org.logo,
     },
     clientName: report.clientName,
     caseCode: report.caseCode,

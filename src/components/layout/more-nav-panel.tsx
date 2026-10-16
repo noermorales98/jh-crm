@@ -27,6 +27,11 @@ import {
   EQUIPO_NAV_DESCRIPTION,
   EQUIPO_NAV_LABEL,
 } from "@/src/lib/users/equipo";
+import {
+  REPORTES_HREF,
+  REPORTES_NAV_DESCRIPTION,
+  REPORTES_NAV_LABEL,
+} from "@/src/lib/reports/agency-reportes";
 
 type MoreItem = {
   href: string;
@@ -89,6 +94,12 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
         label: "Rondas",
         icon: RefreshCcw,
         description: "Rondas de disputa y seguimiento por buró.",
+      },
+      {
+        href: REPORTES_HREF,
+        label: REPORTES_NAV_LABEL,
+        icon: FileText,
+        description: REPORTES_NAV_DESCRIPTION,
       },
     ],
   },

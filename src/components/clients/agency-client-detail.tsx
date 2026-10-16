@@ -72,6 +72,8 @@ import { ClientPaymentsPanel } from "@/src/components/clients/client-payments-pa
 import { ClientNotesPanel } from "@/src/components/clients/client-notes-panel";
 import { ClientTestimonialsPanel } from "@/src/components/clients/client-testimonials-panel";
 import { AnalyzePdfImportButton } from "@/src/components/credit-reports/analyze-pdf-import";
+import { CreditPdfPendingConfirmBanner } from "@/src/components/credit-reports/credit-pdf-pending-confirm";
+import type { PendingConfirmCreditPdfJob } from "@/src/server/credit-import/jobs";
 import { ClientNegativeAnalysisPanel } from "@/src/components/clients/client-negative-analysis-panel";
 import { ClientAvancePanel } from "@/src/components/clients/client-avance-panel";
 import { ClientQuoteHubPanel } from "@/src/components/clients/client-quote-hub-panel";
@@ -188,6 +190,8 @@ export type AgencyClientDetailProps = {
   };
   /** PDFs de crédito (Action Center → Reporte de crédito). */
   pdfReports: CreditReportPdfDto[];
+  /** SUCCEEDED sin confirmar — banner antes del Action Center. */
+  pendingPdfConfirms?: PendingConfirmCreditPdfJob[];
   organizationName: string;
   /** Estados cápsulas Cierre (Fondify-like). */
   cierre: {
@@ -777,6 +781,10 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           {props.kpis.porArreglar === 1 ? "" : "s"} negativa
           {props.kpis.porArreglar === 1 ? "" : "s"} que bloquean fondeo.
         </div>
+      ) : null}
+
+      {props.pendingPdfConfirms && props.pendingPdfConfirms.length > 0 ? (
+        <CreditPdfPendingConfirmBanner jobs={props.pendingPdfConfirms} />
       ) : null}
 
       <section className="space-y-4">

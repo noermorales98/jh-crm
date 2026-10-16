@@ -22,6 +22,10 @@ import {
 } from "@/src/lib/labels";
 import type { CreditPdfExtractionProposal } from "@/src/lib/validation/credit-import";
 import { useCreditPdfImportLock } from "./credit-pdf-import-lock";
+import {
+  PENDING_CONFIRM_REVIEW_HEADING,
+  PENDING_CONFIRM_REVIEW_SUB,
+} from "@/src/lib/credit/pending-confirm-copy";
 
 const CLIENT_KEYS = [
   "firstName",
@@ -301,11 +305,25 @@ export function CreditPdfImportProgressClient({
 
       {job.status === "SUCCEEDED" && proposal ? (
         <div className="space-y-4 rounded-xl bg-surface-elevated p-6 ring-1 ring-border-subtle">
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold tracking-[-0.02em] text-ink">
+              {PENDING_CONFIRM_REVIEW_HEADING}
+            </h1>
+            <p className="text-sm text-text-secondary">
+              {PENDING_CONFIRM_REVIEW_SUB}
+            </p>
+          </div>
           <Alert tone="info">
             Tipo: <strong>{proposal.documentKind}</strong> · confianza{" "}
             {proposal.confidence}
             {job.pageCount != null ? ` · ${job.pageCount} págs` : null}
             {job.extractMode ? ` · modo ${job.extractMode}` : null}
+            {snapshots.length > 0
+              ? ` · ${snapshots.length} score${snapshots.length === 1 ? "" : "s"}`
+              : null}
+            {items.length > 0
+              ? ` · ${items.length} ítem${items.length === 1 ? "" : "s"}`
+              : null}
           </Alert>
           {proposal.warnings?.length ? (
             <Alert tone="info">

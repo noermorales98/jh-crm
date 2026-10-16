@@ -21,6 +21,7 @@ import * as creditReports from "@/src/server/credit-reports";
 import * as catalog from "@/src/server/services";
 import * as configService from "@/src/server/config";
 import * as contractsService from "@/src/server/contracts";
+import { listPendingConfirmCreditPdfJobs } from "@/src/server/credit-import/jobs";
 import { prisma } from "@/src/lib/db";
 
 export const metadata: Metadata = {
@@ -70,6 +71,8 @@ export default async function ClientSummaryPage({
   const canViewContracts = can(ctx.role, "contracts.view");
   const canManageContracts = can(ctx.role, "contracts.manage");
 
+  const canManageCreditImports = can(ctx.role, "creditReports.manage");
+
   const [
     intakeLinks,
     members,
@@ -83,6 +86,7 @@ export default async function ClientSummaryPage({
     quotePackages,
     quoteSettings,
     contractTemplates,
+    pendingPdfConfirms,
   ] = await Promise.all([
     intakeEnabled
       ? listClientIntakeLinks(ctx, clientId)
@@ -130,6 +134,9 @@ export default async function ClientSummaryPage({
       : Promise.resolve(null),
     canManageContracts
       ? contractsService.listTemplates(ctx, true)
+      : Promise.resolve([]),
+    canManageCreditImports
+      ? listPendingConfirmCreditPdfJobs(ctx, { clientId })
       : Promise.resolve([]),
   ]);
 
@@ -321,6 +328,7 @@ export default async function ClientSummaryPage({
         documentId: r.documentId,
         fileName: r.fileName,
       }))}
+      pendingPdfConfirms={pendingPdfConfirms}
       organizationName={org?.name ?? "Agencia"}
       cierre={{
         quote: {

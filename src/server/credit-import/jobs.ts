@@ -1251,6 +1251,59 @@ export async function listActiveCreditPdfImportJobs(
   });
 }
 
+/** SUCCEEDED sin confirmar — pendientes de aplicar al expediente. */
+export type PendingConfirmCreditPdfJob = {
+  id: string;
+  caseId: string;
+  fileName: string | null;
+  finishedAt: Date | null;
+  documentKind: string | null;
+  snapshotCount: number;
+  itemCount: number;
+  progressPath: string;
+};
+
+export async function listPendingConfirmCreditPdfJobs(
+  ctx: OrganizationContext,
+  filter: { caseId?: string; clientId?: string } = {},
+): Promise<PendingConfirmCreditPdfJob[]> {
+  const rows = await prisma.creditPdfImportJob.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      status: "SUCCEEDED",
+      NOT: { phase: "confirmed" },
+      ...(filter.caseId ? { caseId: filter.caseId } : {}),
+      ...(filter.clientId ? { clientId: filter.clientId } : {}),
+    },
+    orderBy: { finishedAt: "desc" },
+    take: 8,
+    select: {
+      id: true,
+      caseId: true,
+      fileName: true,
+      finishedAt: true,
+      proposalJson: true,
+    },
+  });
+
+  return rows.map((row) => {
+    const proposal = row.proposalJson as {
+      documentKind?: string;
+      report?: { snapshots?: unknown[]; items?: unknown[] };
+    } | null;
+    return {
+      id: row.id,
+      caseId: row.caseId,
+      fileName: row.fileName,
+      finishedAt: row.finishedAt,
+      documentKind: proposal?.documentKind ?? null,
+      snapshotCount: proposal?.report?.snapshots?.length ?? 0,
+      itemCount: proposal?.report?.items?.length ?? 0,
+      progressPath: progressPath(row.caseId, row.id),
+    };
+  });
+}
+
 export {
   PHASES,
   CREDIT_PDF_JOB_LEASE_MS,

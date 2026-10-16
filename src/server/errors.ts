@@ -13,6 +13,19 @@ export class DomainError extends Error {
   }
 }
 
+/**
+ * Recurso no encontrado (HTTP 404 en Route Handlers).
+ * Usar cuando el denegado debe ser indistinguible de “no existe”
+ * (p.ej. ACL portal PDF cross-client — JH-002).
+ */
+export class NotFoundError extends DomainError {
+  readonly status = 404;
+  constructor(message = "No encontrado.") {
+    super(message);
+    this.name = "NotFoundError";
+  }
+}
+
 /** Demasiadas peticiones (APIs públicas). */
 export class RateLimitError extends Error {
   readonly status = 429;
@@ -24,6 +37,10 @@ export class RateLimitError extends Error {
 
 export function isDomainError(error: unknown): error is DomainError {
   return error instanceof DomainError;
+}
+
+export function isNotFoundError(error: unknown): error is NotFoundError {
+  return error instanceof NotFoundError;
 }
 
 export function isRateLimitError(error: unknown): error is RateLimitError {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { DomainError, RateLimitError } from "./errors";
+import { DomainError, NotFoundError, RateLimitError } from "./errors";
 import { ForbiddenError, UnauthorizedError } from "./auth/guards";
 
 /**
@@ -13,6 +13,9 @@ export function apiErrorResponse(error: unknown): NextResponse {
   }
   if (error instanceof ForbiddenError) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 403 });
+  }
+  if (error instanceof NotFoundError) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 404 });
   }
   if (error instanceof RateLimitError) {
     return NextResponse.json(

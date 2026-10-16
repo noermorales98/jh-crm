@@ -626,12 +626,12 @@ async function main() {
       if (otherHasSession) {
         const otherPdf = await fetchPdf(prog.id, otherSession.cookies);
         created.otherPdf = otherPdf;
-        // App maps DomainError → 400 (not 404); also accept 403/404 if changed.
-        const denyOk = [400, 403, 404].includes(otherPdf.status);
+        // JH-002: NotFoundError → HTTP 404 (no existence leak).
+        const denyOk = otherPdf.status === 404;
         record(
           "http.non-owner-deny",
           denyOk ? "PASS" : "FAIL",
-          `expected 400|403|404 (DomainError→400); magic=${otherPdf.magic}`,
+          `expected 404 (NotFoundError); magic=${otherPdf.magic}`,
           otherPdf.status,
         );
       } else {

@@ -7,6 +7,9 @@
  *   (quote PAID) → anular segundo recibo (VOID).
  * Imprime un JSON con todos los IDs/folios para la verificación de UI.
  * Limpiar con: npx tsx --env-file=.env.local scripts/smoke/e2e-cleanup.ts
+ *
+ * Org safety: only TEST JH-CRM* (or SMOKE_ORG_NAME). Live JH requires
+ * SMOKE_ALLOW_JH=1. See scripts/smoke/_lib/resolve-smoke-org.ts.
  */
 import { PrismaClient } from "@prisma/client";
 import type { OrganizationContext } from "../../src/server/auth/guards";
@@ -17,6 +20,7 @@ import * as services from "../../src/server/services";
 import * as quotes from "../../src/server/quotes";
 import * as payments from "../../src/server/payments";
 import * as receipts from "../../src/server/receipts";
+import { resolveSmokeOrg } from "./_lib/resolve-smoke-org";
 
 const prisma = new PrismaClient();
 
@@ -25,14 +29,10 @@ function assert(cond: unknown, msg: string) {
 }
 
 async function main() {
-  const org = await prisma.organization.findFirstOrThrow({
-    where: { name: "J&H Multiservices LLC" },
-  });
-  const owner = await prisma.organizationMember.findFirstOrThrow({
-    where: { organizationId: org.id, role: "OWNER" },
-  });
+  const org = await resolveSmokeOrg(prisma);
+  console.log(`[e2e-flow] org=${org.name} (${org.id})`);
   const ctx: OrganizationContext = {
-    userId: owner.userId,
+    userId: org.ownerUserId,
     organizationId: org.id,
     role: "OWNER",
   };

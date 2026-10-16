@@ -13,6 +13,12 @@ import {
   progressReportPortalWhere,
 } from "../../src/server/progress-reports/portal-acl";
 import { isAnonymousPath } from "../../src/server/auth/public-paths";
+import {
+  isDomainError,
+  isNotFoundError,
+  NotFoundError,
+} from "../../src/server/errors";
+import { apiErrorResponse } from "../../src/server/http";
 
 function check(label: string, ok: boolean) {
   if (!ok) throw new Error(`FAIL: ${label}`);
@@ -109,7 +115,15 @@ check(
   }),
 );
 
+const nf = new NotFoundError("Reporte de progreso no encontrado.");
+check("NotFoundError es DomainError", isDomainError(nf) && isNotFoundError(nf));
+check("NotFoundError.status === 404", nf.status === 404);
+check(
+  "apiErrorResponse NotFoundError → 404",
+  apiErrorResponse(nf).status === 404,
+);
+
 console.log("\nOK portal-pdf-acl (TEST-001)\n");
 console.log(
-  "NOTE: HTTP 200/404 con sesión portal requiere MySQL sandbox (blocked si DB down).",
+  "NOTE: HTTP owner 200 / non-owner 404 → npm run smoke:portal-http-core-demo (Next + MySQL).",
 );

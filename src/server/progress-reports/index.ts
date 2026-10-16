@@ -1,5 +1,5 @@
 import { prisma } from "@/src/lib/db";
-import { DomainError } from "@/src/server/errors";
+import { DomainError, NotFoundError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
@@ -253,8 +253,10 @@ export async function buildProgressReportPdfForPortal(
   const report = await prisma.clientProgressReport.findFirst({
     where: progressReportPortalWhere({ reportId, organizationId, clientId }),
   });
-  // Mismo mensaje para no filtrar existencia cross-tenant / cross-client (JH-002).
-  if (!report) throw new DomainError("Reporte de progreso no encontrado.");
+  // Mismo mensaje + 404: no filtrar existencia cross-tenant / cross-client (JH-002).
+  if (!report) {
+    throw new NotFoundError("Reporte de progreso no encontrado.");
+  }
   return renderProgressPdf(report);
 }
 

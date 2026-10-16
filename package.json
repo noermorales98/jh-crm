@@ -7,7 +7,7 @@
     "build": "node scripts/migrate-on-deploy.mjs && next build",
     "build:qa": "next build",
     "typecheck": "next typegen && tsc --noEmit",
-    "ci:qa": "npm run lint && npm run typecheck && npm run smoke:qa-baseline && npm run smoke:smoke-safe-org && npm run build:qa",
+    "ci:qa": "npm run lint && npm run typecheck && npm run smoke:qa-baseline && npm run smoke:smoke-safe-org && npm run smoke:agency-resumen-kpis && npm run build:qa",
     "start": "next start",
     "lint": "eslint",
     "db:generate": "prisma generate",
@@ -29,11 +29,8 @@
     "smoke:credit-reports": "tsx --env-file=.env.local scripts/smoke/credit-reports-smoke.ts",
     "smoke:disputes-comparisons": "tsx --env-file=.env.local scripts/smoke/disputes-comparisons-smoke.ts",
     "smoke:letters": "tsx --env-file=.env.local scripts/smoke/letters-smoke.ts",
-<<<<<<< HEAD
     "smoke:smoke-safe-org": "tsx scripts/smoke/smoke-safe-org.ts",
-=======
     "smoke:agency-resumen-kpis": "tsx scripts/smoke/agency-resumen-kpis.ts",
->>>>>>> 1247dcf (feat(dashboard): Agency Resumen KPIs + actualizar reporte CTA)
     "smoke:sprint4": "tsx --env-file=.env.local scripts/smoke/sprint4-smoke.ts",
     "smoke:sprint5": "tsx --env-file=.env.local scripts/smoke/sprint5-smoke.ts",
     "smoke:sprint6": "tsx --env-file=.env.local scripts/smoke/sprint6-smoke.ts",

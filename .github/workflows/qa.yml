@@ -54,6 +54,8 @@ jobs:
         run: npm run smoke:agency-mi-marca
       - name: Agency Reportes smoke
         run: npm run smoke:agency-reportes
+      - name: Ops readiness + AU-006 bureau gate
+        run: npm run smoke:ops-readiness && npm run smoke:au-006-bureau-gate
       - name: Credit PDF chunk/merge + scores smoke
         run: npm run smoke:credit-pdf-chunk-merge
       - name: Credit PDF pending-confirm UI smoke

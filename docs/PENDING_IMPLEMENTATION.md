@@ -1,6 +1,6 @@
 # Pendientes de implementación
 
-Actualizado 2026-09-17 (checklist UX CRM).
+Actualizado 2026-10-16 (ops audit + AU-006 gate).
 
 ## Checklist UX Fondify / Huthy
 
@@ -13,22 +13,39 @@ Completado — ver **[UX_IMPROVEMENTS_2026-09-17.md](./UX_IMPROVEMENTS_2026-09-1
 ## Pendientes confirmados
 
 - **AU-003:** SMS a clientes (aplazado).
-- **AU-006:** APIs automáticas de buró — **aplazado a futuro** (requiere proveedor de pago + compliance; no hay opción gratis usable. Mientras tanto: CR-PDF-001).
+- **AU-006:** APIs automáticas de buró — **gate fail-closed** (`BUREAU_PROVIDER=none` por defecto; `src/lib/bureau/provider.ts`). Sin proveedor de pago + compliance **no hay pull real**. Camino diario: **CR-PDF-001**. Smoke: `smoke:au-006-bureau-gate`.
 - **AU-007:** afiliados/comisiones (P3).
 
 ## Funcionalidades ya existentes
 
-- **CL-004:** Reportes / evolución de crédito en hub cliente (`/crm/clientes/:id/reportes`).
+- **CL-004:** Reportes / evolución de crédito en hub cliente (`/crm/clientes/:id/reportes`) + agency `/crm/reportes`.
 - **CR-PDF-001:** Analizar PDF → propuesta IA → confirm → CreditReport + cliente.
 - **AU-005 Stripe** (Checkout + webhook; generar link, copiar/abrir sin salir del CRM, enviar por Whapi).
 - **AU-004 Whapi**, Deploy 2, AI-005/006, DC-005, Fases 0–7.
+- Agency T4: Equipo / Marca / Reportes (#34–#36).
 
-## Prioridades siguientes (ops)
+## Ops (2026-10-16)
 
-1. Probar en DEV: generar link cotización/consulta → Copiar / Abrir / Enviar WhatsApp.
-2. SMTP de la org (sigue sin configurar si hace falta correo).
-3. Producción: `MIGRATE_DATABASE_URL` con credenciales válidas si aún falla auth MySQL.
-4. AU-003 SMS solo si el negocio lo pide; AU-007 P3; AU-006 solo si hay presupuesto/proveedor.
+Smoke: `npm run smoke:ops-readiness` (y con `.env.local`: `OPS_REQUIRE_ENV=1`).
+
+Hallazgos en el entorno local auditado (solo flags, sin secretos):
+
+| Ítem | Estado |
+|---|---|
+| App env (DB, Auth, S3, OpenRouter, CRON, PUBLIC_ORG_ID) | SET |
+| `MIGRATE_DATABASE_URL` | Opcional; MISSING (migrate usa `DATABASE_URL` si basta) |
+| Org JH — Stripe + Whapi | Configurados |
+| Org JH — SMTP | **No** configurado (falta si se necesita correo saliente) |
+| Org JH — `logoUrl` (Mi Marca) | **Vacío** — poner URL en Configuración → Marca |
+| Cliente walkthrough `CL-0007` | En org JH; reportes con scores presentes |
+| Org `TEST JH-CRM*` / `PRUEBA` dedicada | No existe en esta DB (PRUEBA es nombre de cliente) |
+
+Acciones manuales del propietario:
+
+1. Configurar **SMTP** en Configuración → Notificaciones si hace falta correo.
+2. Subir **logo** (URL pública PNG/JPEG) para PDFs.
+3. Probar link cotización → Copiar / Abrir / WhatsApp en DEV.
+4. AU-006: elegir agregador + compliance antes de setear `BUREAU_PROVIDER`.
 
 ## Riesgos técnicos reales
 

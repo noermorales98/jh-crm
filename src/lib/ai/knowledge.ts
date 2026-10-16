@@ -40,7 +40,7 @@ export const CRM_ROUTES = [
   { href: "/crm/chats", label: "Chats", how: "Historial de conversaciones con el asistente. Crear un chat nuevo o continuar uno reciente." },
   { href: "/crm/mails", label: "Correos", how: "Bandeja de la organización: ver, enviar, archivar, traducir al español y eliminar correos. Redactar en /crm/mails/nuevo. cron-job.org llama /api/cron/mails-sync cada minuto para IMAP y avisos." },
   { href: "/crm/mails/nuevo", label: "Redactar correo", how: "Enviar un correo por SMTP. La copia queda en Enviados. Se puede enlazar a un cliente." },
-  { href: "/crm/usuarios", label: "Usuarios", how: "Miembros de la organización e invitaciones (solo admin/owner)." },
+  { href: "/crm/usuarios", label: "Equipo", how: "Miembros y roles de la organización. Invitar o cambiar roles: solo admin/owner." },
   { href: "/crm/auditoria", label: "Auditoría", how: "Eventos sensibles: perfil, documentos, recibos (solo admin/owner)." },
   { href: "/crm/configuracion", label: "Configuración", how: "Datos de empresa, moneda, prefijos, hasta 4 números WhatsApp CallMeBot." },
   { href: "/crm/configuracion/etapas", label: "Etapas del pipeline", how: "Etapas del caso: nombre, color y orden." },
@@ -105,7 +105,7 @@ export const HOW_TO_GUIDE = `
 4. En el detalle: Traducir al español (IA, o MyMemory si no hay clave). Los correos nuevos se sincronizan cada minuto y avisan en la campana y por WhatsApp.
 
 ### Invitar un usuario
-1. [Usuarios](/crm/usuarios) (admin/owner). Invitar con correo y rol.
+1. [Equipo](/crm/usuarios) — todos ven miembros y roles; invitar o cambiar rol solo admin/owner.
 
 Roles: VIEWER (solo lectura), STAFF (operación, sin sensibles), SPECIALIST (incluye SSN/documentos sensibles), ADMIN/OWNER (todo + usuarios, auditoría, anular recibos).
 

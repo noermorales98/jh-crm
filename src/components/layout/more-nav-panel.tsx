@@ -18,9 +18,15 @@ import {
   Scale,
   Settings,
   Target,
+  UsersRound,
   X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import {
+  EQUIPO_HREF,
+  EQUIPO_NAV_DESCRIPTION,
+  EQUIPO_NAV_LABEL,
+} from "@/src/lib/users/equipo";
 
 type MoreItem = {
   href: string;
@@ -141,6 +147,12 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
   {
     label: "Sistema",
     items: [
+      {
+        href: EQUIPO_HREF,
+        label: EQUIPO_NAV_LABEL,
+        icon: UsersRound,
+        description: EQUIPO_NAV_DESCRIPTION,
+      },
       {
         href: "/crm/configuracion",
         label: "Configuración",

@@ -290,11 +290,11 @@ const CATALOG: CatalogEntry[] = [
   {
     id: "page-usuarios",
     kind: "page",
-    title: "Usuarios",
-    subtitle: "Miembros e invitaciones",
+    title: "Equipo",
+    subtitle: "Miembros y roles de la organización",
     href: "/crm/usuarios",
-    aliases: ["usuarios", "equipo", "miembros"],
-    permission: "users.manage",
+    aliases: ["usuarios", "equipo", "miembros", "mi equipo"],
+    permission: "dashboard.view",
   },
   {
     id: "page-auditoria",

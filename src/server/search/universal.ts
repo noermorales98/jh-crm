@@ -429,21 +429,19 @@ export async function universalSearch(
           orderBy: { createdAt: "desc" },
         })
       : Promise.resolve([]),
-    can(ctx.role, "users.manage")
-      ? prisma.organizationMember.findMany({
-          where: {
-            organizationId: orgId,
-            user: {
-              OR: [{ name: contains(q) }, { email: contains(q) }],
-            },
-          },
-          select: {
-            role: true,
-            user: { select: { id: true, name: true, email: true } },
-          },
-          take: TAKE,
-        })
-      : Promise.resolve([]),
+    prisma.organizationMember.findMany({
+      where: {
+        organizationId: orgId,
+        user: {
+          OR: [{ name: contains(q) }, { email: contains(q) }],
+        },
+      },
+      select: {
+        role: true,
+        user: { select: { id: true, name: true, email: true } },
+      },
+      take: TAKE,
+    }),
     browseCategoryHits(ctx, q),
   ]);
 

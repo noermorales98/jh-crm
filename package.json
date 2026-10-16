@@ -32,7 +32,11 @@
     "smoke:smoke-safe-org": "tsx scripts/smoke/smoke-safe-org.ts",
     "smoke:agency-resumen-kpis": "tsx scripts/smoke/agency-resumen-kpis.ts",
     "smoke:agency-mi-equipo": "tsx scripts/smoke/agency-mi-equipo.ts",
+<<<<<<< HEAD
     "smoke:agency-mi-marca": "tsx scripts/smoke/agency-mi-marca.ts",
+=======
+    "smoke:agency-reportes": "tsx scripts/smoke/agency-reportes.ts",
+>>>>>>> b7fa2dc (feat(agency): Reportes — org-wide credit + progress list)
     "smoke:credit-pdf-pending-confirm": "tsx scripts/smoke/credit-pdf-pending-confirm.ts",
     "smoke:sprint4": "tsx --env-file=.env.local scripts/smoke/sprint4-smoke.ts",
     "smoke:sprint5": "tsx --env-file=.env.local scripts/smoke/sprint5-smoke.ts",

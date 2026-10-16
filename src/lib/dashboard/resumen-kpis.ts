@@ -57,7 +57,7 @@ export const RESUMEN_KPI_DEFS: ResumenKpiDef[] = [
     key: "recentReports",
     label: RESUMEN_REPORTS_LABEL,
     hint: RESUMEN_REPORTS_HINT,
-    href: "/crm/clientes",
+    href: "/crm/reportes",
   },
 ];
 

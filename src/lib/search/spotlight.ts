@@ -279,6 +279,15 @@ const CATALOG: CatalogEntry[] = [
     permission: "contracts.view",
   },
   {
+    id: "page-reportes",
+    kind: "page",
+    title: "Reportes",
+    subtitle: "Crédito y progreso de la organización",
+    href: "/crm/reportes",
+    aliases: ["reportes", "reportes agency", "progreso", "buró", "buro"],
+    permission: "creditReports.view",
+  },
+  {
     id: "page-procesadores",
     kind: "page",
     title: "Procesadores",

@@ -44,5 +44,7 @@ jobs:
         run: npm run typecheck
       - name: Migrate skip smoke (TEST-007)
         run: npm run smoke:qa-baseline
+      - name: Smoke org allowlist (e2e/letters gate)
+        run: npm run smoke:smoke-safe-org
       - name: Build QA (no migrate)
         run: npm run build:qa

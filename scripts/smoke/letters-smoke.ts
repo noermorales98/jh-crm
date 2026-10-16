@@ -2,6 +2,9 @@
  * Smoke SPRINT 3 — plantillas, cartas (HTML + PDF on-demand) y reportes de progreso.
  *
  *   npx tsx --env-file=.env.local scripts/smoke/letters-smoke.ts
+ *
+ * Org safety: only TEST JH-CRM* (or SMOKE_ORG_NAME). Live JH requires
+ * SMOKE_ALLOW_JH=1. See scripts/smoke/_lib/resolve-smoke-org.ts.
  */
 import { PrismaClient } from "@prisma/client";
 import type { OrganizationContext } from "../../src/server/auth/guards";
@@ -13,6 +16,7 @@ import * as disputes from "../../src/server/disputes";
 import * as letters from "../../src/server/letters";
 import { renderTemplate } from "../../src/lib/letters/template";
 import * as progress from "../../src/server/progress-reports";
+import { resolveSmokeOrg } from "./_lib/resolve-smoke-org";
 
 const prisma = new PrismaClient();
 const MARK = "LTR-SMOKE";
@@ -30,14 +34,10 @@ function check(label: string, condition: boolean, detail?: unknown) {
 }
 
 async function main() {
-  const org = await prisma.organization.findFirstOrThrow({
-    where: { name: "J&H Multiservices LLC" },
-  });
-  const owner = await prisma.organizationMember.findFirstOrThrow({
-    where: { organizationId: org.id, role: "OWNER" },
-  });
+  const org = await resolveSmokeOrg(prisma);
+  console.log(`[letters-smoke] org=${org.name} (${org.id})`);
   const ctx: OrganizationContext = {
-    userId: owner.userId,
+    userId: org.ownerUserId,
     organizationId: org.id,
     role: "OWNER",
   };

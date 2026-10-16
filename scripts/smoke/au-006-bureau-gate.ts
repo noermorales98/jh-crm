@@ -28,12 +28,20 @@ function check(label: string, cond: boolean, detail?: unknown) {
 function main() {
   console.log("\n[au-006-bureau-gate] fail-closed\n");
 
-  check("provider defaults to none", resolveBureauProviderId({}) === "none");
-  check("not configured by default", !isBureauProviderConfigured({}));
+  const emptyEnv = {} as NodeJS.ProcessEnv;
+
+  check(
+    "provider defaults to none",
+    resolveBureauProviderId(emptyEnv) === "none",
+  );
+  check(
+    "not configured by default",
+    !isBureauProviderConfigured(emptyEnv),
+  );
 
   const r = attemptBureauPull(
     { organizationId: "o", clientId: "c", caseId: "k" },
-    {},
+    emptyEnv,
   );
   check("pull refused", r.ok === false);
   if (!r.ok) {

@@ -52,20 +52,25 @@ function main() {
     }
   }
 
+  const emptyEnv = {} as NodeJS.ProcessEnv;
+  const stubEnv = {
+    BUREAU_PROVIDER: "array",
+  } as unknown as NodeJS.ProcessEnv;
+
   check(
     "default bureau provider is none",
-    resolveBureauProviderId({}) === BUREAU_PROVIDER_NONE,
+    resolveBureauProviderId(emptyEnv) === BUREAU_PROVIDER_NONE,
   );
   check(
     "isBureauProviderConfigured false by default",
-    !isBureauProviderConfigured({}),
+    !isBureauProviderConfigured(emptyEnv),
   );
 
   const refused = attemptBureauPull({
     organizationId: "org_smoke",
     clientId: "cli_smoke",
     caseId: "case_smoke",
-  }, {});
+  }, emptyEnv);
   check("attemptBureauPull refuses when none", !refused.ok);
   if (!refused.ok) {
     check(
@@ -84,7 +89,7 @@ function main() {
       clientId: "cli_smoke",
       caseId: "case_smoke",
     },
-    { BUREAU_PROVIDER: "array" },
+    stubEnv,
   );
   check("unknown stub provider still refuses", !stub.ok);
 

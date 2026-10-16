@@ -664,12 +664,20 @@ async function extractFromWindow(input: {
  * Extrae propuesta desde texto embebido del PDF.
  * No acepta ni envía bytes del archivo (PR-SEC-PII).
  * PDFs largos: varias ventanas + mergeExtractionProposals + heurística de scores.
+ *
+ * `onWindowComplete` — p.ej. renovar lease del job entre ventanas (AI puede
+ * superar CREDIT_PDF_JOB_LEASE_MS en PDFs de 5 ventanas).
  */
 export async function classifyAndExtractFromPdf(input: {
   extract: PdfExtractResult;
   fileName: string;
+  onWindowComplete?: (info: {
+    windowIndex: number;
+    windowTotal: number;
+    scoreFocused: boolean;
+  }) => Promise<void>;
 }): Promise<CreditPdfExtractionProposal> {
-  const { extract, fileName } = input;
+  const { extract, fileName, onWindowComplete } = input;
 
   if (extract.mode !== "text" || extract.charCount < MIN_USEFUL_CHARS) {
     return emptyManualReviewProposal([
@@ -681,6 +689,7 @@ export async function classifyAndExtractFromPdf(input: {
   const { windows, scoreWindowIndex } = buildExtractionWindows(extract.text);
   const parts: CreditPdfExtractionProposal[] = [];
   for (let i = 0; i < windows.length; i++) {
+    const scoreFocused = scoreWindowIndex === i;
     parts.push(
       await extractFromWindow({
         windowText: windows[i],
@@ -689,9 +698,16 @@ export async function classifyAndExtractFromPdf(input: {
         charCount: extract.charCount,
         windowIndex: i,
         windowTotal: windows.length,
-        scoreFocused: scoreWindowIndex === i,
+        scoreFocused,
       }),
     );
+    if (onWindowComplete) {
+      await onWindowComplete({
+        windowIndex: i,
+        windowTotal: windows.length,
+        scoreFocused,
+      });
+    }
   }
 
   let proposal = mergeExtractionProposals(parts);

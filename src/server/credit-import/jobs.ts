@@ -925,6 +925,21 @@ export async function runClaimedCreditPdfImportJob(
     const proposal = await classifyAndExtractFromPdf({
       extract,
       fileName,
+      // Renovar lease entre ventanas: 4–5× OpenRouter puede superar 10 min.
+      onWindowComplete: async ({ windowIndex, windowTotal }) => {
+        await touchLease(jobId, leaseToken, {
+          phase: "ai",
+          progress: Math.min(
+            90,
+            40 + Math.round(((windowIndex + 1) / windowTotal) * 40),
+          ),
+        });
+        logJob("ai_window", {
+          jobId,
+          windowIndex,
+          windowTotal,
+        });
+      },
     });
 
     await setPhase(jobId, leaseToken, "validate");

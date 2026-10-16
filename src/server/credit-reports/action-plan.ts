@@ -524,26 +524,9 @@ export async function getClientNegativeAnalysis(
 }
 
 async function getOrgPdfInfo(organizationId: string) {
-  const settings = await prisma.organizationSettings.findUnique({
-    where: { organizationId },
-  });
-  const addressLine = [
-    settings?.addressLine1,
-    settings?.addressLine2,
-    [settings?.city, settings?.state, settings?.postalCode]
-      .filter(Boolean)
-      .join(", "),
-  ]
-    .filter(Boolean)
-    .join(", ");
-  return {
-    legalName: settings?.legalName ?? "J&H Multiservices LLC",
-    phone: settings?.phone,
-    email: settings?.email,
-    website: settings?.website,
-    addressLine: addressLine || null,
-    timezone: settings?.timezone ?? "America/Chicago",
-  };
+  const { loadPdfOrganization } = await import("@/src/server/pdf/org-info");
+  const { info, timezone } = await loadPdfOrganization(organizationId);
+  return { ...info, timezone };
 }
 
 /** PDF on-demand del Plan de Acción (staff). */
@@ -563,6 +546,7 @@ export async function buildClientActionPlanPdf(
       email: org.email,
       website: org.website,
       addressLine: org.addressLine,
+      logo: org.logo,
     },
     clientName: plan.clientName,
     reportDate: plan.reportDate,

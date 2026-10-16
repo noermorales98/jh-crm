@@ -4,7 +4,7 @@ import { apiErrorResponse } from "@/src/server/http";
 import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
 import { generateReceiptPdf } from "@/src/lib/pdf/receipt";
-import type { PdfOrganizationInfo } from "@/src/lib/pdf/base";
+import { loadPdfOrganization } from "@/src/server/pdf/org-info";
 
 /** GET /api/receipts/[receiptId]/pdf — PDF del recibo emitido. */
 export async function GET(
@@ -30,25 +30,9 @@ export async function GET(
     });
     if (!receipt) throw new DomainError("Recibo no encontrado.");
 
-    const settings = await prisma.organizationSettings.findUnique({
-      where: { organizationId: ctx.organizationId },
+    const { info, timezone } = await loadPdfOrganization(ctx.organizationId, {
+      requireSettings: true,
     });
-    if (!settings) throw new DomainError("Configuración de la organización no encontrada.");
-
-    const addressLine = [
-      settings.addressLine1,
-      settings.addressLine2,
-      [settings.city, settings.state, settings.postalCode].filter(Boolean).join(", "),
-    ]
-      .filter(Boolean)
-      .join(", ");
-    const org: PdfOrganizationInfo = {
-      legalName: settings.legalName,
-      phone: settings.phone,
-      email: settings.email,
-      website: settings.website,
-      addressLine: addressLine || null,
-    };
 
     const concept = receipt.payment.quote
       ? `Pago de cotización ${receipt.payment.quote.folio}`
@@ -57,7 +41,7 @@ export async function GET(
         : null;
 
     const pdf = generateReceiptPdf({
-      organization: org,
+      organization: info,
       folio: receipt.folio,
       clientName: `${receipt.client.firstName} ${receipt.client.lastName ?? ""}`.trim(),
       amount: Number(receipt.amount),
@@ -67,7 +51,7 @@ export async function GET(
       issuedAt: receipt.issuedAt,
       concept,
       notes: receipt.notes,
-      timezone: settings.timezone,
+      timezone,
     });
 
     return new NextResponse(new Uint8Array(pdf), {

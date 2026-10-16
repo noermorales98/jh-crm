@@ -18,6 +18,11 @@ import {
   sendTestWhatsapp,
   updateSettings,
 } from "@/src/actions/config";
+import {
+  MARCA_LOGO_FIELD_HINT,
+  MARCA_SECTION_HINT,
+  MARCA_SECTION_TITLE,
+} from "@/src/lib/brand/marca";
 
 const MAX_WHATSAPP_RECIPIENTS = 4;
 const MAX_EMAIL_RECIPIENTS = 10;
@@ -337,8 +342,18 @@ export function SettingsForm({
 
       {section !== "notifications" ? (
         <>
-      <section className="space-y-4">
-        <h3 className="text-sm font-semibold text-ink">Empresa</h3>
+      <section className="space-y-4" aria-labelledby="marca-section-heading">
+        <div>
+          <h3
+            id="marca-section-heading"
+            className="text-sm font-semibold text-ink"
+          >
+            {MARCA_SECTION_TITLE}
+          </h3>
+          <p className="mt-0.5 text-[12px] text-text-secondary">
+            {MARCA_SECTION_HINT}
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nombre legal" htmlFor="legalName" required>
             <Input
@@ -349,7 +364,7 @@ export function SettingsForm({
               maxLength={200}
             />
           </Field>
-          <Field label="URL del logo" htmlFor="logoUrl" hint="Se usa en los PDF de cotizaciones y recibos.">
+          <Field label="URL del logo" htmlFor="logoUrl" hint={MARCA_LOGO_FIELD_HINT}>
             <Input
               id="logoUrl"
               type="url"
@@ -357,6 +372,14 @@ export function SettingsForm({
               onChange={(e) => set("logoUrl", e.target.value)}
               placeholder="https://…"
             />
+            {values.logoUrl.trim() ? (
+              // eslint-disable-next-line @next/next/no-img-element -- remote brand URL from settings
+              <img
+                src={values.logoUrl.trim()}
+                alt="Vista previa del logo"
+                className="mt-2 h-10 max-w-[10rem] object-contain object-left"
+              />
+            ) : null}
           </Field>
           <Field label="Teléfono" htmlFor="phone">
             <Input

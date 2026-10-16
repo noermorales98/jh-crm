@@ -4,34 +4,7 @@ import { apiErrorResponse } from "@/src/server/http";
 import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
 import { generateQuotePdf } from "@/src/lib/pdf/quote";
-import type { PdfOrganizationInfo } from "@/src/lib/pdf/base";
-
-async function loadOrgInfo(organizationId: string): Promise<{
-  info: PdfOrganizationInfo;
-  timezone: string;
-}> {
-  const settings = await prisma.organizationSettings.findUnique({
-    where: { organizationId },
-  });
-  if (!settings) throw new DomainError("Configuración de la organización no encontrada.");
-  const addressLine = [
-    settings.addressLine1,
-    settings.addressLine2,
-    [settings.city, settings.state, settings.postalCode].filter(Boolean).join(", "),
-  ]
-    .filter(Boolean)
-    .join(", ");
-  return {
-    info: {
-      legalName: settings.legalName,
-      phone: settings.phone,
-      email: settings.email,
-      website: settings.website,
-      addressLine: addressLine || null,
-    },
-    timezone: settings.timezone,
-  };
-}
+import { loadPdfOrganization } from "@/src/server/pdf/org-info";
 
 /** GET /api/quotes/[quoteId]/pdf — PDF de cotización generado en servidor. */
 export async function GET(
@@ -51,7 +24,9 @@ export async function GET(
     });
     if (!quote) throw new DomainError("Cotización no encontrada.");
 
-    const { info, timezone } = await loadOrgInfo(ctx.organizationId);
+    const { info, timezone } = await loadPdfOrganization(ctx.organizationId, {
+      requireSettings: true,
+    });
     const pdf = generateQuotePdf({
       organization: info,
       folio: quote.folio,

@@ -11,10 +11,14 @@ import {
   Tabs,
 } from "@/src/components/ui";
 import { SettingsForm } from "@/src/components/config/settings-form";
+import {
+  MARCA_SETTINGS_DESCRIPTION,
+  MARCA_SETTINGS_TITLE,
+} from "@/src/lib/brand/marca";
 import { CONFIG_TABS } from "./config-tabs";
 
 export const metadata: Metadata = {
-  title: "Configuración",
+  title: MARCA_SETTINGS_TITLE,
 };
 
 export default async function SettingsPage() {
@@ -24,8 +28,8 @@ export default async function SettingsPage() {
     return (
       <div>
         <PageHeader
-          title="Configuración"
-          description="Datos de la empresa, moneda, impuestos y folios."
+          title={MARCA_SETTINGS_TITLE}
+          description={MARCA_SETTINGS_DESCRIPTION}
         />
         <Card>
           <EmptyState
@@ -43,8 +47,8 @@ export default async function SettingsPage() {
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader
-        title="Configuración"
-        description="Datos de la empresa, moneda, impuestos, folios y términos. El correo y WhatsApp están en la pestaña Notificaciones."
+        title={MARCA_SETTINGS_TITLE}
+        description={MARCA_SETTINGS_DESCRIPTION}
       />
 
       <Tabs items={CONFIG_TABS} />

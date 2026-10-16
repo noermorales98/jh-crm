@@ -1,9 +1,10 @@
 /**
  * Generadores de PDF en servidor con jsPDF.
  * Reciben datos ya cargados (sin acceso a BD) y devuelven Buffer.
- * Diseño sobrio: encabezado con nombre legal, tabla de ítems y totales.
+ * Diseño sobrio: encabezado con logo opcional + nombre legal, tabla de ítems y totales.
  */
 import { jsPDF } from "jspdf";
+import { logoBoxMm, type PdfLogo } from "./logo";
 
 export interface PdfOrganizationInfo {
   legalName: string;
@@ -11,6 +12,8 @@ export interface PdfOrganizationInfo {
   email?: string | null;
   website?: string | null;
   addressLine?: string | null;
+  /** Pre-fetched logo (see fetchLogoForPdf). */
+  logo?: PdfLogo | null;
 }
 
 const MARGIN = 20;
@@ -37,9 +40,32 @@ function startDocument(org: PdfOrganizationInfo, title: string, folio: string) {
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   doc.setProperties({ title: `${title} ${folio}`, creator: org.legalName });
 
+  let textX = MARGIN;
+  let logoBottom = MARGIN;
+
+  if (org.logo?.dataUrl) {
+    const box = logoBoxMm(org.logo);
+    try {
+      doc.addImage(
+        org.logo.dataUrl,
+        org.logo.format,
+        MARGIN,
+        MARGIN - 4,
+        box.widthMm,
+        box.heightMm,
+      );
+      textX = MARGIN + box.widthMm + 4;
+      logoBottom = MARGIN - 4 + box.heightMm;
+    } catch {
+      // Logo corrupt → fall back to text-only header.
+      textX = MARGIN;
+      logoBottom = MARGIN;
+    }
+  }
+
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
-  doc.text(org.legalName, MARGIN, MARGIN);
+  doc.text(org.legalName, textX, MARGIN);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
@@ -49,7 +75,8 @@ function startDocument(org: PdfOrganizationInfo, title: string, folio: string) {
     .filter(Boolean)
     .join("  ·  ");
   if (contact) {
-    doc.text(doc.splitTextToSize(contact, PAGE_WIDTH - MARGIN * 2), MARGIN, y);
+    const contactWidth = PAGE_WIDTH - textX - MARGIN - 55;
+    doc.text(doc.splitTextToSize(contact, Math.max(40, contactWidth)), textX, y);
     y += 5;
   }
 
@@ -60,10 +87,11 @@ function startDocument(org: PdfOrganizationInfo, title: string, folio: string) {
   doc.setFontSize(10);
   doc.text(folio, PAGE_WIDTH - MARGIN, MARGIN + 6, { align: "right" });
 
+  const ruleY = Math.max(MARGIN + 12, logoBottom + 3, y + 2);
   doc.setDrawColor(200);
-  doc.line(MARGIN, MARGIN + 12, PAGE_WIDTH - MARGIN, MARGIN + 12);
+  doc.line(MARGIN, ruleY, PAGE_WIDTH - MARGIN, ruleY);
 
-  return { doc, yStart: MARGIN + 22 };
+  return { doc, yStart: ruleY + 10 };
 }
 
 function toBuffer(doc: jsPDF): Buffer {

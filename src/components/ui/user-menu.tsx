@@ -259,6 +259,16 @@ export function UserMenu({
               <Settings className={MENU_ICON_CLASSES} aria-hidden />
               Configuración
             </Link>
+            <Link
+              href="/crm/usuarios"
+              role="menuitem"
+              onClick={() => setOpen(false)}
+              data-cuelume-hover="tick"
+              className={MENU_ITEM_CLASSES}
+            >
+              <UserCog className={MENU_ICON_CLASSES} aria-hidden />
+              Equipo
+            </Link>
             {isManager ? (
               <>
                 <Link
@@ -270,16 +280,6 @@ export function UserMenu({
                 >
                   <Bell className={MENU_ICON_CLASSES} aria-hidden />
                   Notificaciones
-                </Link>
-                <Link
-                  href="/crm/usuarios"
-                  role="menuitem"
-                  onClick={() => setOpen(false)}
-                  data-cuelume-hover="tick"
-                  className={MENU_ITEM_CLASSES}
-                >
-                  <UserCog className={MENU_ICON_CLASSES} aria-hidden />
-                  Usuarios
                 </Link>
                 <Link
                   href="/crm/auditoria"

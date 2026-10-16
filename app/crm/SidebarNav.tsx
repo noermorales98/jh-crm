@@ -80,7 +80,6 @@ export function SidebarNav() {
       : searchParams.get("folder");
   const settingsActive =
     pathname.startsWith("/crm/configuracion") ||
-    pathname.startsWith("/crm/usuarios") ||
     pathname.startsWith("/crm/auditoria");
 
   useEffect(() => {

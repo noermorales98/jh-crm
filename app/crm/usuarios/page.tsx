@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ShieldAlert, UserCog } from "lucide-react";
+import { UserCog } from "lucide-react";
 import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import * as userService from "@/src/server/users";
@@ -17,13 +17,18 @@ import {
 } from "@/src/components/ui";
 import { formatDateTime } from "@/src/lib/format";
 import {
+  EQUIPO_PAGE_DESCRIPTION,
+  EQUIPO_PAGE_DESCRIPTION_MANAGE,
+  EQUIPO_PAGE_TITLE,
+} from "@/src/lib/users/equipo";
+import {
   InviteUserButton,
   ROLE_LABELS,
 } from "@/src/components/users/invite-user-button";
 import { MemberRowActions } from "@/src/components/users/member-row-actions";
 
 export const metadata: Metadata = {
-  title: "Usuarios",
+  title: EQUIPO_PAGE_TITLE,
 };
 
 const ROLE_TONES: Record<string, "purple" | "indigo" | "blue" | "slate"> = {
@@ -36,33 +41,21 @@ const ROLE_TONES: Record<string, "purple" | "indigo" | "blue" | "slate"> = {
 
 export default async function UsersPage() {
   const ctx = await requireOrganization();
-
-  if (!can(ctx.role, "users.manage")) {
-    return (
-      <div>
-        <PageHeader
-          title="Usuarios"
-          description="Gestión de miembros y roles de la organización."
-        />
-        <Card>
-          <EmptyState
-            icon={ShieldAlert}
-            title="Acceso restringido"
-            description="Solo el propietario y los administradores pueden gestionar usuarios."
-          />
-        </Card>
-      </div>
-    );
-  }
-
+  const canManage = can(ctx.role, "users.manage");
   const members = await userService.listMembers(ctx);
 
   return (
     <div>
       <PageHeader
-        title="Usuarios"
-        description="Miembros de la organización y sus roles. La contraseña temporal de una invitación se entrega manualmente."
-        actions={<InviteUserButton canInviteOwner={ctx.role === "OWNER"} />}
+        title={EQUIPO_PAGE_TITLE}
+        description={
+          canManage ? EQUIPO_PAGE_DESCRIPTION_MANAGE : EQUIPO_PAGE_DESCRIPTION
+        }
+        actions={
+          canManage ? (
+            <InviteUserButton canInviteOwner={ctx.role === "OWNER"} />
+          ) : undefined
+        }
       />
 
       <Card>
@@ -81,7 +74,7 @@ export default async function UsersPage() {
                 <TH>Rol</TH>
                 <TH>Estado</TH>
                 <TH>Último acceso</TH>
-                <TH>Acciones</TH>
+                {canManage ? <TH>Acciones</TH> : null}
               </TR>
             </THead>
             <TBody>
@@ -93,7 +86,9 @@ export default async function UsersPage() {
                       <span className="ml-1 text-xs text-text-secondary">(tú)</span>
                     ) : null}
                   </TD>
-                  <TD className="font-mono text-[12px] text-text-secondary-strong">{member.user.email}</TD>
+                  <TD className="font-mono text-[12px] text-text-secondary-strong">
+                    {member.user.email}
+                  </TD>
                   <TD>
                     <Pill tone={ROLE_TONES[member.role] ?? "slate"}>
                       {ROLE_LABELS[member.role] ?? member.role}
@@ -111,17 +106,19 @@ export default async function UsersPage() {
                       ? formatDateTime(member.user.lastLoginAt)
                       : "Nunca"}
                   </TD>
-                  <TD>
-                    <MemberRowActions
-                      userId={member.user.id}
-                      name={member.user.name ?? member.user.email}
-                      email={member.user.email}
-                      role={member.role}
-                      isActive={member.user.isActive}
-                      isSelf={member.user.id === ctx.userId}
-                      canAssignOwner={ctx.role === "OWNER"}
-                    />
-                  </TD>
+                  {canManage ? (
+                    <TD>
+                      <MemberRowActions
+                        userId={member.user.id}
+                        name={member.user.name ?? member.user.email}
+                        email={member.user.email}
+                        role={member.role}
+                        isActive={member.user.isActive}
+                        isSelf={member.user.id === ctx.userId}
+                        canAssignOwner={ctx.role === "OWNER"}
+                      />
+                    </TD>
+                  ) : null}
                 </TR>
               ))}
             </TBody>

@@ -22,6 +22,7 @@ import * as creditImport from "@/src/server/credit-import";
 import {
   getCreditPdfImportJob,
   listActiveCreditPdfImportJobs,
+  listPendingConfirmCreditPdfJobs,
   processCreditPdfImportJob,
   startCreditPdfImportJob,
 } from "@/src/server/credit-import/jobs";
@@ -117,6 +118,24 @@ export async function listActiveCreditPdfImportJobsAction(): Promise<
       return actionOk([]);
     }
     const jobs = await listActiveCreditPdfImportJobs(ctx);
+    return actionOk(jobs);
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+export async function listPendingConfirmCreditPdfJobsAction(
+  filter: { caseId?: string; clientId?: string } = {},
+): Promise<
+  ActionResult<Awaited<ReturnType<typeof listPendingConfirmCreditPdfJobs>>>
+> {
+  try {
+    const ctx = await requireOrganization();
+    if (!can(ctx.role, "creditReports.manage")) {
+      return actionOk([]);
+    }
+    const jobs = await listPendingConfirmCreditPdfJobs(ctx, filter);
     return actionOk(jobs);
   } catch (error) {
     if (isNextControlError(error)) throw error;

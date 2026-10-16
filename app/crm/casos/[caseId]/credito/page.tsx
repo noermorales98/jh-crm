@@ -29,7 +29,9 @@ import {
 } from "@/src/lib/labels";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
 import { AnalyzePdfImportButton } from "@/src/components/credit-reports/analyze-pdf-import";
+import { CreditPdfPendingConfirmBanner } from "@/src/components/credit-reports/credit-pdf-pending-confirm";
 import { CreateComparisonButton } from "@/src/components/comparisons/create-comparison-button";
+import { listPendingConfirmCreditPdfJobs } from "@/src/server/credit-import/jobs";
 import { GenerateProgressReportButton } from "@/src/components/letters/generate-progress-report-button";
 import { CreditEvolutionSection } from "@/src/components/credit-reports/credit-evolution-section";
 import { CaseHeader } from "../case-header";
@@ -58,17 +60,23 @@ export default async function CaseCreditPage({
     notFound();
   }
 
-  const overview = await creditReports.getCaseCreditOverview(ctx, caseId);
-  const comparisonList = can(ctx.role, "comparisons.view")
-    ? await comparisons.listComparisonsForCase(ctx, caseId)
-    : [];
   const canManage = can(ctx.role, "creditReports.manage");
+  const [overview, comparisonList, progressReports, pendingPdfConfirms] =
+    await Promise.all([
+      creditReports.getCaseCreditOverview(ctx, caseId),
+      can(ctx.role, "comparisons.view")
+        ? comparisons.listComparisonsForCase(ctx, caseId)
+        : Promise.resolve([]),
+      can(ctx.role, "letters.view")
+        ? progressService.listProgressReportsForCase(ctx, caseId)
+        : Promise.resolve([]),
+      canManage
+        ? listPendingConfirmCreditPdfJobs(ctx, { caseId })
+        : Promise.resolve([]),
+    ]);
   const canCompare = can(ctx.role, "comparisons.manage");
   const canLetters = can(ctx.role, "letters.manage");
   const canViewLetters = can(ctx.role, "letters.view");
-  const progressReports = canViewLetters
-    ? await progressService.listProgressReportsForCase(ctx, caseId)
-    : [];
   const { case: creditCase } = detail;
 
   return (
@@ -99,6 +107,10 @@ export default async function CaseCreditPage({
           </div>
         }
       />
+
+      {pendingPdfConfirms.length > 0 ? (
+        <CreditPdfPendingConfirmBanner jobs={pendingPdfConfirms} />
+      ) : null}
 
       <CreditEvolutionSection
         current={overview.current}

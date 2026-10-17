@@ -96,7 +96,11 @@ import {
   formatScorePlanCopy,
   formatScorePlanMoney,
 } from "@/src/lib/credit/score-plan";
-import { buildFundingPrepPanel } from "@/src/lib/credit/funding-prep";
+import {
+  buildFundingPrepPanel,
+  formatFundingPrepEstimateDetail,
+  fundingPrepEstimateReady,
+} from "@/src/lib/credit/funding-prep";
 import {
   loadClientOpsPanelAction,
   type ClientOpsPanel,
@@ -418,8 +422,9 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [moreOpen]);
 
+  // Prefetch cuando hay reporte (KPI Fondeo + Score/Fondeo modales).
   const planHubKey =
-    panel === "score" || panel === "fondeo"
+    props.reportsCount > 0 || panel === "score" || panel === "fondeo"
       ? `${props.client.id}:${effectiveReportId ?? "none"}`
       : null;
   const planHubLoading =
@@ -468,11 +473,20 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 avgScore: planHub.avgScore,
                 avgUtilization: planHub.avgUtilization,
                 bureausApproved: planHub.bureausApproved,
+                negativeCount: planHub.negativeCount,
+                totalLimit: planHub.revolving.totalLimit,
+                totalUsed: planHub.revolving.totalUsed,
                 verdict: planHub.verdict,
               },
       }),
     [planHub, planHubLoading, planHubError],
   );
+  const fondeoKpiLabel = fundingPrepEstimateReady(fundingPrep)
+    ? fundingPrep.estimateMidLabel ?? props.kpis.fondeoPotencial
+    : props.kpis.fondeoPotencial;
+  const fondeoCapsuleSubtitle = fundingPrepEstimateReady(fundingPrep)
+    ? `Estimado ${fundingPrep.estimateMidLabel}`
+    : "Estimado JH";
 
   function onEdit(formData: FormData) {
     setError(null);
@@ -760,7 +774,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               Fondeo
             </p>
             <p className="mt-1 truncate text-[26px] font-semibold leading-none tracking-[-0.03em] tabular-nums text-ink">
-              {props.kpis.fondeoPotencial}
+              {fondeoKpiLabel}
             </p>
           </div>
           <div className="min-w-0 border-l border-border-subtle/70 pl-3 sm:pl-4">
@@ -829,7 +843,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           <ActionCapsule
             icon={Calculator}
             title="Fondeo"
-            subtitle="Señales"
+            subtitle={fondeoCapsuleSubtitle}
             onClick={() => setPanel("fondeo")}
           />
           <ActionCapsule
@@ -1380,6 +1394,9 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               {scoreRows.length}{" "}
               {scoreRows.length === 1 ? "registro" : "registros"}
               {planHub?.avgScore != null ? ` · score ${planHub.avgScore}` : ""}
+              {fundingPrepEstimateReady(fundingPrep)
+                ? ` · fondeo estimado ${fundingPrep.estimateMidLabel}`
+                : ""}
             </p>
           ) : null}
           <label className="block text-[13px]">
@@ -1486,6 +1503,25 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 {fundingPrep.title}
               </p>
               <p className="mt-1 text-text-secondary">{fundingPrep.summary}</p>
+              {fundingPrep.estimate.kind === "ready" ? (
+                <div className="mt-3 space-y-1">
+                  <p className="text-[12px] font-medium text-ink">
+                    Estimado JH de preparación (banda{" "}
+                    {fundingPrep.estimate.bandLabel})
+                  </p>
+                  <p className="text-[22px] font-semibold tabular-nums tracking-[-0.03em] text-ink">
+                    {fundingPrep.estimateRangeLabel}
+                  </p>
+                  <p className="text-[12px] text-text-secondary">
+                    Punto medio {fundingPrep.estimateMidLabel} ·{" "}
+                    {formatFundingPrepEstimateDetail(fundingPrep.estimate)}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-3 text-[12px] text-text-secondary">
+                  {fundingPrep.estimate.reason}
+                </p>
+              )}
               <p className="mt-2 text-[12px] text-text-secondary">
                 {fundingPrep.verdict}
               </p>

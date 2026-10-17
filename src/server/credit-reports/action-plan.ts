@@ -148,12 +148,27 @@ export async function getClientActionPlan(
 
   let resolvedReportId = reportId ?? null;
   if (!resolvedReportId) {
-    const latest = await prisma.creditReport.findFirst({
-      where: { organizationId: ctx.organizationId, clientId },
+    // Prefer the latest report that has snapshots or items (empty UPDATE shells
+    // would otherwise hide Score/Fondeo estimates).
+    const withData = await prisma.creditReport.findFirst({
+      where: {
+        organizationId: ctx.organizationId,
+        clientId,
+        OR: [{ snapshots: { some: {} } }, { items: { some: {} } }],
+      },
       orderBy: [{ reportDate: "desc" }, { importedAt: "desc" }],
       select: { id: true },
     });
-    resolvedReportId = latest?.id ?? null;
+    if (withData) {
+      resolvedReportId = withData.id;
+    } else {
+      const latest = await prisma.creditReport.findFirst({
+        where: { organizationId: ctx.organizationId, clientId },
+        orderBy: [{ reportDate: "desc" }, { importedAt: "desc" }],
+        select: { id: true },
+      });
+      resolvedReportId = latest?.id ?? null;
+    }
   }
   if (!resolvedReportId) {
     throw new DomainError("Sin reportes de crédito para este cliente.");

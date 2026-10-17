@@ -89,10 +89,10 @@ Modal BETA: resumen + categorías (charge-off, pagos tardíos, datos personales,
 | Análisis categorizado | ✅ charge-off / late / datos personales / inquiries / other | — |
 | AU / edad en plan | ✅ AU por texto de ítem; edad desde `dateOpened` o «Sin dato» | — |
 | Descargar PDF del plan | ✅ `/api/clients/:id/action-plan/pdf` (jsPDF) | — |
-| Score Plan / Fondeo / Avance | ✅ revolving real / veredicto plan / link rondas; Fondeo = señales heurísticas sin monto | Pixel-perfect Fondify (fuera de alcance) |
+| Score Plan / Fondeo / Avance | ✅ revolving real / veredicto plan / link rondas; Fondeo = señales + **estimado JH bandas** (`funding-estimate`) | Pixel-perfect Fondify (fuera de alcance) |
 | Evolución scores CL-004 | ✅ `/reportes` aparte del PDF | — |
 
-**Nota (Fondeo):** no hay fórmula de monto de fondeo aprobada en jh-crm. El panel «Preparación para Fondeo» solo muestra señales del reporte (plan de acción / `fundingMatrix`); no calcula ofertas ni elegibilidad.
+**Nota (Fondeo):** estimado JH de montos (low/mid/high) a partir de score/util/negativos/burós/`fundingMatrix` + capacidad revolving. **No** es oferta ni elegibilidad de prestamista. Fórmula documentada en el Project store `docs/score-fondeo-montos.md` (y PR). No copia fórmulas Fondify.
 
 Archivos clave:
 

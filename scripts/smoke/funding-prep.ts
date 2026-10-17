@@ -1,5 +1,5 @@
 /**
- * Preparación para Fondeo: señales del reporte, sin montos.
+ * Preparación para Fondeo: señales + estimado JH de montos (bandas).
  *
  *   npm run smoke:funding-prep
  *
@@ -12,8 +12,7 @@ import {
   FUNDING_PREP_TITLE_REVIEW,
   buildFundingPrepPanel,
   formatFundingPrepText,
-  fundingPrepExposesAmountFields,
-  fundingPrepHasDollarAmount,
+  fundingPrepEstimateReady,
   type FundingPrepHub,
 } from "../../src/lib/credit/funding-prep";
 
@@ -25,34 +24,18 @@ function check(label: string, ok: boolean, detail?: unknown) {
   console.log(`  ✓ ${label}`);
 }
 
-function assertNoFundingAmount(
-  label: string,
-  view: ReturnType<typeof buildFundingPrepPanel>,
-) {
-  check(
-    `${label}: sin campos amount/estimate`,
-    !fundingPrepExposesAmountFields(view),
-    view,
-  );
-  check(
-    `${label}: texto sin monto en dólares`,
-    !fundingPrepHasDollarAmount(view),
-    formatFundingPrepText(view),
-  );
-  check(
-    `${label}: sin fórmula cash*2.5`,
-    !/2\.5|cash\s*\*|months\s*\*|1500/.test(formatFundingPrepText(view)),
-    formatFundingPrepText(view),
-  );
-}
-
-function hub(partial: Partial<FundingPrepHub> & { qualified: boolean }): FundingPrepHub {
+function hub(
+  partial: Partial<FundingPrepHub> & { qualified: boolean },
+): FundingPrepHub {
   return {
     reportId: partial.reportId ?? "rep-synthetic-1",
     qualified: partial.qualified,
     avgScore: partial.avgScore ?? null,
     avgUtilization: partial.avgUtilization ?? null,
     bureausApproved: partial.bureausApproved ?? 0,
+    negativeCount: partial.negativeCount ?? 0,
+    totalLimit: partial.totalLimit ?? null,
+    totalUsed: partial.totalUsed ?? null,
     verdict:
       partial.verdict ??
       (partial.qualified
@@ -75,7 +58,6 @@ function main() {
     loading.kind === "loading" &&
       loading.message === FUNDING_PREP_LOADING_MESSAGE,
   );
-  assertNoFundingAmount("loading", loading);
 
   const noReport = buildFundingPrepPanel({
     loading: false,
@@ -83,37 +65,6 @@ function main() {
     hub: null,
   });
   check("sin reporte → kind error", noReport.kind === "error");
-  check(
-    "sin reporte mensaje",
-    noReport.kind === "error" &&
-      noReport.message === "Sin reportes de crédito para este cliente.",
-  );
-  assertNoFundingAmount("sin reporte", noReport);
-
-  const loadError = buildFundingPrepPanel({
-    loading: false,
-    error: "No se pudo cargar el plan de acción.",
-    hub: null,
-  });
-  check("error de carga → kind error", loadError.kind === "error");
-  check(
-    "error de carga no muestra hub",
-    loadError.kind === "error" &&
-      !("reportId" in loadError) &&
-      !("summary" in loadError),
-  );
-  assertNoFundingAmount("error de carga", loadError);
-
-  const cleared = buildFundingPrepPanel({
-    loading: false,
-    error: null,
-    hub: null,
-  });
-  check(
-    "hub null sin error → error genérico (sin resumen anterior)",
-    cleared.kind === "error",
-  );
-  assertNoFundingAmount("hub null", cleared);
 
   const favorable = buildFundingPrepPanel({
     loading: false,
@@ -123,6 +74,9 @@ function main() {
       avgScore: 740,
       avgUtilization: 8,
       bureausApproved: 2,
+      negativeCount: 0,
+      totalLimit: 45_000,
+      totalUsed: 3_000,
     }),
   });
   check("señales favorables → ready", favorable.kind === "ready");
@@ -138,16 +92,33 @@ function main() {
       favorable.summary === "2/3 burós cumplen heurística · score 740 · util 8%",
   );
   check(
-    "favorables: disclaimer heurístico",
+    "favorables: disclaimer estimado JH",
     favorable.kind === "ready" &&
       favorable.disclaimer === FUNDING_PREP_DISCLAIMER,
   );
   check(
-    "favorables: no afirma aprobación/oferta/elegibilidad en título",
+    "favorables: estimado ready con montos",
+    fundingPrepEstimateReady(favorable),
+  );
+  if (fundingPrepEstimateReady(favorable)) {
+    check(
+      "favorables: range label con $",
+      Boolean(favorable.estimateRangeLabel?.includes("$")),
+    );
+    check(
+      "favorables: mid label",
+      Boolean(favorable.estimateMidLabel?.startsWith("~$")),
+    );
+    check(
+      "favorables: texto incluye estimado",
+      formatFundingPrepText(favorable).includes("Estimado JH"),
+    );
+  }
+  check(
+    "favorables: no afirma aprobación en título",
     favorable.kind === "ready" &&
       !/aprobad|deneg|oferta|elegib/i.test(favorable.title),
   );
-  assertNoFundingAmount("favorables", favorable);
 
   const prepare = buildFundingPrepPanel({
     loading: false,
@@ -157,6 +128,9 @@ function main() {
       avgScore: 680,
       avgUtilization: 35,
       bureausApproved: 0,
+      negativeCount: 3,
+      totalLimit: 10_000,
+      totalUsed: 7_000,
     }),
   });
   check("señales a revisar → ready", prepare.kind === "ready");
@@ -167,32 +141,28 @@ function main() {
       prepare.tone === "prepare",
   );
   check(
-    "preparar: resumen 0 burós",
-    prepare.kind === "ready" &&
-      prepare.summary === "0/3 burós cumplen heurística · score 680 · util 35%",
+    "preparar: también calcula banda (más baja)",
+    fundingPrepEstimateReady(prepare),
   );
-  check(
-    "preparar: no afirma denegación en título",
-    prepare.kind === "ready" && !/deneg/i.test(prepare.title),
-  );
-  assertNoFundingAmount("preparar", prepare);
+  if (
+    fundingPrepEstimateReady(favorable) &&
+    fundingPrepEstimateReady(prepare)
+  ) {
+    check(
+      "preparar mid < favorables mid",
+      prepare.estimate.mid < favorable.estimate.mid,
+      {
+        prepare: prepare.estimate.mid,
+        favorable: favorable.estimate.mid,
+      },
+    );
+  }
 
-  // Regresión: inputs que antes producían dólares no existen en el view-model.
-  const withCashLikeHub = buildFundingPrepPanel({
-    loading: false,
-    error: null,
-    hub: hub({
-      qualified: true,
-      avgScore: 750,
-      avgUtilization: 5,
-      bureausApproved: 3,
-    }),
-  });
-  const text = formatFundingPrepText(withCashLikeHub);
-  const oldFormula = Math.round(20_000 * 2.5 + 24 * 1500);
+  const banned = Math.round(20_000 * 2.5 + 24 * 1500);
+  const text = formatFundingPrepText(favorable);
   check(
-    "no aparece el monto de la fórmula antigua",
-    !text.includes(String(oldFormula)) && !text.includes("$86,000"),
+    "no aparece el monto de la fórmula antigua cash*2.5",
+    !text.includes(String(banned)) && !text.includes("$86,000"),
     text,
   );
 

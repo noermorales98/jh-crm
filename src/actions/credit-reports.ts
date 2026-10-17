@@ -167,6 +167,7 @@ export type ClientActionPlanHubDto = {
   avgScore: number | null;
   avgUtilization: number | null;
   bureausApproved: number;
+  negativeCount: number;
   verdict: string;
   revolving: {
     openCards: number;
@@ -273,6 +274,7 @@ export async function loadClientActionPlanHub(
       avgScore: plan.avgScore,
       avgUtilization: plan.avgUtilization,
       bureausApproved: plan.bureausApproved,
+      negativeCount: plan.negativeCount,
       verdict: plan.verdict,
       revolving: {
         openCards: plan.revolving.openCards,

@@ -88,7 +88,7 @@ Las tarjetas del plan se deduplican con la clave `acreedor|buró|límite|saldo`.
 
 ## Contratos de calidad
 
-[`src/lib/credit/contracts.ts`](../../../src/lib/credit/contracts.ts) define calidad, revisión, familia, responsabilidad, dinero en centavos, basis points, fecha parcial y comparación de scores. No hay columnas nuevas en Prisma.
+[`src/lib/credit/contracts.ts`](../../../src/lib/credit/contracts.ts) define calidad, revisión, familia, responsabilidad, dinero en centavos, basis points, fecha parcial, comparación de scores y `assertSameCreditScope`. El schema ya tiene columnas y tablas opcionales en `prisma/migrations/20261019233000_credit_additive_identity`. Esa migración no se aplicó: el host configurado no es loopback. No hay backfill y el adaptador de escritura todavía no guarda familia, responsabilidad ni calidad.
 
 `adaptLegacyCreditItem` se llama desde `itemCreateData` y `updateCreditItem` en [`src/server/credit-reports/index.ts`](../../../src/server/credit-reports/index.ts). Solo rechaza un importe `INVALID`. Null y cero se guardan como antes. Familia y responsabilidad no se persisten. `provenance.ts` sigue aparte, para «N/A» de la extracción. El Zod legacy de [`src/lib/validation/credit-reports.ts`](../../../src/lib/validation/credit-reports.ts) conserva el rango 300–900; el contrato nuevo no lo convierte en regla universal.
 
@@ -98,7 +98,7 @@ Comprobación: `npm run smoke:credit-contracts`, también en el job QA junto a l
 
 | Patrón | Resultado en este HEAD |
 |---|---|
-| `canonicalTradeline`, `ownershipType` | Sin coincidencias de dominio. No hay identidad canónica ni responsabilidad confirmada |
+| `canonicalTradeline`, `ownershipType` | Columnas y `CanonicalTradeline` en el schema, FK nullable, sin filas ni backfill. La escritura actual no las llena |
 | `funding-estimate` | [`src/lib/credit/funding-estimate.ts`](../../../src/lib/credit/funding-estimate.ts) y `npm run smoke:funding-estimate` |
 | `action-plan` | [`src/server/credit-reports/action-plan.ts`](../../../src/server/credit-reports/action-plan.ts) |
 | `isNegative` | Columna de `CreditItem`, orden de listas, selección de importación y filtros de disputa |
@@ -111,18 +111,18 @@ La matriz está en [MATRIZ-HALLAZGOS.md](MATRIZ-HALLAZGOS.md). Aquí sólo se di
 
 | Hallazgo | Clasificación | Dónde |
 |---|---|---|
-| Cuentas contadas por buró; mezcla installment/revolving | Vigente | No hay cuenta canónica. El plan suma tarjetas por observación y trata límite null como 0 |
-| Score sin familia/versión; promedio como preparación | Vigente | `CreditBureauSnapshot.score` es un entero. `avgScore` es la media |
+| Cuentas contadas por buró; mezcla installment/revolving | Vigente | `CanonicalTradeline` existe y está vacía. El plan sigue sumando por observación y trata límite null como 0 |
+| Score sin familia/versión; promedio como preparación | Vigente | `CreditBureauSnapshot.score` sigue siendo un entero. `CreditScoreObservation.modelFamily` nace null. `avgScore` es la media |
 | Bandas de fondeo y puntos FICO sin modelo | Retirado en superficies activas (T01) | `computeFundingEstimate` no devuelve monto. `ficoImpact` no publica puntos. El PDF nuevo se genera al vuelo |
 | AU por regex y montos fijos | Parcialmente vigente | Sigue el regex. La copia ya no recomienda cantidad ni $15,000. Los precios de cotización de servicio no se tocaron |
 | Edad null permite qualified | Vigente | `ageOk === null` entra en `allOk` |
 | Parser con tope 200 y prioridad de negativos | Parcialmente vigente | El corte a 200 está. La extracción no descarta positivos, pero la confirmación preselecciona negativos o los primeros 40, y un `UNKNOWN` con un negativo se clasifica como reporte |
 | Negativo tratado como disputable | Vigente | `disputeEligible` por defecto `true`; listas ordenadas por `isNegative` |
 | Score Plan sólo paydown | Vigente | `buildScorePlan` no reparte un presupuesto |
-| Consultas como contador; antigüedad con reloj de ejecución | Vigente | `inquiries Int?`. La edad usa `Date.now()` y `dateOpened`, no `reportDate` |
+| Consultas como contador; antigüedad con reloj de ejecución | Vigente | `inquiries Int?` se conserva. `CreditInquiry` nace vacía y no se fabrica desde el contador. La edad usa `Date.now()` y `dateOpened`, no `reportDate` |
 | Cambio posterior a ronda como logro causal | Parcialmente vigente | El diff no afirma la causa. La etiqueta «Eliminado» y el delta verde tampoco la niegan ni la separan de la disputa |
 | Programas y capacidad financiera sin datos completos | Vigente | No hay DTI/DSCR ni ruleset versionado. El monto de fondeo queda indisponible hasta T20. `qualifyCreditProfile` no los sustituye |
 | Tests que fijan la heurística actual | Parcialmente vigente | `smoke:funding-estimate` y `smoke:funding-prep` exigen `UNAVAILABLE`. `smoke:score-plan` sigue fijando el paydown. `smoke:credit-contracts` cubre null, cero y centavos |
 | Corpus F01–F30, aislamiento entre organizaciones, datos de producción | No verificable en T00 | Quedan para T24 y T26. No se consultó producción |
 
-La contención de bandas y puntos quedó en T01. Los contratos de calidad quedaron en T02, sin migración. El resto de la matriz sigue abierto. T03 es el siguiente cambio.
+La contención de bandas y puntos quedó en T01. Los contratos de calidad quedaron en T02. T03 dejó el SQL aditivo y el cliente generado; el `migrate deploy` no se ejecutó porque la base configurada no es local. T03 no está HECHO. T04 no se abrió.

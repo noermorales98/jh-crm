@@ -319,3 +319,14 @@ export function legacyItemHasInvalidMoney(item: LegacyCreditItemInput): boolean 
     adapted.monthlyPayment.quality === "INVALID"
   );
 }
+
+export type CreditScope = {
+  organizationId: string;
+  clientId: string;
+};
+
+export function assertSameCreditScope(left: CreditScope, right: CreditScope): void {
+  if (left.organizationId !== right.organizationId || left.clientId !== right.clientId) {
+    throw new Error("SCOPE_MISMATCH");
+  }
+}

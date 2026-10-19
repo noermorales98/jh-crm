@@ -5,8 +5,10 @@
  *
  * Sin red y sin DATABASE_URL.
  */
+import { readFileSync } from "node:fs";
 import {
   adaptLegacyCreditItem,
+  assertSameCreditScope,
   legacyItemHasInvalidMoney,
   parseMoney,
   parsePartialDate,
@@ -126,6 +128,55 @@ function main() {
     balance: "8.00",
   });
   check("credit card se infiere, no se certifica", revolving.family.value === "REVOLVING" && revolving.family.quality === "INFERRED");
+
+  let orgMismatch = false;
+  try {
+    assertSameCreditScope(
+      { organizationId: "org-a", clientId: "client-1" },
+      { organizationId: "org-b", clientId: "client-1" },
+    );
+  } catch (error) {
+    orgMismatch = error instanceof Error && error.message === "SCOPE_MISMATCH";
+  }
+  check("organización distinta es SCOPE_MISMATCH", orgMismatch);
+
+  let clientMismatch = false;
+  try {
+    assertSameCreditScope(
+      { organizationId: "org-a", clientId: "client-1" },
+      { organizationId: "org-a", clientId: "client-2" },
+    );
+  } catch (error) {
+    clientMismatch = error instanceof Error && error.message === "SCOPE_MISMATCH";
+  }
+  check("cliente distinto es SCOPE_MISMATCH", clientMismatch);
+
+  let sameScope = true;
+  try {
+    assertSameCreditScope(
+      { organizationId: "org-a", clientId: "client-1" },
+      { organizationId: "org-a", clientId: "client-1" },
+    );
+  } catch {
+    sameScope = false;
+  }
+  check("mismo banco y mismo cliente no se rechazan por scope", sameScope);
+
+  const sql = readFileSync(
+    "prisma/migrations/20261019233000_credit_additive_identity/migration.sql",
+    "utf8",
+  );
+  check("canonicalTradelineId nace nullable", sql.includes("`canonicalTradelineId` VARCHAR(191) NULL"));
+  check("el SQL no elimina tablas ni columnas", !/\bDROP\b/i.test(sql) && !/\bTRUNCATE\b/i.test(sql));
+  check(
+    "dos cuentas del mismo acreedor no chocan por índice",
+    !/UNIQUE INDEX[^;]*creditorNormalized/.test(sql),
+  );
+  check("past due usa Decimal(12, 2)", sql.includes("`pastDueAmount` DECIMAL(12, 2) NULL"));
+  check(
+    "la familia del score nace null y no es FICO",
+    sql.includes("`modelFamily` VARCHAR(191) NULL") && !sql.includes("FICO"),
+  );
 
   console.log("\nOK credit-contracts\n");
 }

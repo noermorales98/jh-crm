@@ -2,17 +2,17 @@
 
 [Volver al índice](README.md)
 
-**T00, T01 y T02 están HECHO.** El resto sigue pendiente. Los ejemplos aislados verificados del paquete no equivalen a tareas implementadas en el CRM.
+**T00, T01 y T02 están HECHO.** T03 está BLOQUEADA: el SQL aditivo y el cliente están listos, y el ensayo en base no se ejecutó. El resto sigue pendiente. Los ejemplos aislados verificados del paquete no equivalen a tareas implementadas en el CRM.
 
 Estados permitidos: PENDIENTE, EN_CURSO, BLOQUEADA, HECHO. Usar NO VERIFICADO dentro de evidencia para comprobaciones no ejecutadas. HECHO exige aceptación y enlace a evidencia; que un modelo afirme «terminado» no es prueba.
 
 ## Contexto de la sesión
 
-- Rama / commit base: `main` @ `eb489c58c10abd331d777ec30d8c65e746dd648a`.
+- Rama / commit base: `main` @ `e633f9d`. T03 sigue sin commit.
 - Gestor y comandos: npm 11.12.1, Node local v24.14.1 (el job QA declara Node 22). Scripts en `package.json`; CI en `.github/workflows/qa.yml`.
-- Tarea actual: T02 HECHO.
-- Próxima acción: T03, en una conversación nueva. No seguir en esta sesión.
-- Entorno autorizado para pruebas: local, smokes sin `.env`. No se usó producción.
+- Tarea actual: T03 BLOQUEADA.
+- Próxima acción: `npx prisma migrate deploy` solo si el host de la base es `127.0.0.1` o `localhost`. No abrir T04 ni hacer backfill.
+- Entorno autorizado para pruebas: local, smokes sin `.env`. La base configurada no es loopback; no se migró. No se usó producción.
 - Flags activos: ninguno activado por este paquete.
 
 ## Seguimiento
@@ -22,7 +22,7 @@ Estados permitidos: PENDIENTE, EN_CURSO, BLOQUEADA, HECHO. Usar NO VERIFICADO de
 | [T00](tareas/T00-linea-base.md) | HECHO | [evidencias/T00.md](evidencias/T00.md) | Mapa y smokes de crédito sin env. Siguiente: T01 |
 | [T01](tareas/T01-contencion.md) | HECHO | [evidencias/T01.md](evidencias/T01.md) | Estimador indisponible. Siguiente: T02 |
 | [T02](tareas/T02-contratos.md) | HECHO | [evidencias/T02.md](evidencias/T02.md) | Contratos sin migración. Siguiente: T03 |
-| [T03](tareas/T03-schema-aditivo.md) | PENDIENTE | — | — |
+| [T03](tareas/T03-schema-aditivo.md) | BLOQUEADA | [evidencias/T03.md](evidencias/T03.md) | SQL y cliente listos. `migrate deploy` NO VERIFICADO: el host no es loopback. No está HECHO |
 | [T04](tareas/T04-normalizacion.md) | PENDIENTE | — | — |
 | [T05](tareas/T05-identidad-canonica.md) | PENDIENTE | — | — |
 | [T06](tareas/T06-backfill-snapshots.md) | PENDIENTE | — | — |

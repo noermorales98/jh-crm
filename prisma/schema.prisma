@@ -460,6 +460,10 @@ model Organization {
   projectCases       ProjectCase[]
   testimonials     Testimonial[]
   creditPdfImportJobs CreditPdfImportJob[]
+  canonicalTradelines CanonicalTradeline[]
+  creditScoreObservations CreditScoreObservation[]
+  creditInquiries CreditInquiry[]
+  creditDisputeAssertions CreditDisputeAssertion[]
 }
 
 model OrganizationSettings {
@@ -672,7 +676,12 @@ model Client {
   contracts       ClientContract[]
   testimonials     Testimonial[]
   creditPdfImportJobs CreditPdfImportJob[]
+  canonicalTradelines CanonicalTradeline[]
+  creditScoreObservations CreditScoreObservation[]
+  creditInquiries CreditInquiry[]
+  creditDisputeAssertions CreditDisputeAssertion[]
 
+  @@unique([organizationId, id], map: "Client_org_id_key")
   @@unique([organizationId, clientCode])
   @@index([organizationId, status])
   @@index([organizationId, assignedToId])
@@ -1024,6 +1033,7 @@ model Document {
   disputeLetters DisputeLetter[]
   clientContracts ClientContract[]
   creditPdfImportJobs CreditPdfImportJob[]
+  creditDisputeAssertions CreditDisputeAssertion[]
 
   @@index([organizationId, clientId, category])
   @@index([caseId, category])
@@ -1718,7 +1728,10 @@ model CreditReport {
   items        CreditItem[]
   comparisonsAsBase    ReportComparison[] @relation("ComparisonBaseReport")
   comparisonsAsCompare ReportComparison[] @relation("ComparisonCompareReport")
+  scoreObservations CreditScoreObservation[]
+  inquiries         CreditInquiry[]
 
+  @@unique([organizationId, clientId, id], map: "CreditReport_org_client_id_key")
   @@index([organizationId, caseId])
   @@index([organizationId, clientId])
   @@index([caseId, reportDate])
@@ -1826,6 +1839,13 @@ model CreditItem {
   isNegative           Boolean                    @default(false)
   disputeEligible      Boolean                    @default(true)
   lifecycleStatus      CreditItemLifecycleStatus  @default(IDENTIFIED)
+  /** Identidad opcional. Null en filas legacy; el backfill no ocurre en T03. */
+  canonicalTradelineId String?
+  ownershipType        String?
+  openClosedStatus     String?
+  pastDueAmount        Decimal?                   @db.Decimal(12, 2)
+  sourceLocatorJson    Json?
+  fieldQualityJson     Json?
   createdAt            DateTime                   @default(now())
   updatedAt            DateTime                   @updatedAt
 
@@ -1833,10 +1853,14 @@ model CreditItem {
   client       Client       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   case         CreditCase   @relation(fields: [caseId], references: [id], onDelete: Cascade)
   report       CreditReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  canonicalTradeline CanonicalTradeline? @relation(fields: [organizationId, clientId, canonicalTradelineId], references: [organizationId, clientId, id], onDelete: Restrict)
   disputeItems DisputeItem[]
   comparisonBaseItems    ReportComparisonItem[] @relation("ComparisonBaseItem")
   comparisonCompareItems ReportComparisonItem[] @relation("ComparisonCompareItem")
+  disputeAssertions CreditDisputeAssertion[]
 
+  @@unique([organizationId, clientId, id], map: "CreditItem_org_client_id_key")
+  @@index([organizationId, clientId, canonicalTradelineId], map: "CreditItem_org_client_canonical_idx")
   @@index([organizationId, caseId])
   @@index([organizationId, clientId])
   @@index([reportId])
@@ -2125,4 +2149,110 @@ model Testimonial {
   @@index([organizationId, status, publishedAt])
   @@index([clientId, createdAt])
   @@index([serviceCaseId])
+}
+
+/**
+ * Cuenta real dentro de una organización y un cliente.
+ * Los saldos viven en CreditItem, no aquí.
+ */
+model CanonicalTradeline {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  clientId           String
+  creditorNormalized String
+  accountFamily      String
+  identityVersion    Int      @default(1)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Cascade)
+  items        CreditItem[]
+
+  @@unique([organizationId, clientId, id], map: "CanonicalTradeline_org_client_id_key")
+  @@index([organizationId, clientId], map: "CanonicalTradeline_org_client_idx")
+}
+
+/**
+ * Observación de score con modelo. No rellena la familia ausente como FICO.
+ * CreditBureauSnapshot.score sigue siendo la lectura legacy.
+ */
+model CreditScoreObservation {
+  id                   String        @id @default(cuid())
+  organizationId       String
+  clientId             String
+  reportId             String
+  bureau               CreditBureau
+  value                Int?
+  modelFamily          String?
+  modelVersion         String?
+  industryVariant      String?
+  scoreDate            DateTime?     @db.Date
+  reasonCodesJson      Json?
+  sourceLocatorJson    Json?
+  sourceIdempotencyKey String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Cascade)
+  report       CreditReport @relation(fields: [organizationId, clientId, reportId], references: [organizationId, clientId, id], onDelete: Cascade)
+
+  @@unique([organizationId, sourceIdempotencyKey], map: "CreditScoreObservation_org_idem_key")
+  @@index([organizationId, clientId, reportId, bureau], map: "CreditScoreObservation_scope_idx")
+}
+
+/**
+ * Consulta individual. El contador CreditBureauSnapshot.inquiries no se parte en filas.
+ */
+model CreditInquiry {
+  id                   String       @id @default(cuid())
+  organizationId       String
+  clientId             String
+  reportId             String
+  bureau               CreditBureau
+  creditorName         String
+  inquiryDate          DateTime?    @db.Date
+  datePrecision        String?
+  inquiryType          String
+  purpose              String?
+  sourceLocatorJson    Json?
+  sourceIdempotencyKey String?
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Cascade)
+  report       CreditReport @relation(fields: [organizationId, clientId, reportId], references: [organizationId, clientId, id], onDelete: Cascade)
+
+  @@unique([organizationId, sourceIdempotencyKey], map: "CreditInquiry_org_idem_key")
+  @@index([organizationId, clientId, reportId, bureau], map: "CreditInquiry_scope_idx")
+}
+
+/**
+ * Afirmación del cliente sobre un campo. No sustituye DisputeItem de la ronda.
+ * Borrar el ítem no borra la afirmación.
+ */
+model CreditDisputeAssertion {
+  id                 String       @id @default(cuid())
+  organizationId     String
+  clientId           String
+  creditItemId       String
+  bureau             CreditBureau
+  fieldKey           String
+  reportedValue      String?      @db.Text
+  assertedValue      String?      @db.Text
+  reason             String?      @db.Text
+  review             String       @default("PROPOSED")
+  evidenceDocumentId String?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  client           Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Cascade)
+  creditItem       CreditItem   @relation(fields: [organizationId, clientId, creditItemId], references: [organizationId, clientId, id], onDelete: Restrict, map: "CreditAssertion_item_fkey")
+  evidenceDocument Document?    @relation(fields: [evidenceDocumentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId, clientId, creditItemId], map: "CreditDisputeAssertion_scope_idx")
+  @@index([evidenceDocumentId], map: "CreditDisputeAssertion_document_idx")
 }

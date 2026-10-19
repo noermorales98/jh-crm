@@ -1,14 +1,13 @@
 import { startDocument, toBuffer, MARGIN, PAGE_WIDTH } from "./base";
 import type { PdfOrganizationInfo } from "./base";
 import { formatForPdf } from "../format/dates";
+import { FUNDING_ESTIMATE_MESSAGE } from "@/src/lib/credit/funding-estimate";
 
 export type ActionPlanPdfData = {
   organization: PdfOrganizationInfo;
   clientName: string;
   reportDate: Date;
   timezone?: string;
-  qualified: boolean;
-  bureausApproved: number;
   verdict: string;
   avgScore: number | null;
   avgUtilization: number | null;
@@ -85,12 +84,7 @@ export function generateActionPlanPdf(data: ActionPlanPdfData): Buffer {
 
   para(`Cliente: ${data.clientName}`);
   para(`Reporte: ${formatForPdf(data.reportDate, data.timezone)}`);
-  para(
-    data.qualified
-      ? "Perfil con señales de elegibilidad"
-      : "No calificado actualmente",
-  );
-  para(`${data.bureausApproved} de 3 bureaus aprobados`);
+  para(FUNDING_ESTIMATE_MESSAGE);
 
   section("1. Desglose por buró");
   for (const b of data.bureaus) {

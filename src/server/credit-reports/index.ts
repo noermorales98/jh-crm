@@ -5,6 +5,7 @@ import type {
   CreditNegativeType,
   CreditReportType,
 } from "@prisma/client";
+import { adaptLegacyCreditItem } from "@/src/lib/credit/contracts";
 import { prisma } from "@/src/lib/db";
 import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
@@ -98,10 +99,27 @@ function snapshotCreateData(snapshot: BureauSnapshotInput) {
   };
 }
 
+function rejectInvalidItemMoney(
+  item: Pick<CreditItemInput, "balance" | "creditLimit" | "monthlyPayment" | "accountType" | "dateOpened" | "dateReported">,
+  reportId: string,
+) {
+  const adapted = adaptLegacyCreditItem({ ...item, reportId });
+  if (
+    adapted.balance.quality === "INVALID" ||
+    adapted.creditLimit.quality === "INVALID" ||
+    adapted.monthlyPayment.quality === "INVALID"
+  ) {
+    throw new DomainError(
+      "Importe de crédito inválido. Revisa el formato; no se convirtió a cero.",
+    );
+  }
+}
+
 function itemCreateData(
   item: CreditItemInput,
   ids: { organizationId: string; clientId: string; caseId: string; reportId: string },
 ) {
+  rejectInvalidItemMoney(item, ids.reportId);
   const isNegative = item.isNegative ?? item.negativeType != null;
   return {
     organizationId: ids.organizationId,
@@ -343,6 +361,7 @@ export async function updateCreditItem(
     where: { id: itemId, organizationId: ctx.organizationId },
   });
   if (!item) throw new DomainError("Elemento de crédito no encontrado.");
+  rejectInvalidItemMoney(data, item.reportId);
 
   const isNegative =
     data.isNegative !== undefined

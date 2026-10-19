@@ -1,0 +1,9 @@
+---
+description: Entrada al plan de mejora de J&H CRM
+alwaysApply: true
+---
+Al trabajar en crédito de J&H, lee docs/plan-crm/README.md y ESTADO.md.
+Carga sólo la tarea seleccionada y referencias necesarias. Comprueba sus dependencias.
+Localiza rutas y símbolos reales; los ejemplos del plan son propuestas a adaptar.
+Conserva las instrucciones existentes del repositorio. Ejecuta una tarea por cambio.
+Registra evidencia, limitaciones y estado; no marques HECHO por haber escrito código.

@@ -11,6 +11,9 @@ export type ActionPlanPriorityId =
   | "combined_limit"
   | "bank_relationships";
 
+export const ACTION_PLAN_POINT_IMPACT_UNAVAILABLE =
+  "Sin estimación de puntos: hace falta un modelo validado.";
+
 export type ActionPlanHowTo = {
   id: ActionPlanPriorityId;
   title: string;
@@ -32,7 +35,7 @@ export const ACTION_PLAN_HOWTO: Record<ActionPlanPriorityId, ActionPlanHowTo> = 
     severity: "CRITICO",
     summary:
       "Los charge-offs y las reposesiones son marcas derogatorias severas, y cualquier dato inexacto es motivo de eliminación.",
-    ficoImpact: "+40 a +100 puntos FICO",
+    ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
     timeline: "60-120+ días",
     why: "Bajo la FCRA los burós deben reportar con la máxima exactitud posible y eliminar lo que no puedan verificar. La jugada es una disputa escalonada: reinvestigación → método de verificación → eliminación → escalamiento.",
     steps: [
@@ -65,8 +68,8 @@ export const ACTION_PLAN_HOWTO: Record<ActionPlanPriorityId, ActionPlanHowTo> = 
     title: "Pagos atrasados",
     severity: "CRITICO",
     summary:
-      "El historial de pagos es el factor #1 de FICO — un solo tardío puede bajar mucho el puntaje.",
-    ficoImpact: "+50 a +100 puntos FICO",
+      "El historial de pagos es una señal del reporte. Un atraso no prueba, por sí solo, un cambio de puntaje.",
+    ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
     timeline: "60-180 días",
     why: "Dos caminos en paralelo: disputa de inexactitudes y carta de buena voluntad cuando el atraso es puntual y el resto del historial es limpio.",
     steps: [
@@ -95,8 +98,8 @@ export const ACTION_PLAN_HOWTO: Record<ActionPlanPriorityId, ActionPlanHowTo> = 
     title: "Alta utilización (más del 10%)",
     severity: "CRITICO",
     summary:
-      "La utilización es el factor #2 de FICO y mata aprobaciones de fondeo si está alta.",
-    ficoImpact: "+30 a +80 puntos FICO",
+      "La utilización alta es una lectura del reporte. El 10% de este plan es referencia interna y no aprueba fondeo.",
+    ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
     timeline: "15-30 días",
     why: "Los prestamistas ven utilización alta como riesgo. El umbral operativo de este plan es ≤10% por buró.",
     steps: [
@@ -124,14 +127,14 @@ export const ACTION_PLAN_HOWTO: Record<ActionPlanPriorityId, ActionPlanHowTo> = 
     title: "Sin tarjetas de límite alto",
     severity: "CRITICO",
     summary:
-      "Sin un tradeline de límite alto, las aprobaciones se quedan pequeñas.",
-    ficoImpact: "+20 a +50 puntos FICO",
+      "Este plan usa límites altos como referencia interna. No predice una aprobación.",
+    ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
     timeline: "60-120 días",
     why: "Los prestamistas evalúan capacidad. Perfiles topados en $300–$1,500 se ven como bajo trust.",
     steps: [
       "Identifica la tarjeta primaria con mayor límite.",
       "Solicita aumento en banco grande si el perfil lo permite.",
-      "Evalúa AU de tarjeta ≥ $15K de titular confiable (opcional).",
+      "Un texto de usuario autorizado no confirma la responsabilidad ni recomienda un monto.",
       "No abras muchas tarjetas nuevas en poco tiempo.",
     ],
     commonMistakes: [
@@ -151,8 +154,8 @@ export const ACTION_PLAN_HOWTO: Record<ActionPlanPriorityId, ActionPlanHowTo> = 
     title: "Alto límite de crédito combinado",
     severity: "CRITICO",
     summary:
-      "Perfiles con menos de ~$40K combinados (incl. AU) se ven débiles para fondeo.",
-    ficoImpact: "+20 a +50 puntos FICO",
+      "Menos de $40,000 combinados es una referencia interna de este plan. No es un requisito de prestamista ni una aprobación.",
+    ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
     timeline: "60-120 días",
     why: "El límite combinado comunica capacidad de crédito personal usada en calificación de financiamiento.",
     steps: [
@@ -178,7 +181,7 @@ export const ACTION_PLAN_HOWTO: Record<ActionPlanPriorityId, ActionPlanHowTo> = 
     severity: "IMPORTANTE",
     summary:
       "Mientras reparas, construye relaciones bancarias en paralelo.",
-    ficoImpact: "Impacto indirecto",
+    ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
     timeline: "90 días",
     why: "Los bancos dan mejores límites a quien deposita y opera con ellos de forma consistente.",
     steps: [

@@ -1,0 +1,10 @@
+---
+description: Reglas de dominio para cuentas, scores, métricas, fondeo y disputas de J&H
+alwaysApply: false
+---
+Lee docs/plan-crm/referencias/ARQUITECTURA.md y el contrato relevante.
+Una cuenta real puede tener varias observaciones por buró. Conserva el histórico.
+Unknown no es cero ni PASS. Conserva cobertura, fuente, fecha y versión.
+No prometas puntos FICO, montos genéricos ni aprobación por metas internas.
+La IA extrae/redacta; código determinista calcula y evalúa.
+Una discrepancia o un negativo no prueban un error. Requiere afirmación y revisión.

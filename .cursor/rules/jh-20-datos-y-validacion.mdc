@@ -1,0 +1,11 @@
+---
+description: Aislamiento de datos, migraciones y verificación del plan J&H
+globs: "**/*.prisma,**/credit/**/*.ts,**/credit/**/*.tsx"
+alwaysApply: false
+---
+Deriva organización y permisos del servidor. Verifica pertenencia del cliente y documentos.
+No exponer PII/secretos en prompts, fixtures, logs ni evidencias.
+Migra de forma aditiva: ensayo, idempotencia, recuperación y flag antes de activar.
+Usa scripts reales del repositorio. No debilites pruebas para pasar.
+Para cifras, prueba null/0, cobertura, moneda, redondeo y duplicación.
+Para accesos, prueba IDs de otra organización incluso con rol autorizado localmente.

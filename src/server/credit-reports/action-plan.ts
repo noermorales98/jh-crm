@@ -4,9 +4,11 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import { prisma } from "@/src/lib/db";
 import {
   ACTION_PLAN_HOWTO,
+  ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
   type ActionPlanHowTo,
   type ActionPlanPriorityId,
 } from "@/src/lib/credit/action-plan-howto";
+import { FUNDING_ESTIMATE_MESSAGE } from "@/src/lib/credit/funding-estimate";
 async function loadReport(ctx: OrganizationContext, reportId: string) {
   const report = await prisma.creditReport.findFirst({
     where: { id: reportId, organizationId: ctx.organizationId },
@@ -101,12 +103,12 @@ function num(v: { toNumber?: () => number } | number | null | undefined): number
 
 function labelScore(score: number | null): string {
   if (score == null) return "Sin dato";
-  return score >= SCORE_MIN ? "Bueno" : "Necesita mejorar";
+  return "Referencia interna";
 }
 
 function labelUtil(util: number | null): string {
   if (util == null) return "Sin dato";
-  return util <= UTIL_MAX ? "Bueno" : "Necesita mejorar";
+  return "Referencia interna";
 }
 
 function pickPriorities(input: {
@@ -372,9 +374,7 @@ export async function getClientActionPlan(
     fundingMatrix,
     bureausApproved,
     qualified,
-    verdict: qualified
-      ? "Estimado heurístico interno: el perfil muestra señales a revisar. No es una aprobación ni una oferta; confirma requisitos con el prestamista."
-      : "Estimado heurístico interno: el perfil aún no cumple la secuencia de preparación. No es una denegación formal; sigue el plan de acción de la Sección 6.",
+    verdict: FUNDING_ESTIMATE_MESSAGE,
     priorities,
     negativeCount: negatives.length,
     totalItems: items.length,
@@ -566,8 +566,6 @@ export async function buildClientActionPlanPdf(
     clientName: plan.clientName,
     reportDate: plan.reportDate,
     timezone: org.timezone,
-    qualified: plan.qualified,
-    bureausApproved: plan.bureausApproved,
     verdict: plan.verdict,
     avgScore: plan.avgScore,
     avgUtilization: plan.avgUtilization,
@@ -587,7 +585,7 @@ export async function buildClientActionPlanPdf(
       title: p.title,
       severity: p.severity,
       summary: p.summary,
-      ficoImpact: p.ficoImpact,
+      ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
       timeline: p.timeline,
     })),
   });

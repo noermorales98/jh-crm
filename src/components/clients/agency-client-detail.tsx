@@ -96,11 +96,7 @@ import {
   formatScorePlanCopy,
   formatScorePlanMoney,
 } from "@/src/lib/credit/score-plan";
-import {
-  buildFundingPrepPanel,
-  formatFundingPrepEstimateDetail,
-  fundingPrepEstimateReady,
-} from "@/src/lib/credit/funding-prep";
+import { buildFundingPrepPanel } from "@/src/lib/credit/funding-prep";
 import {
   loadClientOpsPanelAction,
   type ClientOpsPanel,
@@ -481,12 +477,8 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
       }),
     [planHub, planHubLoading, planHubError],
   );
-  const fondeoKpiLabel = fundingPrepEstimateReady(fundingPrep)
-    ? fundingPrep.estimateMidLabel ?? props.kpis.fondeoPotencial
-    : props.kpis.fondeoPotencial;
-  const fondeoCapsuleSubtitle = fundingPrepEstimateReady(fundingPrep)
-    ? `Estimado ${fundingPrep.estimateMidLabel}`
-    : "Estimado JH";
+  const fondeoKpiLabel = "Requiere programa";
+  const fondeoCapsuleSubtitle = "Requiere programa y datos verificados";
 
   function onEdit(formData: FormData) {
     setError(null);
@@ -836,7 +828,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           <ActionCapsule
             icon={TrendingUp}
             title="Score Plan"
-            subtitle="Sube el puntaje"
+            subtitle="Pagos hacia una meta"
             badge="Beta"
             onClick={() => setPanel("score")}
           />
@@ -1394,9 +1386,6 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               {scoreRows.length}{" "}
               {scoreRows.length === 1 ? "registro" : "registros"}
               {planHub?.avgScore != null ? ` · score ${planHub.avgScore}` : ""}
-              {fundingPrepEstimateReady(fundingPrep)
-                ? ` · fondeo estimado ${fundingPrep.estimateMidLabel}`
-                : ""}
             </p>
           ) : null}
           <label className="block text-[13px]">
@@ -1493,40 +1482,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           ) : null}
           {fundingPrep.kind === "ready" ? (
             <div className="rounded-surface bg-nav-hover/40 px-3 py-3 text-center text-[13px]">
-              <p
-                className={`font-semibold ${
-                  fundingPrep.tone === "review"
-                    ? "text-success-ink"
-                    : "text-danger-ink"
-                }`}
-              >
-                {fundingPrep.title}
-              </p>
+              <p className="font-semibold text-ink">{fundingPrep.title}</p>
               <p className="mt-1 text-text-secondary">{fundingPrep.summary}</p>
-              {fundingPrep.estimate.kind === "ready" ? (
-                <div className="mt-3 space-y-1">
-                  <p className="text-[12px] font-medium text-ink">
-                    Estimado JH de preparación (banda{" "}
-                    {fundingPrep.estimate.bandLabel})
-                  </p>
-                  <p className="text-[22px] font-semibold tabular-nums tracking-[-0.03em] text-ink">
-                    {fundingPrep.estimateRangeLabel}
-                  </p>
-                  <p className="text-[12px] text-text-secondary">
-                    Punto medio {fundingPrep.estimateMidLabel} ·{" "}
-                    {formatFundingPrepEstimateDetail(fundingPrep.estimate)}
-                  </p>
-                </div>
-              ) : (
-                <p className="mt-3 text-[12px] text-text-secondary">
-                  {fundingPrep.estimate.reason}
-                </p>
-              )}
+              <p className="mt-3 text-[13px] text-ink">{fundingPrep.disclaimer}</p>
               <p className="mt-2 text-[12px] text-text-secondary">
                 {fundingPrep.verdict}
-              </p>
-              <p className="mt-2 text-[12px] text-text-secondary">
-                {fundingPrep.disclaimer}
               </p>
               <Link
                 href={`/crm/clientes/${props.client.id}/plan-de-accion?reportId=${fundingPrep.reportId}`}

@@ -52,23 +52,8 @@ export function ClientActionPlanView({
           </a>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span
-            className={`rounded-full px-3 py-1 text-[12px] font-medium ${
-              plan.qualified
-                ? "bg-success-soft text-success-ink"
-                : "bg-danger-soft text-danger-ink"
-            }`}
-          >
-            {plan.qualified
-              ? "Señales heurísticas a revisar"
-              : "Heurística: preparar perfil primero"}
-          </span>
-          <span className="rounded-full bg-warning-soft px-3 py-1 text-[12px] font-medium text-warning-ink">
-            Estimado de fondeo:{" "}
-            {plan.qualified ? "Revisar secuencia" : "Preparar perfil"}
-          </span>
-          <span className="rounded-full bg-action-primary/10 px-3 py-1 text-[12px] font-medium text-action-primary">
-            {plan.bureausApproved} de 3 burós cumplen la heurística interna
+          <span className="rounded-full bg-nav-hover px-3 py-1 text-[12px] font-medium text-text-secondary">
+            Fondeo: requiere programa y datos verificados
           </span>
         </div>
       </header>
@@ -210,13 +195,9 @@ export function ClientActionPlanView({
           3 · Estrategia de Usuario Autorizado (AU)
         </h2>
         <p className="text-[13px] text-text-secondary">
-          Cuentas AU activas detectadas: {plan.revolving.auCards} (máx. 3
-          recomendado). Las AU ayudan a edad y límite combinado; no sustituyen
-          bajar utilización en primarias.
-        </p>
-        <p className="text-[13px] text-ink">
-          Acción recomendada: opcional agregar AU de al menos $15,000 en banco
-          grande si el perfil lo permite.
+          Coincidencias de texto de usuario autorizado: {plan.revolving.auCards}.
+          La responsabilidad no está confirmada. No hay cantidad ni monto
+          recomendado.
         </p>
       </section>
 
@@ -273,8 +254,8 @@ export function ClientActionPlanView({
           </table>
         </div>
         <p className="text-[12px] text-text-secondary">
-          {plan.bureausApproved} de 3 burós cumplen todos los criterios
-          verificados.
+          Referencia interna (720, 10% y $40,000). No aprueba fondeo ni
+          sustituye el requisito de un programa.
         </p>
       </section>
 
@@ -328,23 +309,14 @@ export function ClientActionPlanView({
         <h2 className="text-[16px] font-semibold text-ink">
           7 · Secuencia de Financiamiento
         </h2>
-        <p className="mt-2 text-[14px] font-semibold text-ink">
-          {plan.qualified
-            ? "Estimado: secuencia a revisar (heurística)"
-            : "Estimado: preparar perfil (heurística)"}
-        </p>
-        <p className="mt-1 text-[13px] text-text-secondary">{plan.verdict}</p>
-        <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+        <p className="mt-2 text-[14px] text-text-secondary">{plan.verdict}</p>
+        <div className="mt-4 grid grid-cols-2 gap-2 text-center">
           <Kpi label="Score promedio" value={plan.avgScore?.toString() ?? "—"} />
           <Kpi
             label="Util. promedio"
             value={
               plan.avgUtilization != null ? `${plan.avgUtilization}%` : "—"
             }
-          />
-          <Kpi
-            label="Fondeo (est.)"
-            value={plan.qualified ? "Revisar" : "Preparar"}
           />
         </div>
       </section>

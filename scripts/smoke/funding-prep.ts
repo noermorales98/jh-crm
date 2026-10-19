@@ -1,18 +1,19 @@
 /**
- * Preparación para Fondeo: señales + estimado JH de montos (bandas).
+ * Panel de fondeo: lecturas observadas, sin banda de monto.
  *
  *   npm run smoke:funding-prep
  *
  * Sin red y sin DATABASE_URL.
  */
 import {
+  FUNDING_ESTIMATE_REASON,
+} from "../../src/lib/credit/funding-estimate";
+import {
   FUNDING_PREP_DISCLAIMER,
   FUNDING_PREP_LOADING_MESSAGE,
-  FUNDING_PREP_TITLE_PREPARE,
-  FUNDING_PREP_TITLE_REVIEW,
+  FUNDING_PREP_TITLE,
   buildFundingPrepPanel,
   formatFundingPrepText,
-  fundingPrepEstimateReady,
   type FundingPrepHub,
 } from "../../src/lib/credit/funding-prep";
 
@@ -36,16 +37,12 @@ function hub(
     negativeCount: partial.negativeCount ?? 0,
     totalLimit: partial.totalLimit ?? null,
     totalUsed: partial.totalUsed ?? null,
-    verdict:
-      partial.verdict ??
-      (partial.qualified
-        ? "Estimado heurístico interno: el perfil muestra señales a revisar. No es una aprobación ni una oferta; confirma requisitos con el prestamista."
-        : "Estimado heurístico interno: el perfil aún no cumple la secuencia de preparación. No es una denegación formal; sigue el plan de acción de la Sección 6."),
+    verdict: partial.verdict ?? "Lectura del reporte.",
   };
 }
 
 function main() {
-  console.log("\n[funding-prep] buildFundingPrepPanel — estados sintéticos");
+  console.log("\n[funding-prep] buildFundingPrepPanel — sin monto");
 
   const loading = buildFundingPrepPanel({
     loading: true,
@@ -79,46 +76,32 @@ function main() {
       totalUsed: 3_000,
     }),
   });
-  check("señales favorables → ready", favorable.kind === "ready");
-  check(
-    "favorables: título review",
-    favorable.kind === "ready" &&
-      favorable.title === FUNDING_PREP_TITLE_REVIEW &&
-      favorable.tone === "review",
-  );
-  check(
-    "favorables: resumen burós/score/util",
-    favorable.kind === "ready" &&
-      favorable.summary === "2/3 burós cumplen heurística · score 740 · util 8%",
-  );
-  check(
-    "favorables: disclaimer estimado JH",
-    favorable.kind === "ready" &&
-      favorable.disclaimer === FUNDING_PREP_DISCLAIMER,
-  );
-  check(
-    "favorables: estimado ready con montos",
-    fundingPrepEstimateReady(favorable),
-  );
-  if (fundingPrepEstimateReady(favorable)) {
+  check("con reporte → ready", favorable.kind === "ready");
+  if (favorable.kind === "ready") {
+    check("título requiere programa", favorable.title === FUNDING_PREP_TITLE);
     check(
-      "favorables: range label con $",
-      Boolean(favorable.estimateRangeLabel?.includes("$")),
+      "resumen observa score y util",
+      favorable.summary ===
+        "Score observado 740 · utilización observada 8%",
     );
     check(
-      "favorables: mid label",
-      Boolean(favorable.estimateMidLabel?.startsWith("~$")),
+      "estimado indisponible",
+      favorable.estimate.status === "UNAVAILABLE" &&
+        favorable.estimate.amount === null &&
+        favorable.estimate.reason === FUNDING_ESTIMATE_REASON,
     );
     check(
-      "favorables: texto incluye estimado",
-      formatFundingPrepText(favorable).includes("Estimado JH"),
+      "disclaimer sin banda",
+      favorable.disclaimer === FUNDING_PREP_DISCLAIMER &&
+        !favorable.disclaimer.includes("$"),
+    );
+    const text = formatFundingPrepText(favorable);
+    check("texto sin $", !text.includes("$"), text);
+    check(
+      "texto no afirma aprobación",
+      !/aprobad|deneg|oferta|elegib|banda/i.test(favorable.title),
     );
   }
-  check(
-    "favorables: no afirma aprobación en título",
-    favorable.kind === "ready" &&
-      !/aprobad|deneg|oferta|elegib/i.test(favorable.title),
-  );
 
   const prepare = buildFundingPrepPanel({
     loading: false,
@@ -133,38 +116,19 @@ function main() {
       totalUsed: 7_000,
     }),
   });
-  check("señales a revisar → ready", prepare.kind === "ready");
-  check(
-    "preparar: título prepare",
-    prepare.kind === "ready" &&
-      prepare.title === FUNDING_PREP_TITLE_PREPARE &&
-      prepare.tone === "prepare",
-  );
-  check(
-    "preparar: también calcula banda (más baja)",
-    fundingPrepEstimateReady(prepare),
-  );
-  if (
-    fundingPrepEstimateReady(favorable) &&
-    fundingPrepEstimateReady(prepare)
-  ) {
+  check("otro perfil → ready", prepare.kind === "ready");
+  if (prepare.kind === "ready" && favorable.kind === "ready") {
     check(
-      "preparar mid < favorables mid",
-      prepare.estimate.mid < favorable.estimate.mid,
-      {
-        prepare: prepare.estimate.mid,
-        favorable: favorable.estimate.mid,
-      },
+      "el perfil no cambia el monto",
+      prepare.estimate.amount === favorable.estimate.amount &&
+        prepare.estimate.reason === favorable.estimate.reason,
+    );
+    check(
+      "resumen del segundo perfil",
+      prepare.summary ===
+        "Score observado 680 · utilización observada 35%",
     );
   }
-
-  const banned = Math.round(20_000 * 2.5 + 24 * 1500);
-  const text = formatFundingPrepText(favorable);
-  check(
-    "no aparece el monto de la fórmula antigua cash*2.5",
-    !text.includes(String(banned)) && !text.includes("$86,000"),
-    text,
-  );
 
   console.log("\nOK funding-prep\n");
 }

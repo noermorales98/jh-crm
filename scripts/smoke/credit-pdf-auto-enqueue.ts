@@ -149,7 +149,7 @@ async function main() {
     check("manual tras auto: mismo jobId", again.jobId === jobsForSmall[0]!.id);
     check("manual tras auto: created=false", again.created === false);
 
-    const open = await findOpenJobForDocument(small.id);
+    const open = await findOpenJobForDocument(small.id, ctx.organizationId);
     check("findOpenJob: uno", open?.id === jobsForSmall[0]!.id);
 
     const jobsAfterManual = await prisma.creditPdfImportJob.count({

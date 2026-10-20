@@ -4,6 +4,7 @@
  * null no es 0. La moneda ausente no se rellena como USD.
  */
 import { z } from "zod";
+import { classifyAccountFamily, classifyOwnership } from "./normalize";
 
 export const fieldQualitySchema = z.enum([
   "KNOWN",
@@ -251,33 +252,9 @@ export function scoresComparable(
     : { comparable: false, reason: "DIFFERENT_IDENTITY" };
 }
 
-function inferFamily(
-  accountType: string | null | undefined,
-  reportId: string,
-): FieldValue<AccountFamily> {
-  const text = present(accountType)?.toLowerCase() ?? null;
-  if (text == null) return field("UNKNOWN", "MISSING", reportId);
-  if (/\b(revolving|credit card|tarjeta de cr[eé]dito)\b/.test(text)) {
-    return field("REVOLVING", "INFERRED", reportId);
-  }
-  if (/\b(installment|auto loan|pr[eé]stamo)\b/.test(text)) {
-    return field("INSTALLMENT", "INFERRED", reportId);
-  }
-  if (/\b(mortgage|hipoteca)\b/.test(text)) {
-    return field("MORTGAGE", "INFERRED", reportId);
-  }
-  if (/\b(charge card|cargo)\b/.test(text) && !/charge-?off/.test(text)) {
-    return field("CHARGE", "INFERRED", reportId);
-  }
-  if (/\b(collection|cobranza)\b/.test(text)) {
-    return field("COLLECTION", "INFERRED", reportId);
-  }
-  if (text === "other") return field("OTHER", "INFERRED", reportId);
-  return field("UNKNOWN", "INFERRED", reportId);
-}
-
 export type LegacyCreditItemInput = {
   accountType?: string | null;
+  responsibility?: string | null;
   balance?: unknown;
   creditLimit?: unknown;
   monthlyPayment?: unknown;
@@ -306,8 +283,8 @@ export function adaptLegacyCreditItem(item: LegacyCreditItemInput): AdaptedCredi
     monthlyPayment: parseMoney(item.monthlyPayment, reportId),
     dateOpened: parsePartialDate(item.dateOpened, reportId),
     dateReported: parsePartialDate(item.dateReported, reportId),
-    family: inferFamily(item.accountType, reportId),
-    ownership: field("UNKNOWN", "MISSING", reportId),
+    family: classifyAccountFamily(item.accountType, reportId),
+    ownership: classifyOwnership(item.responsibility, reportId).ownership,
   };
 }
 

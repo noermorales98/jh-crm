@@ -73,6 +73,8 @@
     "smoke:score-plan": "tsx scripts/smoke/score-plan.ts",
     "smoke:funding-prep": "tsx scripts/smoke/funding-prep.ts",
     "smoke:credit-contracts": "tsx scripts/smoke/credit-contracts.ts",
+    "smoke:credit-normalize": "tsx scripts/smoke/credit-normalize.ts",
+    "smoke:credit-access": "tsx scripts/smoke/credit-access.ts",
     "smoke:funding-estimate": "tsx scripts/smoke/funding-estimate.ts",
     "smoke:dispute-flags": "tsx --env-file=.env.local scripts/smoke/dispute-scope-method.ts",
     "smoke:ts-due": "tsx scripts/smoke/ts-due-rules.ts",

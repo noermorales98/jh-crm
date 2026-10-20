@@ -5,6 +5,7 @@
 import { randomUUID } from "node:crypto";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
+import { creditClientForRole } from "@/src/lib/credit/access";
 import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
 import {
@@ -131,9 +132,13 @@ export type CreditPdfUploadAnalysisMeta =
 
 type DbClient = Prisma.TransactionClient | typeof prisma;
 
-function openJobWhere(documentId: string): Prisma.CreditPdfImportJobWhereInput {
+function openJobWhere(
+  documentId: string,
+  organizationId: string,
+): Prisma.CreditPdfImportJobWhereInput {
   return {
     documentId,
+    organizationId,
     OR: [
       { status: { in: ["QUEUED", "RUNNING"] } },
       { status: "SUCCEEDED", NOT: { phase: "confirmed" } },
@@ -143,10 +148,11 @@ function openJobWhere(documentId: string): Prisma.CreditPdfImportJobWhereInput {
 
 export async function findOpenJobForDocument(
   documentId: string,
+  organizationId: string,
   db: DbClient = prisma,
 ) {
   return db.creditPdfImportJob.findFirst({
-    where: openJobWhere(documentId),
+    where: openJobWhere(documentId, organizationId),
     orderBy: { createdAt: "desc" },
   });
 }
@@ -247,7 +253,7 @@ export async function enqueueCreditPdfImportJob(
     throw new DomainError("Solo se pueden analizar PDFs.");
   }
 
-  const existing = await findOpenJobForDocument(document.id, db);
+  const existing = await findOpenJobForDocument(document.id, ctx.organizationId, db);
   if (existing) {
     return {
       jobId: existing.id,
@@ -1194,7 +1200,10 @@ export async function getCreditPdfImportJob(
       | "MANUAL"
       | null,
     proposal,
-    currentClient: job.currentClientJson as AnalyzeCurrentClient | null,
+    currentClient: creditClientForRole(
+      ctx.role,
+      job.currentClientJson as AnalyzeCurrentClient | null,
+    ),
     attempts: job.attempts,
     startedAt: job.startedAt,
     finishedAt: job.finishedAt,

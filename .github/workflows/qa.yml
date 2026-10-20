@@ -57,7 +57,7 @@ jobs:
       - name: Ops readiness + AU-006 bureau gate
         run: npm run smoke:ops-readiness && npm run smoke:au-006-bureau-gate
       - name: Score Plan + Fondeo montos smoke
-        run: npm run smoke:score-plan && npm run smoke:funding-estimate && npm run smoke:funding-prep && npm run smoke:credit-contracts
+        run: npm run smoke:score-plan && npm run smoke:funding-estimate && npm run smoke:funding-prep && npm run smoke:credit-contracts && npm run smoke:credit-normalize && npm run smoke:credit-access
       - name: Credit PDF chunk/merge + scores smoke
         run: npm run smoke:credit-pdf-chunk-merge
       - name: Credit PDF pending-confirm UI smoke

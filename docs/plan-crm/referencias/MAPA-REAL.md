@@ -88,11 +88,15 @@ Las tarjetas del plan se deduplican con la clave `acreedor|buró|límite|saldo`.
 
 ## Contratos de calidad
 
-[`src/lib/credit/contracts.ts`](../../../src/lib/credit/contracts.ts) define calidad, revisión, familia, responsabilidad, dinero en centavos, basis points, fecha parcial, comparación de scores y `assertSameCreditScope`. El schema ya tiene columnas y tablas opcionales en `prisma/migrations/20261019233000_credit_additive_identity`. Esa migración no se aplicó: el host configurado no es loopback. No hay backfill y el adaptador de escritura todavía no guarda familia, responsabilidad ni calidad.
+[`src/lib/credit/contracts.ts`](../../../src/lib/credit/contracts.ts) define calidad, revisión, familia, responsabilidad, dinero en centavos, basis points, fecha parcial, comparación de scores y `assertSameCreditScope`. [`src/lib/credit/normalize.ts`](../../../src/lib/credit/normalize.ts) propone familia, responsabilidad, alias, locale y fecha parcial sin escribir Prisma. El catálogo de alias nace vacío. El schema ya tiene columnas y tablas opcionales en `prisma/migrations/20261019233000_credit_additive_identity`. Esa migración se aplicó en un MySQL desechable de `127.0.0.1` y esa base se borró. La base configurada de la app no se migró. No hay backfill y el adaptador de escritura todavía no guarda familia, responsabilidad ni calidad.
 
 `adaptLegacyCreditItem` se llama desde `itemCreateData` y `updateCreditItem` en [`src/server/credit-reports/index.ts`](../../../src/server/credit-reports/index.ts). Solo rechaza un importe `INVALID`. Null y cero se guardan como antes. Familia y responsabilidad no se persisten. `provenance.ts` sigue aparte, para «N/A» de la extracción. El Zod legacy de [`src/lib/validation/credit-reports.ts`](../../../src/lib/validation/credit-reports.ts) conserva el rango 300–900; el contrato nuevo no lo convierte en regla universal.
 
-Comprobación: `npm run smoke:credit-contracts`, también en el job QA junto a los smokes de fondeo.
+Comprobación: `npm run smoke:credit-contracts`, `npm run smoke:credit-normalize` y `npm run smoke:credit-access`, también en el job QA junto a los smokes de fondeo.
+
+## Aislamiento
+
+[`src/lib/credit/access.ts`](../../../src/lib/credit/access.ts) compara la organización de la sesión con el recurso y reutiliza `assertSameCreditScope`. Ver exige `creditReports.view`. Escribir exige `creditReports.manage`. No existe `credit:review`. `getCreditPdfImportJob` devuelve `ssnLast4` solo si el rol tiene `sensitive.view`. `findOpenJobForDocument` filtra por `organizationId`. La descarga de documentos sigue en `requestDownload`, acotada a la organización. `smoke:portal-pdf-acl` no se ejecutó: carga `.env`.
 
 ## Símbolos buscados
 
@@ -114,7 +118,7 @@ La matriz está en [MATRIZ-HALLAZGOS.md](MATRIZ-HALLAZGOS.md). Aquí sólo se di
 | Cuentas contadas por buró; mezcla installment/revolving | Vigente | `CanonicalTradeline` existe y está vacía. El plan sigue sumando por observación y trata límite null como 0 |
 | Score sin familia/versión; promedio como preparación | Vigente | `CreditBureauSnapshot.score` sigue siendo un entero. `CreditScoreObservation.modelFamily` nace null. `avgScore` es la media |
 | Bandas de fondeo y puntos FICO sin modelo | Retirado en superficies activas (T01) | `computeFundingEstimate` no devuelve monto. `ficoImpact` no publica puntos. El PDF nuevo se genera al vuelo |
-| AU por regex y montos fijos | Parcialmente vigente | Sigue el regex. La copia ya no recomienda cantidad ni $15,000. Los precios de cotización de servicio no se tocaron |
+| AU por regex y montos fijos | Parcialmente vigente | El normalizador marca authorized user como inferido y pide confirmación. El plan de acción sigue contando el regex. La copia ya no recomienda cantidad ni $15,000 |
 | Edad null permite qualified | Vigente | `ageOk === null` entra en `allOk` |
 | Parser con tope 200 y prioridad de negativos | Parcialmente vigente | El corte a 200 está. La extracción no descarta positivos, pero la confirmación preselecciona negativos o los primeros 40, y un `UNKNOWN` con un negativo se clasifica como reporte |
 | Negativo tratado como disputable | Vigente | `disputeEligible` por defecto `true`; listas ordenadas por `isNegative` |
@@ -122,7 +126,7 @@ La matriz está en [MATRIZ-HALLAZGOS.md](MATRIZ-HALLAZGOS.md). Aquí sólo se di
 | Consultas como contador; antigüedad con reloj de ejecución | Vigente | `inquiries Int?` se conserva. `CreditInquiry` nace vacía y no se fabrica desde el contador. La edad usa `Date.now()` y `dateOpened`, no `reportDate` |
 | Cambio posterior a ronda como logro causal | Parcialmente vigente | El diff no afirma la causa. La etiqueta «Eliminado» y el delta verde tampoco la niegan ni la separan de la disputa |
 | Programas y capacidad financiera sin datos completos | Vigente | No hay DTI/DSCR ni ruleset versionado. El monto de fondeo queda indisponible hasta T20. `qualifyCreditProfile` no los sustituye |
-| Tests que fijan la heurística actual | Parcialmente vigente | `smoke:funding-estimate` y `smoke:funding-prep` exigen `UNAVAILABLE`. `smoke:score-plan` sigue fijando el paydown. `smoke:credit-contracts` cubre null, cero y centavos |
-| Corpus F01–F30, aislamiento entre organizaciones, datos de producción | No verificable en T00 | Quedan para T24 y T26. No se consultó producción |
+| Tests que fijan la heurística actual | Parcialmente vigente | `smoke:funding-estimate` y `smoke:funding-prep` exigen `UNAVAILABLE`. `smoke:score-plan` sigue fijando el paydown. `smoke:credit-contracts` cubre null, cero y centavos. `smoke:credit-normalize` cubre hipoteca, AU, locale y alias. `smoke:credit-access` cubre permiso, tenant y SSN |
+| Corpus F01–F30, aislamiento entre organizaciones, datos de producción | Parcialmente vigente | El guard y el smoke cubren dos organizaciones y dos clientes sin base. El corpus F01–F30 y la base configurada siguen para T26. No se consultó producción |
 
-La contención de bandas y puntos quedó en T01. Los contratos de calidad quedaron en T02. T03 dejó el SQL aditivo y el cliente generado; el `migrate deploy` no se ejecutó porque la base configurada no es local. T03 no está HECHO. T04 no se abrió.
+La contención de bandas y puntos quedó en T01. Los contratos de calidad quedaron en T02. T03 dejó el SQL aditivo y un ensayo local desechable. T04 dejó el normalizador puro; no persiste ni fusiona cuentas. T24 dejó el guard de sesión y ocultó el último cuatro del SSN a quien no tiene `sensitive.view`. La base configurada no tiene todavía las tablas de T03. T05 es el siguiente y no se abrió.

@@ -19,6 +19,8 @@ import {
   TR,
 } from "@/src/components/ui";
 import { formatDate, formatMoney } from "@/src/lib/format";
+import { decideOperation, OPERATION_REVIEW_LABEL } from "@/src/lib/credit/operations";
+import { DUE_UNDETERMINED_LABEL, roundTiming } from "@/src/lib/credit/rounds";
 import {
   CREDIT_BUREAU_LABELS,
   DISPUTE_ITEM_STATUS_LABELS,
@@ -35,6 +37,13 @@ import { CreateLetterButton } from "@/src/components/letters/create-letter-butto
 import { LetterActions } from "@/src/components/letters/letter-actions";
 import { GenerateProgressReportButton } from "@/src/components/letters/generate-progress-report-button";
 import { RoundActions } from "@/src/components/rounds/round-actions";
+
+function civilDay(value: Date | string | null): string | null {
+  if (value == null) return null;
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
 
 export function EmbeddedRoundWorkspace({
   roundId,
@@ -89,6 +98,24 @@ export function EmbeddedRoundWorkspace({
 
   const { round, summary, permissions } = data;
   const { byOutcome } = summary;
+  const legalDue = roundTiming({
+    phase: round.status === "DRAFT" || round.status === "PREPARING" ? "DRAFT" : "SENT",
+    sentAt: civilDay(round.sentAt),
+    receivedAt: null,
+    estimatedReceivedAt: null,
+    deadlinePolicyId: null,
+    deadlinePolicyVersion: null,
+    policyDurationDays: null,
+    receptionRequired: true,
+  });
+  const sendDecision = decideOperation({
+    action: "SEND_DISPUTE",
+    serviceType: "CREDIT_REPAIR",
+    asOf: civilDay(round.startedAt) ?? round.startedAt.toString().slice(0, 10),
+    policy: null,
+    contract: null,
+    authorization: null,
+  });
 
   return (
     <div className="space-y-4">
@@ -150,6 +177,20 @@ export function EmbeddedRoundWorkspace({
               : ""}
           </span>
         </div>
+        <dl className="space-y-1 px-1 pb-3 text-sm">
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-text-secondary">Plazo legal</dt>
+            <dd className="text-ink">
+              {legalDue.dueAtStatus === "UNDETERMINED" ? DUE_UNDETERMINED_LABEL : legalDue.dueAt}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-4">
+            <dt className="text-text-secondary">Decisión de envío</dt>
+            <dd className="text-ink">
+              {sendDecision.status === "REVIEW" ? OPERATION_REVIEW_LABEL : sendDecision.status}
+            </dd>
+          </div>
+        </dl>
         <div className="grid gap-3 px-1 pb-4 sm:grid-cols-2 lg:grid-cols-4">
           <Stat label="Eliminados" value={byOutcome.deleted} />
           <Stat label="Actualizados" value={byOutcome.updated} />

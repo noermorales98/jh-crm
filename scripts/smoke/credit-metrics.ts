@@ -63,6 +63,14 @@ function main() {
     pdf.includes("presentUtilization") && pdf.includes("presentAmount") && !pdf.includes("toFixed"),
   );
   check("el detalle sigue siendo un botón", view.includes('type="button"') && view.includes("Ver detalle completo"));
+  check(
+    "las referencias fijas no pintan un dólar",
+    view.includes("≥ 2 000") &&
+      view.includes("40 000") &&
+      !view.includes("$2K") &&
+      !view.includes("$40,000") &&
+      !view.includes("USD"),
+  );
 
   console.log("\nOK credit-metrics\n");
 }

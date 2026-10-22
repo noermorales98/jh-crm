@@ -144,6 +144,7 @@ function main() {
 
   const source = readFileSync("src/lib/credit/operations.ts", "utf8");
   const panel = readFileSync("src/components/rounds/round-detail-panel.tsx", "utf8");
+  const workspace = readFileSync("src/components/rounds/embedded-round-workspace.tsx", "utf8");
   check(
     "no hay un plazo de 3 días",
     !source.includes("3 días") && !source.includes("5 días") && !source.includes("cancellationDays") && !source.includes("score"),
@@ -156,6 +157,19 @@ function main() {
       panel.includes("policy: null") &&
       panel.includes("deadlinePolicyId: null") &&
       panel.includes("RoundActions"),
+  );
+  check(
+    "la ronda visible repite el plazo y la decisión",
+    workspace.includes("Plazo legal") &&
+      workspace.includes("Decisión de envío") &&
+      workspace.includes("decideOperation") &&
+      workspace.includes("roundTiming") &&
+      workspace.includes("OPERATION_REVIEW_LABEL") &&
+      workspace.includes("DUE_UNDETERMINED_LABEL") &&
+      workspace.includes("policy: null") &&
+      workspace.includes("deadlinePolicyId: null") &&
+      workspace.includes("RoundActions") &&
+      !workspace.includes("30 días"),
   );
 
   console.log("\nOK credit-operations\n");

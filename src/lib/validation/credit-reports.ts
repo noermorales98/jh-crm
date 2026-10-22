@@ -67,6 +67,7 @@ export const creditItemInputSchema = z.object({
   dateReported: optionalDateSchema,
   accountStatus: z.string().trim().max(120).optional().nullable().or(z.literal("")),
   paymentStatus: z.string().trim().max(120).optional().nullable().or(z.literal("")),
+  openClosedStatus: z.string().trim().max(120).optional().nullable().or(z.literal("")),
   negativeType: creditNegativeTypeSchema.optional().nullable(),
   remarks: z.string().trim().max(5000).optional().nullable().or(z.literal("")),
   isNegative: z.boolean().optional(),

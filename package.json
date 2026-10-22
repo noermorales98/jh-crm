@@ -81,6 +81,7 @@
     "smoke:credit-programs": "tsx scripts/smoke/credit-programs.ts",
     "smoke:credit-capacity": "tsx scripts/smoke/credit-capacity.ts",
     "smoke:credit-metrics": "tsx scripts/smoke/credit-metrics.ts",
+    "smoke:credit-report-selection": "tsx scripts/smoke/credit-report-selection.ts",
     "smoke:credit-portal": "tsx scripts/smoke/credit-portal.ts",
     "smoke:credit-operations": "tsx scripts/smoke/credit-operations.ts",
     "smoke:credit-corpus": "tsx scripts/smoke/credit-corpus.ts",

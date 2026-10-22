@@ -6,6 +6,7 @@
 import { classifyAccountFamily, classifyOwnership } from "./normalize";
 
 export const REVOLVING_VERSION = "t11-2026-10-20";
+export const OPEN_STATUS_LABEL = "estado sin dato";
 export const REVOLVING_SELECTION_POLICY = "t06-selection-2026-10-20";
 
 export type AggregateStatus = "KNOWN" | "PARTIAL" | "NOT_APPLICABLE";
@@ -35,6 +36,7 @@ export type RevolvingCard = {
   utilizationBps: number | null;
   currency: string | null;
   canonicalId: string | null;
+  openKnown: boolean;
 };
 
 export type RevolvingAggregate = {
@@ -50,7 +52,12 @@ export type RevolvingAggregate = {
 };
 
 export type RevolvingDiscrepancy = {
-  code: "UNCONFIRMED_IDENTITY" | "BUREAU_DIVERGENCE" | "MIXED_CURRENCY" | "CREDIT_BALANCE";
+  code:
+    | "UNCONFIRMED_IDENTITY"
+    | "BUREAU_DIVERGENCE"
+    | "MIXED_CURRENCY"
+    | "CREDIT_BALANCE"
+    | "OPEN_STATUS_UNKNOWN";
   observationIds: string[];
 };
 
@@ -87,10 +94,46 @@ export function utilizationBps(balance: number | null, limit: number | null): nu
   return Number(rounded);
 }
 
-function isOpen(status: string | null): boolean {
-  if (status == null) return false;
-  if (/\b(closed|cerrad)/i.test(status)) return false;
-  return /\b(open|abiert[oa])\b/i.test(status);
+export function openStateOf(status: string | null | undefined): "OPEN" | "CLOSED" | "UNKNOWN" {
+  const text = status?.trim() ?? "";
+  if (text.length === 0) return "UNKNOWN";
+  if (/\b(closed|cerrad)/i.test(text)) return "CLOSED";
+  if (/\b(open|abiert[oa])\b/i.test(text)) return "OPEN";
+  return "UNKNOWN";
+}
+
+/** Solo un abierto o cerrado explícito. Un rating de pago no abre la cuenta. */
+export function openClosedForReading(
+  openClosedStatus: string | null | undefined,
+  accountStatus: string | null | undefined,
+): string | null {
+  const explicit = openClosedStatus?.trim() ?? "";
+  if (explicit.length > 0) return explicit;
+  const stored = accountStatus?.trim() ?? "";
+  const state = openStateOf(stored);
+  if (state === "OPEN" || state === "CLOSED") return stored;
+  return null;
+}
+
+export function assignOpenClosed(input: {
+  accountStatus?: string | null;
+  paymentStatus?: string | null;
+  openClosedStatus?: string | null;
+}): { paymentStatus: string | null; openClosedStatus: string | null } {
+  const account = input.accountStatus?.trim() || null;
+  const payment = input.paymentStatus?.trim() || null;
+  const explicit = input.openClosedStatus?.trim() || null;
+  if (explicit) return { openClosedStatus: explicit, paymentStatus: payment };
+  const state = openStateOf(account);
+  if (state === "OPEN" || state === "CLOSED") {
+    return { openClosedStatus: account, paymentStatus: payment };
+  }
+  if (account && !payment) return { openClosedStatus: null, paymentStatus: account };
+  return { openClosedStatus: null, paymentStatus: payment };
+}
+
+export function isRevolvingAccount(accountType: string | null): boolean {
+  return classifyAccountFamily(accountType, "revolving").value === "REVOLVING";
 }
 
 function ownershipOf(responsibility: string | null): "INDIVIDUAL" | "JOINT" | "AUTHORIZED_USER" | "UNKNOWN" {
@@ -100,7 +143,7 @@ function ownershipOf(responsibility: string | null): "INDIVIDUAL" | "JOINT" | "A
 }
 
 function isRevolving(accountType: string | null): boolean {
-  return classifyAccountFamily(accountType, "revolving").value === "REVOLVING";
+  return isRevolvingAccount(accountType);
 }
 
 function emptyAggregate(): RevolvingAggregate {
@@ -127,6 +170,7 @@ function selectLatest<T extends { id: string; reportDate: string }>(items: reado
 }
 
 function toCard(item: RevolvingObservation): RevolvingCard {
+  const openKnown = openStateOf(item.accountStatus) === "OPEN";
   return {
     id: item.id,
     creditorName: item.creditorName,
@@ -134,9 +178,10 @@ function toCard(item: RevolvingObservation): RevolvingCard {
     balanceCents: money(item.balanceCents) ? item.balanceCents : null,
     limitCents: money(item.limitCents) ? item.limitCents : null,
     rawBalanceCents: item.balanceCents,
-    utilizationBps: utilizationBps(item.balanceCents, item.limitCents),
+    utilizationBps: openKnown ? utilizationBps(item.balanceCents, item.limitCents) : null,
     currency: item.currency,
     canonicalId: item.canonicalId,
+    openKnown,
   };
 }
 
@@ -146,6 +191,13 @@ function aggregateCards(cards: RevolvingCard[]): { aggregate: RevolvingAggregate
   const credit = cards.filter((card) => card.rawBalanceCents != null && card.rawBalanceCents < 0);
   if (credit.length > 0) {
     discrepancies.push({ code: "CREDIT_BALANCE", observationIds: credit.map((card) => card.id) });
+  }
+  const unknownOpen = cards.filter((card) => !card.openKnown);
+  if (unknownOpen.length > 0) {
+    discrepancies.push({
+      code: "OPEN_STATUS_UNKNOWN",
+      observationIds: unknownOpen.map((card) => card.id),
+    });
   }
   const known = cards.filter((card) => card.utilizationBps != null);
   const currencies = new Set(known.map((card) => card.currency).filter((value): value is string => value != null && value.trim() !== ""));
@@ -226,7 +278,10 @@ function scopeFor(
   ownership: "INDIVIDUAL" | "JOINT" | "AUTHORIZED_USER" | "UNKNOWN",
 ): { aggregate: RevolvingAggregate; cards: RevolvingCard[]; discrepancies: RevolvingDiscrepancy[] } {
   const matching = items.filter(
-    (item) => isRevolving(item.accountType) && isOpen(item.accountStatus) && ownershipOf(item.responsibility) === ownership,
+    (item) =>
+      isRevolving(item.accountType) &&
+      openStateOf(item.accountStatus) !== "CLOSED" &&
+      ownershipOf(item.responsibility) === ownership,
   );
   const picked = pickAccounts(matching, asOf, consolidate);
   const summed = aggregateCards(picked.cards);

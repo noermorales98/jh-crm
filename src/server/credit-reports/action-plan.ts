@@ -15,7 +15,15 @@ import {
   negativeListed,
   type CreditAnomaly,
 } from "@/src/lib/credit/anomalies";
-import { buildRevolvingReading } from "@/src/lib/credit/revolving";
+import { selectActionPlanReport } from "@/src/lib/credit/report-selection";
+import { metricText, presentUtilization } from "@/src/lib/credit/metrics-view";
+import {
+  OPEN_STATUS_LABEL,
+  buildRevolvingReading,
+  isRevolvingAccount,
+  openClosedForReading,
+  openStateOf,
+} from "@/src/lib/credit/revolving";
 import {
   formatInquiryReading,
   temporalMetrics,
@@ -47,6 +55,7 @@ export type BureauMetric = {
   utilization: number | null;
   utilizationBps: number | null;
   utilizationStatus: "KNOWN" | "PARTIAL" | "NOT_APPLICABLE";
+  utilizationText: string;
   inquiries: number | null;
   scoreOk: boolean;
   utilOk: boolean;
@@ -62,6 +71,7 @@ export type RevolvingCard = {
   currency: string | null;
   utilization: number | null;
   utilizationBps: number | null;
+  openStatusUnknown: boolean;
 };
 
 export type ActionPlanPriority = ActionPlanHowTo & {
@@ -73,6 +83,7 @@ export type ClientActionPlan = {
   clientName: string;
   reportId: string;
   reportDate: Date;
+  newerIncompleteReport: boolean;
   bureaus: BureauMetric[];
   avgScore: number | null;
   avgUtilization: number | null;
@@ -227,28 +238,34 @@ export async function getClientActionPlan(
   if (!client) throw new DomainError("Cliente no encontrado.");
 
   let resolvedReportId = reportId ?? null;
+  let newerIncompleteReport = false;
   if (!resolvedReportId) {
-    // Prefer the latest report that has snapshots or items (empty UPDATE shells
-    // would otherwise hide Score/Fondeo estimates).
-    const withData = await prisma.creditReport.findFirst({
-      where: {
-        organizationId: ctx.organizationId,
-        clientId,
-        OR: [{ snapshots: { some: {} } }, { items: { some: {} } }],
-      },
+    const candidates = await prisma.creditReport.findMany({
+      where: { organizationId: ctx.organizationId, clientId },
       orderBy: [{ reportDate: "desc" }, { importedAt: "desc" }],
-      select: { id: true },
+      select: {
+        id: true,
+        reportDate: true,
+        importedAt: true,
+        snapshots: { select: { id: true }, take: 1 },
+        items: { select: { accountType: true, creditLimit: true } },
+      },
     });
-    if (withData) {
-      resolvedReportId = withData.id;
-    } else {
-      const latest = await prisma.creditReport.findFirst({
-        where: { organizationId: ctx.organizationId, clientId },
-        orderBy: [{ reportDate: "desc" }, { importedAt: "desc" }],
-        select: { id: true },
-      });
-      resolvedReportId = latest?.id ?? null;
-    }
+    const choice = selectActionPlanReport(
+      candidates.map((candidate) => ({
+        id: candidate.id,
+        reportDate: candidate.reportDate.toISOString().slice(0, 10),
+        importedAt: candidate.importedAt.toISOString(),
+        hasSnapshot: candidate.snapshots.length > 0,
+        hasItem: candidate.items.length > 0,
+        usable: candidate.items.some(
+          (item) =>
+            (item.accountType?.trim().length ?? 0) > 0 || item.creditLimit != null,
+        ),
+      })),
+    );
+    resolvedReportId = choice.reportId;
+    newerIncompleteReport = choice.newerIncomplete;
   }
   if (!resolvedReportId) {
     throw new DomainError("Sin reportes de crédito para este cliente.");
@@ -284,7 +301,7 @@ export async function getClientActionPlan(
     bureau: item.bureau,
     accountType: item.accountType,
     responsibility: item.ownershipType,
-    accountStatus: item.openClosedStatus ?? item.accountStatus,
+    accountStatus: openClosedForReading(item.openClosedStatus, item.accountStatus),
     balanceCents: toCents(item.balance),
     limitCents: toCents(item.creditLimit),
     currency: null,
@@ -309,8 +326,28 @@ export async function getClientActionPlan(
       currency: card.currency,
       utilization: card.utilizationBps == null ? null : card.utilizationBps / 100,
       utilizationBps: card.utilizationBps,
+      openStatusUnknown: !card.openKnown,
     })),
   );
+  for (const item of observations) {
+    if (!isRevolvingAccount(item.accountType) || openStateOf(item.accountStatus) !== "UNKNOWN") {
+      continue;
+    }
+    const already = cards.some(
+      (card) => card.bureau === item.bureau && card.creditorName === item.creditorName,
+    );
+    if (already) continue;
+    cards.push({
+      creditorName: item.creditorName,
+      bureau: item.bureau as CreditBureau,
+      limit: fromCents(item.limitCents),
+      balance: fromCents(item.balanceCents),
+      currency: null,
+      utilization: null,
+      utilizationBps: null,
+      openStatusUnknown: true,
+    });
+  }
   const openCards = certifiedKnown ? certified.total : null;
   const totalLimit = certifiedKnown ? fromCents(certified.limitCents) : null;
   const totalUsed = certifiedKnown ? fromCents(certified.balanceCents) : null;
@@ -322,15 +359,21 @@ export async function getClientActionPlan(
     ? reading.consolidated.cards.filter((card) => (card.limitCents ?? 0) >= 500_000).length
     : 0;
   const auCards = ownership.auCanonicalIds.length;
+  const openUnknown =
+    observations.some(
+      (item) => isRevolvingAccount(item.accountType) && openStateOf(item.accountStatus) === "UNKNOWN",
+    );
   const coverageLabel =
     reading.consolidated.discrepancies.some((item) => item.code === "UNCONFIRMED_IDENTITY") &&
     !certifiedKnown
       ? "Identidad sin confirmar"
-      : certified.status === "KNOWN"
-        ? "Conocida"
-        : certified.status === "PARTIAL"
-          ? `Parcial ${certified.known}/${certified.total}`
-          : "Sin cuentas elegibles";
+      : openUnknown && !certifiedKnown
+        ? OPEN_STATUS_LABEL
+        : certified.status === "KNOWN"
+          ? "Conocida"
+          : certified.status === "PARTIAL"
+            ? `Parcial ${certified.known}/${certified.total}`
+            : "Sin cuentas elegibles";
 
   const bureaus: BureauMetric[] = BUREAUS.map((bureau) => {
     const snap = report.snapshots.find((s) => s.bureau === bureau);
@@ -338,12 +381,25 @@ export async function getClientActionPlan(
     const utilization = num(snap?.utilization);
     const inquiries = snap?.inquiries ?? null;
     const revolvingBureau = reading.bureaus.find((item) => item.bureau === bureau)?.individual;
+    const status = revolvingBureau?.status ?? "NOT_APPLICABLE";
+    const bureauOpenUnknown = observations.some(
+      (item) =>
+        item.bureau === bureau &&
+        isRevolvingAccount(item.accountType) &&
+        openStateOf(item.accountStatus) === "UNKNOWN",
+    );
     return {
       bureau,
       score,
       utilization,
       utilizationBps: revolvingBureau?.valueBps ?? null,
-      utilizationStatus: revolvingBureau?.status ?? "NOT_APPLICABLE",
+      utilizationStatus: status,
+      utilizationText: bureauOpenUnknown
+        ? OPEN_STATUS_LABEL
+        : metricText(presentUtilization({
+            basisPoints: revolvingBureau?.valueBps ?? null,
+            status: status === "KNOWN" || status === "PARTIAL" ? status : "UNKNOWN",
+          })),
       inquiries,
       scoreOk: score != null && score >= SCORE_MIN,
       utilOk: utilization != null && utilization <= UTIL_MAX,
@@ -473,6 +529,7 @@ export async function getClientActionPlan(
     clientName,
     reportId: report.id,
     reportDate: report.reportDate,
+    newerIncompleteReport,
     bureaus,
     avgScore,
     avgUtilization,

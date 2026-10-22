@@ -7,8 +7,11 @@
  */
 import { readFileSync } from "node:fs";
 import {
+  OPEN_STATUS_LABEL,
   REVOLVING_VERSION,
+  assignOpenClosed,
   buildRevolvingReading,
+  openClosedForReading,
   utilizationBps,
   type RevolvingObservation,
 } from "../../src/lib/credit/revolving";
@@ -228,6 +231,60 @@ function main() {
   check("el plan ya no suma con la clave vieja", !plan.includes("${item.creditorName}|${item.bureau}"));
   check("el promedio de porcentajes no certifica la utilización", !plan.includes("utils.reduce"));
   check("la versión queda fija", REVOLVING_VERSION === "t11-2026-10-20");
+
+  const rating = buildRevolvingReading({
+    asOf: "2024-06-01",
+    observations: [
+      obs({
+        id: "agreed",
+        bureau: "EXPERIAN",
+        accountStatus: openClosedForReading(null, "Pays as Agreed"),
+        currency: null,
+        canonicalId: "agreed",
+        identityStatus: "CONFIRMED",
+      }),
+    ],
+  });
+  check(
+    "Pays as Agreed no publica el porcentaje",
+    rating.consolidated.individual.valueBps == null &&
+      rating.consolidated.individual.status !== "KNOWN" &&
+      rating.consolidated.cards.length === 1 &&
+      rating.consolidated.cards[0]?.openKnown === false &&
+      rating.consolidated.discrepancies.some((item) => item.code === "OPEN_STATUS_UNKNOWN") &&
+      !OPEN_STATUS_LABEL.includes("0%"),
+  );
+
+  const closed = buildRevolvingReading({
+    asOf: "2024-06-01",
+    observations: [
+      obs({
+        id: "closed",
+        bureau: "EXPERIAN",
+        accountStatus: "Collection Account Closed",
+        canonicalId: "closed",
+        identityStatus: "CONFIRMED",
+      }),
+    ],
+  });
+  check(
+    "una cuenta cerrada sigue fuera",
+    closed.consolidated.cards.length === 0 && closed.consolidated.individual.status === "NOT_APPLICABLE",
+  );
+
+  const standing = assignOpenClosed({ accountStatus: "Pays as Agreed" });
+  const opened = assignOpenClosed({
+    accountStatus: "Open",
+    paymentStatus: "Pays as Agreed",
+  });
+  check(
+    "el import nuevo separa el rating y no inventa USD",
+    standing.openClosedStatus == null &&
+      standing.paymentStatus === "Pays as Agreed" &&
+      opened.openClosedStatus === "Open" &&
+      opened.paymentStatus === "Pays as Agreed" &&
+      plan.includes("currency: null"),
+  );
 
   console.log("\nOK credit-revolving\n");
 }

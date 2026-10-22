@@ -7,7 +7,9 @@ import { Button } from "@/src/components/ui";
 import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
 import { ACTION_KIND_LABEL, ACTION_PRIORITY_LABEL } from "@/src/lib/credit/actions";
 import { formatDate } from "@/src/lib/format";
-import { metricText, presentAmount, presentUtilization, type MetricStatus } from "@/src/lib/credit/metrics-view";
+import { metricText, presentAmount, presentUtilization } from "@/src/lib/credit/metrics-view";
+import { OPEN_STATUS_LABEL } from "@/src/lib/credit/revolving";
+import { NEWER_INCOMPLETE_IMPORT_NOTE } from "@/src/lib/credit/report-selection";
 
 export function ClientActionPlanView({
   plan,
@@ -42,6 +44,11 @@ export function ClientActionPlanView({
             <p className="mt-1 text-[12px] text-text-secondary">
               Reporte del {formatDate(plan.reportDate)}
             </p>
+            {plan.newerIncompleteReport ? (
+              <p className="mt-1 text-[12px] text-text-secondary">
+                {NEWER_INCOMPLETE_IMPORT_NOTE}
+              </p>
+            ) : null}
           </div>
           <a
             href={`/api/clients/${plan.clientId}/action-plan/pdf?reportId=${plan.reportId}`}
@@ -77,10 +84,7 @@ export function ClientActionPlanView({
                 {b.scoreLabel}
                 {b.score != null ? " · modelo desconocido" : ""}
                 {" · Util. "}
-                {metricText(presentUtilization({
-                  basisPoints: b.utilizationBps,
-                  status: metricStatus(b.utilizationStatus),
-                }))}
+                {b.utilizationText}
               </p>
             </div>
           ))}
@@ -109,10 +113,7 @@ export function ClientActionPlanView({
               {plan.bureaus
                 .map(
                   (b) =>
-                    `${CREDIT_BUREAU_LABELS[b.bureau]} ${metricText(presentUtilization({
-                      basisPoints: b.utilizationBps,
-                      status: metricStatus(b.utilizationStatus),
-                    }))} (${b.utilLabel})`,
+                    `${CREDIT_BUREAU_LABELS[b.bureau]} ${b.utilizationText} (${b.utilLabel})`,
                 )
                 .join(" · ")}
             </li>
@@ -147,7 +148,7 @@ export function ClientActionPlanView({
               status: plan.revolving.totalLimit == null ? "UNKNOWN" : "KNOWN",
             }))}
           />
-          <Kpi label="≥ $2K" value={`${plan.revolving.cardsGe2k}`} />
+          <Kpi label="≥ 2 000" value={`${plan.revolving.cardsGe2k}`} />
           <Kpi
             label="Utilización revolving"
             value={
@@ -190,10 +191,12 @@ export function ClientActionPlanView({
                       }))}
                     </td>
                     <td className="py-1.5 tabular-nums">
-                      {metricText(presentUtilization({
-                        basisPoints: c.utilizationBps,
-                        status: c.utilizationBps == null ? "UNKNOWN" : "KNOWN",
-                      }))}
+                      {c.openStatusUnknown
+                        ? OPEN_STATUS_LABEL
+                        : metricText(presentUtilization({
+                            basisPoints: c.utilizationBps,
+                            status: c.utilizationBps == null ? "UNKNOWN" : "KNOWN",
+                          }))}
                     </td>
                   </tr>
                 ))}
@@ -299,7 +302,7 @@ export function ClientActionPlanView({
           </table>
         </div>
         <p className="text-[12px] text-text-secondary">
-          Referencia interna (720, 10% y $40,000). La edad usa la fecha del
+          Referencia interna (720, 10% y 40 000). La edad usa la fecha del
           reporte. Una apertura ausente no cuenta como apta. Las consultas
           muestran el contador del reporte, no un rechazo. Un reporte sin
           cobertura completa no se lee como archivo sin negativos.
@@ -351,11 +354,6 @@ export function ClientActionPlanView({
       </section>
     </div>
   );
-}
-
-function metricStatus(status: "KNOWN" | "PARTIAL" | "NOT_APPLICABLE"): MetricStatus {
-  if (status === "KNOWN" || status === "PARTIAL") return status;
-  return "UNKNOWN";
 }
 
 function Kpi({ label, value }: { label: string; value: string }) {

@@ -7,10 +7,11 @@ import type {
 } from "@prisma/client";
 import { adaptLegacyCreditItem } from "@/src/lib/credit/contracts";
 import { prisma } from "@/src/lib/db";
-import { DomainError } from "@/src/server/errors";
+import { assignOpenClosed } from "@/src/lib/credit/revolving";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
+import { DomainError } from "@/src/server/errors";
 
 /**
  * Reportes de crédito estructurados: scores por buró + elementos de cuenta.
@@ -49,6 +50,7 @@ export interface CreditItemInput {
   dateReported?: Date | null;
   accountStatus?: string | null;
   paymentStatus?: string | null;
+  openClosedStatus?: string | null;
   negativeType?: CreditNegativeType | null;
   remarks?: string | null;
   isNegative?: boolean;
@@ -121,6 +123,7 @@ function itemCreateData(
 ) {
   rejectInvalidItemMoney(item, ids.reportId);
   const isNegative = item.isNegative ?? item.negativeType != null;
+  const standing = assignOpenClosed(item);
   return {
     organizationId: ids.organizationId,
     clientId: ids.clientId,
@@ -136,7 +139,8 @@ function itemCreateData(
     dateOpened: item.dateOpened ?? null,
     dateReported: item.dateReported ?? null,
     accountStatus: emptyToNull(item.accountStatus),
-    paymentStatus: emptyToNull(item.paymentStatus),
+    paymentStatus: standing.paymentStatus,
+    openClosedStatus: standing.openClosedStatus,
     negativeType: item.negativeType ?? null,
     remarks: emptyToNull(item.remarks),
     isNegative,

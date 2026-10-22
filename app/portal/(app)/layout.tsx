@@ -1,15 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { signOut } from "@/auth";
-import {
-  FileText,
-  MessageSquareQuote,
-  Home,
-  CreditCard,
-  LineChart,
-  FolderOpen,
-  LogOut,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import { requirePortalSession } from "@/src/server/auth/guards";
 import { isPortalEnabled } from "@/src/server/portal";
 import { AppIcon } from "@/src/components/icons/app-icon";
@@ -22,15 +14,6 @@ export const metadata: Metadata = {
     template: "%s — Portal J&H",
   },
 };
-
-const NAV = [
-  { href: "/portal", label: "Inicio", icon: Home },
-  { href: "/portal/progreso", label: "Progreso", icon: LineChart },
-  { href: "/portal/documentos", label: "Documentos", icon: FolderOpen },
-  { href: "/portal/reportes", label: "Reportes", icon: FileText },
-  { href: "/portal/pagos", label: "Pagos", icon: CreditCard },
-  { href: "/portal/testimonios", label: "Testimonios", icon: MessageSquareQuote },
-] as const;
 
 export default async function PortalAppLayout({
   children,
@@ -70,7 +53,7 @@ export default async function PortalAppLayout({
       <main className="mx-auto max-w-5xl px-4 py-6 pb-[calc(5.25rem+env(safe-area-inset-bottom))]">
         {children}
       </main>
-      <PortalNav items={NAV} />
+      <PortalNav />
     </div>
   );
 }

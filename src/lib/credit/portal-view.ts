@@ -10,6 +10,15 @@ export const PORTAL_VIEW_VERSION = "t23-2026-10-21";
 export const SCENARIO_IS_SIMULATION =
   "Escenario de utilización. No es un monto aprobado.";
 
+/** Un PDF analizado sin reporte confirmado no se publica en el portal. */
+export function isPortalDocumentPublished(input: {
+  hasImportJob: boolean;
+  hasConfirmedReport: boolean;
+}): boolean {
+  if (input.hasImportJob && !input.hasConfirmedReport) return false;
+  return true;
+}
+
 export type PortalActor = {
   organizationId: string;
   authenticatedClientId: string;

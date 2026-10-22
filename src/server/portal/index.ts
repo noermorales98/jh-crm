@@ -338,19 +338,32 @@ export async function getPortalHome(clientId: string, organizationId: string) {
   };
 }
 
+function portalVisibleDocumentWhere(
+  clientId: string,
+  organizationId: string,
+  documentId?: string,
+) {
+  return {
+    ...(documentId ? { id: documentId } : {}),
+    clientId,
+    organizationId,
+    deletedAt: null,
+    hardDeletedAt: null,
+    sensitivity: { not: "HIGHLY_SENSITIVE" as const },
+    category: { not: "SSN_DOCUMENT" as const },
+    OR: [
+      { creditPdfImportJobs: { none: {} } },
+      { creditReports: { some: {} } },
+    ],
+  };
+}
+
 export async function listPortalDocuments(
   clientId: string,
   organizationId: string,
 ) {
   return prisma.document.findMany({
-    where: {
-      clientId,
-      organizationId,
-      deletedAt: null,
-      hardDeletedAt: null,
-      sensitivity: { not: "HIGHLY_SENSITIVE" },
-      category: { not: "SSN_DOCUMENT" },
-    },
+    where: portalVisibleDocumentWhere(clientId, organizationId),
     select: {
       id: true,
       category: true,
@@ -643,15 +656,11 @@ export async function requestPortalDownload(
   assertStorage();
 
   const document = await prisma.document.findFirst({
-    where: {
-      id: documentId,
-      clientId: portal.clientId,
-      organizationId: portal.organizationId,
-      deletedAt: null,
-      hardDeletedAt: null,
-      sensitivity: { not: "HIGHLY_SENSITIVE" },
-      category: { not: "SSN_DOCUMENT" },
-    },
+    where: portalVisibleDocumentWhere(
+      portal.clientId,
+      portal.organizationId,
+      documentId,
+    ),
   });
   if (!document) throw new DomainError("Documento no encontrado.");
 

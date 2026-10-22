@@ -12,6 +12,7 @@ import {
   PORTAL_VIEW_VERSION,
   SCENARIO_IS_SIMULATION,
   buildPortalView,
+  isPortalDocumentPublished,
   type PortalViewInput,
 } from "../../src/lib/credit/portal-view";
 
@@ -140,6 +141,23 @@ function main() {
       corrected.interview?.state === "CLIENT_CONFIRMED" &&
       corrected.interview.createsDispute === false,
     { pending: pending.interview, corrected: corrected.interview },
+  );
+
+  check(
+    "un import sin reporte confirmado no se publica",
+    isPortalDocumentPublished({ hasImportJob: true, hasConfirmedReport: false }) === false &&
+      isPortalDocumentPublished({ hasImportJob: true, hasConfirmedReport: true }) === true &&
+      isPortalDocumentPublished({ hasImportJob: false, hasConfirmedReport: false }) === true,
+  );
+
+  const portalServer = readFileSync("src/server/portal/index.ts", "utf8");
+  check(
+    "la lista y la descarga del portal usan el mismo filtro",
+    portalServer.includes("function portalVisibleDocumentWhere") &&
+      portalServer.includes("creditPdfImportJobs: { none: {} }") &&
+      portalServer.includes("creditReports: { some: {} }") &&
+      portalServer.includes("where: portalVisibleDocumentWhere(clientId, organizationId)") &&
+      portalServer.includes("where: portalVisibleDocumentWhere("),
   );
 
   const page = readFileSync("app/portal/(app)/progreso/page.tsx", "utf8");

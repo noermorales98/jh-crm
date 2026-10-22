@@ -2,16 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { LucideIcon } from "lucide-react";
+import {
+  CreditCard,
+  FileText,
+  FolderOpen,
+  Home,
+  LineChart,
+  MessageSquareQuote,
+} from "lucide-react";
+
+const ITEMS = [
+  { href: "/portal", label: "Inicio", icon: Home },
+  { href: "/portal/progreso", label: "Progreso", icon: LineChart },
+  { href: "/portal/documentos", label: "Documentos", icon: FolderOpen },
+  { href: "/portal/reportes", label: "Reportes", icon: FileText },
+  { href: "/portal/pagos", label: "Pagos", icon: CreditCard },
+  { href: "/portal/testimonios", label: "Testimonios", icon: MessageSquareQuote },
+] as const;
 
 /**
  * Navegación inferior del portal (móvil y desktop estrecho).
+ * Los iconos viven aquí: un Server Component no puede pasarlos como props.
  */
-export function PortalNav({
-  items,
-}: {
-  items: readonly { href: string; label: string; icon: LucideIcon }[];
-}) {
+export function PortalNav() {
   const pathname = usePathname();
 
   return (
@@ -20,7 +33,7 @@ export function PortalNav({
       aria-label="Portal"
     >
       <div className="mx-auto flex max-w-5xl items-stretch justify-between gap-0.5 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1">
-        {items.map(({ href, label, icon: Icon }) => {
+        {ITEMS.map(({ href, label, icon: Icon }) => {
           const active =
             href === "/portal"
               ? pathname === "/portal"

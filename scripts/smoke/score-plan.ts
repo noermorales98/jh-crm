@@ -9,8 +9,12 @@ import {
   SCORE_PLAN_EMPTY_COPY,
   SCORE_PLAN_INSUFFICIENT_LABEL,
   SCORE_PLAN_REVIEW_NOTE,
+  SCENARIO_VERSION,
   buildScorePlan,
+  buildUtilizationScenario,
   formatScorePlanCopy,
+  paydownCents,
+  type ScenarioAccount,
   type ScorePlanAccount,
 } from "../../src/lib/credit/score-plan";
 
@@ -169,6 +173,89 @@ function main() {
     formatScorePlanCopy(atThirty, 30) ===
       `Tarjeta Alfa: ahora 80% · $5,000 (meta 30%)\n${SCORE_PLAN_REVIEW_NOTE}`,
     formatScorePlanCopy(atThirty, 30),
+  );
+
+  check("versión del escenario", SCENARIO_VERSION === "t13-2026-10-21");
+  const abc: ScenarioAccount[] = [
+    { canonicalId: "A", creditorName: "A", balanceCents: 800_000, limitCents: 1_000_000, currency: "USD" },
+    { canonicalId: "B", creditorName: "B", balanceCents: 50_000, limitCents: 500_000, currency: "USD" },
+    { canonicalId: "C", creditorName: "C", balanceCents: 0, limitCents: 500_000, currency: "USD" },
+  ];
+  const split = buildUtilizationScenario({
+    snapshotId: "snap",
+    targetBps: 1_000,
+    aggregateStatus: "KNOWN",
+    accounts: abc,
+  });
+  check(
+    "por tarjeta A/B/C al 10% suman 700000 centavos",
+    split.perAccountTotalCents === 700_000 &&
+      split.perAccountPaydownCents[0]?.payment === 700_000 &&
+      split.perAccountPaydownCents[1]?.payment === 0 &&
+      split.perAccountPaydownCents[2]?.payment === 0,
+    split,
+  );
+  check(
+    "el conjunto 8500 sobre 20000 pide 650000 centavos",
+    split.aggregatePaydownCents === 650_000 && split.difference != null,
+    split,
+  );
+  check("el escenario no predice puntos", split.scorePrediction === null);
+
+  const atZero = buildUtilizationScenario({
+    snapshotId: "snap",
+    targetBps: 0,
+    aggregateStatus: "KNOWN",
+    accounts: [abc[0]!],
+  });
+  check("meta 0 paga el saldo", atZero.aggregatePaydownCents === 800_000 && atZero.scorePrediction === null);
+  const atFull = buildUtilizationScenario({
+    snapshotId: "snap",
+    targetBps: 10_000,
+    aggregateStatus: "KNOWN",
+    accounts: [abc[0]!],
+  });
+  check("meta 100% paga 0 si el saldo no pasa el límite", atFull.aggregatePaydownCents === 0);
+
+  check("límite null no calcula", paydownCents(400_000, null, 1_000) === null);
+  check("límite cero no calcula", paydownCents(400_000, 0, 1_000) === null);
+  check(
+    "saldo sobre el límite no pide más que el saldo",
+    paydownCents(1_200_000, 1_000_000, 1_000) === 1_100_000,
+  );
+  const mixedCurrency = buildUtilizationScenario({
+    snapshotId: "snap",
+    targetBps: 1_000,
+    aggregateStatus: "KNOWN",
+    accounts: [
+      abc[0]!,
+      { ...abc[1]!, currency: "EUR" },
+    ],
+  });
+  check("moneda distinta deja el conjunto en null", mixedCurrency.aggregatePaydownCents === null && mixedCurrency.scorePrediction === null);
+  const partial = buildUtilizationScenario({
+    snapshotId: "snap",
+    targetBps: 1_000,
+    aggregateStatus: "PARTIAL",
+    accounts: abc,
+  });
+  check("agregado parcial deja el conjunto en null", partial.aggregatePaydownCents === null && partial.perAccountTotalCents === 700_000);
+  check(
+    "un centavo al 50% usa el piso 0",
+    paydownCents(1, 1, 5_000) === 1,
+  );
+  check("saldo cero paga 0", paydownCents(0, 100, 5_000) === 0);
+  const dated = buildUtilizationScenario({
+    snapshotId: "snap",
+    targetBps: 1_000,
+    aggregateStatus: "KNOWN",
+    accounts: [{ ...abc[0]!, balanceReportedOn: "2026-10-01", statementClose: null, dueDate: null }],
+  });
+  check(
+    "solo muestra la fecha que vino",
+    dated.perAccountPaydownCents[0]?.balanceReportedOn === "2026-10-01" &&
+      dated.perAccountPaydownCents[0]?.statementClose === null &&
+      dated.perAccountPaydownCents[0]?.dueDate === null,
   );
 
   console.log("\nOK score-plan\n");

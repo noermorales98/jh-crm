@@ -47,7 +47,7 @@
 | F29 | Reintento tras timeout de envío de documento | No repetir efecto externo automáticamente |
 | F30 | 1,234.56 vs 1.234,56 | Interpretación por locale o revisión |
 
-Estos son casos de aceptación, no tests ya integrados en el CRM. T26 los convierte en fixtures del runner existente. Los ejemplos matemáticos adicionales sí se verifican de forma aislada en esta entrega; véase `VALIDACION-DEL-PAQUETE.md`.
+Estos casos de aceptación corren en `npm run smoke:credit-corpus`. El smoke llama las funciones reales del crédito, sin base y sin un PDF de una persona. No demuestra un recorrido de pantalla ni una migración.
 
 ## Cierre de cada tarea
 

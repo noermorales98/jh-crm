@@ -1,9 +1,17 @@
 /**
  * CR-PDF-001 — Importación de PDFs de crédito (propose + confirm).
  */
+import type { Prisma } from "@prisma/client";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
+import { assertCreditAccess } from "@/src/lib/credit/access";
+import {
+  confirmReview,
+  emptyReview,
+  saveDraft,
+  type ImportReview,
+} from "@/src/lib/credit/review";
 import {
   getObjectBytes,
   isStorageConfigured,
@@ -12,9 +20,10 @@ import { writeAuditLog } from "@/src/server/audit";
 import * as clients from "@/src/server/clients";
 import * as creditReports from "@/src/server/credit-reports";
 import { encrypt, ssnLast4 as deriveSsnLast4 } from "@/src/lib/security/encryption";
-import type {
-  ConfirmCreditPdfImportInput,
-  CreditPdfExtractionProposal,
+import {
+  creditPdfExtractionProposalSchema,
+  type ConfirmCreditPdfImportInput,
+  type CreditPdfExtractionProposal,
 } from "@/src/lib/validation/credit-import";
 import { extractPdfContent } from "./pdf-text";
 import { classifyAndExtractFromPdf } from "./extract";
@@ -241,6 +250,58 @@ async function applySensitivePartial(
   });
 }
 
+function toImportReview(review: CreditPdfExtractionProposal["review"]): ImportReview {
+  if (!review) return emptyReview();
+  return {
+    ...emptyReview(),
+    version: review.version,
+    revision: review.revision,
+    status: review.status,
+    idempotencyKey: review.idempotencyKey ?? null,
+    reportId: review.reportId ?? null,
+    reviewedFieldIds: review.reviewedFieldIds ?? [],
+    authorUserId: review.authorUserId ?? null,
+    reason: review.reason ?? null,
+  };
+}
+
+function reviewError(error: unknown): Error {
+  if (!(error instanceof Error)) return new DomainError("No se pudo revisar la importación.");
+  if (error.message === "PUBLICATION_BLOCKED") {
+    return new DomainError(
+      "La extracción está incompleta. No se publican métricas ni cuentas hasta completarla.",
+    );
+  }
+  if (error.message === "REVIEW_REQUIRED") {
+    return new DomainError("Faltan campos críticos por revisar.");
+  }
+  if (error.message === "REVISION_CONFLICT") {
+    return new DomainError("La revisión no coincide. No se publicó otro reporte.");
+  }
+  return error;
+}
+
+async function replayStoredJob(
+  organizationId: string,
+  jobId: string,
+  idempotencyKey: string,
+  caseId: string,
+  clientId: string,
+) {
+  const again = await prisma.creditPdfImportJob.findFirst({
+    where: { id: jobId, organizationId },
+    select: { proposalJson: true },
+  });
+  const parsed = again?.proposalJson
+    ? creditPdfExtractionProposalSchema.safeParse(again.proposalJson)
+    : null;
+  const review = toImportReview(parsed?.success ? parsed.data.review : null);
+  if (review.status === "CONFIRMED" && review.idempotencyKey === idempotencyKey && review.reportId) {
+    return { reportId: review.reportId, caseId, clientId };
+  }
+  throw new DomainError("La confirmación está en curso o la revisión no coincide. No se publicó otro reporte.");
+}
+
 export async function confirmCreditPdfImport(
   ctx: OrganizationContext,
   input: ConfirmCreditPdfImportInput,
@@ -250,6 +311,75 @@ export async function confirmCreditPdfImport(
     input.caseId,
     input.documentId,
   );
+  assertCreditAccess({
+    actor: { organizationId: ctx.organizationId, role: ctx.role },
+    clientId: creditCase.clientId,
+    resource: { organizationId: ctx.organizationId, clientId: creditCase.clientId },
+    mode: "manage",
+  });
+
+  const stored = await prisma.creditPdfImportJob.findFirst({
+    where: {
+      organizationId: ctx.organizationId,
+      caseId: input.caseId,
+      documentId: input.documentId,
+      status: "SUCCEEDED",
+    },
+    orderBy: { finishedAt: "desc" },
+    select: { id: true, phase: true, proposalJson: true },
+  });
+  const parsed = stored?.proposalJson
+    ? creditPdfExtractionProposalSchema.safeParse(stored.proposalJson)
+    : null;
+  const currentReview = toImportReview(parsed?.success ? parsed.data.review : null);
+  const idempotencyKey = input.idempotencyKey?.trim() || document.id;
+  const reason = input.reason?.trim() || "confirmación de importación";
+  let decision;
+  try {
+    decision = confirmReview({
+      actor: { organizationId: ctx.organizationId, role: ctx.role },
+      clientId: creditCase.clientId,
+      resource: { organizationId: ctx.organizationId, clientId: creditCase.clientId },
+      review: currentReview,
+      expectedRevision: input.expectedRevision,
+      idempotencyKey,
+      reviewedFieldIds: input.reviewedFieldIds,
+      identityDecisionIds: input.identityDecisionIds,
+      creditCaseId: creditCase.id,
+      asOf: input.reportDate.toISOString().slice(0, 10),
+      confirmedReportIds: [document.id],
+      reportDate: input.reportDate.toISOString().slice(0, 10),
+      snapshots: input.snapshots,
+      items: input.items,
+      metricsBlocked: parsed?.success ? parsed.data.coverage?.metricsBlocked === true : false,
+      authorUserId: ctx.userId,
+      reason,
+    });
+  } catch (error) {
+    throw reviewError(error);
+  }
+  if (decision.outcome === "REPLAY" && decision.review.reportId) {
+    return {
+      reportId: decision.review.reportId,
+      caseId: creditCase.id,
+      clientId: creditCase.clientId,
+    };
+  }
+
+  if (stored && stored.phase !== "confirmed") {
+    const claim = await prisma.creditPdfImportJob.updateMany({
+      where: {
+        id: stored.id,
+        organizationId: ctx.organizationId,
+        status: "SUCCEEDED",
+        NOT: { phase: "confirmed" },
+      },
+      data: { phase: "confirming" },
+    });
+    if (claim.count === 0) {
+      return replayStoredJob(ctx.organizationId, stored.id, idempotencyKey, creditCase.id, creditCase.clientId);
+    }
+  }
 
   const apply = input.applyClientFields ?? {};
   const patch = input.clientPatch ?? {};
@@ -338,7 +468,9 @@ export async function confirmCreditPdfImport(
     });
   }
 
-  const report = await creditReports.createCreditReport(ctx, {
+  let report;
+  try {
+    report = await creditReports.createCreditReport(ctx, {
     caseId: creditCase.id,
     type: input.reportType,
     reportDate: input.reportDate,
@@ -349,6 +481,57 @@ export async function confirmCreditPdfImport(
     items:
       input.documentKind === "CLIENT_PROGRESS_REPORT" ? [] : input.items,
   });
+  } catch (error) {
+    if (stored) {
+      await prisma.creditPdfImportJob.updateMany({
+        where: { id: stored.id, organizationId: ctx.organizationId, phase: "confirming" },
+        data: { phase: stored.phase },
+      });
+    }
+    throw error;
+  }
+
+  const sealed = {
+    ...decision.review,
+    reportId: report.id,
+    idempotencyKey,
+    authorUserId: ctx.userId,
+    reason,
+    disputeAuthorized: false as const,
+    inaccuracyConfirmed: false as const,
+  };
+  if (stored && parsed?.success) {
+    await prisma.creditPdfImportJob.update({
+      where: { id: stored.id },
+      data: {
+        phase: "confirmed",
+        proposalJson: {
+          ...parsed.data,
+          review: {
+            version: sealed.version,
+            revision: sealed.revision,
+            status: "CONFIRMED",
+            idempotencyKey: sealed.idempotencyKey,
+            reportId: sealed.reportId,
+            reviewedFieldIds: sealed.reviewedFieldIds,
+            authorUserId: sealed.authorUserId,
+            reason: sealed.reason,
+            disputeAuthorized: false,
+            inaccuracyConfirmed: false,
+          },
+        } as Prisma.InputJsonValue,
+      },
+    });
+  } else {
+    await prisma.creditPdfImportJob.updateMany({
+      where: {
+        organizationId: ctx.organizationId,
+        documentId: document.id,
+        status: "SUCCEEDED",
+      },
+      data: { phase: "confirmed" },
+    });
+  }
 
   await writeAuditLog(toAuditContext(ctx), {
     action: "CREDIT_PDF_IMPORT_CONFIRMED",
@@ -363,17 +546,10 @@ export async function confirmCreditPdfImport(
         input.documentKind === "CLIENT_PROGRESS_REPORT"
           ? 0
           : input.items.length,
+      authorUserId: ctx.userId,
+      reason,
+      revision: decision.review.revision,
     },
-  });
-
-  // Marca jobs SUCCEEDED de este PDF como confirmados → deja de mostrar “Análisis listo”.
-  await prisma.creditPdfImportJob.updateMany({
-    where: {
-      organizationId: ctx.organizationId,
-      documentId: document.id,
-      status: "SUCCEEDED",
-    },
-    data: { phase: "confirmed" },
   });
 
   return {
@@ -381,6 +557,64 @@ export async function confirmCreditPdfImport(
     caseId: creditCase.id,
     clientId: creditCase.clientId,
   };
+}
+
+export async function saveCreditPdfImportDraft(
+  ctx: OrganizationContext,
+  input: { caseId: string; documentId: string; expectedRevision: number; reason: string },
+) {
+  const { creditCase, document } = await loadCaseDocument(ctx, input.caseId, input.documentId);
+  assertCreditAccess({
+    actor: { organizationId: ctx.organizationId, role: ctx.role },
+    clientId: creditCase.clientId,
+    resource: { organizationId: ctx.organizationId, clientId: creditCase.clientId },
+    mode: "manage",
+  });
+  const stored = await prisma.creditPdfImportJob.findFirst({
+    where: {
+      organizationId: ctx.organizationId,
+      caseId: input.caseId,
+      documentId: document.id,
+      status: "SUCCEEDED",
+    },
+    orderBy: { finishedAt: "desc" },
+    select: { id: true, proposalJson: true },
+  });
+  if (!stored) throw new DomainError("Importación no encontrada.");
+  const parsed = creditPdfExtractionProposalSchema.safeParse(stored.proposalJson);
+  if (!parsed.success) throw new DomainError("La propuesta no se puede revisar.");
+  const current = toImportReview(parsed.data.review);
+  if (input.expectedRevision !== current.revision) {
+    throw new DomainError("La revisión no coincide. No se publicó otro reporte.");
+  }
+  const saved = saveDraft({
+    actor: { organizationId: ctx.organizationId, role: ctx.role },
+    clientId: creditCase.clientId,
+    resource: { organizationId: ctx.organizationId, clientId: creditCase.clientId },
+    review: current,
+    authorUserId: ctx.userId,
+    reason: input.reason,
+  });
+  await prisma.creditPdfImportJob.update({
+    where: { id: stored.id },
+    data: {
+      proposalJson: {
+        ...parsed.data,
+        review: {
+          version: saved.review.version,
+          revision: saved.review.revision,
+          status: "DRAFT",
+          idempotencyKey: null,
+          reportId: saved.review.reportId,
+          reviewedFieldIds: saved.review.reviewedFieldIds,
+          authorUserId: saved.review.authorUserId,
+          reason: saved.review.reason,
+          disputeAuthorized: false,
+          inaccuracyConfirmed: false,
+        },
+      } as Prisma.InputJsonValue,
+    },
+  });
 }
 
 /** Lista PDFs del caso aptos para analizar (CREDIT_REPORT / UPDATE_REPORT / OTHER). */

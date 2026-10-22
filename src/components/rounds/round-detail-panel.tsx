@@ -9,6 +9,8 @@ import { DomainError } from "@/src/server/errors";
 import { isStorageConfigured } from "@/src/lib/storage/s3";
 import { Alert, Card, CardBody, CardHeader, StatusPill } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
+import { DUE_UNDETERMINED_LABEL, roundTiming } from "@/src/lib/credit/rounds";
+import { decideOperation, OPERATION_REVIEW_LABEL } from "@/src/lib/credit/operations";
 import { RoundActions } from "@/src/components/rounds/round-actions";
 import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
 import { DocumentTable } from "@/src/components/documents/document-table";
@@ -31,6 +33,24 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
     round.expectedReviewAt &&
     new Date(round.expectedReviewAt) < new Date() &&
     ["SENT", "WAITING_UPDATE", "REVIEWING"].includes(round.status);
+  const legalDue = roundTiming({
+    phase: round.status === "DRAFT" || round.status === "PREPARING" ? "DRAFT" : "SENT",
+    sentAt: round.sentAt ? round.sentAt.toISOString().slice(0, 10) : null,
+    receivedAt: null,
+    estimatedReceivedAt: null,
+    deadlinePolicyId: null,
+    deadlinePolicyVersion: null,
+    policyDurationDays: null,
+    receptionRequired: true,
+  });
+  const sendDecision = decideOperation({
+    action: "SEND_DISPUTE",
+    serviceType: "CREDIT_REPAIR",
+    asOf: round.startedAt.toISOString().slice(0, 10),
+    policy: null,
+    contract: null,
+    authorization: null,
+  });
 
   const documents = await documentService.listDocuments(ctx, {
     clientId: round.case.client.id,
@@ -87,12 +107,24 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
               </dd>
             </div>
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-[12px] text-text-secondary">Revisión esperada</dt>
+              <dt className="text-[12px] text-text-secondary">Revisión indicada</dt>
               <dd
                 className={`text-[13px] ${overdue ? "font-medium text-danger-ink" : "text-ink"}`}
               >
                 {round.expectedReviewAt ? formatDate(round.expectedReviewAt) : "—"}
                 {overdue ? " · vencida" : ""}
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Plazo legal</dt>
+              <dd className="text-[13px] text-ink">
+                {legalDue.dueAtStatus === "UNDETERMINED" ? DUE_UNDETERMINED_LABEL : legalDue.dueAt}
+              </dd>
+            </div>
+            <div className="flex items-baseline justify-between gap-4">
+              <dt className="text-[12px] text-text-secondary">Decisión de envío</dt>
+              <dd className="text-[13px] text-ink">
+                {sendDecision.status === "REVIEW" ? OPERATION_REVIEW_LABEL : sendDecision.status}
               </dd>
             </div>
             <div className="flex items-baseline justify-between gap-4">

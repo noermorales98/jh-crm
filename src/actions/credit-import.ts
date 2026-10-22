@@ -16,6 +16,7 @@ import {
 import {
   analyzeCreditPdfInputSchema,
   confirmCreditPdfImportSchema,
+  saveCreditPdfDraftSchema,
 } from "@/src/lib/validation/credit-import";
 import { cuidSchema } from "@/src/lib/validation/common";
 import * as creditImport from "@/src/server/credit-import";
@@ -137,6 +138,21 @@ export async function listPendingConfirmCreditPdfJobsAction(
     }
     const jobs = await listPendingConfirmCreditPdfJobs(ctx, filter);
     return actionOk(jobs);
+  } catch (error) {
+    if (isNextControlError(error)) throw error;
+    return actionFail(error);
+  }
+}
+
+export async function saveCreditPdfImportDraftAction(
+  input: unknown,
+): Promise<ActionResult<{ saved: true }>> {
+  try {
+    const ctx = await requirePermission("creditReports.manage");
+    const data = saveCreditPdfDraftSchema.parse(input);
+    await creditImport.saveCreditPdfImportDraft(ctx, data);
+    revalidateCredit(data.caseId);
+    return actionOk({ saved: true });
   } catch (error) {
     if (isNextControlError(error)) throw error;
     return actionFail(error);

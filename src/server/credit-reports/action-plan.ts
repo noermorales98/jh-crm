@@ -4,11 +4,23 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import { prisma } from "@/src/lib/db";
 import {
   ACTION_PLAN_HOWTO,
-  ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
   type ActionPlanHowTo,
   type ActionPlanPriorityId,
 } from "@/src/lib/credit/action-plan-howto";
+import { buildCreditActions, type CreditAction } from "@/src/lib/credit/actions";
 import { FUNDING_ESTIMATE_MESSAGE } from "@/src/lib/credit/funding-estimate";
+import { buildOwnershipSummary, AU_LIMIT_NOT_CAPACITY } from "@/src/lib/credit/ownership";
+import {
+  buildAnomalyReading,
+  negativeListed,
+  type CreditAnomaly,
+} from "@/src/lib/credit/anomalies";
+import { buildRevolvingReading } from "@/src/lib/credit/revolving";
+import {
+  formatInquiryReading,
+  temporalMetrics,
+  type CivilDate,
+} from "@/src/lib/credit/temporal";
 async function loadReport(ctx: OrganizationContext, reportId: string) {
   const report = await prisma.creditReport.findFirst({
     where: { id: reportId, organizationId: ctx.organizationId },
@@ -26,18 +38,18 @@ async function loadReport(ctx: OrganizationContext, reportId: string) {
 const BUREAUS: CreditBureau[] = ["EXPERIAN", "EQUIFAX", "TRANSUNION"];
 const SCORE_MIN = 720;
 const UTIL_MAX = 10;
-const INQUIRIES_MAX = 3;
-const AGE_YEARS_MIN = 2.5;
+const AGE_MONTHS_MIN = 30;
 const COMBINED_LIMIT_TARGET = 40_000;
 
 export type BureauMetric = {
   bureau: CreditBureau;
   score: number | null;
   utilization: number | null;
+  utilizationBps: number | null;
+  utilizationStatus: "KNOWN" | "PARTIAL" | "NOT_APPLICABLE";
   inquiries: number | null;
   scoreOk: boolean;
   utilOk: boolean;
-  inquiriesOk: boolean;
   scoreLabel: string;
   utilLabel: string;
 };
@@ -47,7 +59,9 @@ export type RevolvingCard = {
   bureau: CreditBureau;
   limit: number | null;
   balance: number | null;
+  currency: string | null;
   utilization: number | null;
+  utilizationBps: number | null;
 };
 
 export type ActionPlanPriority = ActionPlanHowTo & {
@@ -63,12 +77,23 @@ export type ClientActionPlan = {
   avgScore: number | null;
   avgUtilization: number | null;
   revolving: {
-    openCards: number;
-    primaryCards: number;
+    openCards: number | null;
+    primaryCards: number | null;
     auCards: number;
-    totalLimit: number;
-    totalUsed: number;
+    totalLimit: number | null;
+    totalUsed: number | null;
     utilPct: number | null;
+    utilizationBps: number | null;
+    currency: string | null;
+    coverageLabel: string;
+    aggregateStatus: "KNOWN" | "PARTIAL" | "NOT_APPLICABLE";
+    scenarioAccounts: {
+      canonicalId: string;
+      creditorName: string;
+      balanceCents: number | null;
+      limitCents: number | null;
+      currency: string | null;
+    }[];
     cardsGe2k: number;
     cardsGe5k: number;
     cards: RevolvingCard[];
@@ -76,21 +101,41 @@ export type ClientActionPlan = {
   fundingMatrix: {
     bureau: CreditBureau;
     scoreOk: boolean;
-    noNegatives: boolean;
+    noNegatives: boolean | null;
     utilOk: boolean;
     /** null = sin dato de apertura en el reporte */
     ageOk: boolean | null;
-    inquiriesOk: boolean;
-    structureOk: boolean;
-    combinedLimitOk: boolean;
+    inquiryDisplay: string;
+    structureOk: boolean | null;
+    combinedLimitOk: boolean | null;
     allOk: boolean;
   }[];
   bureausApproved: number;
   qualified: boolean;
   verdict: string;
   priorities: ActionPlanPriority[];
-  negativeCount: number;
+  actions: CreditAction[];
+    negativeCount: number;
   totalItems: number;
+  authorizedUsers: {
+    confirmedCount: number;
+    unresolvedCount: number;
+    conflictCount: number;
+    primaryBps: number | null;
+    withAuthorizedUsersBps: number | null;
+    note: string;
+    accounts: {
+      creditorName: string;
+      bureaus: string[];
+      ageMonths: number | null;
+      balance: number | null;
+      limit: number | null;
+      utilization: number | null;
+      accountStatus: string | null;
+      reportedNegative: boolean;
+      sourceReportDate: string;
+    }[];
+  };
 };
 
 function num(v: { toNumber?: () => number } | number | null | undefined): number | null {
@@ -99,6 +144,39 @@ function num(v: { toNumber?: () => number } | number | null | undefined): number
   if (typeof v.toNumber === "function") return v.toNumber();
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
+}
+
+function civilDay(value: Date | null | undefined): string {
+  if (value == null || Number.isNaN(value.getTime())) return "";
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(value.getUTCDate()).padStart(2, "0");
+  return `${value.getUTCFullYear()}-${month}-${day}`;
+}
+
+function civilDate(value: Date | null | undefined): CivilDate | null {
+  if (value == null || Number.isNaN(value.getTime())) return null;
+  return {
+    year: value.getUTCFullYear(),
+    month: value.getUTCMonth() + 1,
+    day: value.getUTCDate(),
+    precision: "DAY",
+  };
+}
+
+function isClosedAccount(status: string | null): boolean {
+  if (status == null) return false;
+  return /\b(closed|cerrad)/i.test(status);
+}
+
+function toCents(value: { toNumber?: () => number } | number | null | undefined): number | null {
+  const amount = num(value);
+  if (amount == null) return null;
+  const cents = Math.round(amount * 100);
+  return Number.isSafeInteger(cents) ? cents : null;
+}
+
+function fromCents(cents: number | null): number | null {
+  return cents == null ? null : cents / 100;
 }
 
 function labelScore(score: number | null): string {
@@ -116,16 +194,16 @@ function pickPriorities(input: {
   hasLate: boolean;
   highUtil: boolean;
   cardsGe5k: number;
-  totalLimit: number;
+  totalLimit: number | null;
 }): ActionPlanPriority[] {
   const order: { id: ActionPlanPriorityId; active: boolean }[] = [
     { id: "charge_offs", active: input.hasChargeOff },
     { id: "late_payments", active: input.hasLate },
     { id: "high_utilization", active: input.highUtil },
-    { id: "no_high_limit", active: input.cardsGe5k === 0 },
+    { id: "no_high_limit", active: input.cardsGe5k === 0 && input.totalLimit != null },
     {
       id: "combined_limit",
-      active: input.totalLimit < COMBINED_LIMIT_TARGET,
+      active: input.totalLimit != null && input.totalLimit < COMBINED_LIMIT_TARGET,
     },
     { id: "bank_relationships", active: true },
   ];
@@ -199,146 +277,145 @@ export async function getClientActionPlan(
     );
   }
 
-  const revolvingItems = items.filter(
-    (i) =>
-      !i.isNegative ||
-      i.accountType?.toLowerCase().includes("revolving") ||
-      i.accountType?.toLowerCase().includes("credit card") ||
-      (i.creditLimit != null && num(i.creditLimit)! > 0),
+  const asOf = civilDay(report.reportDate);
+  const observations = items.map((item) => ({
+    id: item.id,
+    creditorName: item.creditorName,
+    bureau: item.bureau,
+    accountType: item.accountType,
+    responsibility: item.ownershipType,
+    accountStatus: item.openClosedStatus ?? item.accountStatus,
+    balanceCents: toCents(item.balance),
+    limitCents: toCents(item.creditLimit),
+    currency: null,
+    reportDate: asOf,
+    canonicalId: item.canonicalTradelineId,
+    identityStatus: item.canonicalTradelineId ? ("CONFIRMED" as const) : ("NONE" as const),
+    ownershipConfirmed: false,
+    opened: civilDate(item.dateOpened),
+    reportedNegative: item.isNegative,
+  }));
+  const reading = buildRevolvingReading({ asOf, observations });
+  const ownership = buildOwnershipSummary({ asOf, observations });
+  const confirmedAu = new Set(ownership.auCanonicalIds);
+  const certified = reading.consolidated.individual;
+  const certifiedKnown = certified.status === "KNOWN";
+  const cards: RevolvingCard[] = reading.bureaus.flatMap((bureau) =>
+    bureau.cards.map((card) => ({
+      creditorName: card.creditorName,
+      bureau: card.bureau as CreditBureau,
+      limit: fromCents(card.limitCents),
+      balance: fromCents(card.rawBalanceCents),
+      currency: card.currency,
+      utilization: card.utilizationBps == null ? null : card.utilizationBps / 100,
+      utilizationBps: card.utilizationBps,
+    })),
   );
-
-  const cards: RevolvingCard[] = [];
-  const seen = new Set<string>();
-  for (const item of items) {
-    const limit = num(item.creditLimit);
-    const balance = num(item.balance);
-    if (limit == null && balance == null) continue;
-    const key = `${item.creditorName}|${item.bureau}|${limit}|${balance}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    const util =
-      limit != null && limit > 0 && balance != null
-        ? (balance / limit) * 100
-        : null;
-    cards.push({
-      creditorName: item.creditorName,
-      bureau: item.bureau,
-      limit,
-      balance,
-      utilization: util,
-    });
-  }
-
-  const openCards = cards.length || revolvingItems.length;
-  const totalLimit = cards.reduce((a, c) => a + (c.limit ?? 0), 0);
-  const totalUsed = cards.reduce((a, c) => a + (c.balance ?? 0), 0);
-  const utilPct = totalLimit > 0 ? (totalUsed / totalLimit) * 100 : null;
-  const cardsGe2k = cards.filter((c) => (c.limit ?? 0) >= 2000).length;
-  const cardsGe5k = cards.filter((c) => (c.limit ?? 0) >= 5000).length;
+  const openCards = certifiedKnown ? certified.total : null;
+  const totalLimit = certifiedKnown ? fromCents(certified.limitCents) : null;
+  const totalUsed = certifiedKnown ? fromCents(certified.balanceCents) : null;
+  const utilPct = certifiedKnown && certified.valueBps != null ? certified.valueBps / 100 : null;
+  const cardsGe2k = certifiedKnown
+    ? reading.consolidated.cards.filter((card) => (card.limitCents ?? 0) >= 200_000).length
+    : 0;
+  const cardsGe5k = certifiedKnown
+    ? reading.consolidated.cards.filter((card) => (card.limitCents ?? 0) >= 500_000).length
+    : 0;
+  const auCards = ownership.auCanonicalIds.length;
+  const coverageLabel =
+    reading.consolidated.discrepancies.some((item) => item.code === "UNCONFIRMED_IDENTITY") &&
+    !certifiedKnown
+      ? "Identidad sin confirmar"
+      : certified.status === "KNOWN"
+        ? "Conocida"
+        : certified.status === "PARTIAL"
+          ? `Parcial ${certified.known}/${certified.total}`
+          : "Sin cuentas elegibles";
 
   const bureaus: BureauMetric[] = BUREAUS.map((bureau) => {
     const snap = report.snapshots.find((s) => s.bureau === bureau);
     const score = snap?.score ?? null;
     const utilization = num(snap?.utilization);
     const inquiries = snap?.inquiries ?? null;
+    const revolvingBureau = reading.bureaus.find((item) => item.bureau === bureau)?.individual;
     return {
       bureau,
       score,
       utilization,
+      utilizationBps: revolvingBureau?.valueBps ?? null,
+      utilizationStatus: revolvingBureau?.status ?? "NOT_APPLICABLE",
       inquiries,
       scoreOk: score != null && score >= SCORE_MIN,
       utilOk: utilization != null && utilization <= UTIL_MAX,
-      inquiriesOk: inquiries != null && inquiries <= INQUIRIES_MAX,
       scoreLabel: labelScore(score),
       utilLabel: labelUtil(utilization),
     };
   });
 
   const scores = bureaus.map((b) => b.score).filter((s): s is number => s != null);
-  const utils = bureaus
-    .map((b) => b.utilization)
-    .filter((u): u is number => u != null);
   const avgScore =
     scores.length > 0
       ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
       : null;
-  const avgUtilization =
-    utils.length > 0
-      ? Math.round(utils.reduce((a, b) => a + b, 0) / utils.length)
-      : utilPct != null
-        ? Math.round(utilPct)
-        : null;
+  const avgUtilization = utilPct;
 
-  const structureOk = openCards >= 3 && cardsGe2k >= 1 && cardsGe5k >= 1;
-  const combinedLimitOk = totalLimit >= COMBINED_LIMIT_TARGET;
+  const structureOk =
+    certifiedKnown && openCards != null
+      ? openCards >= 3 && cardsGe2k >= 1 && cardsGe5k >= 1
+      : null;
+  const combinedLimitOk =
+    certifiedKnown && totalLimit != null ? totalLimit >= COMBINED_LIMIT_TARGET : null;
 
-  function isAuthorizedUser(item: {
-    accountType: string | null;
-    accountStatus: string | null;
-    remarks: string | null;
-    creditorName: string;
-  }): boolean {
-    const blob = [
-      item.accountType,
-      item.accountStatus,
-      item.remarks,
-      item.creditorName,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-    return (
-      /\b(authorized\s*user|usuario\s*autorizado|\bau\b|auth\.?\s*user)\b/i.test(
-        blob,
-      ) || blob.includes("authorized user")
-    );
-  }
-
-  const auCards = items.filter((i) => isAuthorizedUser(i)).length;
-
-  function ageYearsForBureau(bureau: CreditBureau): number | null {
-    const opened = items
-      .filter((i) => i.bureau === bureau && i.dateOpened != null)
-      .map((i) => i.dateOpened!.getTime());
-    if (opened.length === 0) return null;
-    const oldest = Math.min(...opened);
-    const years = (Date.now() - oldest) / (365.25 * 24 * 60 * 60 * 1000);
-    return years;
-  }
+  const asOfDate = asOf;
 
   const fundingMatrix = BUREAUS.map((bureau) => {
     const m = bureaus.find((b) => b.bureau === bureau)!;
-    const noNegatives = (negativesByBureau.get(bureau) ?? 0) === 0;
-    const ageYears = ageYearsForBureau(bureau);
+    const noNegatives = negativeListed("UNKNOWN", negativesByBureau.get(bureau) ?? 0);
+    const       ages = temporalMetrics({
+      asOf: asOfDate,
+      accounts: items
+        .filter((item) => item.bureau === bureau)
+        .map((item) => ({
+          opened: civilDate(item.dateOpened),
+          closed: isClosedAccount(item.accountStatus),
+          authorizedUser: confirmedAu.has(item.canonicalTradelineId ?? ""),
+        })),
+      inquiries: null,
+      windowMonths: null,
+      legacyInquiryCount: m.inquiries,
+    });
     const ageOk =
-      ageYears == null ? null : ageYears >= AGE_YEARS_MIN;
+      ages.ageCoverage.total === 0 ||
+      ages.ageCoverage.known < ages.ageCoverage.total ||
+      ages.oldestMonths == null
+        ? null
+        : ages.oldestMonths >= AGE_MONTHS_MIN;
     const row = {
       bureau,
       scoreOk: m.scoreOk,
       noNegatives,
       utilOk: m.utilOk,
       ageOk,
-      inquiriesOk: m.inquiriesOk,
+      inquiryDisplay: formatInquiryReading(ages),
       structureOk,
       combinedLimitOk,
       allOk: false,
     };
     row.allOk =
       row.scoreOk &&
-      row.noNegatives &&
+      row.noNegatives === true &&
       row.utilOk &&
-      row.inquiriesOk &&
-      row.structureOk &&
-      row.combinedLimitOk &&
-      (row.ageOk === true || row.ageOk === null);
+      row.structureOk === true &&
+      row.combinedLimitOk === true &&
+      row.ageOk === true;
     return row;
   });
 
   const bureausApproved = fundingMatrix.filter((r) => r.allOk).length;
   const qualified = bureausApproved >= 1;
-  const highUtil =
-    (avgUtilization != null && avgUtilization > UTIL_MAX) ||
-    bureaus.some((b) => b.utilization != null && b.utilization > UTIL_MAX);
+  const highUtil = bureaus.some(
+    (bureau) => bureau.utilization != null && bureau.utilization > UTIL_MAX,
+  );
 
   const priorities = pickPriorities({
     hasChargeOff,
@@ -347,6 +424,45 @@ export async function getClientActionPlan(
     cardsGe5k,
     totalLimit,
   });
+  const anomalyReading = buildAnomalyReading({
+    coverage: "UNKNOWN",
+    negativeCount: negatives.length,
+    observations: items.map((item) => ({
+      id: item.id,
+      canonicalId: item.canonicalTradelineId,
+      identityStatus: item.canonicalTradelineId ? ("CONFIRMED" as const) : ("NONE" as const),
+      bureau: item.bureau,
+      creditorName: item.creditorName,
+      balanceCents: toCents(item.balance),
+      dateReported: civilDay(item.dateReported) || null,
+      responsibility: item.ownershipType,
+      ownershipConfirmed: false,
+      paymentStatus: item.paymentStatus,
+      isNegative: item.isNegative,
+      negativeType: item.negativeType,
+    })),
+  });
+  const actions = buildCreditActions(
+    {
+      clientId,
+      snapshotId: report.id,
+      coverage: "UNKNOWN",
+      missingFields: [],
+      interviews: [],
+      scenario: null,
+      discrepancies: anomalyReading.anomalies.map((anomaly) => ({
+        canonicalId: anomaly.canonicalId,
+        observationIds: anomaly.observationIds,
+      })),
+      authorizedUsers: ownership.auCanonicalIds.map((canonicalId) => ({
+        canonicalId,
+        observationIds: observations
+          .filter((item) => item.canonicalId === canonicalId)
+          .map((item) => item.id),
+      })),
+    },
+    [],
+  );
 
   const clientName = [client.firstName, client.lastName]
     .filter(Boolean)
@@ -362,11 +478,22 @@ export async function getClientActionPlan(
     avgUtilization,
     revolving: {
       openCards,
-      primaryCards: Math.max(0, openCards - auCards),
+      primaryCards: openCards,
       auCards,
       totalLimit,
       totalUsed,
       utilPct,
+      utilizationBps: certified.valueBps,
+      currency: certified.currency,
+      coverageLabel,
+      aggregateStatus: certified.status,
+      scenarioAccounts: reading.consolidated.cards.map((card) => ({
+        canonicalId: card.canonicalId ?? card.id,
+        creditorName: card.creditorName,
+        balanceCents: card.balanceCents,
+        limitCents: card.limitCents,
+        currency: card.currency,
+      })),
       cardsGe2k,
       cardsGe5k,
       cards: cards.slice(0, 20),
@@ -376,8 +503,28 @@ export async function getClientActionPlan(
     qualified,
     verdict: FUNDING_ESTIMATE_MESSAGE,
     priorities,
+    actions,
     negativeCount: negatives.length,
     totalItems: items.length,
+    authorizedUsers: {
+      confirmedCount: ownership.auCanonicalIds.length,
+      unresolvedCount: ownership.unresolvedCanonicalIds.length,
+      conflictCount: ownership.conflicts.length,
+      primaryBps: ownership.primary.valueBps,
+      withAuthorizedUsersBps: ownership.withAuthorizedUsers.valueBps,
+      note: AU_LIMIT_NOT_CAPACITY,
+      accounts: ownership.auAccounts.map((account) => ({
+        creditorName: account.creditorName,
+        bureaus: account.bureaus,
+        ageMonths: account.ageMonths,
+        balance: fromCents(account.balanceCents),
+        limit: fromCents(account.limitCents),
+        utilization: account.utilizationBps == null ? null : account.utilizationBps / 100,
+        accountStatus: account.accountStatus,
+        reportedNegative: account.reportedNegative,
+        sourceReportDate: account.sourceReportDate,
+      })),
+    },
   };
 }
 
@@ -447,6 +594,8 @@ export async function getClientNegativeAnalysis(
       clientName: "",
       negativeCount: 0,
       totalItems: 0,
+      negativeReading: "UNKNOWN" as const,
+      anomalies: [] as CreditAnomaly[],
       groups: [] as NegativeAnalysisGroup[],
     };
   }
@@ -469,15 +618,14 @@ export async function getClientNegativeAnalysis(
       key: "charge_off",
       title: "Cuentas castigadas (charge-off)",
       description:
-        "El banco dio la cuenta por perdida. Marca muy negativa; los bancos la ven como impago grave.",
+        "El reporte clasifica la cuenta como charge-off, cobranza, reposesión o ejecución.",
       types: ["CHARGE_OFF", "COLLECTION", "REPOSSESSION", "FORECLOSURE"],
       items: [],
     },
     {
       key: "late",
       title: "Pagos tardíos",
-      description:
-        "Pagos que se reportaron atrasados (30/60/90+ días). El historial de pagos es lo que más pesa en el puntaje.",
+      description: "El reporte marca pagos atrasados.",
       types: ["LATE_PAYMENT"],
       items: [],
     },
@@ -485,7 +633,7 @@ export async function getClientNegativeAnalysis(
       key: "personal_data",
       title: "Datos personales",
       description:
-        "Errores o discrepancias en nombre, dirección, SSN, empleo u otra información personal del reporte.",
+        "El reporte trae una marca sobre datos personales.",
       types: null,
       items: personal.map(toNegItem),
     },
@@ -530,10 +678,31 @@ export async function getClientNegativeAnalysis(
     }))
     .filter((g) => g.count > 0);
 
+  const reading = buildAnomalyReading({
+    coverage: "UNKNOWN",
+    negativeCount: negatives.length,
+    observations: report.items.map((item) => ({
+      id: item.id,
+      canonicalId: item.canonicalTradelineId,
+      identityStatus: item.canonicalTradelineId ? ("CONFIRMED" as const) : ("NONE" as const),
+      bureau: item.bureau,
+      creditorName: item.creditorName,
+      balanceCents: toCents(item.balance),
+      dateReported: civilDay(item.dateReported) || null,
+      responsibility: item.ownershipType,
+      ownershipConfirmed: false,
+      paymentStatus: item.paymentStatus,
+      isNegative: item.isNegative,
+      negativeType: item.negativeType,
+    })),
+  });
+
   return {
     clientName: plan.clientName,
     negativeCount: plan.negativeCount,
     totalItems: plan.totalItems,
+    negativeReading: reading.negativeReading,
+    anomalies: reading.anomalies,
     groups,
   };
 }
@@ -572,21 +741,29 @@ export async function buildClientActionPlanPdf(
     bureaus: plan.bureaus.map((b) => ({
       bureau: CREDIT_BUREAU_LABELS[b.bureau] ?? b.bureau,
       score: b.score,
-      utilization: b.utilization,
+      utilizationBps: b.utilizationBps,
+      utilizationStatus: b.utilizationStatus === "KNOWN" || b.utilizationStatus === "PARTIAL" ? b.utilizationStatus : "UNKNOWN",
       inquiries: b.inquiries,
     })),
     revolving: {
       openCards: plan.revolving.openCards,
       auCards: plan.revolving.auCards,
       totalLimit: plan.revolving.totalLimit,
-      utilPct: plan.revolving.utilPct,
+      currency: plan.revolving.currency,
+      utilizationBps: plan.revolving.utilizationBps,
+      utilizationStatus: plan.revolving.aggregateStatus === "KNOWN" || plan.revolving.aggregateStatus === "PARTIAL"
+        ? plan.revolving.aggregateStatus
+        : "UNKNOWN",
     },
-    priorities: plan.priorities.map((p) => ({
-      title: p.title,
-      severity: p.severity,
-      summary: p.summary,
-      ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
-      timeline: p.timeline,
+    authorizedUsers: {
+      confirmedCount: plan.authorizedUsers.confirmedCount,
+      withAuthorizedUsersBps: plan.authorizedUsers.withAuthorizedUsersBps,
+      note: plan.authorizedUsers.note,
+    },
+    actions: plan.actions.map((action) => ({
+      priority: action.priority,
+      summary: action.summary,
+      observationIds: action.observationIds,
     })),
   });
   const day = plan.reportDate.toISOString().slice(0, 10);

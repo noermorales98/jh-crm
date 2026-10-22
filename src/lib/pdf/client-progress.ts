@@ -1,3 +1,4 @@
+import { PROGRESS_OUTCOME_NOTE } from "@/src/lib/credit/changes";
 import { startDocument, toBuffer, MARGIN, PAGE_WIDTH } from "./base";
 import type { PdfOrganizationInfo } from "./base";
 import { formatForPdf } from "../format/dates";
@@ -90,6 +91,13 @@ export function generateClientProgressPdf(data: ProgressReportPdfData): Buffer {
     row("Verificados", String(data.results.verified));
   }
   row("Pendientes", String(data.results.pending));
+  y += 2;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8);
+  doc.setTextColor(90);
+  const outcomeNote = doc.splitTextToSize(PROGRESS_OUTCOME_NOTE, contentWidth);
+  doc.text(outcomeNote, MARGIN, y);
+  y += outcomeNote.length * 4 + 2;
 
   if (data.resultLines.length) {
     y += 4;

@@ -2,6 +2,7 @@
  * Preparación para fondeo: lecturas del reporte, sin monto estimado.
  */
 
+import { INFORMATIONAL_SCORE_AVERAGE_LABEL } from "@/src/lib/credit/contracts";
 import {
   FUNDING_ESTIMATE_DISCLAIMER,
   FUNDING_ESTIMATE_MESSAGE,
@@ -80,7 +81,7 @@ export function buildFundingPrepPanel(input: FundingPrepInput): FundingPrepView 
   return {
     kind: "ready",
     title: FUNDING_PREP_TITLE,
-    summary: `Score observado ${scoreLabel} · utilización observada ${utilLabel}`,
+    summary: `${INFORMATIONAL_SCORE_AVERAGE_LABEL} ${scoreLabel} · utilización revolving ${utilLabel}`,
     verdict: hub.verdict || FUNDING_ESTIMATE_MESSAGE,
     reportId: hub.reportId,
     disclaimer: FUNDING_PREP_DISCLAIMER,

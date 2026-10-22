@@ -202,7 +202,8 @@ export async function scanIncompleteIntakeFollowUps(
 }
 
 /**
- * Tras marcar ronda como enviada: asegura expectedReviewAt (+30 d) y tarea de revisión.
+ * Tras marcar ronda como enviada: crea la tarea de revisión.
+ * No rellena expectedReviewAt. Sin una fecha ya guardada, el plazo sigue vacío.
  */
 export async function onRoundSent(
   ctx: OrganizationContext,
@@ -228,13 +229,7 @@ export async function onRoundSent(
     if (!current || !["SENT", "WAITING_UPDATE"].includes(current.status) ||
         !["OPEN", "ON_HOLD"].includes(current.case.serviceCase.status) || current.case.serviceCase.archivedAt) return null;
     const creditCase = current.case;
-    let expectedReviewAt = current.expectedReviewAt;
-    if (!expectedReviewAt) {
-      expectedReviewAt = new Date(current.sentAt ?? current.startedAt);
-      expectedReviewAt.setUTCDate(expectedReviewAt.getUTCDate() + 30);
-      await tx.creditRound.update({ where: { id: current.id }, data: { expectedReviewAt } });
-      await tx.serviceCase.update({ where: { id: creditCase.serviceCaseId }, data: { nextActionAt: expectedReviewAt } });
-    }
+    const expectedReviewAt = current.expectedReviewAt;
     const titleNeedle = `Revisar ronda ${current.roundNumber}`;
     // Reconoce ambos tipos y títulos legacy. Una revisión completada no se recrea.
     const existing = await tx.task.findFirst({

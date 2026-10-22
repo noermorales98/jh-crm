@@ -8,11 +8,20 @@ import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
+import { scoreDelta } from "@/src/lib/credit/contracts";
 
 /**
  * Comparación de reportes de crédito (base vs actualizado).
  * autoResult es determinista; manualResult permite corrección humana.
  */
+
+function isoDate(value: Date | null | undefined): string | null {
+  if (value == null) return null;
+  const year = value.getUTCFullYear();
+  const month = String(value.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(value.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 type ItemLike = {
   id: string;
@@ -342,14 +351,31 @@ export async function getComparison(
     const compareScore =
       comparison.compareReport.snapshots.find((s) => s.bureau === bureau)
         ?.score ?? null;
+    const compared = scoreDelta(
+      {
+        bureau,
+        family: null,
+        version: null,
+        variant: null,
+        value: baseScore,
+        scoreDate: isoDate(comparison.baseReport.reportDate),
+      },
+      {
+        bureau,
+        family: null,
+        version: null,
+        variant: null,
+        value: compareScore,
+        scoreDate: isoDate(comparison.compareReport.reportDate),
+      },
+    );
     return {
       bureau,
       baseScore,
       compareScore,
-      delta:
-        baseScore != null && compareScore != null
-          ? compareScore - baseScore
-          : null,
+      delta: compared.delta,
+      comparable: compared.comparable,
+      reason: compared.reason,
     };
   });
 

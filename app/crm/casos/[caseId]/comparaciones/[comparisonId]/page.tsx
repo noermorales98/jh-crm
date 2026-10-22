@@ -24,6 +24,11 @@ import {
   labelFor,
 } from "@/src/lib/labels";
 import { ComparisonResultOverride } from "@/src/components/comparisons/comparison-result-override";
+import {
+  ABSENCE_NOT_DELETION,
+  COVERAGE_NOT_CERTIFIED,
+  OBSERVED_DIFFERENCE,
+} from "@/src/lib/credit/changes";
 import { CaseHeader } from "../../case-header";
 
 export const metadata: Metadata = {
@@ -32,15 +37,9 @@ export const metadata: Metadata = {
 
 function Delta({ value }: { value: number | null }) {
   if (value == null) return <span className="text-text-placeholder">—</span>;
-  const tone =
-    value > 0
-      ? "text-success-ink"
-      : value < 0
-        ? "text-danger-ink"
-        : "text-text-secondary";
   const sign = value > 0 ? "+" : "";
   return (
-    <span className={`font-medium tabular-nums ${tone}`}>
+    <span className="font-medium tabular-nums text-ink">
       {sign}
       {value}
     </span>
@@ -90,11 +89,14 @@ export default async function ComparisonDetailPage({
         />
 
         <div className="grid gap-3 px-1 pb-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Eliminados" value={summary.deleted} />
+          <Stat label="No presentes" value={summary.deleted} />
           <Stat label="Actualizados" value={summary.updated} />
           <Stat label="Sin cambio" value={summary.unchanged} />
           <Stat label="Nuevos" value={summary.new} />
         </div>
+        <p className="px-1 pb-3 text-sm text-text-secondary">
+          {ABSENCE_NOT_DELETION} {COVERAGE_NOT_CERTIFIED}
+        </p>
         {summary.verified > 0 ? (
           <p className="px-1 pb-3 text-sm text-text-secondary">
             Verificados (manual): {summary.verified}
@@ -112,13 +114,18 @@ export default async function ComparisonDetailPage({
               </p>
               <p className="mt-1 text-sm text-text-secondary">
                 {row.baseScore ?? "—"} → {row.compareScore ?? "—"}
+                {" · modelo desconocido"}
               </p>
               <p className="mt-1 text-xl font-semibold">
                 <Delta value={row.delta} />
               </p>
+              {row.reason !== "SAME_MODEL" ? (
+                <p className="mt-1 text-xs text-text-secondary">Sin delta comparable</p>
+              ) : null}
             </div>
           ))}
         </div>
+        <p className="px-1 pb-4 text-sm text-text-secondary">{OBSERVED_DIFFERENCE}</p>
       </Card>
 
       <Card>

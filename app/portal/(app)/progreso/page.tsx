@@ -19,6 +19,9 @@ import {
   ROUND_STATUS_LABELS,
 } from "@/src/lib/labels";
 import { LineChart } from "lucide-react";
+import { PROGRESS_OUTCOME_NOTE } from "@/src/lib/credit/changes";
+import { SCENARIO_IS_SIMULATION } from "@/src/lib/credit/portal-view";
+import { PortalProgressInterview } from "@/src/components/portal/portal-progress-interview";
 
 export const metadata: Metadata = { title: "Progreso" };
 
@@ -110,6 +113,8 @@ export default async function PortalProgresoPage() {
                 "Sin fecha"
               )}
             </p>
+            <p className="text-sm text-text-secondary">{SCENARIO_IS_SIMULATION}</p>
+            <PortalProgressInterview reported="Sin dato publicado" />
           </CardBody>
         </Card>
       ) : (
@@ -176,15 +181,7 @@ export default async function PortalProgresoPage() {
                             {s.score ?? "—"}
                           </p>
                           {s.delta != null ? (
-                            <p
-                              className={`mt-0.5 text-xs font-medium tabular-nums ${
-                                s.delta > 0
-                                  ? "text-success-ink"
-                                  : s.delta < 0
-                                    ? "text-danger-ink"
-                                    : "text-text-secondary"
-                              }`}
-                            >
+                            <p className="mt-0.5 text-xs font-medium tabular-nums text-ink">
                               {s.delta > 0 ? "+" : ""}
                               {s.delta}
                             </p>
@@ -204,16 +201,22 @@ export default async function PortalProgresoPage() {
                       Resultados
                     </p>
                     <div className="flex flex-wrap gap-2 text-sm">
-                      <Pill tone="green">Eliminados: {results.deleted}</Pill>
+                      <Pill tone="slate">Eliminados: {results.deleted}</Pill>
                       <Pill tone="blue">Actualizados: {results.updated}</Pill>
                       {results.verified > 0 ? (
                         <Pill tone="slate">Verificados: {results.verified}</Pill>
                       ) : null}
                       <Pill tone="amber">Pendientes: {results.pending}</Pill>
                     </div>
+                    <p className="mt-2 text-sm text-text-secondary">{PROGRESS_OUTCOME_NOTE}</p>
                   </div>
                 );
               })()}
+
+              <p className="text-sm text-text-secondary">{SCENARIO_IS_SIMULATION}</p>
+              <PortalProgressInterview
+                reported={asLines(latest.resultLinesJson)[0] ?? "Sin dato publicado"}
+              />
 
               {(() => {
                 const lines = asLines(latest.resultLinesJson);

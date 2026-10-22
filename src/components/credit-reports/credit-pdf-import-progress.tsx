@@ -14,12 +14,18 @@ import {
 import {
   confirmCreditPdfImportAction,
   getCreditPdfImportJobAction,
+  saveCreditPdfImportDraftAction,
 } from "@/src/actions/credit-import";
 import { playActionResult } from "@/src/lib/cuelume";
 import {
   CREDIT_BUREAU_LABELS,
   CREDIT_REPORT_TYPE_LABELS,
 } from "@/src/lib/labels";
+import {
+  defaultPdfItemSelection,
+  pdfImportConfirmBlocked,
+} from "@/src/lib/credit/pdf-review";
+import { reviewFields, summarizeReview } from "@/src/lib/credit/review";
 import type { CreditPdfExtractionProposal } from "@/src/lib/validation/credit-import";
 import { useCreditPdfImportLock } from "./credit-pdf-import-lock";
 import {
@@ -106,6 +112,7 @@ export function CreditPdfImportProgressClient({
   const [overwriteClient, setOverwriteClient] = useState(false);
   const [ssnFull, setSsnFull] = useState("");
   const [hydrated, setHydrated] = useState(false);
+  const [criticalAck, setCriticalAck] = useState(false);
 
   // Enganchar bloqueo mientras corre
   useEffect(() => {
@@ -158,11 +165,7 @@ export function CreditPdfImportProgressClient({
       );
       setProvider(p.report?.provider ?? "");
       setNotes(p.report?.notes ?? "");
-      const itemSel: Record<number, boolean> = {};
-      (p.report?.items ?? []).forEach((item, i) => {
-        itemSel[i] = Boolean(item.isNegative) || i < 40;
-      });
-      setSelectedItems(itemSel);
+      setSelectedItems(defaultPdfItemSelection(p.report?.items?.length ?? 0));
       const clientApply: Partial<
         Record<ClientKey | "dateOfBirth" | "ssn", boolean>
       > = {};
@@ -194,8 +197,42 @@ export function CreditPdfImportProgressClient({
     [items, selectedItems],
   );
 
+  const fields = useMemo(
+    () =>
+      reviewFields({
+        reportDate: proposal?.report?.reportDate,
+        snapshots: proposal?.report?.snapshots,
+        items: proposal?.report?.items,
+      }),
+    [proposal],
+  );
+  const summary = summarizeReview(
+    fields,
+    criticalAck ? fields.filter((field) => field.critical).map((field) => field.id) : [],
+  );
+  const confirmBlocked = pdfImportConfirmBlocked(proposal?.coverage) || summary.criticalPending.length > 0;
+
+  function handleDraft() {
+    if (!proposal) return;
+    setError(null);
+    startTransition(async () => {
+      const result = await saveCreditPdfImportDraftAction({
+        caseId,
+        documentId: job.documentId,
+        expectedRevision: proposal.review?.revision ?? 0,
+        reason: "borrador de importación",
+      });
+      if (!result.ok) {
+        playActionResult(false);
+        setError(result.error);
+        return;
+      }
+      playActionResult(true);
+    });
+  }
+
   function handleConfirm() {
-    if (!proposal || !job.currentClient) return;
+    if (!proposal || !job.currentClient || confirmBlocked) return;
     setError(null);
     startTransition(async () => {
       const result = await confirmCreditPdfImportAction({
@@ -208,6 +245,10 @@ export function CreditPdfImportProgressClient({
         notes: notes.trim() || null,
         snapshots,
         items: selectedItemList,
+        expectedRevision: proposal.review?.revision ?? 0,
+        idempotencyKey: jobId,
+        reason: "confirmación de importación",
+        reviewedFieldIds: fields.filter((field) => field.critical).map((field) => field.id),
         applyClientFields: applyClient,
         clientPatch: proposal.client ?? null,
         ssnFull: ssnFull.trim() || null,
@@ -390,6 +431,7 @@ export function CreditPdfImportProgressClient({
                   >
                     {CREDIT_BUREAU_LABELS[s.bureau] ?? s.bureau}:{" "}
                     <strong>{s.score ?? "—"}</strong>
+                    {s.modelFamily ? ` · ${s.modelFamily}` : " · sin modelo, no certificado"}
                   </li>
                 ))}
               </ul>
@@ -399,7 +441,7 @@ export function CreditPdfImportProgressClient({
           {proposal.documentKind !== "CLIENT_PROGRESS_REPORT" ? (
             <section className="space-y-2">
               <h4 className="text-sm font-semibold text-ink">
-                Cuentas ({selectedItemList.length}/{items.length})
+                Cuentas ({selectedItemList.length}/{items.length}) · desconocidos {summary.unknown}
               </h4>
               <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
                 {items.map((item, i) => (
@@ -420,6 +462,10 @@ export function CreditPdfImportProgressClient({
                         <span className="font-medium">{item.creditorName}</span>{" "}
                         · {CREDIT_BUREAU_LABELS[item.bureau] ?? item.bureau}
                         {item.isNegative ? " · negativo" : ""}
+                        {item.sourcePage ? ` · p.${item.sourcePage}` : ""}
+                        {item.fieldQuality?.family
+                          ? ` · ${item.fieldQuality.family} ${item.fieldQuality.familyQuality ?? ""}`
+                          : ""}
                       </span>
                     </label>
                   </li>
@@ -527,6 +573,22 @@ export function CreditPdfImportProgressClient({
             </section>
           ) : null}
 
+          {pdfImportConfirmBlocked(proposal?.coverage) ? (
+            <Alert tone="error">
+              La extracción quedó parcial. No se publican las cuentas ni las métricas hasta completarla.
+            </Alert>
+          ) : null}
+
+          <label className="flex items-start gap-2 text-sm text-text-secondary">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={criticalAck}
+              onChange={(event) => setCriticalAck(event.target.checked)}
+            />
+            <span>Revisé la fecha, los scores y las coincidencias pendientes.</span>
+          </label>
+
           <div className="flex justify-end gap-2 border-t border-border-subtle pt-3">
             <Button
               type="button"
@@ -536,7 +598,10 @@ export function CreditPdfImportProgressClient({
             >
               Más tarde
             </Button>
-            <Button type="button" disabled={pending} onClick={handleConfirm}>
+            <Button type="button" variant="ghost" disabled={pending} onClick={handleDraft}>
+              Guardar borrador
+            </Button>
+            <Button type="button" disabled={pending || confirmBlocked} onClick={handleConfirm}>
               {pending ? "Guardando…" : "Confirmar importación"}
             </Button>
           </div>

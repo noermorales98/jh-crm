@@ -3,10 +3,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { ClientActionPlan } from "@/src/server/credit-reports/action-plan";
-import { AgencyModal } from "@/src/components/agency/agency-modal";
 import { Button } from "@/src/components/ui";
 import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
-import { formatDate, formatMoney } from "@/src/lib/format";
+import { ACTION_KIND_LABEL, ACTION_PRIORITY_LABEL } from "@/src/lib/credit/actions";
+import { formatDate } from "@/src/lib/format";
+import { metricText, presentAmount, presentUtilization, type MetricStatus } from "@/src/lib/credit/metrics-view";
 
 export function ClientActionPlanView({
   plan,
@@ -15,9 +16,7 @@ export function ClientActionPlanView({
   plan: ClientActionPlan;
   organizationName: string;
 }) {
-  const [howtoId, setHowtoId] = useState<string | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
-  const activeHowTo = plan.priorities.find((p) => p.id === howtoId) ?? null;
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 pb-10">
@@ -76,9 +75,12 @@ export function ClientActionPlanView({
               </p>
               <p className="text-[12px] text-text-secondary">
                 {b.scoreLabel}
-                {b.utilization != null
-                  ? ` · Util. ${Math.round(b.utilization)}%`
-                  : ""}
+                {b.score != null ? " · modelo desconocido" : ""}
+                {" · Util. "}
+                {metricText(presentUtilization({
+                  basisPoints: b.utilizationBps,
+                  status: metricStatus(b.utilizationStatus),
+                }))}
               </p>
             </div>
           ))}
@@ -107,20 +109,19 @@ export function ClientActionPlanView({
               {plan.bureaus
                 .map(
                   (b) =>
-                    `${CREDIT_BUREAU_LABELS[b.bureau]} ${
-                      b.utilization != null
-                        ? `${Math.round(b.utilization)}%`
-                        : "—"
-                    } (${b.utilLabel})`,
+                    `${CREDIT_BUREAU_LABELS[b.bureau]} ${metricText(presentUtilization({
+                      basisPoints: b.utilizationBps,
+                      status: metricStatus(b.utilizationStatus),
+                    }))} (${b.utilLabel})`,
                 )
                 .join(" · ")}
             </li>
             <li>
-              Hard inquiries (≤3):{" "}
-              {plan.bureaus
+              Consultas (contador del reporte):{" "}
+              {plan.fundingMatrix
                 .map(
-                  (b) =>
-                    `${CREDIT_BUREAU_LABELS[b.bureau]} ${b.inquiries ?? "—"}`,
+                  (r) =>
+                    `${CREDIT_BUREAU_LABELS[r.bureau]} ${r.inquiryDisplay}`,
                 )
                 .join(" · ")}
             </li>
@@ -137,18 +138,25 @@ export function ClientActionPlanView({
           2 · Estructura de Crédito Rotativo
         </h2>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Kpi label="Tarjetas abiertas" value={String(plan.revolving.openCards)} />
+          <Kpi label="Tarjetas abiertas" value={plan.revolving.openCards == null ? "—" : String(plan.revolving.openCards)} />
           <Kpi
-            label="Límite total"
-            value={formatMoney(plan.revolving.totalLimit, "USD")}
+            label="Límite individual"
+            value={metricText(presentAmount({
+              amount: plan.revolving.totalLimit,
+              currency: plan.revolving.currency,
+              status: plan.revolving.totalLimit == null ? "UNKNOWN" : "KNOWN",
+            }))}
           />
           <Kpi label="≥ $2K" value={`${plan.revolving.cardsGe2k}`} />
           <Kpi
-            label="Utilización"
+            label="Utilización revolving"
             value={
-              plan.revolving.utilPct != null
-                ? `${plan.revolving.utilPct.toFixed(1)}%`
-                : "—"
+              plan.revolving.aggregateStatus === "KNOWN"
+                ? metricText(presentUtilization({
+                    basisPoints: plan.revolving.utilizationBps,
+                    status: "KNOWN",
+                  }))
+                : plan.revolving.coverageLabel
             }
           />
         </div>
@@ -168,15 +176,24 @@ export function ClientActionPlanView({
                   <tr key={`${c.creditorName}-${i}`} className="border-t border-border-subtle">
                     <td className="py-1.5 text-ink">{c.creditorName}</td>
                     <td className="py-1.5 tabular-nums">
-                      {c.limit != null ? formatMoney(c.limit, "USD") : "—"}
+                      {metricText(presentAmount({
+                        amount: c.limit,
+                        currency: c.currency,
+                        status: c.limit == null ? "UNKNOWN" : "KNOWN",
+                      }))}
                     </td>
                     <td className="py-1.5 tabular-nums">
-                      {c.balance != null ? formatMoney(c.balance, "USD") : "—"}
+                      {metricText(presentAmount({
+                        amount: c.balance,
+                        currency: c.currency,
+                        status: c.balance == null ? "UNKNOWN" : "KNOWN",
+                      }))}
                     </td>
                     <td className="py-1.5 tabular-nums">
-                      {c.utilization != null
-                        ? `${c.utilization.toFixed(1)}%`
-                        : "—"}
+                      {metricText(presentUtilization({
+                        basisPoints: c.utilizationBps,
+                        status: c.utilizationBps == null ? "UNKNOWN" : "KNOWN",
+                      }))}
                     </td>
                   </tr>
                 ))}
@@ -192,13 +209,31 @@ export function ClientActionPlanView({
 
       <section className="space-y-2 rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle/60">
         <h2 className="text-[16px] font-semibold text-ink">
-          3 · Estrategia de Usuario Autorizado (AU)
+          3 · Usuarios autorizados
         </h2>
         <p className="text-[13px] text-text-secondary">
-          Coincidencias de texto de usuario autorizado: {plan.revolving.auCards}.
-          La responsabilidad no está confirmada. No hay cantidad ni monto
-          recomendado.
+          {plan.authorizedUsers.confirmedCount} cuenta
+          {plan.authorizedUsers.confirmedCount === 1 ? "" : "s"} confirmada
+          {plan.authorizedUsers.confirmedCount === 1 ? "" : "s"}.{" "}
+          {plan.authorizedUsers.unresolvedCount} sin resolver.{" "}
+          {plan.authorizedUsers.conflictCount} con responsabilidad distinta entre
+          burós. {plan.authorizedUsers.note}
         </p>
+        {plan.authorizedUsers.accounts.length > 0 ? (
+          <ul className="space-y-2 text-[13px] text-text-secondary">
+            {plan.authorizedUsers.accounts.map((account) => (
+              <li key={`${account.creditorName}-${account.sourceReportDate}`}>
+                {account.creditorName} · {account.bureaus.join(", ")} ·{" "}
+                {account.ageMonths == null ? "edad sin dato" : `${account.ageMonths} meses`}{" "}
+                · saldo {account.balance ?? "—"} · límite {account.limit ?? "—"} ·{" "}
+                {account.utilization == null ? "utilización sin dato" : `${account.utilization}%`}{" "}
+                · {account.accountStatus ?? "estado sin dato"}
+                {account.reportedNegative ? " · negativo reportado" : ""} · fuente{" "}
+                {account.sourceReportDate}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
       <section className="space-y-3 rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle/60">
@@ -224,7 +259,6 @@ export function ClientActionPlanView({
                   ["Sin negativos", "noNegatives"],
                   ["Utilización ≤ 10%", "utilOk"],
                   ["Edad ≥ 2.5 años", "ageOk"],
-                  ["≤ 3 consultas", "inquiriesOk"],
                   ["Estructura sólida", "structureOk"],
                   ["Límite combinado alto", "combinedLimitOk"],
                 ] as const
@@ -250,12 +284,25 @@ export function ClientActionPlanView({
                   })}
                 </tr>
               ))}
+              <tr className="border-t border-border-subtle">
+                <td className="py-1.5 text-ink">Consultas</td>
+                {plan.fundingMatrix.map((r) => (
+                  <td
+                    key={r.bureau}
+                    className="py-1.5 tabular-nums text-text-secondary"
+                  >
+                    {r.inquiryDisplay}
+                  </td>
+                ))}
+              </tr>
             </tbody>
           </table>
         </div>
         <p className="text-[12px] text-text-secondary">
-          Referencia interna (720, 10% y $40,000). No aprueba fondeo ni
-          sustituye el requisito de un programa.
+          Referencia interna (720, 10% y $40,000). La edad usa la fecha del
+          reporte. Una apertura ausente no cuenta como apta. Las consultas
+          muestran el contador del reporte, no un rechazo. Un reporte sin
+          cobertura completa no se lee como archivo sin negativos.
         </p>
       </section>
 
@@ -266,41 +313,23 @@ export function ClientActionPlanView({
 
       <section className="space-y-3">
         <h2 className="text-[16px] font-semibold text-ink">6 · Plan de Acción</h2>
-        {plan.priorities.map((p, index) => (
+        {plan.actions.map((action) => (
           <article
-            key={p.id}
+            key={action.idempotencyKey}
             className="rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle/60"
           >
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[11px] font-semibold uppercase text-text-secondary">
-                Prioridad {index + 1}
-              </span>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  p.severity === "CRITICO"
-                    ? "bg-danger-soft text-danger-ink"
-                    : "bg-warning-soft text-warning-ink"
-                }`}
-              >
-                {p.severity === "CRITICO" ? "Crítico" : "Importante"}
-              </span>
-            </div>
+            <span className="text-[11px] font-semibold uppercase text-text-secondary">
+              {ACTION_PRIORITY_LABEL[action.priority]}
+            </span>
             <h3 className="mt-1 text-[15px] font-semibold text-ink">
-              {p.title}
+              {ACTION_KIND_LABEL[action.kind]}
             </h3>
-            <p className="mt-1 text-[13px] text-text-secondary">{p.summary}</p>
-            <p className="mt-2 text-[12px] text-text-secondary">
-              {p.ficoImpact} · {p.timeline}
-            </p>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="mt-3"
-              onClick={() => setHowtoId(p.id)}
-            >
-              Ver cómo solucionar
-            </Button>
+            <p className="mt-1 text-[13px] text-text-secondary">{action.summary}</p>
+            {action.observationIds.length > 0 ? (
+              <p className="mt-2 text-[12px] text-text-secondary">
+                Observaciones: {action.observationIds.join(", ")}
+              </p>
+            ) : null}
           </article>
         ))}
       </section>
@@ -311,71 +340,22 @@ export function ClientActionPlanView({
         </h2>
         <p className="mt-2 text-[14px] text-text-secondary">{plan.verdict}</p>
         <div className="mt-4 grid grid-cols-2 gap-2 text-center">
-          <Kpi label="Score promedio" value={plan.avgScore?.toString() ?? "—"} />
+          <Kpi label="Score promedio informativo" value={plan.avgScore?.toString() ?? "—"} />
           <Kpi
-            label="Util. promedio"
+            label="Utilización revolving"
             value={
               plan.avgUtilization != null ? `${plan.avgUtilization}%` : "—"
             }
           />
         </div>
       </section>
-
-      <AgencyModal
-        open={activeHowTo != null}
-        onClose={() => setHowtoId(null)}
-        title={activeHowTo?.title ?? ""}
-        size="lg"
-      >
-        {activeHowTo ? (
-          <div className="space-y-4 text-[13px] text-text-secondary">
-            <div>
-              <h3 className="text-[12px] font-semibold uppercase text-ink">
-                Por qué importa
-              </h3>
-              <p className="mt-1">{activeHowTo.why}</p>
-            </div>
-            <div>
-              <h3 className="text-[12px] font-semibold uppercase text-ink">
-                Pasos
-              </h3>
-              <ol className="mt-1 list-decimal space-y-1 pl-4">
-                {activeHowTo.steps.map((s) => (
-                  <li key={s}>{s}</li>
-                ))}
-              </ol>
-            </div>
-            <div>
-              <h3 className="text-[12px] font-semibold uppercase text-ink">
-                Errores comunes
-              </h3>
-              <ul className="mt-1 list-disc space-y-1 pl-4">
-                {activeHowTo.commonMistakes.map((s) => (
-                  <li key={s}>{s}</li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h3 className="text-[12px] font-semibold uppercase text-ink">
-                Orden profesional
-              </h3>
-              <ol className="mt-1 list-decimal space-y-1 pl-4">
-                {activeHowTo.professionalOrder.map((s) => (
-                  <li key={s}>{s}</li>
-                ))}
-              </ol>
-            </div>
-            <div>
-              <h3 className="text-[12px] font-semibold uppercase text-ink">
-                Expectativas realistas
-              </h3>
-              <p className="mt-1">{activeHowTo.expectations}</p>
-            </div>
-          </div>
-        ) : null}
-      </AgencyModal>
     </div>
   );
+}
+
+function metricStatus(status: "KNOWN" | "PARTIAL" | "NOT_APPLICABLE"): MetricStatus {
+  if (status === "KNOWN" || status === "PARTIAL") return status;
+  return "UNKNOWN";
 }
 
 function Kpi({ label, value }: { label: string; value: string }) {

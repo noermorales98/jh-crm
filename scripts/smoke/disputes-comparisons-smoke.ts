@@ -300,7 +300,11 @@ async function main() {
     check("summary tiene UPDATED o NEW", cmp.summary.updated + cmp.summary.new >= 1);
 
     const experianDelta = cmp.scoreDeltas.find((s) => s.bureau === "EXPERIAN");
-    check("delta Experian +40", experianDelta?.delta === 40, experianDelta);
+    check(
+      "delta Experian no se publica sin modelo",
+      experianDelta?.delta == null && experianDelta?.reason === "MISSING_MODEL",
+      experianDelta,
+    );
 
     const firstItem = cmp.items[0];
     const overridden = await comparisons.overrideComparisonItem(ctx, firstItem.id, {

@@ -35,6 +35,9 @@ export const bureauSnapshotInputSchema = z.object({
   negativeAccounts: optionalInt,
   collections: optionalInt,
   inquiries: optionalInt,
+  modelFamily: z.string().trim().max(40).optional().nullable(),
+  modelVersion: z.string().trim().max(40).optional().nullable(),
+  reasonCodes: z.array(z.string().trim().max(40)).max(8).optional().nullable(),
   totalBalance: optionalMoney,
   utilization: z
     .union([z.string(), z.number()])
@@ -69,6 +72,20 @@ export const creditItemInputSchema = z.object({
   isNegative: z.boolean().optional(),
   disputeEligible: z.boolean().optional(),
   lifecycleStatus: creditItemLifecycleSchema.optional(),
+  responsibility: z.string().trim().max(80).optional().nullable().or(z.literal("")),
+  sourcePage: z.number().int().min(1).max(9999).optional().nullable(),
+  sourceWindow: z.number().int().min(0).max(99).optional().nullable(),
+  fieldQuality: z
+    .object({
+      family: z.string().max(40),
+      familyQuality: z.string().max(20),
+      ownership: z.string().max(40),
+      ownershipQuality: z.string().max(20),
+      balanceQuality: z.string().max(20),
+      creditLimitQuality: z.string().max(20),
+    })
+    .optional()
+    .nullable(),
 });
 
 export const createCreditReportSchema = z.object({

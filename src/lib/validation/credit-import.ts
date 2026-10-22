@@ -2,9 +2,37 @@ import { z } from "zod";
 import { cuidSchema } from "@/src/lib/validation/common";
 import {
   bureauSnapshotInputSchema,
+  creditBureauSchema,
   creditItemInputSchema,
   creditReportTypeSchema,
 } from "@/src/lib/validation/credit-reports";
+
+/** Por encima del fixture de 250. El alta manual de reportes sigue en 200. */
+export const EXTRACTION_ITEM_CEILING = 400;
+
+export const creditPdfCoverageSchema = z.object({
+  pipelineVersion: z.string().max(80),
+  status: z.enum(["COMPLETE", "PARTIAL"]),
+  plannedWindows: z.number().int().min(0),
+  validWindows: z.number().int().min(0),
+  plannedPages: z.number().int().min(0),
+  emptyPages: z.number().int().min(0),
+  omittedItems: z.number().int().min(0).default(0),
+  metricsBlocked: z.boolean(),
+});
+
+export const creditPdfReviewSchema = z.object({
+  version: z.string().max(80),
+  revision: z.number().int().min(0),
+  status: z.enum(["DRAFT", "CONFIRMED"]),
+  idempotencyKey: z.string().max(120).nullable().optional(),
+  reportId: z.string().max(191).nullable().optional(),
+  reviewedFieldIds: z.array(z.string().max(80)).max(500).default([]),
+  authorUserId: z.string().max(191).nullable().optional(),
+  reason: z.string().max(500).nullable().optional(),
+  disputeAuthorized: z.literal(false).default(false),
+  inaccuracyConfirmed: z.literal(false).default(false),
+});
 
 export const creditPdfDocumentKindSchema = z.enum([
   "CREDIT_BUREAU_REPORT",
@@ -58,11 +86,29 @@ export const creditPdfExtractionProposalSchema = z.object({
       typeHint: creditReportTypeSchema.optional().nullable(),
       notes: z.string().trim().max(5000).optional().nullable(),
       snapshots: z.array(bureauSnapshotInputSchema).max(3).default([]),
-      items: z.array(creditItemInputSchema).max(200).default([]),
+      items: z.array(creditItemInputSchema).max(EXTRACTION_ITEM_CEILING).default([]),
+      inquiriesObserved: z
+        .array(
+          z.object({
+            bureau: creditBureauSchema,
+            inquiredOn: z
+              .string()
+              .trim()
+              .regex(/^\d{4}-\d{2}-\d{2}$/)
+              .optional()
+              .nullable(),
+            kind: z.string().trim().max(40).optional().nullable(),
+          }),
+        )
+        .max(EXTRACTION_ITEM_CEILING)
+        .optional()
+        .nullable(),
     })
     .optional()
     .nullable(),
   progress: creditPdfProgressProposalSchema.optional().nullable(),
+  coverage: creditPdfCoverageSchema.optional().nullable(),
+  review: creditPdfReviewSchema.optional().nullable(),
 });
 
 export type CreditPdfExtractionProposal = z.infer<
@@ -84,7 +130,7 @@ export const confirmCreditPdfImportSchema = z.object({
   notes: z.string().trim().max(5000).optional().nullable(),
   snapshots: z.array(bureauSnapshotInputSchema).max(3).default([]),
   /** Índices de items de la propuesta a aplicar, o items inline. */
-  items: z.array(creditItemInputSchema).max(200).default([]),
+  items: z.array(creditItemInputSchema).max(EXTRACTION_ITEM_CEILING).default([]),
   applyClientFields: z
     .object({
       firstName: z.boolean().optional(),
@@ -111,6 +157,18 @@ export const confirmCreditPdfImportSchema = z.object({
     .optional()
     .nullable(),
   overwriteClient: z.boolean().default(false),
+  expectedRevision: z.number().int().min(0).default(0),
+  idempotencyKey: z.string().trim().min(1).max(120).optional(),
+  reason: z.string().trim().max(500).optional(),
+  reviewedFieldIds: z.array(z.string().max(80)).max(500).default([]),
+  identityDecisionIds: z.array(z.string().max(200)).max(200).default([]),
+});
+
+export const saveCreditPdfDraftSchema = z.object({
+  caseId: cuidSchema,
+  documentId: cuidSchema,
+  expectedRevision: z.number().int().min(0).default(0),
+  reason: z.string().trim().max(500).default("borrador de importación"),
 });
 
 export type ConfirmCreditPdfImportInput = z.infer<

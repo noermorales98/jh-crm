@@ -1,3 +1,4 @@
+import { metricText, presentAmount, presentUtilization } from "@/src/lib/credit/metrics-view";
 import { startDocument, toBuffer, MARGIN, PAGE_WIDTH } from "./base";
 import type { PdfOrganizationInfo } from "./base";
 import { formatForPdf } from "../format/dates";
@@ -14,21 +15,27 @@ export type ActionPlanPdfData = {
   bureaus: {
     bureau: string;
     score: number | null;
-    utilization: number | null;
+    utilizationBps: number | null;
+    utilizationStatus: "KNOWN" | "PARTIAL" | "UNKNOWN";
     inquiries: number | null;
   }[];
   revolving: {
-    openCards: number;
+    openCards: number | null;
     auCards: number;
-    totalLimit: number;
-    utilPct: number | null;
+    totalLimit: number | null;
+    currency: string | null;
+    utilizationBps: number | null;
+    utilizationStatus: "KNOWN" | "PARTIAL" | "UNKNOWN";
   };
-  priorities: {
-    title: string;
-    severity: string;
+  authorizedUsers: {
+    confirmedCount: number;
+    withAuthorizedUsersBps: number | null;
+    note: string;
+  };
+  actions: {
+    priority: string;
     summary: string;
-    ficoImpact: string;
-    timeline: string;
+    observationIds: string[];
   }[];
 };
 
@@ -92,8 +99,11 @@ export function generateActionPlanPdf(data: ActionPlanPdfData): Buffer {
       b.bureau,
       [
         b.score != null ? String(b.score) : "—",
-        b.utilization != null ? `util ${Math.round(b.utilization)}%` : null,
-        b.inquiries != null ? `${b.inquiries} inq` : null,
+        `util ${metricText(presentUtilization({
+          basisPoints: b.utilizationBps,
+          status: b.utilizationStatus,
+        }))}`,
+        b.inquiries != null ? `${b.inquiries} contador` : null,
       ]
         .filter(Boolean)
         .join(" · "),
@@ -101,42 +111,55 @@ export function generateActionPlanPdf(data: ActionPlanPdfData): Buffer {
   }
 
   section("2. Crédito rotativo");
-  row("Tarjetas abiertas", String(data.revolving.openCards));
-  row("Cuentas AU", String(data.revolving.auCards));
+  row("Tarjetas abiertas", data.revolving.openCards == null ? "—" : String(data.revolving.openCards));
+  row("Cuentas AU confirmadas", String(data.revolving.auCards));
   row(
-    "Límite total",
-    `$${Math.round(data.revolving.totalLimit).toLocaleString("en-US")}`,
+    "Vista con AU",
+    data.authorizedUsers.withAuthorizedUsersBps != null
+      ? metricText(presentUtilization({
+          basisPoints: data.authorizedUsers.withAuthorizedUsersBps,
+          status: "KNOWN",
+        }))
+      : metricText(presentUtilization({ basisPoints: null, status: "UNKNOWN" })),
+  );
+  para(data.authorizedUsers.note);
+  row(
+    "Límite individual",
+    metricText(presentAmount({
+      amount: data.revolving.totalLimit,
+      currency: data.revolving.currency,
+      status: data.revolving.totalLimit == null ? "UNKNOWN" : "KNOWN",
+    })),
   );
   row(
-    "Utilización",
-    data.revolving.utilPct != null
-      ? `${data.revolving.utilPct.toFixed(1)}%`
-      : "—",
+    "Utilización revolving",
+    metricText(presentUtilization({
+      basisPoints: data.revolving.utilizationBps,
+      status: data.revolving.utilizationStatus,
+    })),
   );
 
   section("3. Veredicto");
   para(data.verdict);
-  row("Score promedio", data.avgScore != null ? String(data.avgScore) : "—");
+  row("Score promedio informativo", data.avgScore != null ? String(data.avgScore) : "—");
   row(
-    "Util. promedio",
-    data.avgUtilization != null ? `${data.avgUtilization}%` : "—",
+    "Utilización revolving",
+    metricText(presentUtilization({
+      basisPoints: data.revolving.utilizationBps,
+      status: data.revolving.utilizationStatus,
+    })),
   );
 
-  section("4. Prioridades del plan");
-  data.priorities.forEach((p, i) => {
+  section("4. Acciones");
+  data.actions.forEach((action, i) => {
     ensureSpace(28);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(10);
     doc.setTextColor(0);
-    doc.text(`Prioridad ${i + 1} · ${p.severity}`, MARGIN, y);
+    doc.text(`Prioridad ${i + 1} · ${action.priority}`, MARGIN, y);
     y += 5;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(10);
-    const titleLines = doc.splitTextToSize(p.title, contentWidth);
-    doc.text(titleLines, MARGIN, y);
-    y += titleLines.length * 4.5 + 2;
-    para(p.summary);
-    para(`${p.ficoImpact} · ${p.timeline}`);
+    para(action.summary);
+    if (action.observationIds.length > 0) para(action.observationIds.join(", "));
   });
 
   return toBuffer(doc);

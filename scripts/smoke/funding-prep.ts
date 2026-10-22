@@ -82,7 +82,7 @@ function main() {
     check(
       "resumen observa score y util",
       favorable.summary ===
-        "Score observado 740 · utilización observada 8%",
+        "Score promedio informativo 740 · utilización revolving 8%",
     );
     check(
       "estimado indisponible",
@@ -126,7 +126,7 @@ function main() {
     check(
       "resumen del segundo perfil",
       prepare.summary ===
-        "Score observado 680 · utilización observada 35%",
+        "Score promedio informativo 680 · utilización revolving 35%",
     );
   }
 

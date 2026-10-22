@@ -170,11 +170,19 @@ export type ClientActionPlanHubDto = {
   negativeCount: number;
   verdict: string;
   revolving: {
-    openCards: number;
+    openCards: number | null;
     auCards: number;
-    totalLimit: number;
-    totalUsed: number;
+    totalLimit: number | null;
+    totalUsed: number | null;
     utilPct: number | null;
+    aggregateStatus: "KNOWN" | "PARTIAL" | "NOT_APPLICABLE";
+    scenarioAccounts: {
+      canonicalId: string;
+      creditorName: string;
+      balanceCents: number | null;
+      limitCents: number | null;
+      currency: string | null;
+    }[];
     cards: {
       creditorName: string;
       limit: number | null;
@@ -256,7 +264,7 @@ export async function suggestQuoteLinesFromReport(
   }
 }
 
-/** Resumen del plan para Score Plan / Fondeo en el hub. */
+/** Resumen del plan para el escenario de utilización y el fondeo en el hub. */
 export async function loadClientActionPlanHub(
   input: unknown,
 ): Promise<ActionResult<ClientActionPlanHubDto>> {
@@ -282,6 +290,8 @@ export async function loadClientActionPlanHub(
         totalLimit: plan.revolving.totalLimit,
         totalUsed: plan.revolving.totalUsed,
         utilPct: plan.revolving.utilPct,
+        aggregateStatus: plan.revolving.aggregateStatus,
+        scenarioAccounts: plan.revolving.scenarioAccounts,
         cards: plan.revolving.cards.map((c) => ({
           creditorName: c.creditorName,
           limit: c.limit,

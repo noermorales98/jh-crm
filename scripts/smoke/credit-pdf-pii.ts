@@ -50,6 +50,7 @@ async function main() {
     fileName: "scan-sintetico.pdf",
     extract: {
       text: "pocos chars",
+      pages: [{ page: 1, text: "pocos chars", empty: false }],
       pageCount: 1,
       mode: "sparse",
       charCount: 12,

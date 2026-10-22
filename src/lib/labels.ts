@@ -351,7 +351,7 @@ export const DISPUTE_METHOD_LABELS: Record<string, string> = {
 };
 
 export const COMPARISON_RESULT_LABELS: Record<string, string> = {
-  DELETED: "Eliminado",
+  DELETED: "No presente",
   UPDATED: "Actualizado",
   VERIFIED: "Verificado",
   UNCHANGED: "Sin cambio",

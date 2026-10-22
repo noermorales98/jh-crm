@@ -252,6 +252,49 @@ export function scoresComparable(
     : { comparable: false, reason: "DIFFERENT_IDENTITY" };
 }
 
+export const SCORE_COMPARISON_VERSION = "t09-2026-10-20";
+export const UNKNOWN_SCORE_MODEL_LABEL = "modelo desconocido";
+export const INFORMATIONAL_SCORE_AVERAGE_LABEL = "Score promedio informativo";
+
+export type ScoreObservation = ScoreIdentity & {
+  value: number | null;
+  /** YYYY-MM-DD. Ausente no se inventa. */
+  scoreDate: string | null;
+};
+
+export type ScoreComparison = {
+  comparable: boolean;
+  delta: number | null;
+  reason: "SAME_MODEL" | "MISSING_MODEL" | "DIFFERENT_MODEL" | "INVALID_DATES";
+};
+
+function usableScore(value: number | null): value is number {
+  return value != null && Number.isInteger(value) && value > 0;
+}
+
+/** Delta solo entre el mismo buró y el mismo modelo, con fechas ordenadas. */
+export function scoreDelta(left: ScoreObservation, right: ScoreObservation): ScoreComparison {
+  const identity = scoresComparable(left, right);
+  if (!identity.comparable) {
+    return {
+      comparable: false,
+      delta: null,
+      reason: identity.reason === "DIFFERENT_IDENTITY" ? "DIFFERENT_MODEL" : "MISSING_MODEL",
+    };
+  }
+  if (left.scoreDate == null || right.scoreDate == null || right.scoreDate < left.scoreDate) {
+    return { comparable: false, delta: null, reason: "INVALID_DATES" };
+  }
+  if (!usableScore(left.value) || !usableScore(right.value)) {
+    return { comparable: false, delta: null, reason: "MISSING_MODEL" };
+  }
+  return {
+    comparable: true,
+    delta: right.value - left.value,
+    reason: "SAME_MODEL",
+  };
+}
+
 export type LegacyCreditItemInput = {
   accountType?: string | null;
   responsibility?: string | null;

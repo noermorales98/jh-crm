@@ -209,7 +209,7 @@ async function main() {
         caseCode: creditCase.caseCode,
       },
     });
-    check("onRoundSent fills +30d", Boolean(auto?.expectedReviewAt));
+    check("onRoundSent leaves the date empty", auto?.expectedReviewAt == null);
     check("onRoundSent task", Boolean(auto?.task?.id));
 
     await prisma.task.deleteMany({ where: { roundId: round2.id } });

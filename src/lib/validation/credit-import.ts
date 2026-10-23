@@ -69,6 +69,17 @@ export const creditPdfProgressProposalSchema = z.object({
   nextSteps: z.string().trim().max(5000).optional().nullable(),
 });
 
+/** Identidades propuestas (v2); vacío en pipeline PDF actual. */
+export const creditPdfIdentityDecisionSchema = z.object({
+  observationIds: z.array(z.string().max(200)).min(1).max(50),
+  canonicalId: z.string().max(200).nullable().default(null),
+  status: z.enum(["UNLINKED", "PROPOSED", "CONFIRMED"]),
+  signals: z.array(z.string().max(120)).max(40).default([]),
+  conflicts: z.array(z.string().max(200)).max(40).default([]),
+  reviewedBy: z.string().max(191).nullable().default(null),
+  identityVersion: z.number().int().min(0).default(0),
+});
+
 export const creditPdfExtractionProposalSchema = z.object({
   documentKind: creditPdfDocumentKindSchema,
   confidence: z.enum(["low", "medium", "high"]).default("medium"),
@@ -109,6 +120,8 @@ export const creditPdfExtractionProposalSchema = z.object({
   progress: creditPdfProgressProposalSchema.optional().nullable(),
   coverage: creditPdfCoverageSchema.optional().nullable(),
   review: creditPdfReviewSchema.optional().nullable(),
+  /** Opcional: pipeline PDF actual no llena identidades. */
+  identities: z.array(creditPdfIdentityDecisionSchema).max(200).optional(),
 });
 
 export type CreditPdfExtractionProposal = z.infer<
@@ -128,9 +141,17 @@ export const confirmCreditPdfImportSchema = z.object({
   reportDate: z.coerce.date({ error: "Indica la fecha del reporte." }),
   provider: z.string().trim().max(120).optional().nullable(),
   notes: z.string().trim().max(5000).optional().nullable(),
-  snapshots: z.array(bureauSnapshotInputSchema).max(3).default([]),
-  /** Índices de items de la propuesta a aplicar, o items inline. */
-  items: z.array(creditItemInputSchema).max(EXTRACTION_ITEM_CEILING).default([]),
+  /**
+   * Ignorados en servidor: snapshots/items salen solo de proposalJson.
+   * Se conservan opcionales para no romper clientes viejos.
+   */
+  snapshots: z.array(bureauSnapshotInputSchema).max(3).optional().default([]),
+  items: z.array(creditItemInputSchema).max(EXTRACTION_ITEM_CEILING).optional().default([]),
+  /** Subconjunto de `proposal.report.items` por índice (canónico). */
+  selectedItemIndexes: z
+    .array(z.number().int().min(0).max(EXTRACTION_ITEM_CEILING - 1))
+    .max(EXTRACTION_ITEM_CEILING)
+    .optional(),
   applyClientFields: z
     .object({
       firstName: z.boolean().optional(),

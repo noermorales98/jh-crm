@@ -23,6 +23,7 @@ import * as quotes from "../../src/server/quotes";
 import * as payments from "../../src/server/payments";
 import * as receipts from "../../src/server/receipts";
 import * as dashboard from "../../src/server/dashboard";
+import { ALLOWED_SEND_OPERATION } from "./_allowed-send-operation";
 
 const prisma = new PrismaClient();
 const MARK = "SMOKE";
@@ -119,6 +120,7 @@ async function main() {
   const sent = await rounds.markRoundSent(ctx, round1.id, {
     expectedReviewAt: expectedReview,
     createReviewTask: true,
+    operation: ALLOWED_SEND_OPERATION,
   });
   check("ronda enviada: status SENT + sentAt", sent.round.status === "SENT" && Boolean(sent.round.sentAt));
   check("tarea CREDIT_UPDATE creada con dueAt=expectedReviewAt",

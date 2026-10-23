@@ -21,6 +21,7 @@ import * as quotes from "../../src/server/quotes";
 import * as payments from "../../src/server/payments";
 import * as receipts from "../../src/server/receipts";
 import { resolveSmokeOrg } from "./_lib/resolve-smoke-org";
+import { ALLOWED_SEND_OPERATION } from "./_allowed-send-operation";
 
 const prisma = new PrismaClient();
 
@@ -82,6 +83,7 @@ async function main() {
   const sent = await rounds.markRoundSent(ctx, round.id, {
     expectedReviewAt,
     createReviewTask: true,
+    operation: ALLOWED_SEND_OPERATION,
   });
   assert(sent.round.status === "SENT", "la ronda no quedó SENT");
   assert(sent.reviewTask, "markRoundSent no creó la tarea automática");

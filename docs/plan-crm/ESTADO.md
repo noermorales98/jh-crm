@@ -8,10 +8,12 @@ Estados permitidos: PENDIENTE, EN_CURSO, BLOQUEADA, HECHO. Usar NO VERIFICADO de
 
 ## Contexto de la sesión
 
-- Rama / commit base: `main` @ `2b3ffb3`. T05, T06, T07, T08, T09, T10, T11, T12, T13, T14, T15, T16, T17, T18, T19, T20, T21, T22, T23, T25, T26, T27 y T28 siguen sin commit.
+- Rama / commit base: `main` (motor de crédito ya en árbol; índice Graphify `noermorales98/jh-crm` @ `7c0a736`).
 - Gestor y comandos: npm 11.12.1, Node local v24.14.1 (el job QA declara Node 22). Scripts en `package.json`; CI en `.github/workflows/qa.yml`.
-- Tarea actual: T28 HECHO.
-- Próxima acción: no hay tarea siguiente. La migración ya no bloquea la compuerta. Sigue sin estar lista porque no hay política de plazos ni programa de prestamista revisados. No encender la lectura nueva ni el cobro.
+- Tarea actual: T28 HECHO. Tramo **post-plan** en curso (auditoría + P0 de código).
+- Próxima acción (humana): política de plazos y programa de prestamista **revisados** (`POLICY` / `PROGRAM`). Sin eso `activationGate` no puede quedar lista.
+- Próxima acción (código, hecha en post-T28): `markRoundSent` fail-closed con `decideOperation`; confirm PDF sin half-apply SSN/cliente; `ci:qa` corre journey + operations. Evidencia: [evidencias/POST-T28-audit-p0.md](evidencias/POST-T28-audit-p0.md).
+- No encender la lectura nueva ni el cobro.
 - Entorno autorizado para pruebas: MySQL 26.7.0 en `127.0.0.1`, base vacía, borrada al terminar. No se usó la base configurada ni producción.
 - Flags activos: la lectura de identidad v2 nace apagada. No hay columna nueva en `OrganizationSettings`.
 

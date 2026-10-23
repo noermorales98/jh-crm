@@ -116,6 +116,12 @@ export function EmbeddedRoundWorkspace({
     contract: null,
     authorization: null,
   });
+  const sendBlockedReason =
+    sendDecision.status === "ALLOWED"
+      ? null
+      : sendDecision.status === "BLOCKED"
+        ? `Envío bloqueado: ${sendDecision.reasons.join(", ") || sendDecision.status}.`
+        : `${OPERATION_REVIEW_LABEL}: no se puede marcar enviada (${sendDecision.reasons.join(", ") || "faltan requisitos"}).`;
 
   return (
     <div className="space-y-4">
@@ -151,6 +157,8 @@ export function EmbeddedRoundWorkspace({
             roundId={round.id}
             status={round.status}
             members={data.members}
+            sendAllowed={sendDecision.status === "ALLOWED"}
+            sendBlockedReason={sendBlockedReason}
           />
         ) : null}
         <button

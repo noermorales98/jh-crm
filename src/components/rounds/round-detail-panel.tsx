@@ -51,6 +51,12 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
     contract: null,
     authorization: null,
   });
+  const sendBlockedReason =
+    sendDecision.status === "ALLOWED"
+      ? null
+      : sendDecision.status === "BLOCKED"
+        ? `Envío bloqueado: ${sendDecision.reasons.join(", ") || sendDecision.status}.`
+        : `${OPERATION_REVIEW_LABEL}: no se puede marcar enviada (${sendDecision.reasons.join(", ") || "faltan requisitos"}).`;
 
   const documents = await documentService.listDocuments(ctx, {
     clientId: round.case.client.id,
@@ -183,7 +189,13 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
       </Card>
 
       {canManage ? (
-        <RoundActions roundId={round.id} status={round.status} members={members} />
+        <RoundActions
+          roundId={round.id}
+          status={round.status}
+          members={members}
+          sendAllowed={sendDecision.status === "ALLOWED"}
+          sendBlockedReason={sendBlockedReason}
+        />
       ) : null}
     </div>
   );

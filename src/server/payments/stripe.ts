@@ -9,6 +9,7 @@ import { decrypt } from "@/src/lib/security/encryption";
 import { prisma } from "@/src/lib/db";
 import { Prisma } from "@prisma/client";
 import Stripe from "stripe";
+import { assertChargeAllowed } from "@/src/server/payments/assert-charge";
 
 const money = (v: Prisma.Decimal) =>
   v.toDecimalPlaces(2, Prisma.Decimal.ROUND_HALF_UP);
@@ -616,6 +617,11 @@ export async function fulfillQuotePayment(input: {
     select: { id: true },
   });
   if (already) return;
+
+  // Cotización anclada a caso de crédito: fail-closed sin política de cobro.
+  if (quote.caseId ?? input.caseId) {
+    assertChargeAllowed();
+  }
 
   try {
     await prisma.$transaction(async (tx) => {

@@ -30,10 +30,15 @@ export function RoundActions({
   roundId,
   status,
   members,
+  sendAllowed = false,
+  sendBlockedReason = null,
 }: {
   roundId: string;
   status: string;
   members: { id: string; name: string }[];
+  /** Solo true cuando decideOperation en servidor devolvería ALLOWED. */
+  sendAllowed?: boolean;
+  sendBlockedReason?: string | null;
 }) {
   const router = useRouter();
   const [sentOpen, setSentOpen] = useState(false);
@@ -45,7 +50,8 @@ export function RoundActions({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const canSend = status === "DRAFT" || status === "PREPARING";
+  const canSend =
+    (status === "DRAFT" || status === "PREPARING") && sendAllowed;
   const canReview =
     status === "SENT" || status === "WAITING_UPDATE" || status === "REVIEWING";
   const canCancel = canSend || canReview;
@@ -72,8 +78,16 @@ export function RoundActions({
     });
   }
 
+  const showSendBlocked =
+    (status === "DRAFT" || status === "PREPARING") && !sendAllowed;
+
   return (
     <div className="flex flex-wrap items-center justify-end gap-1.5">
+      {showSendBlocked && sendBlockedReason ? (
+        <div className="w-full basis-full">
+          <Alert tone="info">{sendBlockedReason}</Alert>
+        </div>
+      ) : null}
       {canSend ? (
         <Button variant="secondary" size="sm" onClick={() => setSentOpen(true)}>
           Marcar enviada

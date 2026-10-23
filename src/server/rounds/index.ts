@@ -1,9 +1,17 @@
 import type { Prisma, RoundStatus } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
+import {
+  decideOperation,
+  OPERATION_REVIEW_LABEL,
+  type OperationAuthorization,
+  type OperationContract,
+  type OperationPolicy,
+} from "@/src/lib/credit/operations";
 import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
+import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
-import { toActivityContext } from "@/src/server/context";
+import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { resolveAssigneeForOrg } from "@/src/server/users";
 
 /**
@@ -23,6 +31,17 @@ export interface RoundUpdateData {
   lettersCount?: number;
 }
 
+export interface MarkRoundSentOperation {
+  /** Tipo de servicio evaluado (default CREDIT_REPAIR). */
+  serviceType?: string;
+  /** Corte YYYY-MM-DD (default: hoy UTC). */
+  asOf?: string;
+  policy: OperationPolicy | null;
+  contract: OperationContract;
+  authorization: OperationAuthorization;
+  evidenceDocumentIds?: readonly string[];
+}
+
 export interface MarkRoundSentData {
   /** Fecha acordada de revisión (obligatoria al enviar). */
   expectedReviewAt: Date;
@@ -32,6 +51,11 @@ export interface MarkRoundSentData {
   assignedToId?: string;
   /** Recordatorio de la tarea (default: expectedReviewAt). */
   reminderAt?: Date;
+  /**
+   * Contexto de decideOperation. Sin política/contrato/autorización revisados
+   * el envío queda en revisión y no se marca SENT (fail-closed).
+   */
+  operation?: MarkRoundSentOperation;
 }
 
 export type RoundReviewOutcome = "COMPLETED" | "REVIEWING";
@@ -181,6 +205,28 @@ export async function markRoundSent(
     throw new DomainError("Debes indicar la fecha esperada de revisión.");
   }
 
+  const op = data.operation;
+  const sendDecision = decideOperation({
+    action: "SEND_DISPUTE",
+    serviceType: op?.serviceType?.trim() || "CREDIT_REPAIR",
+    asOf: op?.asOf?.trim() || new Date().toISOString().slice(0, 10),
+    policy: op?.policy ?? null,
+    contract: op?.contract ?? null,
+    authorization: op?.authorization ?? null,
+    evidenceDocumentIds: op?.evidenceDocumentIds,
+  });
+  if (sendDecision.status !== "ALLOWED") {
+    const reasons =
+      sendDecision.reasons.length > 0
+        ? sendDecision.reasons.join(", ")
+        : sendDecision.status;
+    throw new DomainError(
+      sendDecision.status === "BLOCKED"
+        ? `Envío bloqueado: ${reasons}.`
+        : `${OPERATION_REVIEW_LABEL}: no se puede marcar enviada (${reasons}).`,
+    );
+  }
+
   const reviewAssignee = data.createReviewTask
     ? (await resolveAssigneeForOrg(
         ctx.organizationId,
@@ -255,10 +301,39 @@ export async function markRoundSent(
         },
       });
     } catch (error) {
-      console.error(
-        "[rounds] onRoundSent:",
-        error instanceof Error ? error.message : "error",
-      );
+      const message =
+        error instanceof Error ? error.message : "error desconocido";
+      console.error("[rounds] onRoundSent:", message);
+      // SENT ya persistió: dejar rastro accionable (no silencio).
+      try {
+        await writeAuditLog(toAuditContext(ctx), {
+          action: "ROUND_SENT_AUTOMATION_FAILED",
+          entityType: "CreditRound",
+          entityId: result.round.id,
+          metadata: {
+            caseId: round.caseId,
+            roundNumber: round.roundNumber,
+            error: message.slice(0, 240),
+          },
+        });
+        await writeActivityLog(toActivityContext(ctx), {
+          type: "OTHER",
+          description: `Automatización post-envío falló en la ronda ${round.roundNumber}; reintentar o revisar.`,
+          clientId: round.case.clientId,
+          caseId: round.caseId,
+          serviceCaseId: round.case.serviceCaseId,
+          roundId: result.round.id,
+          metadata: {
+            kind: "onRoundSent_failed",
+            error: message.slice(0, 240),
+          },
+        });
+      } catch (logError) {
+        console.error(
+          "[rounds] onRoundSent telemetry:",
+          logError instanceof Error ? logError.message : "error",
+        );
+      }
     }
     return result;
   });

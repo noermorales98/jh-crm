@@ -151,11 +151,14 @@ function main() {
   );
 
   const portalServer = readFileSync("src/server/portal/index.ts", "utf8");
+  const portalView = readFileSync("src/lib/credit/portal-view.ts", "utf8");
   check(
-    "la lista y la descarga del portal usan el mismo filtro",
-    portalServer.includes("function portalVisibleDocumentWhere") &&
-      portalServer.includes("creditPdfImportJobs: { none: {} }") &&
-      portalServer.includes("creditReports: { some: {} }") &&
+    "la lista y la descarga del portal usan el helper canónico",
+    portalView.includes("export function portalVisibleDocumentWhere") &&
+      portalView.includes("creditPdfImportJobs: { none: {} }") &&
+      portalView.includes("creditReports: { some: {} }") &&
+      portalView.includes("export function isPortalDocumentPublished") &&
+      portalServer.includes('from "@/src/lib/credit/portal-view"') &&
       portalServer.includes("where: portalVisibleDocumentWhere(clientId, organizationId)") &&
       portalServer.includes("where: portalVisibleDocumentWhere("),
   );

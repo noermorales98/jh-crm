@@ -12,6 +12,8 @@ import {
   simulateCharge,
   type OperationPolicy,
 } from "../../src/lib/credit/operations";
+import { assertChargeAllowed } from "../../src/server/payments/assert-charge";
+import { DomainError } from "../../src/server/errors";
 
 function check(label: string, ok: boolean, detail?: unknown) {
   if (!ok) {
@@ -143,9 +145,49 @@ function main() {
   const source = readFileSync("src/lib/credit/operations.ts", "utf8");
   const panel = readFileSync("src/components/rounds/round-detail-panel.tsx", "utf8");
   const workspace = readFileSync("src/components/rounds/embedded-round-workspace.tsx", "utf8");
+  const roundsServer = readFileSync("src/server/rounds/index.ts", "utf8");
+  const actionsUi = readFileSync("src/components/rounds/round-actions.tsx", "utf8");
+  const assertCharge = readFileSync("src/server/payments/assert-charge.ts", "utf8");
+  const paymentsIndex = readFileSync("src/server/payments/index.ts", "utf8");
+  const stripePay = readFileSync("src/server/payments/stripe.ts", "utf8");
   check(
     "no hay un plazo de 3 días",
     !source.includes("3 días") && !source.includes("5 días") && !source.includes("cancellationDays") && !source.includes("score"),
+  );
+  check(
+    "markRoundSent exige decideOperation ALLOWED (fail-closed)",
+    roundsServer.includes("decideOperation") &&
+      roundsServer.includes('action: "SEND_DISPUTE"') &&
+      roundsServer.includes('sendDecision.status !== "ALLOWED"') &&
+      roundsServer.includes("OPERATION_REVIEW_LABEL"),
+  );
+  check(
+    "cobros de crédito exigen CHARGE_SERVICE fail-closed",
+    assertCharge.includes('action: "CHARGE_SERVICE"') &&
+      assertCharge.includes("assertChargeAllowed") &&
+      paymentsIndex.includes("assertChargeAllowed") &&
+      stripePay.includes("assertChargeAllowed"),
+  );
+  check(
+    "onRoundSent deja rastro si falla tras SENT",
+    roundsServer.includes("ROUND_SENT_AUTOMATION_FAILED") &&
+      roundsServer.includes("onRoundSent_failed"),
+  );
+
+  let chargeBlocked = false;
+  try {
+    assertChargeAllowed();
+  } catch (error) {
+    chargeBlocked =
+      error instanceof DomainError &&
+      (error.message.includes("Revisión") ||
+        error.message.includes("NO_POLICY") ||
+        error.message.includes("no se puede cobrar"));
+  }
+  check("cobro sin política falla (fail-closed)", chargeBlocked);
+  check(
+    "la UI no ofrece enviar sin ALLOWED",
+    actionsUi.includes("sendAllowed") && actionsUi.includes("sendBlockedReason"),
   );
   check(
     "la ronda muestra revisión y conserva el plazo sin política",
@@ -154,7 +196,8 @@ function main() {
       panel.includes("OPERATION_REVIEW_LABEL") &&
       panel.includes("policy: null") &&
       panel.includes("deadlinePolicyId: null") &&
-      panel.includes("RoundActions"),
+      panel.includes("RoundActions") &&
+      panel.includes("sendAllowed={sendDecision.status === \"ALLOWED\"}"),
   );
   check(
     "la ronda visible repite el plazo y la decisión",
@@ -167,6 +210,7 @@ function main() {
       workspace.includes("policy: null") &&
       workspace.includes("deadlinePolicyId: null") &&
       workspace.includes("RoundActions") &&
+      workspace.includes("sendAllowed={sendDecision.status === \"ALLOWED\"}") &&
       !workspace.includes("30 días"),
   );
 

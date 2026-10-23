@@ -10,13 +10,39 @@ export const PORTAL_VIEW_VERSION = "t23-2026-10-21";
 export const SCENARIO_IS_SIMULATION =
   "Escenario de utilización. No es un monto aprobado.";
 
-/** Un PDF analizado sin reporte confirmado no se publica en el portal. */
+/**
+ * Predicado Prisma canónico de documentos visibles en el portal.
+ * Equivale a: sin job de import PDF, o con al menos un CreditReport (confirmado).
+ */
+export function portalVisibleDocumentWhere(
+  clientId: string,
+  organizationId: string,
+  documentId?: string,
+) {
+  return {
+    ...(documentId ? { id: documentId } : {}),
+    clientId,
+    organizationId,
+    deletedAt: null,
+    hardDeletedAt: null,
+    sensitivity: { not: "HIGHLY_SENSITIVE" as const },
+    category: { not: "SSN_DOCUMENT" as const },
+    OR: [
+      { creditPdfImportJobs: { none: {} } },
+      { creditReports: { some: {} } },
+    ],
+  };
+}
+
+/**
+ * Misma regla que `portalVisibleDocumentWhere` en forma booleana:
+ * un PDF analizado sin reporte confirmado no se publica.
+ */
 export function isPortalDocumentPublished(input: {
   hasImportJob: boolean;
   hasConfirmedReport: boolean;
 }): boolean {
-  if (input.hasImportJob && !input.hasConfirmedReport) return false;
-  return true;
+  return !input.hasImportJob || input.hasConfirmedReport;
 }
 
 export type PortalActor = {

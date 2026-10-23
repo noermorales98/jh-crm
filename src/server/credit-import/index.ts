@@ -7,6 +7,11 @@ import { can } from "@/src/server/auth/permissions";
 import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
 import { assertCreditAccess } from "@/src/lib/credit/access";
+import {
+  assertIdentityDecisionIdsAllowed,
+  identitiesFromProposal,
+  resolveConfirmPayloadFromProposal,
+} from "@/src/lib/credit/confirm-proposal";
 import { storedPdfProposalBlocksConfirm } from "@/src/lib/credit/pdf-review";
 import {
   confirmReview,
@@ -27,8 +32,7 @@ import {
   type ConfirmCreditPdfImportInput,
   type CreditPdfExtractionProposal,
 } from "@/src/lib/validation/credit-import";
-import { extractPdfContent } from "./pdf-text";
-import { classifyAndExtractFromPdf } from "./extract";
+import { buildProposalFromDocumentBytes } from "./proposal-from-document";
 
 function toAuditContext(ctx: OrganizationContext) {
   return {
@@ -126,32 +130,19 @@ export async function analyzeCreditPdf(
   );
 
   const pdfBytes = await getObjectBytes(document.storageKey);
-  if (pdfBytes.byteLength > 12 * 1024 * 1024) {
-    throw new DomainError("El PDF supera 12 MB; divide o comprime el archivo.");
-  }
-
-  const extract = await extractPdfContent(pdfBytes);
   const fileName =
     document.displayName || document.originalName || "reporte.pdf";
 
-  const proposal = await classifyAndExtractFromPdf({
-    extract,
+  const built = await buildProposalFromDocumentBytes({
+    pdfBytes,
     fileName,
   });
+  const { proposal, extract, suggestedReportType } = built;
 
   const sensitive = await prisma.clientSensitiveProfile.findUnique({
     where: { clientId: creditCase.clientId },
     select: { ssnLast4: true, dateOfBirthEncrypted: true },
   });
-
-  const suggestedReportType =
-    proposal.documentKind === "CLIENT_PROGRESS_REPORT"
-      ? "UPDATE"
-      : proposal.report?.typeHint === "INITIAL" ||
-          proposal.report?.typeHint === "UPDATE" ||
-          proposal.report?.typeHint === "MANUAL"
-        ? proposal.report.typeHint
-        : "UPDATE";
 
   await writeAuditLog(toAuditContext(ctx), {
     action: "CREDIT_PDF_ANALYZED",
@@ -336,6 +327,18 @@ export async function confirmCreditPdfImport(
   if (storedPdfProposalBlocksConfirm(stored != null, parsed?.success === true)) {
     throw new DomainError("La propuesta no se puede revisar.");
   }
+  if (!parsed?.success) {
+    throw new DomainError("La propuesta no se puede revisar.");
+  }
+  const proposal = parsed.data;
+  const { snapshots, items } = resolveConfirmPayloadFromProposal({
+    proposal,
+    documentKind: input.documentKind,
+    selectedItemIndexes: input.selectedItemIndexes,
+  });
+  const identities = identitiesFromProposal(proposal);
+  assertIdentityDecisionIdsAllowed(identities, input.identityDecisionIds);
+
   const requestedSensitive = Boolean(
     input.applyClientFields?.dateOfBirth ||
       input.applyClientFields?.ssn ||
@@ -344,7 +347,7 @@ export async function confirmCreditPdfImport(
   if (requestedSensitive && !can(ctx.role, "sensitive.edit")) {
     throw new ForbiddenError();
   }
-  const currentReview = toImportReview(parsed?.success ? parsed.data.review : null);
+  const currentReview = toImportReview(proposal.review);
   const idempotencyKey = input.idempotencyKey?.trim() || document.id;
   const reason = input.reason?.trim() || "confirmación de importación";
   let decision;
@@ -358,13 +361,14 @@ export async function confirmCreditPdfImport(
       idempotencyKey,
       reviewedFieldIds: input.reviewedFieldIds,
       identityDecisionIds: input.identityDecisionIds,
+      identities,
       creditCaseId: creditCase.id,
       asOf: input.reportDate.toISOString().slice(0, 10),
       confirmedReportIds: [document.id],
       reportDate: input.reportDate.toISOString().slice(0, 10),
-      snapshots: input.snapshots,
-      items: input.items,
-      metricsBlocked: parsed?.success ? parsed.data.coverage?.metricsBlocked === true : false,
+      snapshots,
+      items,
+      metricsBlocked: proposal.coverage?.metricsBlocked === true,
       authorUserId: ctx.userId,
       reason,
     });
@@ -398,62 +402,6 @@ export async function confirmCreditPdfImport(
   const patch = input.clientPatch ?? {};
   const overwrite = input.overwriteClient;
 
-  const clientUpdate: Parameters<typeof clients.updateClient>[2] = {};
-  const empty = (v: string | null | undefined) => !v?.trim();
-
-  const maybeSet = (
-    key: keyof typeof apply,
-    current: string | null | undefined,
-    next: string | null | undefined,
-  ) => {
-    if (!apply[key] || next == null || !String(next).trim()) return;
-    if (!overwrite && !empty(current)) return;
-    (clientUpdate as Record<string, string>)[key] = String(next).trim();
-  };
-
-  maybeSet("firstName", creditCase.client.firstName, patch.firstName);
-  maybeSet("lastName", creditCase.client.lastName, patch.lastName);
-  maybeSet("addressLine1", creditCase.client.addressLine1, patch.addressLine1);
-  maybeSet("addressLine2", creditCase.client.addressLine2, patch.addressLine2);
-  maybeSet("city", creditCase.client.city, patch.city);
-  maybeSet("state", creditCase.client.state, patch.state);
-  maybeSet("postalCode", creditCase.client.postalCode, patch.postalCode);
-  maybeSet("country", creditCase.client.country, patch.country);
-
-  if (Object.keys(clientUpdate).length > 0) {
-    await clients.updateClient(ctx, creditCase.clientId, clientUpdate);
-  }
-
-  const applyDob =
-    apply.dateOfBirth &&
-    patch.dateOfBirth &&
-    (overwrite ||
-      !(
-        await prisma.clientSensitiveProfile.findUnique({
-          where: { clientId: creditCase.clientId },
-          select: { dateOfBirthEncrypted: true },
-        })
-      )?.dateOfBirthEncrypted);
-
-  const applySsn =
-    apply.ssn &&
-    (overwrite ||
-      !(
-        await prisma.clientSensitiveProfile.findUnique({
-          where: { clientId: creditCase.clientId },
-          select: { ssnLast4: true },
-        })
-      )?.ssnLast4);
-
-  if (applyDob || applySsn) {
-    await applySensitivePartial(ctx, creditCase.clientId, {
-      dateOfBirth: applyDob && patch.dateOfBirth ? new Date(patch.dateOfBirth) : undefined,
-      ssnFull: applySsn ? input.ssnFull ?? null : undefined,
-      ssnLast4Only:
-        applySsn && !input.ssnFull ? patch.ssnLast4 ?? null : undefined,
-    });
-  }
-
   let provider = input.provider?.trim() || null;
   if (
     input.documentKind === "CLIENT_PROGRESS_REPORT" &&
@@ -466,9 +414,7 @@ export async function confirmCreditPdfImport(
   if (input.documentKind === "CLIENT_PROGRESS_REPORT") {
     const bits = [
       notes,
-      input.documentKind === "CLIENT_PROGRESS_REPORT"
-        ? "Importado desde progress report PDF."
-        : null,
+      "Importado desde progress report PDF.",
     ].filter(Boolean);
     notes = bits.join(" ") || notes;
   }
@@ -481,89 +427,159 @@ export async function confirmCreditPdfImport(
     });
   }
 
+  const revertConfirmPhase = async () => {
+    if (!stored) return;
+    await prisma.creditPdfImportJob.updateMany({
+      where: {
+        id: stored.id,
+        organizationId: ctx.organizationId,
+        phase: "confirming",
+      },
+      data: { phase: stored.phase },
+    });
+  };
+
+  // Crear el reporte antes de parchear cliente/SSN: si falla, no queda half-apply.
   let report;
   try {
     report = await creditReports.createCreditReport(ctx, {
-    caseId: creditCase.id,
-    type: input.reportType,
-    reportDate: input.reportDate,
-    provider,
-    documentId: document.id,
-    notes,
-    snapshots: input.snapshots,
-    items:
-      input.documentKind === "CLIENT_PROGRESS_REPORT" ? [] : input.items,
-  });
+      caseId: creditCase.id,
+      type: input.reportType,
+      reportDate: input.reportDate,
+      provider,
+      documentId: document.id,
+      notes,
+      snapshots,
+      items,
+    });
   } catch (error) {
-    if (stored) {
-      await prisma.creditPdfImportJob.updateMany({
-        where: { id: stored.id, organizationId: ctx.organizationId, phase: "confirming" },
-        data: { phase: stored.phase },
-      });
-    }
+    await revertConfirmPhase();
     throw error;
   }
 
-  const sealed = {
-    ...decision.review,
-    reportId: report.id,
-    idempotencyKey,
-    authorUserId: ctx.userId,
-    reason,
-    disputeAuthorized: false as const,
-    inaccuracyConfirmed: false as const,
-  };
-  if (stored && parsed?.success) {
-    await prisma.creditPdfImportJob.update({
-      where: { id: stored.id },
-      data: {
-        phase: "confirmed",
-        proposalJson: {
-          ...parsed.data,
-          review: {
-            version: sealed.version,
-            revision: sealed.revision,
-            status: "CONFIRMED",
-            idempotencyKey: sealed.idempotencyKey,
-            reportId: sealed.reportId,
-            reviewedFieldIds: sealed.reviewedFieldIds,
-            authorUserId: sealed.authorUserId,
-            reason: sealed.reason,
-            disputeAuthorized: false,
-            inaccuracyConfirmed: false,
-          },
-        } as Prisma.InputJsonValue,
-      },
-    });
-  } else {
-    await prisma.creditPdfImportJob.updateMany({
-      where: {
-        organizationId: ctx.organizationId,
-        documentId: document.id,
-        status: "SUCCEEDED",
-      },
-      data: { phase: "confirmed" },
-    });
-  }
+  try {
+    const clientUpdate: Parameters<typeof clients.updateClient>[2] = {};
+    const empty = (v: string | null | undefined) => !v?.trim();
 
-  await writeAuditLog(toAuditContext(ctx), {
-    action: "CREDIT_PDF_IMPORT_CONFIRMED",
-    entityType: "CreditReport",
-    entityId: report.id,
-    metadata: {
-      caseId: creditCase.id,
-      documentId: document.id,
-      documentKind: input.documentKind,
-      snapshotCount: input.snapshots.length,
-      itemCount:
-        input.documentKind === "CLIENT_PROGRESS_REPORT"
-          ? 0
-          : input.items.length,
+    const maybeSet = (
+      key: keyof typeof apply,
+      current: string | null | undefined,
+      next: string | null | undefined,
+    ) => {
+      if (!apply[key] || next == null || !String(next).trim()) return;
+      if (!overwrite && !empty(current)) return;
+      (clientUpdate as Record<string, string>)[key] = String(next).trim();
+    };
+
+    maybeSet("firstName", creditCase.client.firstName, patch.firstName);
+    maybeSet("lastName", creditCase.client.lastName, patch.lastName);
+    maybeSet("addressLine1", creditCase.client.addressLine1, patch.addressLine1);
+    maybeSet("addressLine2", creditCase.client.addressLine2, patch.addressLine2);
+    maybeSet("city", creditCase.client.city, patch.city);
+    maybeSet("state", creditCase.client.state, patch.state);
+    maybeSet("postalCode", creditCase.client.postalCode, patch.postalCode);
+    maybeSet("country", creditCase.client.country, patch.country);
+
+    if (Object.keys(clientUpdate).length > 0) {
+      await clients.updateClient(ctx, creditCase.clientId, clientUpdate);
+    }
+
+    const applyDob =
+      apply.dateOfBirth &&
+      patch.dateOfBirth &&
+      (overwrite ||
+        !(
+          await prisma.clientSensitiveProfile.findUnique({
+            where: { clientId: creditCase.clientId },
+            select: { dateOfBirthEncrypted: true },
+          })
+        )?.dateOfBirthEncrypted);
+
+    const applySsn =
+      apply.ssn &&
+      (overwrite ||
+        !(
+          await prisma.clientSensitiveProfile.findUnique({
+            where: { clientId: creditCase.clientId },
+            select: { ssnLast4: true },
+          })
+        )?.ssnLast4);
+
+    if (applyDob || applySsn) {
+      await applySensitivePartial(ctx, creditCase.clientId, {
+        dateOfBirth:
+          applyDob && patch.dateOfBirth ? new Date(patch.dateOfBirth) : undefined,
+        ssnFull: applySsn ? input.ssnFull ?? null : undefined,
+        ssnLast4Only:
+          applySsn && !input.ssnFull ? patch.ssnLast4 ?? null : undefined,
+      });
+    }
+
+    const sealed = {
+      ...decision.review,
+      reportId: report.id,
+      idempotencyKey,
       authorUserId: ctx.userId,
       reason,
-      revision: decision.review.revision,
-    },
-  });
+      disputeAuthorized: false as const,
+      inaccuracyConfirmed: false as const,
+    };
+    if (stored) {
+      await prisma.creditPdfImportJob.update({
+        where: { id: stored.id },
+        data: {
+          phase: "confirmed",
+          proposalJson: {
+            ...proposal,
+            review: {
+              version: sealed.version,
+              revision: sealed.revision,
+              status: "CONFIRMED",
+              idempotencyKey: sealed.idempotencyKey,
+              reportId: sealed.reportId,
+              reviewedFieldIds: sealed.reviewedFieldIds,
+              authorUserId: sealed.authorUserId,
+              reason: sealed.reason,
+              disputeAuthorized: false,
+              inaccuracyConfirmed: false,
+            },
+          } as Prisma.InputJsonValue,
+        },
+      });
+    } else {
+      await prisma.creditPdfImportJob.updateMany({
+        where: {
+          organizationId: ctx.organizationId,
+          documentId: document.id,
+          status: "SUCCEEDED",
+        },
+        data: { phase: "confirmed" },
+      });
+    }
+
+    await writeAuditLog(toAuditContext(ctx), {
+      action: "CREDIT_PDF_IMPORT_CONFIRMED",
+      entityType: "CreditReport",
+      entityId: report.id,
+      metadata: {
+        caseId: creditCase.id,
+        documentId: document.id,
+        documentKind: input.documentKind,
+        snapshotCount: snapshots.length,
+        itemCount: items.length,
+        authorUserId: ctx.userId,
+        reason,
+        revision: decision.review.revision,
+      },
+    });
+  } catch (error) {
+    // Compensación: no sellar confirmed; borrar reporte huérfano (cascade) y revertir fase.
+    await prisma.creditReport.deleteMany({
+      where: { id: report.id, organizationId: ctx.organizationId },
+    });
+    await revertConfirmPhase();
+    throw error;
+  }
 
   return {
     reportId: report.id,

@@ -17,6 +17,7 @@ import {
 import { createCreditReport } from "../../src/server/credit-reports";
 import { ensureCreditRepairService } from "../../src/server/services";
 import type { OrganizationContext } from "../../src/server/auth/guards";
+import { ALLOWED_SEND_OPERATION } from "./_allowed-send-operation";
 
 const MARK = `ops-${Date.now()}`;
 let checks = 0;
@@ -73,6 +74,7 @@ async function main() {
     await markRoundSent(ctx, round.id, {
       expectedReviewAt: due,
       createReviewTask: true,
+      operation: ALLOWED_SEND_OPERATION,
     });
     let tasks = await prisma.task.findMany({
       where: {
@@ -118,6 +120,7 @@ async function main() {
     const auto = await markRoundSent(ctx, second.id, {
       expectedReviewAt: due,
       createReviewTask: false,
+      operation: ALLOWED_SEND_OPERATION,
     });
     const fallback = await prisma.task.findMany({
       where: { roundId: second.id, type: "REVIEW_RESULT" },

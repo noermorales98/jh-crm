@@ -15,6 +15,7 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { clientFullName } from "@/src/server/page-helpers";
 import { assertStoredObjectMatchesClaim } from "@/src/server/storage/assert-stored-upload";
+import { portalVisibleDocumentWhere } from "@/src/lib/credit/portal-view";
 
 /**
  * Portal del cliente (FEATURE_CLIENT_PORTAL).
@@ -222,6 +223,11 @@ export async function authenticatePortal(email: string, password: string) {
     take: 5,
   });
 
+  // Fail-closed: el mismo email en varias orgs no elige “el primero que coincida”.
+  if (candidates.length > 1) {
+    return null;
+  }
+
   for (const access of candidates) {
     const valid = await bcrypt.compare(password, access.passwordHash);
     if (!valid) continue;
@@ -335,26 +341,6 @@ export async function getPortalHome(clientId: string, organizationId: string) {
           latestReportDate: latestReport?.reportDate ?? null,
         }
       : null,
-  };
-}
-
-function portalVisibleDocumentWhere(
-  clientId: string,
-  organizationId: string,
-  documentId?: string,
-) {
-  return {
-    ...(documentId ? { id: documentId } : {}),
-    clientId,
-    organizationId,
-    deletedAt: null,
-    hardDeletedAt: null,
-    sensitivity: { not: "HIGHLY_SENSITIVE" as const },
-    category: { not: "SSN_DOCUMENT" as const },
-    OR: [
-      { creditPdfImportJobs: { none: {} } },
-      { creditReports: { some: {} } },
-    ],
   };
 }
 

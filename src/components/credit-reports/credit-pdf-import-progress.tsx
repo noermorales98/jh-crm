@@ -191,8 +191,11 @@ export function CreditPdfImportProgressClient({
     [proposal?.report?.items],
   );
   const snapshots = proposal?.report?.snapshots ?? [];
-  const selectedItemList = useMemo(
-    () => items.filter((_, i) => selectedItems[i]),
+  const selectedItemIndexes = useMemo(
+    () =>
+      items
+        .map((_, i) => i)
+        .filter((i) => selectedItems[i]),
     [items, selectedItems],
   );
 
@@ -245,8 +248,7 @@ export function CreditPdfImportProgressClient({
         reportDate,
         provider: provider.trim() || null,
         notes: notes.trim() || null,
-        snapshots,
-        items: selectedItemList,
+        selectedItemIndexes,
         expectedRevision: proposal.review?.revision ?? 0,
         idempotencyKey: jobId,
         reason: "confirmación de importación",
@@ -443,7 +445,7 @@ export function CreditPdfImportProgressClient({
           {proposal.documentKind !== "CLIENT_PROGRESS_REPORT" ? (
             <section className="space-y-2">
               <h4 className="text-sm font-semibold text-ink">
-                Cuentas ({selectedItemList.length}/{items.length}) · desconocidos {summary.unknown}
+                Cuentas ({selectedItemIndexes.length}/{items.length}) · desconocidos {summary.unknown}
               </h4>
               <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
                 {items.map((item, i) => (

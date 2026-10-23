@@ -10,6 +10,7 @@ import {
 import { usePathname } from "next/navigation";
 import { X } from "lucide-react";
 import { CrmMobileBottomNav } from "@/src/components/layout/crm-mobile-bottom-nav";
+import { lockBodyScroll } from "@/src/lib/ui/body-scroll-lock";
 
 type SidebarContextValue = {
   open: boolean;
@@ -60,11 +61,10 @@ export function CrmShell({
       if (event.key === "Escape") setOpen(false);
     }
     document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockBodyScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      unlock();
     };
   }, [open, desktop]);
 

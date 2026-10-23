@@ -5,7 +5,7 @@
 import { randomUUID } from "node:crypto";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
-import { creditClientForRole } from "@/src/lib/credit/access";
+import { creditClientForRole, creditProposalClientForRole } from "@/src/lib/credit/access";
 import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
 import {
@@ -1199,7 +1199,12 @@ export async function getCreditPdfImportJob(
       | "UPDATE"
       | "MANUAL"
       | null,
-    proposal,
+    proposal: proposal
+      ? {
+          ...proposal,
+          client: creditProposalClientForRole(ctx.role, proposal.client) ?? null,
+        }
+      : null,
     currentClient: creditClientForRole(
       ctx.role,
       job.currentClientJson as AnalyzeCurrentClient | null,

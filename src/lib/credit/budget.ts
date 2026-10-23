@@ -109,12 +109,15 @@ export function allocateUtilizationBudget(input: {
   bucketsBps?: readonly number[];
 }): BudgetAllocation {
   const bucketsBps = input.bucketsBps ?? DEFAULT_BUCKETS_BPS;
-  const base = {
+  const base: Pick<
+    BudgetAllocation,
+    "policy" | "version" | "beforeSnapshotId" | "extraBudgetCents" | "simulated"
+  > = {
     policy: BUDGET_POLICY,
     version: BUDGET_VERSION,
     beforeSnapshotId: input.snapshotId,
     extraBudgetCents: input.extraBudgetCents,
-    simulated: true as const,
+    simulated: true,
   };
   if (!money(input.extraBudgetCents) || bucketsBps.some((bucket) => !targetValid(bucket))) {
     return blank({ ...base, complete: false, spentCents: null, remainingCents: null, simulatedUtilizationBps: null });

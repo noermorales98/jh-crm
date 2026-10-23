@@ -68,7 +68,7 @@ function main() {
   });
   check(
     "una autorización vacía no es consentimiento",
-    noConsent.status === "REVIEW" && noConsent.reasons.includes("MISSING_AUTHORIZATION") && noConsent.status !== "ALLOWED",
+    noConsent.status === "REVIEW" && noConsent.reasons.includes("MISSING_AUTHORIZATION"),
   );
 
   const revoked = decideOperation({
@@ -102,9 +102,7 @@ function main() {
   check(
     "otro servicio no queda bloqueado por reparación de crédito",
     otherService.status === "REVIEW" &&
-      otherService.reasons.includes("DIFFERENT_SERVICE") &&
-      otherService.status !== "BLOCKED" &&
-      otherService.status !== "ALLOWED",
+      otherService.reasons.includes("DIFFERENT_SERVICE"),
   );
 
   const charge = decideOperation({

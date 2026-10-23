@@ -168,6 +168,8 @@ function main() {
   const au = ["EXPERIAN", "EQUIFAX", "TRANSUNION"].map((bureau) => ({
     ...card({ id: `au-${bureau}`, bureau, canonicalId: "au-1", responsibility: "authorized user", balanceCents: 100, limitCents: 500_000 }),
     ownershipConfirmed: true,
+    opened: null,
+    reportedNegative: false,
   })) satisfies OwnershipObservation[];
   const f04 = buildOwnershipSummary({ asOf: "2024-06-01", observations: au });
   const f04use = buildRevolvingReading({ asOf: "2024-06-01", observations: au });
@@ -235,7 +237,6 @@ function main() {
     f10.delta == null &&
       f10.reason === "MISSING_MODEL" &&
       f10rule.requirements[0]?.result === "UNKNOWN" &&
-      f10rule.requirements[0]?.result !== "PASS" &&
       f10rule.approvedAmount == null,
   );
 

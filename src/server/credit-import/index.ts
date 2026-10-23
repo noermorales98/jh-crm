@@ -2,10 +2,12 @@
  * CR-PDF-001 — Importación de PDFs de crédito (propose + confirm).
  */
 import type { Prisma } from "@prisma/client";
-import type { OrganizationContext } from "@/src/server/auth/guards";
+import { ForbiddenError, type OrganizationContext } from "@/src/server/auth/guards";
+import { can } from "@/src/server/auth/permissions";
 import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
 import { assertCreditAccess } from "@/src/lib/credit/access";
+import { storedPdfProposalBlocksConfirm } from "@/src/lib/credit/pdf-review";
 import {
   confirmReview,
   emptyReview,
@@ -331,6 +333,17 @@ export async function confirmCreditPdfImport(
   const parsed = stored?.proposalJson
     ? creditPdfExtractionProposalSchema.safeParse(stored.proposalJson)
     : null;
+  if (storedPdfProposalBlocksConfirm(stored != null, parsed?.success === true)) {
+    throw new DomainError("La propuesta no se puede revisar.");
+  }
+  const requestedSensitive = Boolean(
+    input.applyClientFields?.dateOfBirth ||
+      input.applyClientFields?.ssn ||
+      input.ssnFull?.trim(),
+  );
+  if (requestedSensitive && !can(ctx.role, "sensitive.edit")) {
+    throw new ForbiddenError();
+  }
   const currentReview = toImportReview(parsed?.success ? parsed.data.review : null);
   const idempotencyKey = input.idempotencyKey?.trim() || document.id;
   const reason = input.reason?.trim() || "confirmación de importación";

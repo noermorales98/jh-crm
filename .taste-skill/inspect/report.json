@@ -1,0 +1,2055 @@
+{
+ "url": "http://localhost:3000/",
+ "at": "2026-10-23T01:33:06.247Z",
+ "allow": [],
+ "viewports": [
+  {
+   "width": 1440,
+   "height": 900,
+   "load": "load",
+   "screens": 7,
+   "filled": [
+    0.61,
+    0.41,
+    0.33,
+    0.38,
+    0.38,
+    0.23,
+    0.27
+   ],
+   "motion": {
+    "elements": 18,
+    "css": 17,
+    "transitions": 0,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "page": {
+     "height": 5440,
+     "screens": 6,
+     "words": 653,
+     "img": 5,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 2,
+     "uiAbuse": false,
+     "realPictures": 4,
+     "videoCount": 0,
+     "uiPictures": 2,
+     "pictureSamples": [
+      "image?url=%2Flanding%2Faccount-book-ledger.jpg&w",
+      "image?url=%2Flanding%2Fpittsboro-merchant-busine",
+      "image?url=%2Flanding%2Faccount-book-of-thomas-mi",
+      "image?url=%2Flanding%2Finterior-decorator-s-acco"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Análisis de su reporte, sin promesa de puntaje.",
+     "words": 8,
+     "chars": 47,
+     "lines": 2,
+     "size": 63.4,
+     "vw": 4.4,
+     "font": "Newsreader",
+     "weight": 500,
+     "tracking": -0.03,
+     "leading": 1.02,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.88,
+     "top": 136,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Análisis de su reporte, sin promesa de puntaje.",
+     "words": 8,
+     "lines": 2,
+     "size": 63.4,
+     "font": "Newsreader"
+    },
+    "headings": [
+     {
+      "text": "Análisis de su reporte, sin promesa de puntaje.",
+      "words": 8,
+      "chars": 47,
+      "lines": 2,
+      "size": 63.4,
+      "vw": 4.4,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.03,
+      "leading": 1.02,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.88,
+      "top": 136,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Leemos el reporte con usted",
+      "words": 5,
+      "chars": 27,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.5,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.48,
+      "top": 1100,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Crédito primero",
+      "words": 2,
+      "chars": 15,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.5,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.88,
+      "top": 1919,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "De la consulta al seguimiento",
+      "words": 5,
+      "chars": 29,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.5,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.48,
+      "top": 2351,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "A quién acompañamos",
+      "words": 3,
+      "chars": 19,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.5,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.48,
+      "top": 3170,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Empiece su análisis",
+      "words": 3,
+      "chars": 19,
+      "lines": 1,
+      "size": 36,
+      "vw": 2.5,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "left",
+      "widthRatio": 0.48,
+      "top": 3988,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "(872) 202-0156",
+      "words": 2,
+      "chars": 14,
+      "lines": 1,
+      "size": 34.4,
+      "vw": 2.4,
+      "font": "Newsreader",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.36,
+      "top": 4080,
+      "tag": "a",
+      "kind": "heading"
+     },
+     {
+      "text": "jhmultiservices10@gmail.com",
+      "words": 1,
+      "chars": 27,
+      "lines": 1,
+      "size": 34.4,
+      "vw": 2.4,
+      "font": "Newsreader",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "right",
+      "widthRatio": 0.36,
+      "top": 4141,
+      "tag": "a",
+      "kind": "heading"
+     },
+     {
+      "text": "La consulta inicial cuesta un dólar. El puntaje no se promete.",
+      "words": 11,
+      "chars": 62,
+      "lines": 3,
+      "size": 36,
+      "vw": 2.5,
+      "font": "DM Sans",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.31,
+      "top": 4869,
+      "tag": "p",
+      "kind": "statement"
+     }
+    ],
+    "headingSummary": {
+     "count": 9,
+     "maxLines": 3,
+     "over2Lines": 0,
+     "statements": 1,
+     "centered": 1,
+     "medianWords": 3,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "DM Sans",
+       "share": 0.89,
+       "mono": false
+      },
+      {
+       "family": "Newsreader",
+       "share": 0.11,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      13,
+      14,
+      15,
+      17,
+      18,
+      22,
+      34,
+      36,
+      63
+     ],
+     "sizeCount": 9,
+     "notLoaded": [],
+     "body": {
+      "font": "DM Sans",
+      "size": 17,
+      "leading": 1.5,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 15.5
+     },
+     "measureChars": 72,
+     "max": {
+      "size": 63.4,
+      "vw": 4.4,
+      "font": "Newsreader",
+      "text": "Análisis de su reporte,"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.03,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f5f5f7",
+     "bodyBgHsl": {
+      "h": 240,
+      "s": 0.11,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#f5f5f7",
+       "top": 0,
+       "hsl": {
+        "h": 240,
+        "s": 0.11,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#ffffff",
+       "top": 4087,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#1d1d1f",
+       "share": 0.79
+      },
+      {
+       "color": "#6e6e73",
+       "share": 0.19
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.02
+      }
+     ],
+     "button": {
+      "bg": "#0071e3",
+      "hsl": {
+       "h": 210,
+       "s": 1,
+       "l": 0.45
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 4,
+     "inHero": 2,
+     "radius": "pill",
+     "height": 50,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Saltar al contenido principal",
+      "Comenzar"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 1,
+     "boxRadius": 12,
+     "squareMedia": 4,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.26
+     }
+    ],
+    "nav": {
+     "links": 8,
+     "fixed": true,
+     "height": 64,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "newsreader",
+     "dm sans",
+     "dm sans fallback"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 1440,
+     "h": 900
+    },
+    "pageH": 5440,
+    "margins": {
+     "left": 86,
+     "right": 76
+    },
+    "sections": [
+     {
+      "sel": "section#inicio.hero",
+      "tag": "section",
+      "top": 64,
+      "height": 932,
+      "words": 80,
+      "media": 1,
+      "middle": 73,
+      "heading": {
+       "text": "Análisis de su reporte,",
+       "size": 63,
+       "tag": "h1"
+      },
+      "left": 86,
+      "right": 82,
+      "textLeft": 86,
+      "textRight": 150,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#nosotros",
+      "tag": "section",
+      "top": 996,
+      "height": 819,
+      "words": 73,
+      "media": 1,
+      "middle": 141,
+      "heading": {
+       "text": "Leemos el reporte con usted",
+       "size": 36,
+       "tag": "h2"
+      },
+      "left": 86,
+      "right": 76,
+      "textLeft": 86,
+      "textRight": 229,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#servicios",
+      "tag": "section",
+      "top": 1815,
+      "height": 432,
+      "words": 69,
+      "media": 0,
+      "middle": 76,
+      "heading": {
+       "text": "Crédito primero",
+       "size": 36,
+       "tag": "h2"
+      },
+      "left": 86,
+      "right": 159,
+      "textLeft": 86,
+      "textRight": 159,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#proceso",
+      "tag": "section",
+      "top": 2247,
+      "height": 819,
+      "words": 89,
+      "media": 1,
+      "middle": 158,
+      "heading": {
+       "text": "De la consulta al seguimiento",
+       "size": 36,
+       "tag": "h2"
+      },
+      "left": 86,
+      "right": 76,
+      "textLeft": 86,
+      "textRight": 237,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#clientes",
+      "tag": "section",
+      "top": 3066,
+      "height": 819,
+      "words": 44,
+      "media": 1,
+      "middle": 140,
+      "heading": {
+       "text": "A quién acompañamos",
+       "size": 36,
+       "tag": "h2"
+      },
+      "left": 86,
+      "right": 76,
+      "textLeft": 86,
+      "textRight": 273,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#contacto",
+      "tag": "section",
+      "top": 3884,
+      "height": 857,
+      "words": 46,
+      "media": 0,
+      "middle": 78,
+      "heading": {
+       "text": "Empiece su análisis",
+       "size": 36,
+       "tag": "h2"
+      },
+      "left": 86,
+      "right": 149,
+      "textLeft": 86,
+      "textRight": 149,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.close",
+      "tag": "section",
+      "top": 4741,
+      "height": 422,
+      "words": 15,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "La consulta inicial cuesta un dólar. El puntaje no",
+       "size": 36,
+       "tag": "p"
+      },
+      "left": 511,
+      "right": 511,
+      "textLeft": 511,
+      "textRight": 511,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "footer",
+      "tag": "footer",
+      "top": 5163,
+      "height": 277,
+      "words": 76,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 86,
+      "right": 95,
+      "textLeft": 86,
+      "textRight": 95,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Análisis de su reporte, sin promesa de puntaje.",
+      "size": 63,
+      "top": 136,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 86,
+      "n": 17
+     },
+     {
+      "x": 752,
+      "n": 4
+     }
+    ],
+    "leftBlocks": 21,
+    "bodySize": 17,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0.07,
+    "voidBox": {
+     "x": 720,
+     "y": 120,
+     "w": 720,
+     "h": 120
+    }
+   },
+   "app": null,
+   "consoleErrors": []
+  },
+  {
+   "width": 768,
+   "height": 1024,
+   "load": "load",
+   "screens": 9,
+   "filled": [
+    0.52,
+    0.71,
+    0.87,
+    0.3,
+    0.72,
+    0.64,
+    0.6,
+    0.3,
+    0.4
+   ],
+   "motion": {
+    "elements": 18,
+    "css": 17,
+    "transitions": 0,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "page": {
+     "height": 8407,
+     "screens": 8.2,
+     "words": 643,
+     "img": 5,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 2,
+     "uiAbuse": false,
+     "realPictures": 4,
+     "videoCount": 0,
+     "uiPictures": 2,
+     "pictureSamples": [
+      "image?url=%2Flanding%2Faccount-book-ledger.jpg&w",
+      "image?url=%2Flanding%2Fpittsboro-merchant-busine",
+      "image?url=%2Flanding%2Faccount-book-of-thomas-mi",
+      "image?url=%2Flanding%2Finterior-decorator-s-acco"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Análisis de su reporte, sin promesa de puntaje.",
+     "words": 8,
+     "chars": 47,
+     "lines": 2,
+     "size": 44,
+     "vw": 5.7,
+     "font": "Newsreader",
+     "weight": 500,
+     "tracking": -0.03,
+     "leading": 1.02,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.95,
+     "top": 120,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Análisis de su reporte, sin promesa de puntaje.",
+     "words": 8,
+     "lines": 2,
+     "size": 44,
+     "font": "Newsreader"
+    },
+    "headings": [
+     {
+      "text": "Análisis de su reporte, sin promesa de puntaje.",
+      "words": 8,
+      "chars": 47,
+      "lines": 2,
+      "size": 44,
+      "vw": 5.7,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.03,
+      "leading": 1.02,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.95,
+      "top": 120,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Leemos el reporte con usted",
+      "words": 5,
+      "chars": 27,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.95,
+      "top": 1995,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Crédito primero",
+      "words": 2,
+      "chars": 15,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.95,
+      "top": 3290,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "De la consulta al seguimiento",
+      "words": 5,
+      "chars": 29,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.95,
+      "top": 3950,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "A quién acompañamos",
+      "words": 3,
+      "chars": 19,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.95,
+      "top": 5514,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Empiece su análisis",
+      "words": 3,
+      "chars": 19,
+      "lines": 1,
+      "size": 28,
+      "vw": 3.6,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.95,
+      "top": 6818,
+      "tag": "h2",
+      "kind": "heading"
+     }
+    ],
+    "headingSummary": {
+     "count": 6,
+     "maxLines": 2,
+     "over2Lines": 0,
+     "statements": 0,
+     "centered": 0,
+     "medianWords": 3,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "DM Sans",
+       "share": 0.89,
+       "mono": false
+      },
+      {
+       "family": "Newsreader",
+       "share": 0.11,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      13,
+      14,
+      15,
+      17,
+      18,
+      22,
+      24,
+      28,
+      44
+     ],
+     "sizeCount": 9,
+     "notLoaded": [],
+     "body": {
+      "font": "DM Sans",
+      "size": 17,
+      "leading": 1.5,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 15.5
+     },
+     "measureChars": 72,
+     "max": {
+      "size": 44,
+      "vw": 5.7,
+      "font": "Newsreader",
+      "text": "Análisis de su reporte,"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.03,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f5f5f7",
+     "bodyBgHsl": {
+      "h": 240,
+      "s": 0.11,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#f5f5f7",
+       "top": 0,
+       "hsl": {
+        "h": 240,
+        "s": 0.11,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#ffffff",
+       "top": 292,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#1d1d1f",
+       "share": 0.78
+      },
+      {
+       "color": "#6e6e73",
+       "share": 0.19
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.02
+      }
+     ],
+     "button": {
+      "bg": "#0071e3",
+      "hsl": {
+       "h": 210,
+       "s": 1,
+       "l": 0.45
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 4,
+     "inHero": 2,
+     "radius": "pill",
+     "height": 50,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Saltar al contenido principal",
+      "Comenzar"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 1,
+     "boxRadius": 12,
+     "squareMedia": 4,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [
+     {
+      "type": "img",
+      "ratio": 0.15
+     }
+    ],
+    "nav": {
+     "links": 7,
+     "fixed": true,
+     "height": 64,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "newsreader",
+     "dm sans",
+     "dm sans fallback"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 768,
+     "h": 1024
+    },
+    "pageH": 8407,
+    "margins": {
+     "left": 20,
+     "right": 40
+    },
+    "sections": [
+     {
+      "sel": "section#inicio.hero",
+      "tag": "section",
+      "top": 64,
+      "height": 1827,
+      "words": 80,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Análisis de su reporte,",
+       "size": 44,
+       "tag": "h1"
+      },
+      "left": 20,
+      "right": 40,
+      "textLeft": 20,
+      "textRight": 136,
+      "fullBleed": true,
+      "footer": false,
+      "hero": true,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#nosotros",
+      "tag": "section",
+      "top": 1891,
+      "height": 1296,
+      "words": 73,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Leemos el reporte con usted",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 146,
+      "textLeft": 20,
+      "textRight": 146,
+      "fullBleed": true,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#servicios",
+      "tag": "section",
+      "top": 3186,
+      "height": 659,
+      "words": 87,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Crédito primero",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 145,
+      "textLeft": 20,
+      "textRight": 145,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#proceso",
+      "tag": "section",
+      "top": 3846,
+      "height": 1564,
+      "words": 89,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "De la consulta al seguimiento",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 163,
+      "textLeft": 20,
+      "textRight": 163,
+      "fullBleed": true,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#clientes",
+      "tag": "section",
+      "top": 5410,
+      "height": 1305,
+      "words": 44,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "A quién acompañamos",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 145,
+      "textLeft": 20,
+      "textRight": 145,
+      "fullBleed": true,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#contacto",
+      "tag": "section",
+      "top": 6714,
+      "height": 985,
+      "words": 46,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Empiece su análisis",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 40,
+      "textLeft": 20,
+      "textRight": 165,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.close",
+      "tag": "section",
+      "top": 7700,
+      "height": 380,
+      "words": 15,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "La consulta inicial cuesta un dólar. El puntaje no",
+       "size": 24,
+       "tag": "p"
+      },
+      "left": 245,
+      "right": 245,
+      "textLeft": 245,
+      "textRight": 245,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "footer",
+      "tag": "footer",
+      "top": 8080,
+      "height": 327,
+      "words": 76,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 20,
+      "right": 29,
+      "textLeft": 20,
+      "textRight": 29,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Análisis de su reporte, sin promesa de puntaje.",
+      "size": 44,
+      "top": 120,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 20,
+      "n": 21
+     }
+    ],
+    "leftBlocks": 21,
+    "bodySize": 17,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  },
+  {
+   "width": 390,
+   "height": 844,
+   "load": "load",
+   "screens": 9,
+   "filled": [
+    0.61,
+    0.74,
+    0.74,
+    0.48,
+    0.71,
+    0.75,
+    0.46,
+    0.37,
+    0.38
+   ],
+   "motion": {
+    "elements": 18,
+    "css": 17,
+    "transitions": 0,
+    "scripted": 1,
+    "videos": 0,
+    "playingVideos": 0
+   },
+   "metrics": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "page": {
+     "height": 7016,
+     "screens": 8.3,
+     "words": 643,
+     "img": 5,
+     "video": 0,
+     "canvas": 0,
+     "svg": 0,
+     "sections": 7,
+     "horizontalOverflow": 0,
+     "overflowCulprits": [],
+     "uiFragments": 2,
+     "uiAbuse": false,
+     "realPictures": 4,
+     "videoCount": 0,
+     "uiPictures": 2,
+     "pictureSamples": [
+      "image?url=%2Flanding%2Faccount-book-ledger.jpg&w",
+      "image?url=%2Flanding%2Fpittsboro-merchant-busine",
+      "image?url=%2Flanding%2Faccount-book-of-thomas-mi",
+      "image?url=%2Flanding%2Finterior-decorator-s-acco"
+     ],
+     "blendText": 0,
+     "sideScrollers": 0,
+     "brokenImages": [],
+     "emoji": [],
+     "videosNoPoster": 0
+    },
+    "hero": {
+     "text": "Análisis de su reporte, sin promesa de puntaje.",
+     "words": 8,
+     "chars": 47,
+     "lines": 2,
+     "size": 32,
+     "vw": 8.2,
+     "font": "Newsreader",
+     "weight": 500,
+     "tracking": -0.03,
+     "leading": 1.02,
+     "upper": false,
+     "italic": false,
+     "mono": false,
+     "align": "left",
+     "position": "center",
+     "widthRatio": 0.9,
+     "top": 120,
+     "tag": "h1",
+     "kind": "heading"
+    },
+    "h1": {
+     "text": "Análisis de su reporte, sin promesa de puntaje.",
+     "words": 8,
+     "lines": 2,
+     "size": 32,
+     "font": "Newsreader"
+    },
+    "headings": [
+     {
+      "text": "Análisis de su reporte, sin promesa de puntaje.",
+      "words": 8,
+      "chars": 47,
+      "lines": 2,
+      "size": 32,
+      "vw": 8.2,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.03,
+      "leading": 1.02,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 120,
+      "tag": "h1",
+      "kind": "heading"
+     },
+     {
+      "text": "Leemos el reporte con usted",
+      "words": 5,
+      "chars": 27,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.2,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 1533,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Crédito primero",
+      "words": 2,
+      "chars": 15,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.2,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 2446,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "De la consulta al seguimiento",
+      "words": 5,
+      "chars": 29,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.2,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 3207,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "A quién acompañamos",
+      "words": 3,
+      "chars": 19,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.2,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 4389,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "Quienes revisan su reporte.",
+      "words": 4,
+      "chars": 27,
+      "lines": 1,
+      "size": 22,
+      "vw": 5.6,
+      "font": "Newsreader",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 4439,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Quienes buscan seguimiento de rondas, sin promesas vacías.",
+      "words": 8,
+      "chars": 58,
+      "lines": 2,
+      "size": 22,
+      "vw": 5.6,
+      "font": "Newsreader",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 4468,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Quienes llegan por recomendación.",
+      "words": 4,
+      "chars": 33,
+      "lines": 1,
+      "size": 22,
+      "vw": 5.6,
+      "font": "Newsreader",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.3,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 4525,
+      "tag": "p",
+      "kind": "statement"
+     },
+     {
+      "text": "Empiece su análisis",
+      "words": 3,
+      "chars": 19,
+      "lines": 1,
+      "size": 28,
+      "vw": 7.2,
+      "font": "Newsreader",
+      "weight": 500,
+      "tracking": -0.02,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 5244,
+      "tag": "h2",
+      "kind": "heading"
+     },
+     {
+      "text": "(872) 202-0156",
+      "words": 2,
+      "chars": 14,
+      "lines": 1,
+      "size": 24,
+      "vw": 6.2,
+      "font": "Newsreader",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 6117,
+      "tag": "a",
+      "kind": "heading"
+     },
+     {
+      "text": "jhmultiservices10@gmail.com",
+      "words": 1,
+      "chars": 27,
+      "lines": 1,
+      "size": 24,
+      "vw": 6.2,
+      "font": "Newsreader",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.2,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "left",
+      "position": "center",
+      "widthRatio": 0.9,
+      "top": 6165,
+      "tag": "a",
+      "kind": "heading"
+     },
+     {
+      "text": "La consulta inicial cuesta un dólar. El puntaje no se promete.",
+      "words": 11,
+      "chars": 62,
+      "lines": 3,
+      "size": 24,
+      "vw": 6.2,
+      "font": "DM Sans",
+      "weight": 400,
+      "tracking": 0,
+      "leading": 1.15,
+      "upper": false,
+      "italic": false,
+      "mono": false,
+      "align": "center",
+      "position": "center",
+      "widthRatio": 0.76,
+      "top": 6322,
+      "tag": "p",
+      "kind": "statement"
+     }
+    ],
+    "headingSummary": {
+     "count": 12,
+     "maxLines": 3,
+     "over2Lines": 0,
+     "statements": 4,
+     "centered": 1,
+     "medianWords": 4,
+     "mixedFontHeadings": 0
+    },
+    "type": {
+     "families": [
+      {
+       "family": "DM Sans",
+       "share": 0.89,
+       "mono": false
+      },
+      {
+       "family": "Newsreader",
+       "share": 0.11,
+       "mono": false
+      }
+     ],
+     "familyCount": 2,
+     "sizes": [
+      13,
+      14,
+      15,
+      17,
+      18,
+      22,
+      24,
+      28,
+      32
+     ],
+     "sizeCount": 9,
+     "notLoaded": [],
+     "body": {
+      "font": "DM Sans",
+      "size": 17,
+      "leading": 1.5,
+      "weight": 400,
+      "tracking": 0,
+      "contrast": 15.5
+     },
+     "measureChars": 41,
+     "max": {
+      "size": 32,
+      "vw": 8.2,
+      "font": "Newsreader",
+      "text": "Análisis de su reporte,"
+     },
+     "monoShare": 0,
+     "monoProseShare": 0,
+     "monoFamilies": [],
+     "monoSamples": [],
+     "microLabels": 0,
+     "microLabelShare": 0,
+     "microSamples": [],
+     "upperShare": 0,
+     "centerShare": 0.03,
+     "smallText": 0
+    },
+    "eyebrows": [],
+    "numbered": [],
+    "color": {
+     "bodyBg": "#f5f5f7",
+     "bodyBgHsl": {
+      "h": 240,
+      "s": 0.11,
+      "l": 0.96
+     },
+     "dark": false,
+     "sectionBgs": [
+      {
+       "color": "#f5f5f7",
+       "top": 0,
+       "hsl": {
+        "h": 240,
+        "s": 0.11,
+        "l": 0.96
+       }
+      },
+      {
+       "color": "#ffffff",
+       "top": 293,
+       "hsl": {
+        "h": 0,
+        "s": 0,
+        "l": 1
+       }
+      }
+     ],
+     "textColors": [
+      {
+       "color": "#1d1d1f",
+       "share": 0.78
+      },
+      {
+       "color": "#6e6e73",
+       "share": 0.19
+      },
+      {
+       "color": "#ffffff",
+       "share": 0.02
+      }
+     ],
+     "button": {
+      "bg": "#0071e3",
+      "hsl": {
+       "h": 210,
+       "s": 1,
+       "l": 0.45
+      },
+      "fg": "#ffffff"
+     },
+     "lowContrast": []
+    },
+    "buttons": {
+     "count": 4,
+     "inHero": 2,
+     "radius": "pill",
+     "height": 50,
+     "withShadow": 0,
+     "withGradient": 0,
+     "mono": 0,
+     "upper": 0,
+     "heroLabels": [
+      "Saltar al contenido principal",
+      "Comenzar"
+     ]
+    },
+    "surfaces": {
+     "shadowStatic": 0,
+     "shadowOverlay": 0,
+     "shadowSamples": [],
+     "gradients": 0,
+     "scrims": 0,
+     "gradientSamples": [],
+     "gradientText": 0,
+     "hairlines": 0,
+     "hairlineSamples": [],
+     "outlinedBoxes": 0,
+     "dashed": 0,
+     "blurred": 0,
+     "roundedBoxes": 1,
+     "boxRadius": 12,
+     "squareMedia": 4,
+     "roundedMedia": 0,
+     "mediaRadius": 0,
+     "textShadow": 0,
+     "cardRows": []
+    },
+    "heroMedia": [],
+    "nav": {
+     "links": 7,
+     "fixed": true,
+     "height": 64,
+     "floatingPill": false,
+     "blur": false
+    },
+    "fontsLoaded": [
+     "newsreader",
+     "dm sans",
+     "dm sans fallback"
+    ]
+   },
+   "layout": {
+    "viewport": {
+     "w": 390,
+     "h": 844
+    },
+    "pageH": 7016,
+    "margins": {
+     "left": 13,
+     "right": 13
+    },
+    "sections": [
+     {
+      "sel": "section#inicio.hero",
+      "tag": "section",
+      "top": 64,
+      "height": 1365,
+      "words": 80,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Análisis de su reporte,",
+       "size": 32,
+       "tag": "h1"
+      },
+      "left": 15,
+      "right": 15,
+      "textLeft": 20,
+      "textRight": 21,
+      "fullBleed": false,
+      "footer": false,
+      "hero": true,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#nosotros",
+      "tag": "section",
+      "top": 1429,
+      "height": 913,
+      "words": 73,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "Leemos el reporte con usted",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 13,
+      "right": 13,
+      "textLeft": 20,
+      "textRight": 22,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#servicios",
+      "tag": "section",
+      "top": 2342,
+      "height": 761,
+      "words": 87,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Crédito primero",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 31,
+      "textLeft": 20,
+      "textRight": 31,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#proceso",
+      "tag": "section",
+      "top": 3103,
+      "height": 1182,
+      "words": 89,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "De la consulta al seguimiento",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 13,
+      "right": 13,
+      "textLeft": 20,
+      "textRight": 24,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#clientes",
+      "tag": "section",
+      "top": 4285,
+      "height": 855,
+      "words": 44,
+      "media": 1,
+      "middle": 0,
+      "heading": {
+       "text": "A quién acompañamos",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 13,
+      "right": 13,
+      "textLeft": 20,
+      "textRight": 36,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section#contacto",
+      "tag": "section",
+      "top": 5140,
+      "height": 1054,
+      "words": 46,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "Empiece su análisis",
+       "size": 28,
+       "tag": "h2"
+      },
+      "left": 20,
+      "right": 40,
+      "textLeft": 20,
+      "textRight": 55,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "section.close",
+      "tag": "section",
+      "top": 6194,
+      "height": 380,
+      "words": 15,
+      "media": 0,
+      "middle": 0,
+      "heading": {
+       "text": "La consulta inicial cuesta un dólar. El puntaje no",
+       "size": 24,
+       "tag": "p"
+      },
+      "left": 56,
+      "right": 56,
+      "textLeft": 56,
+      "textRight": 56,
+      "fullBleed": false,
+      "footer": false,
+      "hero": false,
+      "continues": true,
+      "pinned": false
+     },
+     {
+      "sel": "footer",
+      "tag": "footer",
+      "top": 6575,
+      "height": 442,
+      "words": 76,
+      "media": 0,
+      "middle": 0,
+      "heading": null,
+      "left": 20,
+      "right": 21,
+      "textLeft": 20,
+      "textRight": 21,
+      "fullBleed": false,
+      "footer": true,
+      "hero": false,
+      "continues": false,
+      "pinned": false
+     }
+    ],
+    "gaps": [],
+    "h1s": [
+     {
+      "text": "Análisis de su reporte, sin promesa de puntaje.",
+      "size": 32,
+      "top": 120,
+      "firstScreen": true
+     }
+    ],
+    "edgeText": [],
+    "edges": [
+     {
+      "x": 20,
+      "n": 21
+     }
+    ],
+    "leftBlocks": 21,
+    "bodySize": 17,
+    "stage": false,
+    "explains": false,
+    "slivers": [],
+    "voidShare": 0,
+    "voidBox": null
+   },
+   "app": null,
+   "consoleErrors": []
+  }
+ ],
+ "findings": [
+  {
+   "level": "WARN",
+   "id": "no-footage",
+   "width": 1440,
+   "message": "No video anywhere on the page.",
+   "fix": "Look for one honest clip with scripts/assets.mjs --video (the place, the material, the process) and use it as a muted loop with a poster frame. Defend its absence only if no clip fits the subject."
+  },
+  {
+   "level": "WARN",
+   "id": "off-centre",
+   "width": 768,
+   "message": "The margins differ: 20px on the left, 40px on the right, at 768px.",
+   "fix": "Put the navigation and the content on one pair of margins; check for padding on one side only, a scrollbar gutter, or a header on another inset than the page."
+  }
+ ],
+ "images": [
+  {
+   "viewport": "desktop",
+   "width": 1440,
+   "fold": "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/desktop-fold.jpg",
+   "pages": [
+    "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/desktop-page-01.jpg",
+    "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/desktop-page-02.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "tablet",
+   "width": 768,
+   "fold": "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/tablet-fold.jpg",
+   "pages": [
+    "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/tablet-page-01.jpg",
+    "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/tablet-page-02.jpg"
+   ],
+   "film": []
+  },
+  {
+   "viewport": "mobile",
+   "width": 390,
+   "fold": "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/mobile-fold.jpg",
+   "pages": [
+    "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/mobile-page-01.jpg",
+    "/Users/noeli/Documents/Develop/jh/jh-crm/.taste-skill/inspect/mobile-page-02.jpg"
+   ],
+   "film": []
+  }
+ ]
+}

@@ -95,6 +95,20 @@ function locatorSource(reportId: string, locator?: ObservationLocator | null): F
 }
 
 function field<T>(
+  value: null,
+  quality: FieldQuality,
+  reportId: string,
+  locator?: ObservationLocator | null,
+  review?: ReviewState,
+): FieldValue<T>;
+function field<T>(
+  value: T,
+  quality: FieldQuality,
+  reportId: string,
+  locator?: ObservationLocator | null,
+  review?: ReviewState,
+): FieldValue<T>;
+function field<T>(
   value: T | null,
   quality: FieldQuality,
   reportId: string,

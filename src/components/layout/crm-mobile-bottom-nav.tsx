@@ -12,9 +12,11 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import {
+  MOBILE_BOTTOM_PRIMARY_HREFS,
   MoreNavPanel,
   isMoreNavPath,
 } from "@/src/components/layout/more-nav-panel";
+import { lockBodyScroll } from "@/src/lib/ui/body-scroll-lock";
 
 const BOTTOM_ITEMS: readonly {
   href: string;
@@ -40,7 +42,7 @@ function isActive(pathname: string, href: string, match: "exact" | "prefix") {
 export function CrmMobileBottomNav() {
   const pathname = usePathname();
   const [moreOpen, setMoreOpen] = useState(false);
-  const moreActive = isMoreNavPath(pathname);
+  const moreActive = isMoreNavPath(pathname, MOBILE_BOTTOM_PRIMARY_HREFS);
 
   useEffect(() => {
     setMoreOpen(false);
@@ -52,11 +54,10 @@ export function CrmMobileBottomNav() {
       if (event.key === "Escape") setMoreOpen(false);
     }
     document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockBodyScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      unlock();
     };
   }, [moreOpen]);
 

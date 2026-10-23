@@ -23,6 +23,8 @@ import { redactBureauText } from "../../src/server/credit-import/redact";
 import {
   defaultPdfItemSelection,
   pdfImportConfirmBlocked,
+  proposedPdfReportDate,
+  storedPdfProposalBlocksConfirm,
 } from "../../src/lib/credit/pdf-review";
 import {
   EXTRACTION_ITEM_CEILING,
@@ -362,6 +364,10 @@ check(
 );
 check("una cobertura parcial bloquea la publicación", pdfImportConfirmBlocked({ metricsBlocked: true }));
 check("una propuesta vieja sin cobertura sigue confirmable", pdfImportConfirmBlocked(undefined) === false);
+check("una propuesta ilegible no se publica", storedPdfProposalBlocksConfirm(true, false));
+check("sin job guardado la propuesta no bloquea por ilegible", storedPdfProposalBlocksConfirm(false, false) === false);
+check("una fecha ausente no se sustituye por hoy", proposedPdfReportDate(null) === "" && proposedPdfReportDate("  ") === "");
+check("la fecha de la propuesta se conserva", proposedPdfReportDate("2024-06-01") === "2024-06-01");
 
 async function checkpoint() {
   const calls: number[] = [];

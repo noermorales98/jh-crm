@@ -140,8 +140,8 @@ async function main() {
     });
     const legacyAuto = await onRoundSent(ctx, legacySent);
     check(
-      "fallback legacy fecha +30 días desde envío",
-      legacyAuto?.expectedReviewAt.toISOString() === "2026-10-01T12:00:00.000Z",
+      "fallback legacy no inventa fecha de revisión",
+      legacyAuto?.expectedReviewAt == null,
     );
 
     const report = await createCreditReport(ctx, {

@@ -42,3 +42,11 @@ export function creditClientForRole<T extends { ssnLast4: string | null }>(
   if (can(role, "sensitive.view")) return client;
   return { ...client, ssnLast4: null };
 }
+
+export function creditProposalClientForRole<
+  T extends { ssnLast4?: string | null; dateOfBirth?: string | null },
+>(role: Role, client: T | null | undefined): T | null | undefined {
+  if (client == null) return client;
+  if (can(role, "sensitive.view")) return client;
+  return { ...client, ssnLast4: null, dateOfBirth: null };
+}

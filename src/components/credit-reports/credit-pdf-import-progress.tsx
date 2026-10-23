@@ -24,6 +24,7 @@ import {
 import {
   defaultPdfItemSelection,
   pdfImportConfirmBlocked,
+  proposedPdfReportDate,
 } from "@/src/lib/credit/pdf-review";
 import { reviewFields, summarizeReview } from "@/src/lib/credit/review";
 import type { CreditPdfExtractionProposal } from "@/src/lib/validation/credit-import";
@@ -99,7 +100,7 @@ export function CreditPdfImportProgressClient({
     initialJob.suggestedReportType ?? "UPDATE",
   );
   const [reportDate, setReportDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
+    proposedPdfReportDate(initialJob.proposal?.report?.reportDate),
   );
   const [provider, setProvider] = useState("");
   const [notes, setNotes] = useState("");
@@ -160,9 +161,7 @@ export function CreditPdfImportProgressClient({
     const cur = job.currentClient;
     const t = window.setTimeout(() => {
       setReportType(job.suggestedReportType ?? "UPDATE");
-      setReportDate(
-        p.report?.reportDate || new Date().toISOString().slice(0, 10),
-      );
+      setReportDate(proposedPdfReportDate(p.report?.reportDate));
       setProvider(p.report?.provider ?? "");
       setNotes(p.report?.notes ?? "");
       setSelectedItems(defaultPdfItemSelection(p.report?.items?.length ?? 0));
@@ -210,7 +209,10 @@ export function CreditPdfImportProgressClient({
     fields,
     criticalAck ? fields.filter((field) => field.critical).map((field) => field.id) : [],
   );
-  const confirmBlocked = pdfImportConfirmBlocked(proposal?.coverage) || summary.criticalPending.length > 0;
+  const confirmBlocked =
+    pdfImportConfirmBlocked(proposal?.coverage) ||
+    summary.criticalPending.length > 0 ||
+    proposedPdfReportDate(reportDate) === "";
 
   function handleDraft() {
     if (!proposal) return;
@@ -232,7 +234,7 @@ export function CreditPdfImportProgressClient({
   }
 
   function handleConfirm() {
-    if (!proposal || !job.currentClient || confirmBlocked) return;
+    if (!proposal || !job.currentClient || confirmBlocked || proposedPdfReportDate(reportDate) === "") return;
     setError(null);
     startTransition(async () => {
       const result = await confirmCreditPdfImportAction({

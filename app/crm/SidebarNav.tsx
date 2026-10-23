@@ -22,8 +22,10 @@ import {
 import type { LucideIcon } from "lucide-react";
 import {
   MoreNavPanel,
+  SIDEBAR_PRIMARY_HREFS,
   isMoreNavPath,
 } from "@/src/components/layout/more-nav-panel";
+import { lockBodyScroll } from "@/src/lib/ui/body-scroll-lock";
 
 type PrimaryItem = {
   href: string;
@@ -71,7 +73,7 @@ export function SidebarNav() {
   const [moreOpen, setMoreOpen] = useState(false);
   const inMails = pathname.startsWith("/crm/mails");
   const inChats = pathname.startsWith("/crm/chats");
-  const moreActive = isMoreNavPath(pathname);
+  const moreActive = isMoreNavPath(pathname, SIDEBAR_PRIMARY_HREFS);
   const currentFolder =
     pathname === "/crm/mails"
       ? (searchParams.get("folder") ?? "inbox")
@@ -90,11 +92,10 @@ export function SidebarNav() {
       if (event.key === "Escape") setMoreOpen(false);
     }
     document.addEventListener("keydown", onKey);
-    const previous = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    const unlock = lockBodyScroll();
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previous;
+      unlock();
     };
   }, [moreOpen]);
 

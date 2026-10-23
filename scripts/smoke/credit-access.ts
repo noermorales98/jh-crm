@@ -6,7 +6,7 @@
  * Sin red y sin DATABASE_URL.
  */
 import { ForbiddenError } from "../../src/server/auth/guards";
-import { assertCreditAccess, creditClientForRole } from "../../src/lib/credit/access";
+import { assertCreditAccess, creditClientForRole, creditProposalClientForRole } from "../../src/lib/credit/access";
 
 function check(label: string, ok: boolean, detail?: unknown) {
   if (!ok) {
@@ -85,6 +85,25 @@ function main() {
     hasDateOfBirth: true,
   });
   check("SPECIALIST sí recibe el último cuatro", specialistClient?.ssnLast4 === "1234");
+
+  const staffProposal = creditProposalClientForRole("STAFF", {
+    firstName: "Trial",
+    dateOfBirth: "1990-01-01",
+    ssnLast4: "1234",
+  });
+  check(
+    "STAFF no recibe nacimiento ni último cuatro de la propuesta",
+    staffProposal?.dateOfBirth == null && staffProposal?.ssnLast4 == null && staffProposal?.firstName === "Trial",
+  );
+  const specialistProposal = creditProposalClientForRole("SPECIALIST", {
+    firstName: "Trial",
+    dateOfBirth: "1990-01-01",
+    ssnLast4: "1234",
+  });
+  check(
+    "SPECIALIST recibe nacimiento y último cuatro de la propuesta",
+    specialistProposal?.dateOfBirth === "1990-01-01" && specialistProposal?.ssnLast4 === "1234",
+  );
 
   console.log("\nOK credit-access\n");
 }

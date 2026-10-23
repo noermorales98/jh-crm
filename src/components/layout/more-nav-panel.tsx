@@ -182,17 +182,33 @@ export const MORE_NAV_HREFS = [
   "/crm/chats",
 ];
 
-export function isMoreNavPath(pathname: string): boolean {
-  // Primarios (bottom nav o sidebar): no marcar Más.
+/** Primarios del sidebar: Más no se marca en estas rutas. */
+export const SIDEBAR_PRIMARY_HREFS = [
+  "/crm/dashboard",
+  "/crm/tareas",
+  "/crm/oportunidades",
+  "/crm/clientes",
+  "/crm/pagos",
+  "/crm/mails",
+  "/crm/chats",
+] as const;
+
+/** Primarios de la barra inferior móvil. Cobrar, Mensajes y Chats viven en Más. */
+export const MOBILE_BOTTOM_PRIMARY_HREFS = [
+  "/crm/dashboard",
+  "/crm/tareas",
+  "/crm/clientes",
+  "/crm/casos",
+] as const;
+
+export function isMoreNavPath(
+  pathname: string,
+  primaryHrefs: readonly string[],
+): boolean {
   if (
-    pathname === "/crm/dashboard" ||
-    pathname.startsWith("/crm/tareas") ||
-    pathname.startsWith("/crm/oportunidades") ||
-    pathname.startsWith("/crm/clientes") ||
-    pathname.startsWith("/crm/casos") ||
-    pathname.startsWith("/crm/pagos") ||
-    pathname.startsWith("/crm/mails") ||
-    pathname.startsWith("/crm/chats")
+    primaryHrefs.some(
+      (href) => pathname === href || pathname.startsWith(`${href}/`),
+    )
   ) {
     return false;
   }

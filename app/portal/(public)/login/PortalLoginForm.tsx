@@ -60,7 +60,7 @@ export function PortalLoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form method="post" onSubmit={onSubmit} className="space-y-5">
       {error ? <Alert tone="error">{error}</Alert> : null}
 
       <Field label="Correo electrónico" htmlFor="portal-email">

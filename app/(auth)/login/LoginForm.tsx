@@ -118,7 +118,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    <form method="post" onSubmit={onSubmit} className="space-y-5">
       {error ? <Alert tone="error">{error}</Alert> : null}
 
       {step === "credentials" ? (

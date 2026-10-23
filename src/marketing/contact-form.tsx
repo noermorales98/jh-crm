@@ -194,18 +194,18 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
     const form = formRef.current;
     if (!form || !challenge || sendingRef.current) return;
     sendingRef.current = true;
-    const draft = readDraft(form, variant, dialCode);
-    const invalid = validateDraft(draft, variant);
-    const answer = answerFromToken(challenge.token);
-    if (invalid || !answer) {
-      setStatus("error");
-      setError(invalid ?? "Recarga la página e inténtalo de nuevo.");
-      return;
-    }
-
-    setStatus("sending");
-    setError(null);
     try {
+      const draft = readDraft(form, variant, dialCode);
+      const invalid = validateDraft(draft, variant);
+      const answer = answerFromToken(challenge.token);
+      if (invalid || !answer) {
+        setStatus("error");
+        setError(invalid ?? "Recarga la página e inténtalo de nuevo.");
+        return;
+      }
+
+      setStatus("sending");
+      setError(null);
       const res = await fetch("/api/public/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

@@ -88,6 +88,18 @@ const source = (reportId: string): FieldSource => ({
 });
 
 function field<T>(
+  value: null,
+  quality: FieldQuality,
+  reportId: string,
+  review?: ReviewState,
+): FieldValue<T>;
+function field<T>(
+  value: T,
+  quality: FieldQuality,
+  reportId: string,
+  review?: ReviewState,
+): FieldValue<T>;
+function field<T>(
   value: T | null,
   quality: FieldQuality,
   reportId: string,

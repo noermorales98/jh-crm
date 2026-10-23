@@ -36,10 +36,7 @@ export function DashboardSuggestedChats({
     >
       <div className="flex min-h-11 items-start justify-between gap-3 px-0.5">
         <div className="min-w-0 pt-0.5">
-          <h2
-            id="chats-heading"
-            className="text-[13px] font-semibold text-text-secondary-strong"
-          >
+          <h2 id="chats-heading" className="text-[16px] font-medium text-ink">
             Chats sugeridos
           </h2>
           <p className="mt-0.5 text-[12px] text-text-secondary">
@@ -49,7 +46,7 @@ export function DashboardSuggestedChats({
         <div className="flex shrink-0 items-center gap-2 self-center">
           <Link
             href="/crm/chats"
-            className="min-h-11 inline-flex items-center text-[13px] font-medium text-action-primary hover:text-action-secondary"
+            className="inline-flex min-h-11 items-center text-[13px] font-medium text-ink hover:text-text-secondary-strong"
           >
             Ver todos
           </Link>
@@ -62,15 +59,15 @@ export function DashboardSuggestedChats({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[14px] bg-surface-elevated ring-1 ring-border-subtle/50">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[8px] border border-border-subtle bg-surface-elevated">
         <ul role="list" className="flex flex-1 flex-col">
           {suggestions.map((item, index) => (
             <li key={item.id} className="flex flex-1">
               <button
                 type="button"
                 onClick={() => openSuggestion(item.prompt)}
-                className={`group flex min-h-14 w-full flex-1 items-center gap-3 px-4 py-2.5 text-left transition-colors duration-200 hover:bg-nav-hover motion-reduce:transition-none sm:px-5 ${
-                  index > 0 ? "border-t border-border-subtle/60" : ""
+                className={`flex min-h-14 w-full flex-1 items-center gap-3 px-4 py-2.5 text-left hover:bg-nav-hover sm:px-5 ${
+                  index > 0 ? "border-t border-border-subtle" : ""
                 }`}
               >
                 <ChatBlobatar
@@ -88,7 +85,7 @@ export function DashboardSuggestedChats({
                   </span>
                 </span>
                 <ChevronRight
-                  className="size-4 shrink-0 text-text-secondary transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                  className="size-4 shrink-0 text-text-secondary"
                   aria-hidden
                 />
               </button>

@@ -74,7 +74,7 @@ export function SearchInput({
         }}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="block min-h-11 w-full rounded-full border border-border-subtle bg-surface-elevated py-2 pl-9 pr-10 text-[15px] text-ink placeholder:text-text-placeholder focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/30 sm:min-h-9 sm:w-80"
+        className="block min-h-11 w-full appearance-none rounded-full border border-border-subtle bg-surface-elevated py-2 pl-9 pr-10 text-[15px] text-ink placeholder:text-text-placeholder focus:border-focus focus:outline-none focus-visible:outline-none focus:ring-2 focus:ring-focus/30 sm:min-h-9 sm:w-80 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
       />
       {value ? (
         <button

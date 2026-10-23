@@ -64,7 +64,7 @@ export function CrmMobileBottomNav() {
     <>
       <nav
         aria-label="Navegación rápida"
-        className="jh-mobile-bottom-nav fixed inset-x-0 bottom-0 z-sticky border-t border-border-subtle/80 bg-surface-panel/90 backdrop-blur-md lg:hidden"
+        className="jh-mobile-bottom-nav fixed inset-x-0 bottom-0 z-sticky border-t border-border-subtle bg-surface-app lg:hidden"
       >
         <div className="mx-auto flex max-w-lg items-stretch justify-between gap-0.5 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1">
           {BOTTOM_ITEMS.map(({ href, label, icon: Icon, match = "prefix" }) => {
@@ -74,14 +74,15 @@ export function CrmMobileBottomNav() {
                 key={href}
                 href={href}
                 aria-current={active ? "page" : undefined}
-                className={`flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[10px] px-1 py-1 text-[10px] font-medium tracking-[-0.01em] transition-colors ${
+                className={`flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[8px] px-1 py-1 text-[11px] font-normal transition-colors ${
                   active
-                    ? "text-action-primary"
+                    ? "bg-ink/8 text-ink"
                     : "text-text-secondary hover:text-ink"
                 }`}
               >
                 <Icon
-                  className={`size-[22px] ${active ? "stroke-[2.25]" : ""}`}
+                  className="size-5 text-text-secondary"
+                  strokeWidth={1.5}
                   aria-hidden
                 />
                 <span className="truncate">{label}</span>
@@ -93,14 +94,15 @@ export function CrmMobileBottomNav() {
             aria-expanded={moreOpen}
             aria-current={moreActive && !moreOpen ? "page" : undefined}
             onClick={() => setMoreOpen(true)}
-            className={`flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[10px] px-1 py-1 text-[10px] font-medium tracking-[-0.01em] transition-colors ${
+            className={`flex min-h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-[8px] px-1 py-1 text-[11px] font-normal transition-colors ${
               moreActive || moreOpen
-                ? "text-action-primary"
+                ? "bg-ink/8 text-ink"
                 : "text-text-secondary hover:text-ink"
             }`}
           >
             <Ellipsis
-              className={`size-[22px] ${moreActive || moreOpen ? "stroke-[2.25]" : ""}`}
+              className="size-5 text-text-secondary"
+              strokeWidth={1.5}
               aria-hidden
             />
             <span>Más</span>

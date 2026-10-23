@@ -228,7 +228,7 @@ export function MoreNavPanel({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-ink/40 backdrop-blur-[3px] motion-reduce:backdrop-blur-none"
+        className="absolute inset-0 bg-ink/40"
         aria-label="Cerrar menú Más"
         onClick={onClose}
       />
@@ -262,7 +262,7 @@ export function MoreNavPanel({
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-5">
             {MORE_NAV_GROUPS.map((group) => (
               <div key={group.label}>
-                <p className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-text-secondary">
+                <p className="mb-1.5 px-2.5 text-[12px] font-medium text-text-secondary">
                   {group.label}
                 </p>
                 <ul className="space-y-0.5">
@@ -275,28 +275,18 @@ export function MoreNavPanel({
                           href={href}
                           onClick={onClose}
                           aria-current={active ? "page" : undefined}
-                          className={`flex min-h-11 items-start gap-2.5 rounded-surface px-2.5 py-1.5 text-[14px] tracking-[-0.01em] transition-colors ${
-                            active
-                              ? "bg-nav-active font-semibold text-action-primary"
-                              : "font-medium text-ink hover:bg-nav-hover"
+                          className={`flex min-h-11 items-start gap-2.5 rounded-[8px] px-2.5 py-1.5 text-[14px] font-normal text-ink transition-colors ${
+                            active ? "bg-ink/8" : "hover:bg-ink/5"
                           }`}
                         >
-                          <span
-                            className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-control ${
-                              active
-                                ? "bg-action-primary text-action-primary-foreground"
-                                : "bg-nav-hover text-text-secondary-strong"
-                            }`}
-                          >
-                            <Icon
-                              className="size-4"
-                              strokeWidth={1.75}
-                              aria-hidden
-                            />
-                          </span>
+                          <Icon
+                            className="mt-0.5 size-4 shrink-0 text-text-secondary"
+                            strokeWidth={1.5}
+                            aria-hidden
+                          />
                           <span className="min-w-0 flex-1">
                             <span className="block leading-snug">{label}</span>
-                            <span className="mt-0.5 line-clamp-1 block text-[10px] font-normal leading-snug text-text-secondary">
+                            <span className="mt-0.5 line-clamp-1 block text-[12px] font-normal leading-snug text-text-secondary">
                               {description}
                             </span>
                           </span>

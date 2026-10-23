@@ -92,11 +92,11 @@ export function CrmShell({
           id="crm-sidebar"
           aria-label="Navegación"
           inert={!drawerOpen ? true : undefined}
-          className={`crm-brand fixed inset-y-0 left-0 z-dropdown flex w-64 max-w-[85vw] flex-col border-r border-border-subtle/70 bg-surface-panel pt-[env(safe-area-inset-top)] transition-transform duration-200 ease-out motion-reduce:transition-none lg:z-auto lg:w-56 lg:max-w-none lg:translate-x-0 ${
+          className={`crm-brand fixed inset-y-0 left-0 z-dropdown flex w-60 max-w-[85vw] flex-col border-r border-border-subtle bg-surface-app pt-[env(safe-area-inset-top)] transition-transform duration-200 ease-out motion-reduce:transition-none lg:z-auto lg:max-w-none lg:translate-x-0 ${
             open ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          <div className="flex h-12 shrink-0 items-center justify-between gap-2 px-3">
+          <div className="flex h-14 shrink-0 items-center justify-between gap-2 px-3">
             {brand}
             <button
               type="button"
@@ -110,7 +110,7 @@ export function CrmShell({
           {sidebar}
         </aside>
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-56">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-60">
           {header}
           {children}
           <CrmMobileBottomNav />

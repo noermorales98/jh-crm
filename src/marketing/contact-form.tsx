@@ -146,6 +146,7 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
   const [attribution, setAttribution] =
     useState<AttributionFields>(emptyAttribution);
   const [dialCode, setDialCode] = useState(DEFAULT_PHONE_DIAL_CODE);
+  const [hydrated, setHydrated] = useState(false);
 
   const loadChallenge = useCallback(async (opts?: { fresh?: boolean }) => {
     if (opts?.fresh) invalidateContactChallenge();
@@ -154,6 +155,7 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
   }, []);
 
   useEffect(() => {
+    setHydrated(true);
     setAttribution(readAttributionFromUrl());
   }, []);
 
@@ -460,10 +462,14 @@ export function ContactForm({ variant = "full" }: ContactFormProps) {
         <button
           type="submit"
           className="btn btn-primary"
-          disabled={!challenge || status === "sending"}
-          aria-busy={!challenge || status === "sending"}
+          disabled={
+            hydrated && (!challenge || status === "sending") ? true : undefined
+          }
+          aria-busy={
+            hydrated && (!challenge || status === "sending") ? true : undefined
+          }
         >
-          {!challenge ? "Preparando…" : isHero ? "Comenzar" : "Enviar consulta"}
+          {isHero ? "Comenzar" : "Enviar consulta"}
         </button>
       </form>
 

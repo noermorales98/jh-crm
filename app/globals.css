@@ -278,12 +278,20 @@ body {
   object-fit: contain;
 }
 
-.crm-brand .brand-tag,
 .jh-brand .brand-tag {
   font-family: var(--font-jh-mono), ui-monospace, monospace;
   font-size: 0.6875rem;
   letter-spacing: 0.02em;
   color: var(--color-text-secondary);
+}
+
+.crm-brand .brand-tag {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: 0;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
 }
 
 @media (prefers-reduced-motion: reduce) {

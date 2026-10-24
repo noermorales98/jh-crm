@@ -20,6 +20,7 @@ import { playActionResult } from "@/src/lib/cuelume";
 import { useCreditPdfImportLock } from "@/src/components/credit-reports/credit-pdf-import-lock";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png"];
+const PDF_ONLY = ["application/pdf"];
 
 type UploadAnalysis = {
   status: string;
@@ -48,6 +49,12 @@ export function DocumentUploader({
   roundId,
   wizard = true,
   onUploaded,
+  initialCategory,
+  initialSensitivity,
+  hideCategoryStep = false,
+  allowUndo = false,
+  pdfOnly = false,
+  prominent = false,
 }: {
   clientId: string;
   caseId?: string;
@@ -55,15 +62,31 @@ export function DocumentUploader({
   /** Si true, pide categoría/sensibilidad antes de mostrar el dropzone. */
   wizard?: boolean;
   onUploaded?: () => void | Promise<void>;
+  /** Categoría al abrir. El wizard de Documentos sigue en IDENTITY si no se pasa. */
+  initialCategory?: string;
+  initialSensitivity?: string;
+  /** Oculta el paso de tipo. La categoría queda fija en `initialCategory`. */
+  hideCategoryStep?: boolean;
+  /** Deshacer borra el archivo recién subido. No cancela un análisis ya encolado. */
+  allowUndo?: boolean;
+  /** Solo PDF. El wizard de Documentos sigue aceptando JPG y PNG. */
+  pdfOnly?: boolean;
+  /** Zona alta, centrada, con botón. El wizard de Documentos sigue compacto. */
+  prominent?: boolean;
 }) {
   const router = useRouter();
-  const { engageLock } = useCreditPdfImportLock();
+  const { engageLock, releaseLock } = useCreditPdfImportLock();
   const fileRef = useRef<HTMLInputElement>(null);
-  const [step, setStep] = useState<1 | 2>(wizard ? 1 : 2);
-  const [category, setCategory] = useState("IDENTITY");
-  const [sensitivity, setSensitivity] = useState("CONFIDENTIAL");
+  const showCategoryStep = wizard && !hideCategoryStep;
+  const allowedTypes = pdfOnly ? PDF_ONLY : ALLOWED;
+  const [step, setStep] = useState<1 | 2>(showCategoryStep ? 1 : 2);
+  const [category, setCategory] = useState(initialCategory ?? "IDENTITY");
+  const [sensitivity, setSensitivity] = useState(
+    initialSensitivity ?? "CONFIDENTIAL",
+  );
   const [dragging, setDragging] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [undoing, setUndoing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [analysisInfo, setAnalysisInfo] = useState<UploadAnalysis | null>(null);
@@ -108,8 +131,12 @@ export function DocumentUploader({
     setAnalysisInfo(null);
     setPendingDocId(null);
 
-    if (!ALLOWED.includes(file.type)) {
-      setError("Solo se aceptan PDF, JPG y PNG.");
+    if (!allowedTypes.includes(file.type)) {
+      setError(
+        pdfOnly
+          ? "Solo se acepta un PDF de crédito."
+          : "Solo se aceptan PDF, JPG y PNG.",
+      );
       return;
     }
     if (file.size > maxBytes) {
@@ -346,10 +373,85 @@ export function DocumentUploader({
     if (file) void uploadFile(file);
   }
 
+  const analysisQueued =
+    analysisInfo?.status === "queued" || analysisInfo?.status === "existing";
+
+  async function undoUpload() {
+    if (!pendingDocId || undoing) return;
+    const wasQueued = analysisQueued;
+    setUndoing(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/files/${pendingDocId}`, {
+        method: "DELETE",
+        redirect: "error",
+      });
+      let json: unknown = null;
+      try {
+        json = await res.json();
+      } catch {
+        json = null;
+      }
+      const payload = json as { ok?: boolean; error?: string } | null;
+      if (!res.ok || !payload?.ok) {
+        const classified = classifyUploadError({
+          error: new Error(payload?.error ?? "No se pudo quitar el PDF."),
+          phase: "delete",
+          httpStatus: res.status,
+          responseBody: json,
+        });
+        playActionResult(false);
+        setError(classified.message);
+        return;
+      }
+      setPendingDocId(null);
+      setAnalysisInfo(null);
+      releaseLock();
+      playActionResult(true);
+      setSuccess(
+        wasQueued
+          ? "PDF quitado. El análisis ya estaba encolado y no se cancela."
+          : "PDF quitado.",
+      );
+      if (fileRef.current) fileRef.current.value = "";
+      router.refresh();
+    } catch (err) {
+      playActionResult(false);
+      setError(
+        classifyUploadError({
+          error: err,
+          phase: "delete",
+        }).message,
+      );
+    } finally {
+      setUndoing(false);
+    }
+  }
+
   return (
     <div className="space-y-3">
       {error ? <Alert tone="error">{error}</Alert> : null}
       {success ? <Alert tone="success">{success}</Alert> : null}
+      {allowUndo && pendingDocId && success ? (
+        <div className="space-y-2">
+          {analysisQueued ? (
+            <p className="text-xs text-text-secondary">
+              Deshacer quita el archivo. El análisis ya encolado no se cancela.
+            </p>
+          ) : null}
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            disabled={undoing || busy !== null}
+            onClick={() => {
+              void undoUpload();
+            }}
+          >
+            {undoing ? "Quitando…" : "Deshacer"}
+          </Button>
+        </div>
+      ) : null}
 
       {analysisInfo?.status === "needs_case" ? (
         <Alert tone="info">
@@ -409,7 +511,7 @@ export function DocumentUploader({
         <Alert tone="info">{analysisInfo.message}</Alert>
       ) : null}
 
-      {wizard ? (
+      {showCategoryStep ? (
         <p className="text-xs text-text-secondary">
           Paso {step} de 2 ·{" "}
           {step === 1 ? "Tipo de documento" : "Subir archivo"}
@@ -464,7 +566,7 @@ export function DocumentUploader({
         </div>
       ) : (
         <div className="space-y-2">
-          {wizard ? (
+          {showCategoryStep ? (
             <button
               type="button"
               className="text-xs font-medium text-action-primary hover:underline"
@@ -475,58 +577,128 @@ export function DocumentUploader({
           ) : null}
           <input
             ref={fileRef}
-            id="doc-file"
+            id={prominent ? "credit-pdf-file" : "doc-file"}
             type="file"
-            accept=".pdf,.jpg,.jpeg,.png"
+            accept={pdfOnly ? ".pdf,application/pdf" : ".pdf,.jpg,.jpeg,.png"}
             className="sr-only"
             disabled={busy !== null}
             onChange={(e) => takeFile(e.target.files)}
           />
-          <button
-            type="button"
-            disabled={busy !== null}
-            onClick={() => fileRef.current?.click()}
-            onDragEnter={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragging(true);
-            }}
-            onDragLeave={(e) => {
-              e.preventDefault();
-              if (e.currentTarget.contains(e.relatedTarget as Node)) return;
-              setDragging(false);
-            }}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragging(false);
-              takeFile(e.dataTransfer.files);
-            }}
-            className={`flex w-full items-center gap-3 rounded-control border border-dashed px-3 py-4 text-left transition-colors ${
-              dragging
-                ? "border-action-primary bg-nav-active"
-                : "border-border-subtle bg-surface-app hover:border-action-primary hover:bg-nav-hover"
-            } disabled:cursor-not-allowed disabled:opacity-60`}
-          >
-            {busy ? (
-              <Loader2
-                className="size-5 shrink-0 animate-spin text-action-primary"
-                aria-hidden
-              />
-            ) : (
-              <FileUp className="size-5 shrink-0 text-action-primary" aria-hidden />
-            )}
-            <span className="min-w-0">
-              <span className="block text-sm font-medium text-ink">
-                {busy ?? (dragging ? "Suelta el archivo" : "Suelta aquí o haz clic")}
+          {prominent ? (
+            <div
+              role="group"
+              aria-label="Subir PDF de crédito"
+              onClick={() => {
+                if (busy === null) fileRef.current?.click();
+              }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                setDragging(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                if (busy === null) takeFile(e.dataTransfer.files);
+              }}
+              className={`flex min-h-44 flex-col items-center justify-center gap-3 rounded-surface border-2 border-dashed px-6 py-8 text-center transition-colors ${
+                busy !== null ? "cursor-wait" : "cursor-pointer"
+              } ${
+                dragging
+                  ? "border-action-primary bg-nav-active"
+                  : "border-border-subtle bg-surface-app hover:border-action-primary hover:bg-nav-hover"
+              }`}
+            >
+              {busy ? (
+                <Loader2
+                  className="size-8 animate-spin text-action-primary"
+                  aria-hidden
+                />
+              ) : (
+                <span className="flex size-12 items-center justify-center rounded-full bg-action-primary/10 text-action-primary">
+                  <FileUp className="size-6" aria-hidden />
+                </span>
+              )}
+              <span>
+                <span className="block text-[15px] font-semibold text-ink">
+                  {busy ??
+                    (dragging ? "Suelta el PDF" : "Arrastra el PDF aquí")}
+                </span>
+                <span className="mt-1 block text-[13px] text-text-secondary">
+                  {busy
+                    ? "Espera a que termine."
+                    : "o haz clic para elegirlo"}
+                </span>
+                <span className="mt-1 block text-xs text-text-secondary">
+                  PDF · máximo {maxMbLabel} MB
+                </span>
               </span>
-              <span className="block text-xs text-text-secondary">
-                PDF, JPG o PNG · máximo {maxMbLabel} MB
+              <Button
+                type="button"
+                disabled={busy !== null}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  fileRef.current?.click();
+                }}
+              >
+                Subir PDF
+              </Button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={busy !== null}
+              onClick={() => fileRef.current?.click()}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragging(true);
+              }}
+              onDragLeave={(e) => {
+                e.preventDefault();
+                if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+                setDragging(false);
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragging(false);
+                takeFile(e.dataTransfer.files);
+              }}
+              className={`flex w-full items-center gap-3 rounded-control border border-dashed px-3 py-4 text-left transition-colors ${
+                dragging
+                  ? "border-action-primary bg-nav-active"
+                  : "border-border-subtle bg-surface-app hover:border-action-primary hover:bg-nav-hover"
+              } disabled:cursor-not-allowed disabled:opacity-60`}
+            >
+              {busy ? (
+                <Loader2
+                  className="size-5 shrink-0 animate-spin text-action-primary"
+                  aria-hidden
+                />
+              ) : (
+                <FileUp className="size-5 shrink-0 text-action-primary" aria-hidden />
+              )}
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-ink">
+                  {busy ?? (dragging ? "Suelta el archivo" : "Suelta aquí o haz clic")}
+                </span>
+                <span className="block text-xs text-text-secondary">
+                  {pdfOnly ? "PDF" : "PDF, JPG o PNG"} · máximo {maxMbLabel} MB
+                </span>
               </span>
-            </span>
-          </button>
+            </button>
+          )}
         </div>
       )}
     </div>

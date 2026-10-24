@@ -284,6 +284,7 @@ export default async function ClientSummaryPage({
       canIntake={canEdit || canManageCases}
       canCreateRound={canCreateRound}
       canManageRounds={can(ctx.role, "rounds.manage")}
+      canUploadCreditPdf={can(ctx.role, "creditReports.manage")}
       creditWorkspace={
         overview.credit
           ? {

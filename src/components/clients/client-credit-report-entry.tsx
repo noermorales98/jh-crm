@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { FileBarChart } from "lucide-react";
 import { AgencyModal } from "@/src/components/agency/agency-modal";
-import { AnalyzePdfImportButton } from "@/src/components/credit-reports/analyze-pdf-import";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
+import { DocumentUploader } from "@/src/components/documents/document-uploader";
 import { formatDate } from "@/src/lib/format";
 import { CREDIT_REPORT_TYPE_LABELS, labelFor } from "@/src/lib/labels";
 export type CreditReportPdfDto = {
@@ -45,24 +45,52 @@ export function useCreditReportEntry({
 }
 
 export function CreditReportEmptyPanel({
+  clientId,
   caseId,
   canManage,
 }: {
+  clientId: string;
   caseId: string | null;
   canManage: boolean;
 }) {
   return (
-    <div className="mx-auto max-w-md space-y-3 rounded-surface bg-nav-hover/50 px-4 py-8 text-center">
-      <p className="text-[15px] font-semibold text-ink">Sin reporte PDF</p>
-      <p className="text-[13px] text-text-secondary">
-        Sube o analiza un PDF de crédito para verlo aquí.
-      </p>
-      {canManage && caseId ? (
-        <div className="flex flex-wrap justify-center gap-2 pt-1">
-          <AnalyzePdfImportButton caseId={caseId} label="Subir / analizar PDF" />
-          <CreateCreditReportButton caseId={caseId} />
-        </div>
-      ) : null}
+    <div className="mx-auto max-w-md space-y-4">
+      <div className="space-y-1 text-center">
+        <p className="text-[15px] font-semibold text-ink">Sin reporte PDF</p>
+        {canManage ? (
+          <p className="text-[13px] text-text-secondary">
+            El análisis corre en el servidor.
+          </p>
+        ) : null}
+      </div>
+      {canManage ? (
+        <>
+          <DocumentUploader
+            clientId={clientId}
+            caseId={caseId ?? undefined}
+            wizard={false}
+            hideCategoryStep
+            initialCategory="CREDIT_REPORT"
+            initialSensitivity="CONFIDENTIAL"
+            allowUndo
+            pdfOnly
+            prominent
+          />
+          {caseId ? (
+            <div className="flex justify-center">
+              <CreateCreditReportButton
+                caseId={caseId}
+                label="Registrar sin PDF"
+                variant="ghost"
+              />
+            </div>
+          ) : null}
+        </>
+      ) : (
+        <p className="text-center text-[13px] text-text-secondary">
+          Tu rol no puede subir reportes.
+        </p>
+      )}
     </div>
   );
 }

@@ -34,7 +34,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
-import { Button } from "@/src/components/ui";
+import { Alert, Button } from "@/src/components/ui";
 import { AgencyModal } from "@/src/components/agency/agency-modal";
 import {
   Capsule,
@@ -72,6 +72,7 @@ import { ClientPaymentsPanel } from "@/src/components/clients/client-payments-pa
 import { ClientNotesPanel } from "@/src/components/clients/client-notes-panel";
 import { ClientTestimonialsPanel } from "@/src/components/clients/client-testimonials-panel";
 import { AnalyzePdfImportButton } from "@/src/components/credit-reports/analyze-pdf-import";
+import { UtilizationScenarioSlider } from "@/src/components/credit-reports/utilization-scenario-slider";
 import { CreditPdfPendingConfirmBanner } from "@/src/components/credit-reports/credit-pdf-pending-confirm";
 import type { PendingConfirmCreditPdfJob } from "@/src/server/credit-import/jobs";
 import { ClientNegativeAnalysisPanel } from "@/src/components/clients/client-negative-analysis-panel";
@@ -171,6 +172,8 @@ export type AgencyClientDetailProps = {
   canCreateRound: boolean;
   /** Permiso `rounds.manage` (sin exigir caso abierto). */
   canManageRounds?: boolean;
+  /** Permiso `creditReports.manage`, sin exigir caso. */
+  canUploadCreditPdf: boolean;
   creditWorkspace: {
     canView: boolean;
     bureaus: BureauProgress[];
@@ -356,6 +359,10 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const moreRef = useRef<HTMLDivElement>(null);
   const [utilPct, setUtilPct] = useState(10);
   const [extraBudget, setExtraBudget] = useState("");
+  const [copyNotice, setCopyNotice] = useState<{
+    tone: "success" | "error";
+    text: string;
+  } | null>(null);
   const [planHub, setPlanHub] = useState<ClientActionPlanHubDto | null>(null);
   const [planHubError, setPlanHubError] = useState<string | null>(null);
   const [planHubSettledKey, setPlanHubSettledKey] = useState<string | null>(
@@ -1411,12 +1418,20 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
 
       <AgencyModal
         open={panel === "score"}
-        onClose={() => setPanel(null)}
+        onClose={() => {
+          setCopyNotice(null);
+          setPanel(null);
+        }}
         title="Optimización de utilización"
         size="lg"
         centerBody
       >
         <div className="space-y-4">
+          <ol className="space-y-1 text-[13px] text-text-secondary">
+            <li>1. Elige el escenario.</li>
+            <li>2. Indica un presupuesto extra si hace falta.</li>
+            <li>3. Revisa el pago y copia el plan.</li>
+          </ol>
           {planHubLoading ? (
             <p className="text-center text-[13px] text-text-secondary">
               Cargando revolving del reporte…
@@ -1432,22 +1447,10 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               {planHub?.avgScore != null ? ` · promedio informativo ${planHub.avgScore}` : ""}
             </p>
           ) : null}
-          <label className="block text-[13px]">
-            <span className="mb-1 block font-medium">
-              Escenario: {utilPct}%
-            </span>
-            <input
-              type="range"
-              min={0}
-              max={100}
-              value={utilPct}
-              onChange={(e) => setUtilPct(Number(e.target.value))}
-              className="w-full"
-            />
-            <span className="text-text-secondary">
-              0%, 10%, 30% y 100% son escenarios. No predicen puntos de score.
-            </span>
-          </label>
+          <UtilizationScenarioSlider value={utilPct} onChange={setUtilPct} />
+          <p className="text-[13px] text-text-secondary">
+            0%, 10%, 30% y 100% son escenarios. No predicen puntos de score.
+          </p>
           <label className="block text-[13px]">
             <span className="mb-1 block font-medium">Presupuesto extra</span>
             <input
@@ -1584,6 +1587,9 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               ) : null}
             </div>
           ) : null}
+          {copyNotice ? (
+            <Alert tone={copyNotice.tone}>{copyNotice.text}</Alert>
+          ) : null}
           <Button
             type="button"
             variant="secondary"
@@ -1597,7 +1603,17 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 scenario.perAccountTotalCents != null
                   ? `\nPor tarjeta $${formatScorePlanMoney(scenario.perAccountTotalCents / 100)} · Conjunto $${formatScorePlanMoney(scenario.aggregatePaydownCents / 100)}${scenario.difference ? `\n${scenario.difference}` : ""}`
                   : "";
-              void navigator.clipboard.writeText(`${base}${aggregate}`);
+              void navigator.clipboard
+                .writeText(`${base}${aggregate}`)
+                .then(() =>
+                  setCopyNotice({ tone: "success", text: "Plan copiado." }),
+                )
+                .catch(() =>
+                  setCopyNotice({
+                    tone: "error",
+                    text: "No se pudo copiar el plan.",
+                  }),
+                );
             }}
           >
             Copiar plan para el cliente
@@ -1796,8 +1812,9 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         centerBody
       >
         <CreditReportEmptyPanel
+          clientId={props.client.id}
           caseId={props.caseId}
-          canManage={props.quickAdd.canReport}
+          canManage={props.canUploadCreditPdf}
         />
       </AgencyModal>
 

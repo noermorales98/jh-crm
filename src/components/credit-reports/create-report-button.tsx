@@ -12,6 +12,7 @@ import {
   Modal,
   Select,
   Textarea,
+  type ButtonVariant,
 } from "@/src/components/ui";
 import { createCreditReport } from "@/src/actions/credit-reports";
 import { playActionResult } from "@/src/lib/cuelume";
@@ -29,10 +30,12 @@ export function CreateCreditReportButton({
   caseId,
   menuItem = false,
   label = "Registrar reporte",
+  variant = "primary",
 }: {
   caseId: string;
   menuItem?: boolean;
   label?: string;
+  variant?: ButtonVariant;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -104,7 +107,7 @@ export function CreateCreditReportButton({
           {label}
         </button>
       ) : (
-        <Button size="sm" onClick={() => setOpen(true)}>
+        <Button size="sm" variant={variant} onClick={() => setOpen(true)}>
           {label}
         </Button>
       )}

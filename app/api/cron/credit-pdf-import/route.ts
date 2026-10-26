@@ -16,8 +16,9 @@ import {
  * No escribe contenido de PDF ni PII en la respuesta.
  */
 /**
- * Tope Hobby Vercel = 300s. PDFs largos se recuperan con reclaims del cron
- * (cron-job.org cada 1–2 min) + lease corto.
+ * maxDuration debe ser 1–300 en plan Hobby (Vercel falla el build si es mayor).
+ * No depende de cron-job.org: el límite se valida al desplegar la función.
+ * PDFs largos: reclaim vía GET /api/cron/credit-pdf-import cada 1–2 min.
  */
 export const maxDuration = 300;
 

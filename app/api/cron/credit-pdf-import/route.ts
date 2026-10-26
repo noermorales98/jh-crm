@@ -15,7 +15,11 @@ import {
  * Pensado para cron-job.org cada 1–2 minutos.
  * No escribe contenido de PDF ni PII en la respuesta.
  */
-export const maxDuration = 120;
+/**
+ * OpenRouter free + 5 ventanas suele superar 10 min. Con plan Pro Vercel
+ * el tope es 800s; por debajo el cron mata el job y el % parece “reiniciarse”.
+ */
+export const maxDuration = 800;
 
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET;

@@ -49,7 +49,8 @@ export {
 const PHASES = {
   download: { progress: 10, label: "Descargando PDF" },
   extract: { progress: 35, label: "Extrayendo texto" },
-  ai: { progress: 75, label: "Analizando con IA" },
+  /** Arranque de IA; las ventanas suben de 40→90 sin bajar. */
+  ai: { progress: 40, label: "Analizando con IA" },
   validate: { progress: 90, label: "Validando resultado" },
   done: { progress: 100, label: "Listo" },
 } as const;
@@ -739,12 +740,27 @@ export async function runClaimedCreditPdfImportJob(
     const built = await buildProposalFromDocumentBytes({
       pdfBytes,
       fileName: fileName || "reporte.pdf",
+      // Renovar lease ANTES de cada llamada OpenRouter (puede durar minutos).
+      onWindowStart: async ({ windowIndex, windowTotal }) => {
+        await touchLease(jobId, leaseToken, {
+          phase: "ai",
+          progress: Math.min(
+            88,
+            40 + Math.round((windowIndex / Math.max(windowTotal, 1)) * 48),
+          ),
+        });
+        logJob("ai_window_start", {
+          jobId,
+          windowIndex,
+          windowTotal,
+        });
+      },
       onWindowComplete: async ({ windowIndex, windowTotal }) => {
         await touchLease(jobId, leaseToken, {
           phase: "ai",
           progress: Math.min(
             90,
-            40 + Math.round(((windowIndex + 1) / windowTotal) * 40),
+            40 + Math.round(((windowIndex + 1) / Math.max(windowTotal, 1)) * 50),
           ),
         });
         logJob("ai_window", {

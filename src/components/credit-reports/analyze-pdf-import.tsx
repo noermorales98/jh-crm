@@ -121,7 +121,7 @@ export function AnalyzePdfImportButton({
         <div className="space-y-4">
           {error ? <Alert tone="error">{error}</Alert> : null}
           <Alert tone="info">
-            Reportes largos pueden tardar 30–90 s. Se abrirá una página de
+            Reportes largos pueden tardar varios minutos. Se abrirá una página de
             progreso; puedes navegar o cerrar la pestaña — el análisis sigue
             en el servidor y verás el aviso cuando esté listo.
           </Alert>

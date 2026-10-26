@@ -5,6 +5,9 @@ import { apiErrorResponse } from "@/src/server/http";
 import * as documentService from "@/src/server/documents";
 import { processCreditPdfImportJob } from "@/src/server/credit-import/jobs";
 
+/** after() procesa el PDF; 5 ventanas OpenRouter free suelen superar 10 min. */
+export const maxDuration = 800;
+
 const bodySchema = z.object({
   storageKey: z.string().min(1),
   clientId: z.string().min(1),

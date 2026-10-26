@@ -279,19 +279,24 @@ function scoreWindowFor(pages: readonly PdfPageText[], text: string): PlannedWin
  * No acepta ni envía bytes del archivo (PR-SEC-PII).
  * PDFs largos: varias ventanas + mergeExtractionProposals + heurística de scores.
  *
- * `onWindowComplete` — p.ej. renovar lease del job entre ventanas (AI puede
- * superar CREDIT_PDF_JOB_LEASE_MS en PDFs de 5 ventanas).
+ * `onWindowStart` / `onWindowComplete` — renovar lease antes y después de cada
+ * llamada OpenRouter (una ventana puede superar el lease si no se renueva).
  */
 export async function classifyAndExtractFromPdf(input: {
   extract: PdfExtractResult;
   fileName: string;
+  onWindowStart?: (info: {
+    windowIndex: number;
+    windowTotal: number;
+    scoreFocused: boolean;
+  }) => Promise<void>;
   onWindowComplete?: (info: {
     windowIndex: number;
     windowTotal: number;
     scoreFocused: boolean;
   }) => Promise<void>;
 }): Promise<CreditPdfExtractionProposal> {
-  const { extract, fileName, onWindowComplete } = input;
+  const { extract, fileName, onWindowStart, onWindowComplete } = input;
 
   const pages = extract.pages ?? [{ page: 1, text: extract.text, empty: extract.text.trim().length === 0 }];
   const emptyPages = pages.filter((page) => page.empty).length;
@@ -324,6 +329,14 @@ export async function classifyAndExtractFromPdf(input: {
     run: async (index, _attempt) => {
       const window = budget.windows[index]!;
       const scoreFocused = budget.scoreWindowIndex === index;
+      const windowInfo = {
+        windowIndex: index,
+        windowTotal: budget.windows.length,
+        scoreFocused,
+      };
+      if (onWindowStart) {
+        await onWindowStart(windowInfo);
+      }
       const prompt = buildWindowUserPrompt({
         windowText: window.text,
         fileName,
@@ -341,11 +354,7 @@ export async function classifyAndExtractFromPdf(input: {
         maxRetries: 1,
       });
       if (onWindowComplete) {
-        await onWindowComplete({
-          windowIndex: index,
-          windowTotal: budget.windows.length,
-          scoreFocused,
-        });
+        await onWindowComplete(windowInfo);
       }
       const finishReason =
         result.finishReason == null ? null : String(result.finishReason);

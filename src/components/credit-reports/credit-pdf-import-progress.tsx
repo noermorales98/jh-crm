@@ -300,7 +300,7 @@ export function CreditPdfImportProgressClient({
             />
           </div>
           <p className="text-xs text-text-secondary">
-            {job.progress}% · suele tardar 30–90 s en reportes largos
+            {job.progress}% · reportes largos: varios minutos (varias pasadas de IA)
             {pending ? " · actualizando…" : null}
           </p>
           <ol className="space-y-1 text-sm text-text-secondary">

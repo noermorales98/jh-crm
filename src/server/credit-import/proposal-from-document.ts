@@ -30,6 +30,9 @@ export function suggestedReportTypeFromProposal(
 export async function buildProposalFromDocumentBytes(input: {
   pdfBytes: Uint8Array | Buffer;
   fileName: string;
+  onWindowStart?: Parameters<
+    typeof classifyAndExtractFromPdf
+  >[0]["onWindowStart"];
   onWindowComplete?: Parameters<
     typeof classifyAndExtractFromPdf
   >[0]["onWindowComplete"];
@@ -42,6 +45,7 @@ export async function buildProposalFromDocumentBytes(input: {
   const proposal = await classifyAndExtractFromPdf({
     extract,
     fileName: input.fileName,
+    onWindowStart: input.onWindowStart,
     onWindowComplete: input.onWindowComplete,
   });
   const validated = creditPdfExtractionProposalSchema.parse(proposal);

@@ -3,10 +3,14 @@
  * Sin I/O: usable en smokes de lógica pura.
  */
 
-export const CREDIT_PDF_JOB_MAX_ATTEMPTS = 3;
+/** Varias ventanas OpenRouter + timeouts de serverless: más intentos. */
+export const CREDIT_PDF_JOB_MAX_ATTEMPTS = 5;
 
-/** Duración del lease por claim (renovable en cada fase). */
-export const CREDIT_PDF_JOB_LEASE_MS = 10 * 60 * 1000;
+/**
+ * Lease corto: si el worker serverless muere mid-IA, el cron puede recuperar
+ * en pocos minutos. Se renueva al inicio/fin de cada ventana.
+ */
+export const CREDIT_PDF_JOB_LEASE_MS = 4 * 60 * 1000;
 
 /**
  * No reclamar QUEUED recién creados: dar margen a `after()` del start manual.

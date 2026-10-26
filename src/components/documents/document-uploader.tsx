@@ -1,10 +1,17 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileUp, Loader2 } from "lucide-react";
-import { Alert, Button, Field, Select } from "@/src/components/ui";
+import { CheckCircle2, FileUp, Loader2 } from "lucide-react";
+import {
+  Alert,
+  Button,
+  ConfirmDialog,
+  Field,
+  Modal,
+  Select,
+} from "@/src/components/ui";
 import {
   DOCUMENT_CATEGORY_LABELS,
   DOCUMENT_SENSITIVITY_LABELS,
@@ -15,7 +22,10 @@ import {
   formatUploadMaxMb,
   getUploadMaxBytesForCategory,
 } from "@/src/lib/storage/policy";
-import { startCreditPdfImportAction } from "@/src/actions/credit-import";
+import {
+  getCreditPdfImportJobAction,
+  startCreditPdfImportAction,
+} from "@/src/actions/credit-import";
 import { playActionResult } from "@/src/lib/cuelume";
 import { useCreditPdfImportLock } from "@/src/components/credit-reports/credit-pdf-import-lock";
 
@@ -42,6 +52,7 @@ type UploadOkData = {
  * Híbrido: same-origin bajo 4 MB; upload-url → PUT firmado → confirm a partir de 4 MB
  * (evita el body máximo de Vercel Functions ~4.5 MB).
  * PDFs CREDIT_REPORT/UPDATE_REPORT pueden encolar análisis automático.
+ * Con prominent/allowUndo: tras subir, modal de éxito + panel (sin dropzone) + progreso.
  */
 export function DocumentUploader({
   clientId,
@@ -91,14 +102,21 @@ export function DocumentUploader({
   const [success, setSuccess] = useState<string | null>(null);
   const [analysisInfo, setAnalysisInfo] = useState<UploadAnalysis | null>(null);
   const [pendingDocId, setPendingDocId] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [chosenCaseId, setChosenCaseId] = useState("");
   const [casePending, startCaseTransition] = useTransition();
 
   const maxBytes = getUploadMaxBytesForCategory(category);
   const maxMbLabel = formatUploadMaxMb(maxBytes);
+  const showPostUploadPanel =
+    Boolean(pendingDocId) && (prominent || allowUndo);
+  const analysisQueued =
+    analysisInfo?.status === "queued" || analysisInfo?.status === "existing";
 
   function applyUploadResult(fileName: string, data: UploadOkData) {
     setPendingDocId(data.id);
+    setUploadedFileName(fileName);
     const analysis = data.analysis ?? null;
     setAnalysisInfo(analysis);
     if (analysis?.openCases?.[0]) {
@@ -117,7 +135,11 @@ export function DocumentUploader({
         progressPath: analysis.progressPath,
         fileName,
       });
-      setSuccess(`“${fileName}” listo. ${analysis.message ?? ""}`.trim());
+    }
+
+    if (prominent || allowUndo) {
+      setSuccess(null);
+      setSuccessModalOpen(true);
     } else if (analysis?.message) {
       setSuccess(`“${fileName}” listo. ${analysis.message}`);
     } else {
@@ -130,6 +152,8 @@ export function DocumentUploader({
     setSuccess(null);
     setAnalysisInfo(null);
     setPendingDocId(null);
+    setUploadedFileName(null);
+    setSuccessModalOpen(false);
 
     if (!allowedTypes.includes(file.type)) {
       setError(
@@ -354,7 +378,7 @@ export function DocumentUploader({
         jobId: result.data.jobId,
         caseId: result.data.caseId,
         progressPath: result.data.progressPath,
-        fileName: null,
+        fileName: uploadedFileName,
       });
       setAnalysisInfo({
         status: "queued",
@@ -363,8 +387,12 @@ export function DocumentUploader({
         progressPath: result.data.progressPath,
         message: "Análisis encolado para el caso elegido.",
       });
-      setSuccess("Análisis encolado. Puedes cerrar la app y volver luego.");
-      router.push(result.data.progressPath);
+      if (showPostUploadPanel) {
+        setSuccess(null);
+      } else {
+        setSuccess("Análisis encolado. Puedes cerrar la app y volver luego.");
+        router.push(result.data.progressPath);
+      }
     });
   }
 
@@ -373,11 +401,8 @@ export function DocumentUploader({
     if (file) void uploadFile(file);
   }
 
-  const analysisQueued =
-    analysisInfo?.status === "queued" || analysisInfo?.status === "existing";
-
-  async function undoUpload() {
-    if (!pendingDocId || undoing) return;
+  async function undoUpload(): Promise<string | void> {
+    if (!pendingDocId || undoing) return "Espera un momento…";
     const wasQueued = analysisQueued;
     setUndoing(true);
     setError(null);
@@ -402,10 +427,12 @@ export function DocumentUploader({
         });
         playActionResult(false);
         setError(classified.message);
-        return;
+        return classified.message;
       }
       setPendingDocId(null);
       setAnalysisInfo(null);
+      setUploadedFileName(null);
+      setSuccessModalOpen(false);
       releaseLock();
       playActionResult(true);
       setSuccess(
@@ -417,41 +444,49 @@ export function DocumentUploader({
       router.refresh();
     } catch (err) {
       playActionResult(false);
-      setError(
-        classifyUploadError({
-          error: err,
-          phase: "delete",
-        }).message,
-      );
+      const message = classifyUploadError({
+        error: err,
+        phase: "delete",
+      }).message;
+      setError(message);
+      return message;
     } finally {
       setUndoing(false);
     }
   }
 
+  const modalTitle = pdfOnly ? "PDF listo" : "Documento listo";
+  const modalBody = [
+    uploadedFileName ? `“${uploadedFileName}”` : null,
+    analysisInfo?.message,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <div className="space-y-3">
       {error ? <Alert tone="error">{error}</Alert> : null}
-      {success ? <Alert tone="success">{success}</Alert> : null}
-      {allowUndo && pendingDocId && success ? (
-        <div className="space-y-2">
-          {analysisQueued ? (
-            <p className="text-xs text-text-secondary">
-              Deshacer quita el archivo. El análisis ya encolado no se cancela.
-            </p>
-          ) : null}
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={undoing || busy !== null}
-            onClick={() => {
-              void undoUpload();
-            }}
-          >
-            {undoing ? "Quitando…" : "Deshacer"}
-          </Button>
-        </div>
+      {!showPostUploadPanel && success ? (
+        <Alert tone="success">{success}</Alert>
       ) : null}
+      {showPostUploadPanel && success && !pendingDocId ? (
+        <Alert tone="success">{success}</Alert>
+      ) : null}
+
+      <Modal
+        open={successModalOpen}
+        onClose={() => setSuccessModalOpen(false)}
+        title={modalTitle}
+        footer={
+          <Button type="button" onClick={() => setSuccessModalOpen(false)}>
+            Entendido
+          </Button>
+        }
+      >
+        <p className="text-sm leading-relaxed text-text-secondary-strong">
+          {modalBody || "El archivo se guardó correctamente."}
+        </p>
+      </Modal>
 
       {/* Fallback: sin permiso cases.manage (STAFF+ auto-crea el caso al subir). */}
       {analysisInfo?.status === "needs_case" ? (
@@ -494,7 +529,8 @@ export function DocumentUploader({
         </div>
       ) : null}
 
-      {analysisInfo &&
+      {!showPostUploadPanel &&
+      analysisInfo &&
       (analysisInfo.status === "queued" || analysisInfo.status === "existing") &&
       analysisInfo.progressPath ? (
         <Alert tone="info">
@@ -512,14 +548,68 @@ export function DocumentUploader({
         <Alert tone="info">{analysisInfo.message}</Alert>
       ) : null}
 
-      {showCategoryStep ? (
+      {showPostUploadPanel && pendingDocId ? (
+        <div className="space-y-4 rounded-surface border border-border-subtle bg-surface-app px-5 py-5">
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-full bg-success-soft text-success-ink">
+              <CheckCircle2 className="size-5" aria-hidden />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[15px] font-semibold text-ink">
+                {uploadedFileName
+                  ? `“${uploadedFileName}” subido`
+                  : "Documento subido"}
+              </p>
+              <p className="mt-0.5 text-[13px] text-text-secondary">
+                {analysisQueued
+                  ? "El análisis corre en el servidor."
+                  : "El archivo quedó guardado."}
+              </p>
+            </div>
+          </div>
+
+          {allowUndo ? (
+            <ConfirmDialog
+              title="¿Quitar este PDF?"
+              message={
+                analysisQueued
+                  ? "Se eliminará el archivo. El análisis ya encolado no se cancela."
+                  : "Se eliminará el archivo que acabas de subir."
+              }
+              confirmLabel="Quitar"
+              cancelLabel="Cancelar"
+              danger
+              onConfirm={undoUpload}
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  disabled={undoing || busy !== null}
+                >
+                  {undoing ? "Quitando…" : "Deshacer"}
+                </Button>
+              }
+            />
+          ) : null}
+
+          {analysisInfo?.jobId ? (
+            <CreditUploadProgress
+              jobId={analysisInfo.jobId}
+              progressPath={analysisInfo.progressPath}
+            />
+          ) : null}
+        </div>
+      ) : null}
+
+      {showCategoryStep && !showPostUploadPanel ? (
         <p className="text-xs text-text-secondary">
           Paso {step} de 2 ·{" "}
           {step === 1 ? "Tipo de documento" : "Subir archivo"}
         </p>
       ) : null}
 
-      {step === 1 ? (
+      {!showPostUploadPanel && step === 1 ? (
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="block">
@@ -565,7 +655,9 @@ export function DocumentUploader({
             </Button>
           </div>
         </div>
-      ) : (
+      ) : null}
+
+      {!showPostUploadPanel && step === 2 ? (
         <div className="space-y-2">
           {showCategoryStep ? (
             <button
@@ -701,7 +793,126 @@ export function DocumentUploader({
             </button>
           )}
         </div>
-      )}
+      ) : null}
+    </div>
+  );
+}
+
+function CreditUploadProgress({
+  jobId,
+  progressPath,
+}: {
+  jobId: string;
+  progressPath?: string;
+}) {
+  const [status, setStatus] = useState<string>("QUEUED");
+  const [progress, setProgress] = useState(5);
+  const [phaseLabel, setPhaseLabel] = useState<string | null>("En cola");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [path, setPath] = useState(progressPath ?? null);
+
+  useEffect(() => {
+    let cancelled = false;
+    let intervalId: number | undefined;
+
+    async function tick() {
+      const result = await getCreditPdfImportJobAction(jobId);
+      if (cancelled) return;
+      if (!result.ok) {
+        setErrorMessage(result.error);
+        return;
+      }
+      const job = result.data;
+      setStatus(job.status);
+      setProgress(Math.max(job.progress, 5));
+      setPhaseLabel(job.phaseLabel);
+      setPath(job.progressPath);
+      if (job.status === "FAILED") {
+        setErrorMessage(job.errorMessage ?? "El análisis falló.");
+      }
+      if (job.status !== "QUEUED" && job.status !== "RUNNING" && intervalId) {
+        window.clearInterval(intervalId);
+        intervalId = undefined;
+      }
+    }
+
+    void tick();
+    intervalId = window.setInterval(() => {
+      void tick();
+    }, 2000);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) window.clearInterval(intervalId);
+    };
+  }, [jobId]);
+
+  const running = status === "QUEUED" || status === "RUNNING";
+  const succeeded = status === "SUCCEEDED";
+  const failed = status === "FAILED";
+
+  return (
+    <div className="space-y-2">
+      {running ? (
+        <>
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="text-sm font-medium text-ink">Analizando PDF…</p>
+            <p className="text-xs text-text-secondary">{progress}%</p>
+          </div>
+          <div
+            className="h-2 overflow-hidden rounded-full bg-surface-muted"
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Progreso del análisis"
+          >
+            <div
+              className="h-full bg-action-primary transition-all duration-500"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-xs text-text-secondary">
+            {phaseLabel ?? "Procesando"}
+            {" · "}
+            reportes largos: varios minutos (varias pasadas de IA)
+          </p>
+        </>
+      ) : null}
+
+      {succeeded ? (
+        <Alert tone="success">
+          Análisis listo.{" "}
+          {path ? (
+            <Link href={path} className="font-medium underline">
+              Revisar propuesta
+            </Link>
+          ) : null}
+        </Alert>
+      ) : null}
+
+      {failed ? (
+        <Alert tone="error">
+          {errorMessage ?? "El análisis falló."}
+          {path ? (
+            <>
+              {" "}
+              <Link href={path} className="font-medium underline">
+                Ver detalle
+              </Link>
+            </>
+          ) : null}
+        </Alert>
+      ) : null}
+
+      {running && path ? (
+        <Link
+          href={path}
+          className="inline-block text-xs font-medium text-action-primary underline"
+        >
+          Abrir análisis
+        </Link>
+      ) : null}
     </div>
   );
 }

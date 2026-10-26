@@ -11,7 +11,8 @@ import {
 } from "@/src/lib/storage/policy";
 import { processCreditPdfImportJob } from "@/src/server/credit-import/jobs";
 
-export const maxDuration = 60;
+/** after() procesa el PDF; 5 ventanas OpenRouter free suelen superar 10 min. */
+export const maxDuration = 800;
 
 const metaSchema = z.object({
   clientId: z.string().min(1),

@@ -195,6 +195,7 @@ No hay cron de Vercel. Se disparan desde [cron-job.org](https://cron-job.org/en/
 | Job | Ruta | Frecuencia | Qué hace |
 | --- | --- | --- | --- |
 | Correos | `GET /api/cron/mails-sync` | 1 min | Importa IMAP, avisa una sola vez por mensaje. |
+| PDF crédito | `GET /api/cron/credit-pdf-import` | 1–2 min | Recupera análisis PDF QUEUED/RUNNING (lease vencido) y auto-confirma elegibles. |
 | Recordatorios | `GET /api/cron/reminders` | 15 min | Tareas, revisiones, pagos, follow-ups. |
 | Resumen | `GET /api/cron/digest` | 1 h | Correo a owner/admin a la hora configurada. |
 | Retención | `GET /api/cron/retention` | 1 día | Hard-delete en S3 de documentos vencidos. |

@@ -11,8 +11,8 @@ import {
 } from "@/src/lib/storage/policy";
 import { processCreditPdfImportJob } from "@/src/server/credit-import/jobs";
 
-/** after() procesa el PDF; 5 ventanas OpenRouter free suelen superar 10 min. */
-export const maxDuration = 800;
+/** after() arranca el PDF; Hobby Vercel limita a 300s (sigue el cron si corta). */
+export const maxDuration = 300;
 
 const metaSchema = z.object({
   clientId: z.string().min(1),

@@ -199,18 +199,43 @@ export function windowNeedsRetry(finishReason: string | null | undefined): boole
   return finishReason === "length";
 }
 
+/**
+ * Extrae ventanas con reanudación (seed) y pool de concurrencia.
+ * `seed` rellena índices ya hechos (checkpoint); no se vuelven a llamar.
+ */
 export async function extractWindowsWithCheckpoint<T>(input: {
   windowCount: number;
+  /** @deprecated Preferir `seed` (incluye valores). */
   completed?: ReadonlySet<number>;
+  seed?: ReadonlyMap<number, T>;
+  /** Default 1 (serie). PDF: 2 para free tier. */
+  concurrency?: number;
   run: (index: number, attempt: 1 | 2) => Promise<{ finishReason: string | null; value: T }>;
 }): Promise<{ values: T[]; retried: number[]; incomplete: number[]; called: number[] }> {
-  const completed = input.completed ?? new Set<number>();
-  const values: T[] = [];
+  const windowCount = Math.max(0, input.windowCount);
+  const values: Array<T | undefined> = Array.from({ length: windowCount });
+  const seed = input.seed ?? new Map<number, T>();
+  const completed = new Set<number>(input.completed ?? []);
+  for (const [index, value] of seed) {
+    if (index < 0 || index >= windowCount) continue;
+    values[index] = value;
+    completed.add(index);
+  }
+
+  const pending: number[] = [];
+  for (let index = 0; index < windowCount; index += 1) {
+    if (values[index] !== undefined) continue;
+    // `completed` sin seed: no re-llamar (smoke legacy); el valor no está en el array.
+    if (completed.has(index)) continue;
+    pending.push(index);
+  }
+
   const retried: number[] = [];
   const incomplete: number[] = [];
   const called: number[] = [];
-  for (let index = 0; index < input.windowCount; index += 1) {
-    if (completed.has(index)) continue;
+  const concurrency = Math.max(1, Math.min(input.concurrency ?? 1, pending.length || 1));
+
+  async function runOne(index: number) {
     called.push(index);
     let result = await input.run(index, 1);
     if (windowNeedsRetry(result.finishReason)) {
@@ -219,9 +244,28 @@ export async function extractWindowsWithCheckpoint<T>(input: {
       result = await input.run(index, 2);
       if (windowNeedsRetry(result.finishReason)) incomplete.push(index);
     }
-    values.push(result.value);
+    values[index] = result.value;
   }
-  return { values, retried, incomplete, called };
+
+  let cursor = 0;
+  async function worker() {
+    while (cursor < pending.length) {
+      const index = pending[cursor]!;
+      cursor += 1;
+      await runOne(index);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: concurrency }, () => worker()),
+  );
+
+  return {
+    values: values as T[],
+    retried,
+    incomplete,
+    called,
+  };
 }
 
 export function assessExtractionCoverage(input: {

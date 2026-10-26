@@ -32,6 +32,18 @@ import {
   type CreditPdfExtractionProposal,
 } from "../../src/lib/validation/credit-import";
 import { createCreditReportSchema } from "../../src/lib/validation/credit-reports";
+import {
+  assertFreeOpenRouterModel,
+  CREDIT_PDF_DEFAULT_FREE_MODEL,
+  isFreeOpenRouterModel,
+  resolveOpenRouterModelId,
+} from "../../src/lib/ai/openrouter";
+import {
+  AI_CHECKPOINT_MARKER,
+  checkpointToSeed,
+  parseCreditPdfAiCheckpoint,
+  upsertCheckpointWindow,
+} from "../../src/server/credit-import/ai-checkpoint";
 
 let failed = 0;
 function check(label: string, ok: boolean) {
@@ -395,7 +407,102 @@ async function checkpoint() {
   check("la salida cortada bloquea métricas", partial.metricsBlocked && partial.pipelineVersion === "t07-2026-10-20");
 }
 
-checkpoint()
+async function seedAndConcurrency() {
+  const active = new Set<number>();
+  let peak = 0;
+  const calls: number[] = [];
+  const seed = new Map<number, number>([[0, 100]]);
+  const result = await extractWindowsWithCheckpoint({
+    windowCount: 4,
+    seed,
+    concurrency: 2,
+    run: async (index) => {
+      calls.push(index);
+      active.add(index);
+      peak = Math.max(peak, active.size);
+      await new Promise((r) => setTimeout(r, 20));
+      active.delete(index);
+      return { finishReason: "stop", value: index + 1 };
+    },
+  });
+  check("seed reanuda sin rellamar índice 0", !calls.includes(0));
+  check("seed conserva valor 0 y completa el resto", result.values[0] === 100 && result.values[1] === 2 && result.values[3] === 4);
+  check("concurrencia 2 no dispara más de 2 a la vez", peak <= 2 && peak >= 1);
+  check("llamó solo pendientes", calls.length === 3);
+}
+
+function freeModelOnly() {
+  check(
+    "default PDF es :free concreto",
+    CREDIT_PDF_DEFAULT_FREE_MODEL.endsWith(":free") &&
+      CREDIT_PDF_DEFAULT_FREE_MODEL !== "openrouter/free",
+  );
+  check("gemma free pasa", isFreeOpenRouterModel("google/gemma-4-26b-a4b-it:free"));
+  check("router free pasa", isFreeOpenRouterModel("openrouter/free"));
+  check("flash de pago no pasa", !isFreeOpenRouterModel("google/gemini-2.5-flash"));
+  let rejected = false;
+  try {
+    assertFreeOpenRouterModel("google/gemini-2.5-flash");
+  } catch {
+    rejected = true;
+  }
+  check("assert rechaza modelo de pago", rejected);
+  const prevPdf = process.env.CREDIT_PDF_OPENROUTER_MODEL;
+  const prevModel = process.env.OPENROUTER_MODEL;
+  delete process.env.CREDIT_PDF_OPENROUTER_MODEL;
+  delete process.env.OPENROUTER_MODEL;
+  check(
+    "resolve credit-pdf usa default free",
+    resolveOpenRouterModelId("credit-pdf") === CREDIT_PDF_DEFAULT_FREE_MODEL,
+  );
+  process.env.CREDIT_PDF_OPENROUTER_MODEL = "openai/gpt-4o";
+  let paidRejected = false;
+  try {
+    resolveOpenRouterModelId("credit-pdf");
+  } catch {
+    paidRejected = true;
+  }
+  check("env de pago en CREDIT_PDF se rechaza", paidRejected);
+  if (prevPdf === undefined) delete process.env.CREDIT_PDF_OPENROUTER_MODEL;
+  else process.env.CREDIT_PDF_OPENROUTER_MODEL = prevPdf;
+  if (prevModel === undefined) delete process.env.OPENROUTER_MODEL;
+  else process.env.OPENROUTER_MODEL = prevModel;
+}
+
+function aiCheckpointHelpers() {
+  const stub = creditPdfExtractionProposalSchema.parse({
+    documentKind: "CREDIT_BUREAU_REPORT",
+    confidence: "medium",
+    warnings: [],
+  });
+  const first = upsertCheckpointWindow(null, {
+    windowTotal: 3,
+    windowIndex: 1,
+    proposal: stub,
+  });
+  check("checkpoint marca parcial", first[AI_CHECKPOINT_MARKER] === true && first.windows.length === 1);
+  const second = upsertCheckpointWindow(first, {
+    windowTotal: 3,
+    windowIndex: 0,
+    proposal: stub,
+  });
+  check("checkpoint acumula índices", second.windows.map((w) => w.index).join(",") === "0,1");
+  const seed = checkpointToSeed(second);
+  check("checkpoint → seed", seed.size === 2 && seed.has(0) && seed.has(1));
+  check(
+    "parse ignora JSON de propuesta final",
+    parseCreditPdfAiCheckpoint(stub) === null,
+  );
+  check(
+    "parse acepta checkpoint",
+    parseCreditPdfAiCheckpoint(second)?.windows.length === 2,
+  );
+}
+
+freeModelOnly();
+aiCheckpointHelpers();
+
+Promise.all([checkpoint(), seedAndConcurrency()])
   .then(() => {
     if (failed > 0) {
       console.error(`\nFAIL credit-pdf-chunk-merge (${failed})`);

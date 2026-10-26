@@ -32,6 +32,12 @@ import {
 } from "./job-lease";
 import { buildProposalFromDocumentBytes } from "./proposal-from-document";
 import {
+  checkpointToSeed,
+  parseCreditPdfAiCheckpoint,
+  upsertCheckpointWindow,
+  type CreditPdfAiCheckpoint,
+} from "./ai-checkpoint";
+import {
   settleFailedCreditPdfImportNotify,
   settlePendingFailedCreditPdfImportNotifies,
   settleSucceededCreditPdfImportEffects,
@@ -738,17 +744,40 @@ export async function runClaimedCreditPdfImportJob(
 
     await setPhase(jobId, leaseToken, "extract");
     await setPhase(jobId, leaseToken, "ai");
+
+    // Reanudar ventanas tras timeout Hobby (proposalJson = checkpoint parcial).
+    let aiCheckpoint: CreditPdfAiCheckpoint | null = parseCreditPdfAiCheckpoint(
+      job.proposalJson,
+    );
+    const windowSeed = checkpointToSeed(aiCheckpoint);
+    let checkpointWrite: Promise<void> = Promise.resolve();
+    // Progreso monótono con concurrencia 2 (índices fuera de orden no bajan la barra).
+    let maxAiProgress =
+      windowSeed.size > 0
+        ? Math.min(88, 40 + Math.round((windowSeed.size / 5) * 48))
+        : 40;
+    if (windowSeed.size > 0) {
+      logJob("ai_checkpoint_resume", {
+        jobId,
+        seededWindows: windowSeed.size,
+      });
+    }
+
     const built = await buildProposalFromDocumentBytes({
       pdfBytes,
       fileName: fileName || "reporte.pdf",
+      windowSeed: windowSeed.size > 0 ? windowSeed : undefined,
+      concurrency: 2,
       // Renovar lease ANTES de cada llamada OpenRouter (puede durar minutos).
       onWindowStart: async ({ windowIndex, windowTotal }) => {
+        const raw = Math.min(
+          88,
+          40 + Math.round((windowIndex / Math.max(windowTotal, 1)) * 48),
+        );
+        maxAiProgress = Math.max(maxAiProgress, raw);
         await touchLease(jobId, leaseToken, {
           phase: "ai",
-          progress: Math.min(
-            88,
-            40 + Math.round((windowIndex / Math.max(windowTotal, 1)) * 48),
-          ),
+          progress: maxAiProgress,
         });
         logJob("ai_window_start", {
           jobId,
@@ -756,19 +785,35 @@ export async function runClaimedCreditPdfImportJob(
           windowTotal,
         });
       },
-      onWindowComplete: async ({ windowIndex, windowTotal }) => {
-        await touchLease(jobId, leaseToken, {
-          phase: "ai",
-          progress: Math.min(
+      onWindowComplete: async ({ windowIndex, windowTotal, proposal }) => {
+        // Serializar writes: concurrencia 2 no debe pisar el checkpoint.
+        checkpointWrite = checkpointWrite.then(async () => {
+          aiCheckpoint = upsertCheckpointWindow(aiCheckpoint, {
+            windowTotal,
+            windowIndex,
+            proposal,
+          });
+          const raw = Math.min(
             90,
-            40 + Math.round(((windowIndex + 1) / Math.max(windowTotal, 1)) * 50),
-          ),
+            40 +
+              Math.round(
+                (aiCheckpoint!.windows.length / Math.max(windowTotal, 1)) * 50,
+              ),
+          );
+          maxAiProgress = Math.max(maxAiProgress, raw);
+          await touchLease(jobId, leaseToken, {
+            phase: "ai",
+            progress: maxAiProgress,
+            proposalJson: aiCheckpoint as unknown as Prisma.InputJsonValue,
+          });
+          logJob("ai_window", {
+            jobId,
+            windowIndex,
+            windowTotal,
+            checkpointWindows: aiCheckpoint!.windows.length,
+          });
         });
-        logJob("ai_window", {
-          jobId,
-          windowIndex,
-          windowTotal,
-        });
+        await checkpointWrite;
       },
     });
 

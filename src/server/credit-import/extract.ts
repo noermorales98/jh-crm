@@ -279,12 +279,15 @@ function scoreWindowFor(pages: readonly PdfPageText[], text: string): PlannedWin
  * No acepta ni envía bytes del archivo (PR-SEC-PII).
  * PDFs largos: varias ventanas + mergeExtractionProposals + heurística de scores.
  *
- * `onWindowStart` / `onWindowComplete` — renovar lease antes y después de cada
- * llamada OpenRouter (una ventana puede superar el lease si no se renueva).
+ * `onWindowStart` / `onWindowComplete` — renovar lease / checkpoint.
+ * `windowSeed` — reanudar tras timeout (ventanas ya hechas).
+ * Concurrencia 2 por defecto (free tier OpenRouter).
  */
 export async function classifyAndExtractFromPdf(input: {
   extract: PdfExtractResult;
   fileName: string;
+  windowSeed?: ReadonlyMap<number, CreditPdfExtractionProposal>;
+  concurrency?: number;
   onWindowStart?: (info: {
     windowIndex: number;
     windowTotal: number;
@@ -294,9 +297,17 @@ export async function classifyAndExtractFromPdf(input: {
     windowIndex: number;
     windowTotal: number;
     scoreFocused: boolean;
+    proposal: CreditPdfExtractionProposal;
   }) => Promise<void>;
 }): Promise<CreditPdfExtractionProposal> {
-  const { extract, fileName, onWindowStart, onWindowComplete } = input;
+  const {
+    extract,
+    fileName,
+    windowSeed,
+    concurrency = 2,
+    onWindowStart,
+    onWindowComplete,
+  } = input;
 
   const pages = extract.pages ?? [{ page: 1, text: extract.text, empty: extract.text.trim().length === 0 }];
   const emptyPages = pages.filter((page) => page.empty).length;
@@ -326,6 +337,8 @@ export async function classifyAndExtractFromPdf(input: {
   });
   const extracted = await extractWindowsWithCheckpoint({
     windowCount: budget.windows.length,
+    seed: windowSeed,
+    concurrency,
     run: async (index, _attempt) => {
       const window = budget.windows[index]!;
       const scoreFocused = budget.scoreWindowIndex === index;
@@ -348,19 +361,24 @@ export async function classifyAndExtractFromPdf(input: {
         scoreFocused,
       });
       const result = await generateText({
-        model: createOpenRouterModel(),
+        model: createOpenRouterModel({ purpose: "credit-pdf" }),
         system: prompt.system,
         prompt: prompt.prompt,
         maxRetries: 1,
       });
+      const proposal = stampWindow(
+        normalizeProposal(parseJsonObject(result.text)),
+        window,
+        index,
+      );
       if (onWindowComplete) {
-        await onWindowComplete(windowInfo);
+        await onWindowComplete({ ...windowInfo, proposal });
       }
       const finishReason =
         result.finishReason == null ? null : String(result.finishReason);
       return {
         finishReason,
-        value: stampWindow(normalizeProposal(parseJsonObject(result.text)), window, index),
+        value: proposal,
       };
     },
   });

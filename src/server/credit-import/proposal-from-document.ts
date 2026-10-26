@@ -30,6 +30,8 @@ export function suggestedReportTypeFromProposal(
 export async function buildProposalFromDocumentBytes(input: {
   pdfBytes: Uint8Array | Buffer;
   fileName: string;
+  windowSeed?: Parameters<typeof classifyAndExtractFromPdf>[0]["windowSeed"];
+  concurrency?: number;
   onWindowStart?: Parameters<
     typeof classifyAndExtractFromPdf
   >[0]["onWindowStart"];
@@ -45,6 +47,8 @@ export async function buildProposalFromDocumentBytes(input: {
   const proposal = await classifyAndExtractFromPdf({
     extract,
     fileName: input.fileName,
+    windowSeed: input.windowSeed,
+    concurrency: input.concurrency,
     onWindowStart: input.onWindowStart,
     onWindowComplete: input.onWindowComplete,
   });

@@ -1,6 +1,23 @@
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { DomainError } from "@/src/server/errors";
 
-const FREE_MODEL = process.env.OPENROUTER_MODEL?.trim() || "openrouter/free";
+/** Router free genérico (chat / fallback). */
+export const OPENROUTER_FREE_ROUTER = "openrouter/free";
+
+/**
+ * Default PDF: modelo free concreto (no el router). Catálogo OpenRouter gratis.
+ * Override: CREDIT_PDF_OPENROUTER_MODEL (debe ser :free).
+ */
+export const CREDIT_PDF_DEFAULT_FREE_MODEL =
+  "google/gemma-4-26b-a4b-it:free";
+
+const CREDIT_PDF_FREE_FALLBACKS = [
+  CREDIT_PDF_DEFAULT_FREE_MODEL,
+  "google/gemma-4-31b-it:free",
+  OPENROUTER_FREE_ROUTER,
+] as const;
+
+export type OpenRouterPurpose = "default" | "credit-pdf";
 
 function apiKeys(): string[] {
   return [
@@ -13,23 +30,72 @@ export function isOpenRouterConfigured(): boolean {
   return apiKeys().length > 0;
 }
 
+/** Solo IDs gratuitos de OpenRouter. */
+export function isFreeOpenRouterModel(modelId: string): boolean {
+  const id = modelId.trim();
+  if (!id) return false;
+  if (id === OPENROUTER_FREE_ROUTER) return true;
+  return id.endsWith(":free");
+}
+
+export function assertFreeOpenRouterModel(modelId: string): string {
+  const id = modelId.trim();
+  if (!isFreeOpenRouterModel(id)) {
+    throw new DomainError(
+      `Solo se permiten modelos gratuitos de OpenRouter (sufijo :free o ${OPENROUTER_FREE_ROUTER}). Recibido: ${id}`,
+    );
+  }
+  return id;
+}
+
+export function resolveOpenRouterModelId(
+  purpose: OpenRouterPurpose = "default",
+): string {
+  if (purpose === "credit-pdf") {
+    const fromEnv =
+      process.env.CREDIT_PDF_OPENROUTER_MODEL?.trim() ||
+      process.env.OPENROUTER_MODEL?.trim() ||
+      CREDIT_PDF_DEFAULT_FREE_MODEL;
+    return assertFreeOpenRouterModel(fromEnv);
+  }
+  const fromEnv =
+    process.env.OPENROUTER_MODEL?.trim() || OPENROUTER_FREE_ROUTER;
+  return assertFreeOpenRouterModel(fromEnv);
+}
+
+function fallbackModels(primary: string, purpose: OpenRouterPurpose): string[] {
+  if (purpose === "credit-pdf") {
+    const list = [primary, ...CREDIT_PDF_FREE_FALLBACKS].filter(
+      (id, index, arr) => isFreeOpenRouterModel(id) && arr.indexOf(id) === index,
+    );
+    return list;
+  }
+  return [primary];
+}
+
 /**
  * Cliente OpenRouter con rotación de API key si la primaria responde 429/402.
- * El modelo por defecto es el router gratuito (`openrouter/free`), que elige
- * un modelo :free con las capacidades que pide la llamada (p. ej. tools).
+ * `purpose: "credit-pdf"` usa CREDIT_PDF_OPENROUTER_MODEL (solo :free).
+ * Chat / default: OPENROUTER_MODEL o openrouter/free.
  */
-export function createOpenRouterModel() {
+export function createOpenRouterModel(
+  options?: { purpose?: OpenRouterPurpose },
+) {
+  const purpose = options?.purpose ?? "default";
   const keys = apiKeys();
   if (keys.length === 0) {
     throw new Error("Falta OPENROUTER_API_KEY.");
   }
+
+  const modelId = resolveOpenRouterModelId(purpose);
+  const models = fallbackModels(modelId, purpose);
 
   const openrouter = createOpenRouter({
     apiKey: keys[0],
     appName: "J&H CRM",
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "https://jh-multiservices.com",
     extraBody: {
-      models: [FREE_MODEL],
+      models,
       provider: { allow_fallbacks: true, require_parameters: true },
     },
     fetch: async (url, init) => {
@@ -46,5 +112,5 @@ export function createOpenRouterModel() {
     },
   });
 
-  return openrouter(FREE_MODEL);
+  return openrouter(modelId);
 }

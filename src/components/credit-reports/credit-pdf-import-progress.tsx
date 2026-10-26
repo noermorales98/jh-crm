@@ -74,6 +74,8 @@ type JobView = {
     hasDateOfBirth: boolean;
   } | null;
   progressPath: string;
+  reportId?: string | null;
+  reportPath?: string | null;
 };
 
 function empty(v: string | null | undefined) {
@@ -274,10 +276,51 @@ export function CreditPdfImportProgressClient({
   }
 
   const running = job.status === "QUEUED" || job.status === "RUNNING";
+  const autoApplied =
+    job.status === "SUCCEEDED" &&
+    job.phase === "confirmed" &&
+    Boolean(job.reportPath || job.reportId || proposal?.review?.reportId);
+
+  useEffect(() => {
+    if (!autoApplied) return;
+    dismissReadyChip(jobId);
+    releaseLock();
+    const target =
+      job.reportPath ??
+      (job.reportId
+        ? `/crm/casos/${caseId}/credito/reportes/${job.reportId}`
+        : proposal?.review?.reportId
+          ? `/crm/casos/${caseId}/credito/reportes/${proposal.review.reportId}`
+          : null);
+    if (!target) return;
+    const t = window.setTimeout(() => {
+      router.replace(target);
+      router.refresh();
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [
+    autoApplied,
+    caseId,
+    dismissReadyChip,
+    job.reportId,
+    job.reportPath,
+    jobId,
+    proposal?.review?.reportId,
+    releaseLock,
+    router,
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {error ? <Alert tone="error">{error}</Alert> : null}
+
+      {autoApplied ? (
+        <div className="space-y-3 rounded-xl bg-surface-elevated p-6 ring-1 ring-border-subtle">
+          <Alert tone="success">
+            Reporte aplicado al expediente. Redirigiendo…
+          </Alert>
+        </div>
+      ) : null}
 
       {running ? (
         <div className="space-y-4 rounded-xl bg-surface-elevated p-6 ring-1 ring-border-subtle">
@@ -348,7 +391,7 @@ export function CreditPdfImportProgressClient({
         </div>
       ) : null}
 
-      {job.status === "SUCCEEDED" && proposal ? (
+      {job.status === "SUCCEEDED" && proposal && !autoApplied ? (
         <div className="space-y-4 rounded-xl bg-surface-elevated p-6 ring-1 ring-border-subtle">
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-[-0.02em] text-ink">

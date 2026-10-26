@@ -806,10 +806,12 @@ function CreditUploadProgress({
   progressPath?: string;
 }) {
   const [status, setStatus] = useState<string>("QUEUED");
+  const [phase, setPhase] = useState<string | null>(null);
   const [progress, setProgress] = useState(5);
   const [phaseLabel, setPhaseLabel] = useState<string | null>("En cola");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [path, setPath] = useState(progressPath ?? null);
+  const [reportPath, setReportPath] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -824,9 +826,11 @@ function CreditUploadProgress({
       }
       const job = result.data;
       setStatus(job.status);
+      setPhase(job.phase);
       setProgress(Math.max(job.progress, 5));
       setPhaseLabel(job.phaseLabel);
       setPath(job.progressPath);
+      setReportPath(job.reportPath ?? null);
       if (job.status === "FAILED") {
         setErrorMessage(job.errorMessage ?? "El análisis falló.");
       }
@@ -848,8 +852,11 @@ function CreditUploadProgress({
   }, [jobId]);
 
   const running = status === "QUEUED" || status === "RUNNING";
-  const succeeded = status === "SUCCEEDED";
+  const applied = status === "SUCCEEDED" && phase === "confirmed";
+  const needsReview =
+    status === "SUCCEEDED" && phase !== "confirmed" && phase !== "confirming";
   const failed = status === "FAILED";
+  const successHref = reportPath ?? path;
 
   return (
     <div className="space-y-2">
@@ -880,9 +887,20 @@ function CreditUploadProgress({
         </>
       ) : null}
 
-      {succeeded ? (
+      {applied ? (
         <Alert tone="success">
-          Análisis listo.{" "}
+          Reporte aplicado al expediente.{" "}
+          {successHref ? (
+            <Link href={successHref} className="font-medium underline">
+              Ver reporte
+            </Link>
+          ) : null}
+        </Alert>
+      ) : null}
+
+      {needsReview ? (
+        <Alert tone="info">
+          Análisis listo — requiere revisión.{" "}
           {path ? (
             <Link href={path} className="font-medium underline">
               Revisar propuesta

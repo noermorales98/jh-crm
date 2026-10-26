@@ -6,6 +6,7 @@ import { prisma } from "@/src/lib/db";
 import { writeAuditLog } from "@/src/server/audit";
 import { createNotification } from "@/src/server/notifications";
 import { creditPdfExtractionProposalSchema } from "@/src/lib/validation/credit-import";
+import { autoConfirmCreditPdfImportIfEligible } from "./auto-confirm";
 
 function progressPath(caseId: string, jobId: string) {
   return `/crm/casos/${caseId}/credito/importaciones/${jobId}`;
@@ -107,11 +108,14 @@ export async function settlePendingFailedCreditPdfImportNotifies(
   return settled;
 }
 
+function reportPath(caseId: string, reportId: string) {
+  return `/crm/casos/${caseId}/credito/reportes/${reportId}`;
+}
+
 /**
- * Efectos post-SUCCEEDED (auditoría + notificación "Análisis listo").
+ * Efectos post-SUCCEEDED (auditoría + notificación).
  * Idempotente bajo concurrencia vía FOR UPDATE en la fila del job.
- * No re-analiza el PDF. Si phase === "confirmed" (jobs antiguos con
- * effectsSettledAt null): asienta auditoría y marca settled sin "Análisis listo".
+ * Si phase === "confirmed": avisa «Reporte aplicado»; si no, «revisa y confirma».
  */
 export async function settleSucceededCreditPdfImportEffects(
   jobId: string,
@@ -144,6 +148,13 @@ export async function settleSucceededCreditPdfImportEffects(
       if (job.effectsSettledAt) return "settled" as const;
 
       const alreadyConfirmed = job.phase === "confirmed";
+      const parsed = creditPdfExtractionProposalSchema.safeParse(
+        job.proposalJson,
+      );
+      const reportId =
+        alreadyConfirmed && parsed.success
+          ? parsed.data.review?.reportId ?? null
+          : null;
 
       const existingAudit = await tx.auditLog.findFirst({
         where: {
@@ -155,9 +166,6 @@ export async function settleSucceededCreditPdfImportEffects(
         select: { id: true },
       });
       if (!existingAudit) {
-        const parsed = creditPdfExtractionProposalSchema.safeParse(
-          job.proposalJson,
-        );
         await writeAuditLog(
           {
             organizationId: job.organizationId,
@@ -179,7 +187,24 @@ export async function settleSucceededCreditPdfImportEffects(
         );
       }
 
-      if (!alreadyConfirmed) {
+      if (alreadyConfirmed) {
+        await createNotification(
+          {
+            organizationId: job.organizationId,
+            userId: job.createdById,
+            type: "CREDIT_PDF_IMPORT",
+            title: "Reporte de crédito aplicado",
+            body: `${job.fileName || "reporte.pdf"}: ya está en el expediente.`,
+            link: reportId
+              ? reportPath(job.caseId, reportId)
+              : progressPath(job.caseId, job.id),
+            dedupeKey: doneNotifyDedupeKey(job.id),
+            skipWhatsapp: true,
+            skipEmail: true,
+          },
+          tx,
+        );
+      } else {
         await createNotification(
           {
             organizationId: job.organizationId,
@@ -220,6 +245,19 @@ export async function settleSucceededCreditPdfImportEffects(
 export async function settlePendingSucceededCreditPdfImportEffects(
   limit: number,
 ): Promise<number> {
+  const pendingConfirm = await prisma.creditPdfImportJob.findMany({
+    where: {
+      status: "SUCCEEDED",
+      NOT: { phase: { in: ["confirmed", "confirming"] } },
+    },
+    orderBy: [{ finishedAt: "asc" }, { id: "asc" }],
+    take: Math.max(1, limit),
+    select: { id: true },
+  });
+  for (const row of pendingConfirm) {
+    await autoConfirmCreditPdfImportIfEligible(row.id);
+  }
+
   const candidates = await prisma.creditPdfImportJob.findMany({
     where: {
       status: "SUCCEEDED",

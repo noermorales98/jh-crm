@@ -37,6 +37,7 @@ import {
   settleSucceededCreditPdfImportEffects,
   settlePendingSucceededCreditPdfImportEffects,
 } from "./job-effects";
+import { autoConfirmCreditPdfImportIfEligible } from "./auto-confirm";
 
 export {
   settleFailedCreditPdfImportNotify,
@@ -844,6 +845,14 @@ export async function runClaimedCreditPdfImportJob(
     return failOrRequeue(jobId, leaseToken, attempts, message);
   }
 
+  // Publicar al expediente cuando la propuesta es elegible (sin UI de confirmar).
+  const auto = await autoConfirmCreditPdfImportIfEligible(jobId);
+  logJob("auto_confirm", {
+    jobId,
+    applied: auto.applied,
+    reason: auto.applied ? null : auto.reason,
+  });
+
   // Análisis ya persistido como SUCCEEDED: no reintentar PDF si fallan efectos.
   const settled = await settleSucceededCreditPdfImportEffects(jobId);
   if (settled === "pending") {
@@ -994,6 +1003,11 @@ export async function getCreditPdfImportJob(
     proposal = parsed.success ? parsed.data : null;
   }
 
+  const reportId =
+    job.phase === "confirmed" && proposal?.review?.reportId
+      ? proposal.review.reportId
+      : null;
+
   return {
     id: job.id,
     caseId: job.caseId,
@@ -1003,7 +1017,9 @@ export async function getCreditPdfImportJob(
     phase: job.phase,
     phaseLabel: job.phase && job.phase in PHASES
       ? PHASES[job.phase as CreditPdfJobPhase].label
-      : null,
+      : job.phase === "confirmed"
+        ? "Confirmado"
+        : null,
     progress: job.progress,
     fileName: job.fileName,
     errorMessage: job.errorMessage,
@@ -1029,6 +1045,10 @@ export async function getCreditPdfImportJob(
     finishedAt: job.finishedAt,
     createdAt: job.createdAt,
     progressPath: progressPath(job.caseId, job.id),
+    reportId,
+    reportPath: reportId
+      ? `/crm/casos/${job.caseId}/credito/reportes/${reportId}`
+      : null,
   };
 }
 

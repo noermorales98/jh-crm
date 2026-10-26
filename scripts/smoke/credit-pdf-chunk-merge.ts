@@ -347,9 +347,11 @@ const emptyCoverage = assessExtractionCoverage({
 });
 check("una página vacía deja la cobertura parcial", emptyCoverage.status === "PARTIAL" && emptyCoverage.metricsBlocked);
 
-const longPlan = planTextWindows("abcdefghij".repeat(8000));
+// Texto > AI_MAX_WINDOWS × AI_TEXT_WINDOW para forzar omisión de presupuesto.
+const huge = "abcdefghij".repeat(15_000); // 150k
+const longPlan = planTextWindows(huge);
 check("el plan de texto no esconde el resto", longPlan.length > AI_MAX_WINDOWS);
-const budgeted = buildExtractionWindows("abcdefghij".repeat(8000));
+const budgeted = buildExtractionWindows(huge);
 check("el presupuesto de llamadas sigue en el máximo", budgeted.windows.length <= AI_MAX_WINDOWS);
 check("lo que no entra al presupuesto queda contado", budgeted.omittedWindows > 0);
 

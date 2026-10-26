@@ -12,7 +12,7 @@
 - UI: Tailwind CSS **4**, componentes propios en `src/components/ui/`, Lucide + Hugeicons, TipTap 3 (contratos/plantillas), `cuelume` / `blobatar`.
 - DB: MySQL remoto. Documentación de producto indica Hostinger. Prisma usa solo `env("DATABASE_URL")`.
 - Storage: S3-compatible (`@aws-sdk/client-s3` + presigner). Variables `S3_*` (no `STORAGE_*`). Pensado para Cloudflare R2 u otro endpoint S3.
-- Otros: OpenRouter (`ai` SDK + `@openrouter/ai-sdk-provider`) para chat CRM y PDF de crédito (**solo modelos `:free`** / `openrouter/free`; PDF usa `CREDIT_PDF_OPENROUTER_MODEL` o Gemma free por defecto, ventanas en paralelo ×2 + checkpoint); jsPDF; IMAP (`imapflow`/`mailparser`) + nodemailer; Zod; cron externo (cron-job.org) contra `/api/cron/*`. No hay `vercel.json`.
+- Otros: OpenRouter (`ai` SDK + `@openrouter/ai-sdk-provider`) para chat CRM y PDF de crédito (**solo `:free`**; PDF default `nvidia/nemotron-3.5-lightning:free`, ventanas ≤3 de ~28k en paralelo ×2 + checkpoint; scores por heurística cuando bastan); jsPDF; IMAP (`imapflow`/`mailparser`) + nodemailer; Zod; cron externo (cron-job.org) contra `/api/cron/*`. No hay `vercel.json`.
 
 Nombre del paquete: `jh-multiservices-crm` (`package.json`).
 

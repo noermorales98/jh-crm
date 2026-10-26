@@ -31,6 +31,7 @@ import {
 } from "./extract-windows";
 import {
   coerceExtractionRaw,
+  extractScoreSnapshotsFromText,
   mergeExtractionProposals,
   mergeHeuristicScores,
   withObservationQuality,
@@ -331,9 +332,15 @@ export async function classifyAndExtractFromPdf(input: {
 
   requireAi();
   const planned = planPageWindows(pages);
+  // Si la heurística ya saca scores, no gastar una llamada AI solo en scores.
+  const heuristicScores = extractScoreSnapshotsFromText(extract.text);
+  const scoreWindow =
+    heuristicScores.length >= 2
+      ? null
+      : scoreWindowFor(pages, extract.text);
   const budget = budgetPageWindows({
     windows: planned.windows,
-    scoreWindow: scoreWindowFor(pages, extract.text),
+    scoreWindow,
   });
   const extracted = await extractWindowsWithCheckpoint({
     windowCount: budget.windows.length,

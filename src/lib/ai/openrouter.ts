@@ -5,15 +5,17 @@ import { DomainError } from "@/src/server/errors";
 export const OPENROUTER_FREE_ROUTER = "openrouter/free";
 
 /**
- * Default PDF: modelo free concreto (no el router). Catálogo OpenRouter gratis.
+ * Default PDF: free “lightning” (más rápido que Gemma 26B/31B).
  * Override: CREDIT_PDF_OPENROUTER_MODEL (debe ser :free).
+ * Nota: minimax flash :free ya no está en el catálogo gratis actual.
  */
 export const CREDIT_PDF_DEFAULT_FREE_MODEL =
-  "google/gemma-4-26b-a4b-it:free";
+  "nvidia/nemotron-3.5-lightning:free";
 
 const CREDIT_PDF_FREE_FALLBACKS = [
   CREDIT_PDF_DEFAULT_FREE_MODEL,
-  "google/gemma-4-31b-it:free",
+  "poolside/laguna-xs-2.1:free",
+  "google/gemma-4-26b-a4b-it:free",
   OPENROUTER_FREE_ROUTER,
 ] as const;
 

@@ -303,7 +303,7 @@ async function main() {
 
     void multiOpen;
 
-    // --- 0 casos: cliente sintético sin CreditCase ---
+    // --- 0 casos: cliente sintético sin CreditCase → auto-crea OPEN + encola ---
     const lonely = await prisma.client.create({
       data: {
         organizationId: member.organizationId,
@@ -321,10 +321,51 @@ async function main() {
       sizePad: 1_200,
       name: "zerocase",
     });
-    check("0 casos: needs_case", zero.analysis?.status === "needs_case", zero.analysis);
+    check("0 casos: queued", zero.analysis?.status === "queued", zero.analysis);
     check(
-      "0 casos: sin job",
-      (await prisma.creditPdfImportJob.count({ where: { documentId: zero.id } })) === 0,
+      "0 casos: job creado",
+      (await prisma.creditPdfImportJob.count({ where: { documentId: zero.id } })) === 1,
+    );
+    const autoCase = await prisma.creditCase.findFirst({
+      where: { clientId: lonely.id, organizationId: member.organizationId, state: "OPEN" },
+      select: { id: true, serviceCaseId: true },
+    });
+    check("0 casos: CreditCase OPEN creado", !!autoCase, autoCase);
+    if (zero.analysis && (zero.analysis.status === "queued" || zero.analysis.status === "existing")) {
+      check(
+        "0 casos: job apunta al caso auto-creado",
+        zero.analysis.caseId === autoCase?.id,
+        { jobCaseId: zero.analysis.caseId, autoCaseId: autoCase?.id },
+      );
+    }
+
+    // VIEWER: documento guardado, sin auto-crear ni encolar
+    const lonelyViewer = await prisma.client.create({
+      data: {
+        organizationId: member.organizationId,
+        clientCode: `SMK-V-${MARK}`.slice(0, 32),
+        firstName: "SmokeViewer",
+        lastName: MARK,
+        status: "LEAD",
+      },
+      select: { id: true },
+    });
+    const viewerZero = await putAndConfirm({
+      category: "CREDIT_REPORT",
+      caseId: null,
+      clientId: lonelyViewer.id,
+      sizePad: 1_100,
+      name: "viewer-zerocase",
+      asCtx: viewerCtx,
+    });
+    check(
+      "VIEWER 0 casos: skipped_permission",
+      viewerZero.analysis?.status === "skipped_permission",
+      viewerZero.analysis,
+    );
+    check(
+      "VIEWER 0 casos: sin CreditCase",
+      (await prisma.creditCase.count({ where: { clientId: lonelyViewer.id } })) === 0,
     );
 
     // --- Continuidad: jobs activos visibles sin nav-lock / session ---
@@ -379,15 +420,37 @@ async function main() {
       });
       await prisma.document.deleteMany({ where: { id: { in: documentIds } } });
     }
-    await prisma.client
-      .deleteMany({
-        where: {
-          organizationId: member.organizationId,
-          lastName: MARK,
-          firstName: "Smoke",
-        },
-      })
-      .catch(() => undefined);
+
+    const smokeClients = await prisma.client.findMany({
+      where: {
+        organizationId: member.organizationId,
+        lastName: MARK,
+        firstName: { in: ["Smoke", "SmokeViewer"] },
+      },
+      select: { id: true },
+    });
+    const smokeClientIds = smokeClients.map((c) => c.id);
+    if (smokeClientIds.length) {
+      const autoCases = await prisma.creditCase.findMany({
+        where: { clientId: { in: smokeClientIds } },
+        select: { id: true, serviceCaseId: true },
+      });
+      for (const c of autoCases) {
+        await prisma.creditCase.delete({ where: { id: c.id } }).catch(() => undefined);
+        await prisma.serviceCaseStageHistory
+          .deleteMany({ where: { serviceCaseId: c.serviceCaseId } })
+          .catch(() => undefined);
+        await prisma.activityLog
+          .deleteMany({ where: { serviceCaseId: c.serviceCaseId } })
+          .catch(() => undefined);
+        await prisma.serviceCase
+          .delete({ where: { id: c.serviceCaseId } })
+          .catch(() => undefined);
+      }
+      await prisma.client
+        .deleteMany({ where: { id: { in: smokeClientIds } } })
+        .catch(() => undefined);
+    }
     for (const key of storageKeys) {
       await deleteObject(key).catch(() => undefined);
     }

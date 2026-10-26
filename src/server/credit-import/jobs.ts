@@ -17,6 +17,7 @@ import {
   type CreditPdfExtractionProposal,
 } from "@/src/lib/validation/credit-import";
 import type { Prisma } from "@prisma/client";
+import { createCreditCase } from "@/src/server/cases";
 import {
   CREDIT_PDF_JOB_CRON_BATCH,
   CREDIT_PDF_JOB_CRON_DEADLINE_BUFFER_MS,
@@ -320,6 +321,8 @@ export async function startCreditPdfImportJob(
 /**
  * Tras crear un Document CREDIT_REPORT/UPDATE_REPORT PDF:
  * encola análisis si hay permiso y caso resuelto.
+ * Sin caso OPEN y con cases.manage: crea CREDIT_REPAIR OPEN y encola.
+ * Debe llamarse post-commit del Document (createCreditCase usa su propia tx).
  */
 export async function maybeEnqueueCreditPdfAnalysisAfterUpload(
   ctx: OrganizationContext,
@@ -348,18 +351,36 @@ export async function maybeEnqueueCreditPdfAnalysisAfterUpload(
     };
   }
 
-  const resolution = await resolveCreditCaseForPdfAnalysis(
+  let resolution = await resolveCreditCaseForPdfAnalysis(
     ctx,
     { clientId: input.clientId, caseId: input.caseId },
     db,
   );
 
+  let caseAutoCreated = false;
+
   if (resolution.status === "needs_case") {
-    return {
-      status: "needs_case",
-      message:
-        "Documento guardado. Crea un caso de crédito OPEN para este cliente antes de analizar el PDF.",
+    if (!can(ctx.role, "cases.manage")) {
+      return {
+        status: "needs_case",
+        message:
+          "Documento guardado. Crea un caso de crédito OPEN para este cliente antes de analizar el PDF.",
+      };
+    }
+
+    // createCreditCase abre su propia transacción; no anidar dentro de un tx de Document.
+    const creditCase = await createCreditCase(ctx, {
+      clientId: input.clientId,
+      assignedToId: ctx.userId,
+      summary: "Creado al subir reporte de crédito",
+    });
+    resolution = {
+      status: "resolved",
+      caseId: creditCase.id,
+      clientId: creditCase.clientId,
+      serviceCaseId: creditCase.serviceCaseId,
     };
+    caseAutoCreated = true;
   }
 
   if (resolution.status === "needs_case_choice") {
@@ -399,8 +420,9 @@ export async function maybeEnqueueCreditPdfAnalysisAfterUpload(
       caseId: enqueued.caseId,
       progressPath: enqueued.progressPath,
       shouldProcess: enqueued.shouldProcess,
-      message:
-        "Documento guardado y análisis encolado. Puedes cerrar la app y volver a la página de progreso cuando quieras.",
+      message: caseAutoCreated
+        ? "Caso de crédito creado. Documento guardado y análisis encolado. Puedes cerrar la app y volver a la página de progreso cuando quieras."
+        : "Documento guardado y análisis encolado. Puedes cerrar la app y volver a la página de progreso cuando quieras.",
     };
   }
 

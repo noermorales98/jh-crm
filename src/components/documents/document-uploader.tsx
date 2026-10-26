@@ -453,6 +453,7 @@ export function DocumentUploader({
         </div>
       ) : null}
 
+      {/* Fallback: sin permiso cases.manage (STAFF+ auto-crea el caso al subir). */}
       {analysisInfo?.status === "needs_case" ? (
         <Alert tone="info">
           {analysisInfo.message}{" "}

@@ -196,7 +196,7 @@ export async function confirmUpload(
     category: data.category,
   });
 
-  return prisma.$transaction(async (tx) => {
+  const created = await prisma.$transaction(async (tx) => {
     const document = await tx.document.create({
       data: {
         organizationId: ctx.organizationId,
@@ -231,31 +231,35 @@ export async function confirmUpload(
       tx,
     );
 
-    const analysis = await maybeEnqueueCreditPdfAnalysisAfterUpload(
-      ctx,
-      {
-        documentId: document.id,
-        clientId: data.clientId,
-        caseId: data.caseId,
-        category: data.category,
-        mimeType: data.mimeType,
-      },
-      tx,
-    );
-
-    const linked = await tx.document.findUniqueOrThrow({
-      where: { id: document.id },
-      select: { id: true, storageKey: true, caseId: true, serviceCaseId: true },
-    });
-
     return {
-      id: linked.id,
-      storageKey: linked.storageKey,
-      caseId: linked.caseId,
-      serviceCaseId: linked.serviceCaseId,
-      analysis,
+      id: document.id,
+      storageKey: document.storageKey,
+      caseId: document.caseId,
+      serviceCaseId: document.serviceCaseId,
     };
   });
+
+  // Post-commit: puede auto-crear CreditCase (propia tx) y encolar análisis.
+  const analysis = await maybeEnqueueCreditPdfAnalysisAfterUpload(ctx, {
+    documentId: created.id,
+    clientId: data.clientId,
+    caseId: data.caseId,
+    category: data.category,
+    mimeType: data.mimeType,
+  });
+
+  const linked = await prisma.document.findUniqueOrThrow({
+    where: { id: created.id },
+    select: { id: true, storageKey: true, caseId: true, serviceCaseId: true },
+  });
+
+  return {
+    id: linked.id,
+    storageKey: linked.storageKey,
+    caseId: linked.caseId,
+    serviceCaseId: linked.serviceCaseId,
+    analysis,
+  };
 }
 
 async function getDocumentOrThrow(ctx: OrganizationContext, documentId: string) {

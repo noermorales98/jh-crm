@@ -49,9 +49,9 @@ function Delta({ value }: { value: number | null }) {
 export default async function ComparisonDetailPage({
   params,
 }: {
-  params: Promise<{ caseId: string; comparisonId: string }>;
+  params: Promise<{ clientId: string; caseId: string; comparisonId: string }>;
 }) {
-  const { caseId, comparisonId } = await params;
+  const { clientId, caseId, comparisonId } = await params;
   const ctx = await requireOrganization();
 
   if (!can(ctx.role, "comparisons.view")) notFound();
@@ -75,7 +75,7 @@ export default async function ComparisonDetailPage({
 
       <p className="text-sm text-text-secondary">
         <Link
-          href={`/crm/casos/${caseId}/credito`}
+          href={`/crm/clientes/${clientId}/servicios/${caseId}/credito`}
           className="font-medium text-action-primary hover:text-action-secondary"
         >
           ← Evolución del crédito

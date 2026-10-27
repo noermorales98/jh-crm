@@ -198,7 +198,7 @@ export const MOBILE_BOTTOM_PRIMARY_HREFS = [
   "/crm/dashboard",
   "/crm/tareas",
   "/crm/clientes",
-  "/crm/casos",
+  "/crm/reportes",
 ] as const;
 
 export function isMoreNavPath(

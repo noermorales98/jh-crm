@@ -7,9 +7,10 @@ import { writeAuditLog } from "@/src/server/audit";
 import { createNotification } from "@/src/server/notifications";
 import { creditPdfExtractionProposalSchema } from "@/src/lib/validation/credit-import";
 import { autoConfirmCreditPdfImportIfEligible } from "./auto-confirm";
+import { creditAnalysisHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
 
 function progressPath(caseId: string, jobId: string) {
-  return `/crm/casos/${caseId}/credito/importaciones/${jobId}`;
+  return legacyCaseHref(caseId, `/credito/importaciones/${jobId}`);
 }
 
 function logJob(event: string, data: Record<string, string | number | boolean | null>) {
@@ -108,8 +109,8 @@ export async function settlePendingFailedCreditPdfImportNotifies(
   return settled;
 }
 
-function reportPath(caseId: string, reportId: string) {
-  return `/crm/casos/${caseId}/credito/reportes/${reportId}`;
+function reportPath(reportId: string) {
+  return creditAnalysisHref(reportId);
 }
 
 /**
@@ -196,7 +197,7 @@ export async function settleSucceededCreditPdfImportEffects(
             title: "Reporte de crédito aplicado",
             body: `${job.fileName || "reporte.pdf"}: ya está en el expediente.`,
             link: reportId
-              ? reportPath(job.caseId, reportId)
+              ? reportPath(reportId)
               : progressPath(job.caseId, job.id),
             dedupeKey: doneNotifyDedupeKey(job.id),
             skipWhatsapp: true,

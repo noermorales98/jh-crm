@@ -10,6 +10,7 @@ import {
 } from "@/src/server/errors";
 import { leadMessageCreateSchema, serviceCaseNoteCreateSchema } from "@/src/lib/validation/notes";
 import * as notes from "@/src/server/notes";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 /** NT-001 — Nota humana en la ficha del expediente (ServiceCase). */
 export async function addServiceCaseNoteAction(
@@ -32,8 +33,7 @@ export async function addServiceCaseNoteAction(
     });
 
     if (data.caseId) {
-      revalidatePath(`/crm/casos/${data.caseId}`);
-      revalidatePath(`/crm/casos/${data.caseId}/actividad`);
+      revalidatePath(CASE_ROUTE_PATTERN, "layout");
     }
     if (data.serviceCaseId) {
       revalidatePath(`/crm/expedientes/${data.serviceCaseId}`);

@@ -12,6 +12,7 @@ import {
   labelFor,
 } from "@/src/lib/labels";
 import { formatDate } from "@/src/lib/format";
+import { creditAnalysisHref } from "@/src/lib/routes/case-routes";
 
 type PeekData = Extract<
   Awaited<ReturnType<typeof peekReportAction>>,
@@ -169,7 +170,7 @@ export function ReportPeekModal({
           ) : null}
 
           <Link
-            href={`/crm/casos/${caseId}/credito/reportes/${data.id}`}
+            href={creditAnalysisHref(data.id)}
             className="inline-flex h-8 items-center rounded-control bg-surface-panel px-3 text-xs font-medium text-ink ring-1 ring-border-subtle hover:bg-nav-hover"
             onClick={onClose}
           >

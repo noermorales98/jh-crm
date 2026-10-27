@@ -15,6 +15,7 @@ import {
 } from "@/src/components/ui";
 import { formatDate, formatMoney } from "@/src/lib/format";
 import { PAYMENT_METHOD_LABELS, labelFor } from "@/src/lib/labels";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 type CaseFilter = { id: string; caseCode: string };
 
@@ -149,7 +150,7 @@ export function ClientPaymentsPanel({
                   <TD>
                     {p.case ? (
                       <Link
-                        href={`/crm/casos/${p.case.id}`}
+                        href={caseHref(clientId, p.case.id)}
                         className="font-mono text-xs text-action-primary hover:text-action-secondary"
                       >
                         {p.case.caseCode}

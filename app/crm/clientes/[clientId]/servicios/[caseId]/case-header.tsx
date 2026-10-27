@@ -3,6 +3,7 @@ import Link from "next/link";
 import { PageHeader, StatusPill, Tabs } from "@/src/components/ui";
 import { clientFullName } from "@/src/server/page-helpers";
 import { getCaseSectionVisibility } from "@/src/lib/case-section-visibility";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export interface CaseHeaderData {
   id: string;
@@ -25,7 +26,7 @@ export function CaseHeader({
   creditCase: CaseHeaderData;
   actions?: ReactNode;
 }) {
-  const base = `/crm/casos/${creditCase.id}`;
+  const base = caseHref(creditCase.client.id, creditCase.id);
   const vis = getCaseSectionVisibility(
     creditCase.state,
     creditCase.stage?.key ?? null,

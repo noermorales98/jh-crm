@@ -186,7 +186,7 @@ function main() {
   );
 
   const comparison = readFileSync("src/server/comparisons/index.ts", "utf8");
-  const page = readFileSync("app/crm/casos/[caseId]/comparaciones/[comparisonId]/page.tsx", "utf8");
+  const page = readFileSync("app/crm/clientes/[clientId]/servicios/[caseId]/comparaciones/[comparisonId]/page.tsx", "utf8");
   const pdf = readFileSync("src/lib/pdf/client-progress.ts", "utf8");
   const labels = readFileSync("src/lib/labels.ts", "utf8");
   check("la comparación guardada sigue en DELETED", comparison.includes('if (base && !compare) return "DELETED"'));

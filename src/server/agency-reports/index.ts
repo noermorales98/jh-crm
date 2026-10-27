@@ -8,6 +8,7 @@ import {
   REPORTES_LIMIT,
   type ReportesKind,
 } from "@/src/lib/reports/agency-reportes";
+import { creditAnalysisHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
 
 export type AgencyCreditReportRow = {
   kind: "credit";
@@ -107,7 +108,7 @@ export async function listAgencyReports(
     caseCode: r.case.caseCode,
     itemCount: r._count.items,
     snapshotCount: r._count.snapshots,
-    href: `/crm/casos/${r.caseId}/credito/reportes/${r.id}`,
+    href: creditAnalysisHref(r.id),
   }));
 
   const progressRows: AgencyProgressReportRow[] = progress.map((r) => ({
@@ -120,7 +121,7 @@ export async function listAgencyReports(
     caseCode: r.caseCode,
     periodLabel: r.periodLabel,
     roundLabel: r.roundLabel,
-    href: `/crm/casos/${r.caseId}/reportes/${r.id}`,
+    href: legacyCaseHref(r.caseId, `/reportes/${r.id}`),
   }));
 
   const items = [...creditRows, ...progressRows]

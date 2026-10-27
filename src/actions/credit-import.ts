@@ -27,14 +27,10 @@ import {
   processCreditPdfImportJob,
   startCreditPdfImportJob,
 } from "@/src/server/credit-import/jobs";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateCredit(caseId: string, reportId?: string) {
-  revalidatePath(`/crm/casos/${caseId}`);
-  revalidatePath(`/crm/casos/${caseId}/credito`);
-  revalidatePath(`/crm/casos/${caseId}/documentos`);
-  if (reportId) {
-    revalidatePath(`/crm/casos/${caseId}/credito/reportes/${reportId}`);
-  }
+  revalidatePath(CASE_ROUTE_PATTERN, "layout");
 }
 
 export async function listAnalyzableCreditPdfsAction(

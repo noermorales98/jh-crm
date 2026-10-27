@@ -21,6 +21,7 @@ import type {
 } from "@/src/components/cases/create-case-button";
 import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
 import { CreateIntakeLinkCard } from "@/src/components/intake/create-intake-link-card";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 type MemberOption = { id: string; name: string };
 
@@ -221,7 +222,7 @@ export function ClientQuickAdd({
                 </div>
                 <Link
                   role="menuitem"
-                  href={`/crm/casos/${caseId}/credito`}
+                  href={caseHref(clientId, caseId, "/credito")}
                   className={itemClass}
                   onClick={() => setOpen(false)}
                 >

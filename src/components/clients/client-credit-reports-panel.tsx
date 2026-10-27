@@ -21,6 +21,7 @@ import {
   labelFor,
 } from "@/src/lib/labels";
 import { CreditEvolutionSection } from "@/src/components/credit-reports/credit-evolution-section";
+import { creditAnalysisHref } from "@/src/lib/routes/case-routes";
 
 export function ClientCreditReportsPanel({
   overview,
@@ -44,7 +45,7 @@ export function ClientCreditReportsPanel({
         history={overview.history}
         emptyAction={emptyAction}
         reportHref={(row) =>
-          `/crm/casos/${row.caseId}/credito/reportes/${row.reportId}`
+          creditAnalysisHref(row.reportId)
         }
       />
 
@@ -86,7 +87,7 @@ export function ClientCreditReportsPanel({
                   <TR key={report.id}>
                     <TD>
                       <Link
-                        href={`/crm/casos/${report.caseId}/credito/reportes/${report.id}`}
+                        href={creditAnalysisHref(report.id)}
                         className="font-medium text-action-primary hover:text-action-secondary"
                       >
                         {formatDate(report.reportDate)}

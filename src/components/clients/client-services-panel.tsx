@@ -20,6 +20,7 @@ import type {
   ServiceOption,
   StageOption,
 } from "@/src/components/cases/create-case-button";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 type ServiceCaseRow = {
   id: string;
@@ -99,7 +100,7 @@ export function ClientServicesPanel({
           <TBody>
             {serviceCases.map((sc) => {
               const href = sc.creditCase
-                ? `/crm/casos/${sc.creditCase.id}`
+                ? caseHref(clientId, sc.creditCase.id)
                 : `/crm/expedientes/${sc.id}`;
               return (
                 <TR
@@ -153,7 +154,7 @@ export function ClientServicesPanel({
                 </TD>
                 <TD>
                   <Link
-                    href={`/crm/casos/${c.id}`}
+                    href={caseHref(clientId, c.id)}
                     className="font-medium text-action-primary hover:text-action-secondary"
                   >
                     {c.caseCode}

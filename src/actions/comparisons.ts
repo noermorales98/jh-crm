@@ -14,13 +14,10 @@ import {
   overrideComparisonItemSchema,
 } from "@/src/lib/validation/comparisons";
 import * as comparisonService from "@/src/server/comparisons";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateComparisons(caseId: string, comparisonId?: string) {
-  revalidatePath(`/crm/casos/${caseId}`);
-  revalidatePath(`/crm/casos/${caseId}/credito`);
-  if (comparisonId) {
-    revalidatePath(`/crm/casos/${caseId}/comparaciones/${comparisonId}`);
-  }
+  revalidatePath(CASE_ROUTE_PATTERN, "layout");
 }
 
 export async function createComparison(

@@ -16,11 +16,12 @@ import {
 } from "@/src/lib/validation/common";
 import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import * as caseService from "@/src/server/cases";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateCases(clientId?: string, caseId?: string) {
-  revalidatePath("/crm/casos");
+  revalidatePath(CASE_ROUTE_PATTERN, "layout");
   revalidatePath("/crm/dashboard");
-  if (caseId) revalidatePath(`/crm/casos/${caseId}`);
+  if (caseId) revalidatePath(CASE_ROUTE_PATTERN, "layout");
   if (clientId) {
     revalidatePath(`/crm/clientes/${clientId}`);
     revalidatePath(`/crm/clientes/${clientId}/servicios`);
@@ -119,7 +120,7 @@ export async function updateCaseAmounts(
         data.agreedAmount === undefined ? undefined : data.agreedAmount || null,
     });
     revalidateCases(updated.clientId, updated.id);
-    revalidatePath(`/crm/casos/${updated.id}/pagos`);
+    revalidatePath(CASE_ROUTE_PATTERN, "layout");
     return actionOk({ id: updated.id });
   } catch (error) {
     if (isNextControlError(error)) throw error;

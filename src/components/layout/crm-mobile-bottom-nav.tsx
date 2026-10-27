@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Briefcase,
+  FileBarChart2,
   ClipboardList,
   Ellipsis,
   Home,
@@ -27,7 +27,7 @@ const BOTTOM_ITEMS: readonly {
   { href: "/crm/dashboard", label: "Inicio", icon: Home, match: "exact" },
   { href: "/crm/tareas", label: "Pendientes", icon: ClipboardList, match: "prefix" },
   { href: "/crm/clientes", label: "Clientes", icon: Users, match: "prefix" },
-  { href: "/crm/casos", label: "Casos", icon: Briefcase, match: "prefix" },
+  { href: "/crm/reportes", label: "Reportes", icon: FileBarChart2, match: "prefix" },
 ];
 
 function isActive(pathname: string, href: string, match: "exact" | "prefix") {

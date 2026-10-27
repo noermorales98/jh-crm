@@ -52,6 +52,7 @@ export {
   settlePendingSucceededCreditPdfImportEffects,
   type CreditPdfCreateNotification,
 } from "./job-effects";
+import { creditAnalysisHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
 
 const PHASES = {
   download: { progress: 10, label: "Descargando PDF" },
@@ -72,7 +73,7 @@ class LeaseLostError extends Error {
 }
 
 function progressPath(caseId: string, jobId: string) {
-  return `/crm/casos/${caseId}/credito/importaciones/${jobId}`;
+  return legacyCaseHref(caseId, `/credito/importaciones/${jobId}`);
 }
 
 /** Log seguro: solo ids/status, nunca PDF ni PII. */
@@ -1095,9 +1096,7 @@ export async function getCreditPdfImportJob(
     createdAt: job.createdAt,
     progressPath: progressPath(job.caseId, job.id),
     reportId,
-    reportPath: reportId
-      ? `/crm/casos/${job.caseId}/credito/reportes/${reportId}`
-      : null,
+    reportPath: reportId ? creditAnalysisHref(reportId) : null,
   };
 }
 

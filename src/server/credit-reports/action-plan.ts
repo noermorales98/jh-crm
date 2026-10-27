@@ -57,6 +57,10 @@ export type BureauMetric = {
   utilizationStatus: "KNOWN" | "PARTIAL" | "NOT_APPLICABLE";
   utilizationText: string;
   inquiries: number | null;
+  /** Negativos reportados por este buró. */
+  negatives: number;
+  /** Edad promedio (meses) de cuentas abiertas con fecha de apertura. */
+  avgAgeMonths: number | null;
   scoreOk: boolean;
   utilOk: boolean;
   scoreLabel: string;
@@ -81,7 +85,10 @@ export type ActionPlanPriority = ActionPlanHowTo & {
 export type ClientActionPlan = {
   clientId: string;
   clientName: string;
+  /** Estado (dirección) del cliente, p. ej. "IL". */
+  clientState: string | null;
   reportId: string;
+  caseId: string;
   reportDate: Date;
   newerIncompleteReport: boolean;
   bureaus: BureauMetric[];
@@ -233,7 +240,7 @@ export async function getClientActionPlan(
 ): Promise<ClientActionPlan> {
   const client = await prisma.client.findFirst({
     where: { id: clientId, organizationId: ctx.organizationId },
-    select: { id: true, firstName: true, lastName: true },
+    select: { id: true, firstName: true, lastName: true, state: true },
   });
   if (!client) throw new DomainError("Cliente no encontrado.");
 
@@ -401,6 +408,8 @@ export async function getClientActionPlan(
             status: status === "KNOWN" || status === "PARTIAL" ? status : "UNKNOWN",
           })),
       inquiries,
+      negatives: negativesByBureau.get(bureau) ?? 0,
+      avgAgeMonths: null,
       scoreOk: score != null && score >= SCORE_MIN,
       utilOk: utilization != null && utilization <= UTIL_MAX,
       scoreLabel: labelScore(score),
@@ -440,6 +449,7 @@ export async function getClientActionPlan(
       windowMonths: null,
       legacyInquiryCount: m.inquiries,
     });
+    m.avgAgeMonths = ages.averageKnownMonths;
     const ageOk =
       ages.ageCoverage.total === 0 ||
       ages.ageCoverage.known < ages.ageCoverage.total ||
@@ -527,7 +537,9 @@ export async function getClientActionPlan(
   return {
     clientId,
     clientName,
+    clientState: client.state,
     reportId: report.id,
+    caseId: report.caseId,
     reportDate: report.reportDate,
     newerIncompleteReport,
     bureaus,

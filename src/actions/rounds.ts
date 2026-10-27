@@ -17,10 +17,11 @@ import {
 } from "@/src/lib/validation/common";
 import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import * as roundService from "@/src/server/rounds";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateRounds() {
   revalidatePath("/crm/rondas");
-  revalidatePath("/crm/casos");
+  revalidatePath(CASE_ROUTE_PATTERN, "layout");
   revalidatePath("/crm/dashboard");
 }
 

@@ -37,9 +37,9 @@ export const metadata: Metadata = {
 export default async function CreditReportDetailPage({
   params,
 }: {
-  params: Promise<{ caseId: string; reportId: string }>;
+  params: Promise<{ clientId: string; caseId: string; reportId: string }>;
 }) {
-  const { caseId, reportId } = await params;
+  const { clientId, caseId, reportId } = await params;
   const ctx = await requireOrganization();
 
   if (!can(ctx.role, "creditReports.view")) {
@@ -70,7 +70,7 @@ export default async function CreditReportDetailPage({
 
       <p className="text-sm text-text-secondary">
         <Link
-          href={`/crm/casos/${caseId}/credito`}
+          href={`/crm/clientes/${clientId}/servicios/${caseId}/credito`}
           className="font-medium text-action-primary hover:text-action-secondary"
         >
           ← Evolución del crédito

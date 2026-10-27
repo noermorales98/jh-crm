@@ -20,13 +20,10 @@ import {
 } from "@/src/lib/validation/letters";
 import * as letterService from "@/src/server/letters";
 import * as progressService from "@/src/server/progress-reports";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateRound(caseId: string, roundId: string) {
-  revalidatePath(`/crm/casos/${caseId}`);
-  revalidatePath(`/crm/casos/${caseId}/rondas`);
-  revalidatePath(`/crm/casos/${caseId}/rondas/${roundId}`);
-  revalidatePath(`/crm/casos/${caseId}/documentos`);
-  revalidatePath(`/crm/casos/${caseId}/credito`);
+  revalidatePath(CASE_ROUTE_PATTERN, "layout");
 }
 
 export async function ensureLetterTemplates(): Promise<
@@ -168,12 +165,7 @@ export async function generateClientProgressReport(
     const ctx = await requirePermission("letters.manage");
     const data = generateProgressReportSchema.parse(input);
     const report = await progressService.createClientProgressReport(ctx, data);
-    revalidatePath(`/crm/casos/${data.caseId}`);
-    revalidatePath(`/crm/casos/${data.caseId}/credito`);
-    if (data.roundId) {
-      revalidatePath(`/crm/casos/${data.caseId}/rondas/${data.roundId}`);
-    }
-    revalidatePath(`/crm/casos/${data.caseId}/reportes/${report.id}`);
+    revalidatePath(CASE_ROUTE_PATTERN, "layout");
     return actionOk({ reportId: report.id, caseId: data.caseId });
   } catch (error) {
     if (isNextControlError(error)) throw error;

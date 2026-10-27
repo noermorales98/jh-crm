@@ -8,6 +8,7 @@ import { firstParam, type SearchParams } from "@/src/server/page-helpers";
 import { getClientActionPlan } from "@/src/server/credit-reports/action-plan";
 import { ClientActionPlanView } from "@/src/components/clients/client-action-plan-view";
 import { prisma } from "@/src/lib/db";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export const metadata: Metadata = {
   title: "Plan de Acción",
@@ -61,6 +62,11 @@ export default async function ClientActionPlanPage({
     <ClientActionPlanView
       plan={plan}
       organizationName={org?.name ?? "Agencia"}
+      accountsHref={caseHref(
+        clientId,
+        plan.caseId,
+        `/credito/reportes/${plan.reportId}`,
+      )}
     />
   );
 }

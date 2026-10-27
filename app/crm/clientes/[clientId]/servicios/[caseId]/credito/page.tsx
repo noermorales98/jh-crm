@@ -43,9 +43,9 @@ export const metadata: Metadata = {
 export default async function CaseCreditPage({
   params,
 }: {
-  params: Promise<{ caseId: string }>;
+  params: Promise<{ clientId: string; caseId: string }>;
 }) {
-  const { caseId } = await params;
+  const { clientId, caseId } = await params;
   const ctx = await requireOrganization();
 
   let detail: Awaited<ReturnType<typeof caseService.getCaseDetail>>;
@@ -119,7 +119,7 @@ export default async function CaseCreditPage({
           canManage ? <CreateCreditReportButton caseId={creditCase.id} /> : null
         }
         reportHref={(row) =>
-          `/crm/casos/${row.caseId}/credito/reportes/${row.reportId}`
+          `/crm/clientes/${clientId}/servicios/${row.caseId}/credito/reportes/${row.reportId}`
         }
       />
 
@@ -161,7 +161,7 @@ export default async function CaseCreditPage({
                   <TR key={report.id}>
                     <TD>
                       <Link
-                        href={`/crm/casos/${caseId}/credito/reportes/${report.id}`}
+                        href={`/crm/clientes/${clientId}/servicios/${caseId}/credito/reportes/${report.id}`}
                         className="font-medium text-action-primary hover:text-action-secondary"
                       >
                         {formatDate(report.reportDate)}
@@ -229,7 +229,7 @@ export default async function CaseCreditPage({
                     <TD className="text-right">
                       <div className="flex flex-wrap items-center justify-end gap-3">
                         <Link
-                          href={`/crm/casos/${caseId}/reportes/${report.id}`}
+                          href={`/crm/clientes/${clientId}/servicios/${caseId}/reportes/${report.id}`}
                           className="text-sm font-medium text-action-primary"
                         >
                           Ver
@@ -289,7 +289,7 @@ export default async function CaseCreditPage({
                   <TR key={cmp.id}>
                     <TD>
                       <Link
-                        href={`/crm/casos/${caseId}/comparaciones/${cmp.id}`}
+                        href={`/crm/clientes/${clientId}/servicios/${caseId}/comparaciones/${cmp.id}`}
                         className="font-medium text-action-primary hover:text-action-secondary"
                       >
                         {formatDate(cmp.createdAt)}

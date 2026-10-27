@@ -44,9 +44,9 @@ function asLines(json: Prisma.JsonValue) {
 export default async function ProgressReportPage({
   params,
 }: {
-  params: Promise<{ caseId: string; reportId: string }>;
+  params: Promise<{ clientId: string; caseId: string; reportId: string }>;
 }) {
-  const { caseId, reportId } = await params;
+  const { clientId, caseId, reportId } = await params;
   const ctx = await requireOrganization();
   if (!can(ctx.role, "letters.view")) notFound();
 
@@ -72,8 +72,8 @@ export default async function ProgressReportPage({
     .join(" · ");
 
   const backHref = report.roundId
-    ? `/crm/casos/${caseId}/rondas/${report.roundId}`
-    : `/crm/casos/${caseId}/credito`;
+    ? `/crm/clientes/${clientId}/servicios/${caseId}/rondas/${report.roundId}`
+    : `/crm/clientes/${clientId}/servicios/${caseId}/credito`;
 
   return (
     <ProgressReportHtmlView

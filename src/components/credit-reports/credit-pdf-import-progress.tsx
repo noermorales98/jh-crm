@@ -35,6 +35,7 @@ import {
   PENDING_CONFIRM_REVIEW_HEADING,
   PENDING_CONFIRM_REVIEW_SUB,
 } from "@/src/lib/credit/pending-confirm-copy";
+import { creditAnalysisHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
 
 const CLIENT_KEYS = [
   "firstName",
@@ -276,9 +277,7 @@ export function CreditPdfImportProgressClient({
       playActionResult(true);
       dismissReadyChip(jobId);
       releaseLock();
-      router.push(
-        `/crm/casos/${caseId}/credito/reportes/${result.data.reportId}`,
-      );
+      router.push(creditAnalysisHref(result.data.reportId));
       router.refresh();
     });
   }
@@ -296,9 +295,9 @@ export function CreditPdfImportProgressClient({
     const target =
       job.reportPath ??
       (job.reportId
-        ? `/crm/casos/${caseId}/credito/reportes/${job.reportId}`
+        ? creditAnalysisHref(job.reportId)
         : proposal?.review?.reportId
-          ? `/crm/casos/${caseId}/credito/reportes/${proposal.review.reportId}`
+          ? creditAnalysisHref(proposal.review.reportId)
           : null);
     if (!target) return;
     const t = window.setTimeout(() => {
@@ -393,7 +392,7 @@ export function CreditPdfImportProgressClient({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => router.push(`/crm/casos/${caseId}/credito`)}
+            onClick={() => router.push(legacyCaseHref(caseId, "/credito"))}
           >
             Volver a crédito
           </Button>
@@ -652,7 +651,7 @@ export function CreditPdfImportProgressClient({
               type="button"
               variant="ghost"
               disabled={pending}
-              onClick={() => router.push(`/crm/casos/${caseId}/credito`)}
+              onClick={() => router.push(legacyCaseHref(caseId, "/credito"))}
             >
               Más tarde
             </Button>

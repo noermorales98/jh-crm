@@ -132,10 +132,10 @@ function main() {
   const view = readFileSync("src/components/clients/client-action-plan-view.tsx", "utf8");
   const pdf = readFileSync("src/lib/pdf/action-plan.ts", "utf8");
   check(
-    "la ficha lista las acciones y no abre el ensayo",
+    "la ficha lista las acciones y no inventa puntos FICO",
     view.includes("plan.actions") &&
       view.includes("ACTION_PRIORITY_LABEL") &&
-      !view.includes("Ver cómo solucionar"),
+      view.includes("ACTION_PLAN_POINT_IMPACT_UNAVAILABLE"),
   );
   check(
     "el PDF lista acciones y no imprime puntos",

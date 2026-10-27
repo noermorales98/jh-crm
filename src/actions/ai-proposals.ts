@@ -14,6 +14,7 @@ import { createTask } from "@/src/server/tasks";
 import { writeActivityLog } from "@/src/server/activity";
 import { toActivityContext } from "@/src/server/context";
 import { DomainError } from "@/src/server/errors";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 const applySchema = z.object({
   kind: z.enum(["task", "activity", "status_note"]),
@@ -44,7 +45,7 @@ export async function applyAiProposalAction(
       });
       revalidatePath("/crm/tareas");
       revalidatePath(`/crm/clientes/${data.clientId}`);
-      if (data.caseId) revalidatePath(`/crm/casos/${data.caseId}`);
+      if (data.caseId) revalidatePath(CASE_ROUTE_PATTERN, "layout");
       return actionOk({ id: task.id, kind: "task" });
     }
 
@@ -58,7 +59,7 @@ export async function applyAiProposalAction(
       metadata: { source: "ai_proposal", kind: data.kind },
     });
     revalidatePath(`/crm/clientes/${data.clientId}`);
-    if (data.caseId) revalidatePath(`/crm/casos/${data.caseId}`);
+    if (data.caseId) revalidatePath(CASE_ROUTE_PATTERN, "layout");
     return actionOk({ id: activity.id, kind: data.kind });
   } catch (error) {
     if (isNextControlError(error)) throw error;

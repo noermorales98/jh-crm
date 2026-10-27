@@ -23,6 +23,7 @@ import {
   opportunityUpdateStageSchema,
 } from "@/src/lib/validation/opportunities";
 import * as opportunities from "@/src/server/opportunities";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateOpportunities(clientId?: string, caseId?: string) {
   revalidatePath("/crm/oportunidades", "layout");
@@ -35,8 +36,7 @@ function revalidateOpportunities(clientId?: string, caseId?: string) {
     revalidatePath(`/crm/clientes/${clientId}/servicios`);
   }
   if (caseId) {
-    revalidatePath(`/crm/casos/${caseId}`);
-    revalidatePath("/crm/casos");
+    revalidatePath(CASE_ROUTE_PATTERN, "layout");
   }
 }
 

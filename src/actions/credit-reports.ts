@@ -21,16 +21,13 @@ import {
   getClientNegativeAnalysis,
 } from "@/src/server/credit-reports/action-plan";
 import { z } from "zod";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateCredit(
   caseId: string,
   opts?: { reportId?: string; clientId?: string },
 ) {
-  revalidatePath(`/crm/casos/${caseId}`);
-  revalidatePath(`/crm/casos/${caseId}/credito`);
-  if (opts?.reportId) {
-    revalidatePath(`/crm/casos/${caseId}/credito/reportes/${opts.reportId}`);
-  }
+  revalidatePath(CASE_ROUTE_PATTERN, "layout");
   if (opts?.clientId) {
     revalidatePath(`/crm/clientes/${opts.clientId}`);
     revalidatePath(`/crm/clientes/${opts.clientId}/reportes`);

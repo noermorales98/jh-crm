@@ -18,6 +18,7 @@ import { ClientCreditWorkspace } from "@/src/components/clients/client-credit-wo
 import { ClientOperationalRail } from "@/src/components/clients/client-operational-rail";
 import { RoundsSummaryStrip } from "@/src/components/clients/rounds-summary-strip";
 import { PaymentsSummaryStrip } from "@/src/components/clients/payments-summary-strip";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 type Overview = Awaited<ReturnType<typeof getClientOverview>>;
 
@@ -77,8 +78,8 @@ export function ClientOverviewPanel({
   } = overview;
   const isCreditRepair = activeService?.kind === "CREDIT_REPAIR";
   const caseId = activeService?.creditCaseId ?? null;
-  const caseHref = caseId ? `/crm/casos/${caseId}` : null;
-  const creditHref = caseId ? `/crm/casos/${caseId}/credito` : null;
+  const caseLink = caseId ? caseHref(client.id, caseId) : null;
+  const creditHref = caseId ? caseHref(client.id, caseId, "/credito") : null;
   const hasCreditChrome = Boolean(isCreditRepair && credit);
 
   const avgDelta = credit?.bureaus
@@ -170,9 +171,9 @@ export function ClientOverviewPanel({
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-2">
-                {hasCreditChrome && caseHref ? (
+                {hasCreditChrome && caseLink ? (
                   <>
-                    <ButtonLink href={caseHref} variant="primary" size="sm">
+                    <ButtonLink href={caseLink} variant="primary" size="sm">
                       Ver caso
                     </ButtonLink>
                     {creditHref ? (
@@ -185,7 +186,7 @@ export function ClientOverviewPanel({
                   <ButtonLink
                     href={
                       activeService.creditCaseId
-                        ? `/crm/casos/${activeService.creditCaseId}`
+                        ? caseHref(client.id, activeService.creditCaseId)
                         : `/crm/expedientes/${activeService.serviceCaseId}`
                     }
                     variant="primary"

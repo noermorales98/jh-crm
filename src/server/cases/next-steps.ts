@@ -3,6 +3,7 @@ import { DomainError } from "@/src/server/errors";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { labelFor, ROUND_STATUS_LABELS } from "@/src/lib/labels";
 import type { RoundStatus } from "@prisma/client";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export type CaseNextStep = {
   id: string;
@@ -34,6 +35,7 @@ export async function getCaseNextSteps(
     where: { id: caseId, organizationId: ctx.organizationId },
     select: {
       id: true,
+      clientId: true,
       state: true,
       serviceCase: { select: { nextActionAt: true } },
     },
@@ -41,7 +43,7 @@ export async function getCaseNextSteps(
   if (!creditCase) throw new DomainError("Caso no encontrado.");
 
   const steps: CaseNextStep[] = [];
-  const base = `/crm/casos/${creditCase.id}`;
+  const base = caseHref(creditCase.clientId, creditCase.id);
 
   if (creditCase.state !== "OPEN") {
     const title =

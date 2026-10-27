@@ -20,6 +20,7 @@ import { isServiceCode } from "@/src/server/services/codes";
 import * as caseService from "@/src/server/cases";
 import * as serviceCaseService from "@/src/server/service-cases";
 import { createServiceCaseNote } from "@/src/server/notes";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateServiceCase(
   serviceCaseId: string,
@@ -27,9 +28,9 @@ function revalidateServiceCase(
   caseId?: string | null,
 ) {
   revalidatePath(`/crm/expedientes/${serviceCaseId}`);
-  revalidatePath("/crm/casos");
+  revalidatePath(CASE_ROUTE_PATTERN, "layout");
   revalidatePath("/crm/dashboard");
-  if (caseId) revalidatePath(`/crm/casos/${caseId}`);
+  if (caseId) revalidatePath(CASE_ROUTE_PATTERN, "layout");
   if (clientId) {
     revalidatePath(`/crm/clientes/${clientId}`);
     revalidatePath(`/crm/clientes/${clientId}/servicios`);

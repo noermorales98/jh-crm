@@ -25,8 +25,9 @@ import { CaseAmountsForm } from "@/src/components/cases/case-amounts-form";
 import { CaseNoteForm } from "@/src/components/cases/case-note-form";
 import { CaseNextActionForm } from "@/src/components/cases/case-review-form";
 import { CaseNextStepsCard } from "@/src/components/cases/case-next-steps-card";
-import { CaseHeader } from "@/app/crm/casos/[caseId]/case-header";
+import { CaseHeader } from "@/app/crm/clientes/[clientId]/servicios/[caseId]/case-header";
 import { CreditScoreGauge } from "@/src/components/clients/credit-score-gauge";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 const BUREAU_SHORT: Record<string, string> = {
   EXPERIAN: "EXP",
@@ -168,7 +169,7 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
         <CardHeader
           title="Crédito"
           actions={
-            <ButtonLink href={`/crm/casos/${creditCase.id}/credito`} size="sm" variant="ghost">
+            <ButtonLink href={caseHref(creditCase.client.id, creditCase.id, "/credito")} size="sm" variant="ghost">
               Ver detalle
             </ButtonLink>
           }
@@ -237,7 +238,7 @@ export async function CaseDetailPanel({ caseId }: { caseId: string }) {
                 </span>
                 {" · "}
                 <Link
-                  href={`/crm/casos/${creditCase.id}/rondas`}
+                  href={caseHref(creditCase.client.id, creditCase.id, "/rondas")}
                   className="font-medium text-action-primary hover:text-action-secondary"
                 >
                   Ver rondas

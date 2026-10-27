@@ -15,11 +15,10 @@ import {
   updateDisputeItemSchema,
 } from "@/src/lib/validation/disputes";
 import * as disputeService from "@/src/server/disputes";
+import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 
 function revalidateDisputes(caseId: string, roundId: string) {
-  revalidatePath(`/crm/casos/${caseId}`);
-  revalidatePath(`/crm/casos/${caseId}/rondas`);
-  revalidatePath(`/crm/casos/${caseId}/rondas/${roundId}`);
+  revalidatePath(CASE_ROUTE_PATTERN, "layout");
   revalidatePath("/crm/rondas");
 }
 

@@ -38,6 +38,7 @@ type UploadAnalysis = {
   jobId?: string;
   caseId?: string;
   progressPath?: string;
+  shouldProcess?: boolean;
   openCases?: Array<{ id: string; label: string }>;
 };
 
@@ -51,7 +52,8 @@ type UploadOkData = {
  * Wizard de subida: (1) categoría + sensibilidad → (2) archivo.
  * Híbrido: same-origin bajo 4 MB; upload-url → PUT firmado → confirm a partir de 4 MB
  * (evita el body máximo de Vercel Functions ~4.5 MB).
- * PDFs CREDIT_REPORT/UPDATE_REPORT pueden encolar análisis automático.
+ * PDFs CREDIT_REPORT/UPDATE_REPORT: primero se guarda el archivo; luego el
+ * cliente encola el análisis (startCreditPdfImportAction).
  * Con prominent/allowUndo: tras subir, modal de éxito + panel (sin dropzone) + progreso.
  */
 export function DocumentUploader({
@@ -147,6 +149,43 @@ export function DocumentUploader({
     }
   }
 
+  async function startAnalysisAfterUpload(input: {
+    documentId: string;
+    caseId: string;
+    fileName: string;
+  }) {
+    setBusy("Analizando…");
+    const result = await startCreditPdfImportAction({
+      caseId: input.caseId,
+      documentId: input.documentId,
+    });
+    if (!result.ok) {
+      playActionResult(false);
+      setError(result.error);
+      return;
+    }
+    playActionResult(true);
+    engageLock({
+      jobId: result.data.jobId,
+      caseId: result.data.caseId,
+      progressPath: result.data.progressPath,
+      fileName: input.fileName,
+    });
+    setAnalysisInfo({
+      status: "queued",
+      jobId: result.data.jobId,
+      caseId: result.data.caseId,
+      progressPath: result.data.progressPath,
+      message: "Análisis encolado. Puedes cerrar la app y volver luego.",
+    });
+    if (!(prominent || allowUndo)) {
+      setSuccess(
+        `“${input.fileName}” listo. Análisis encolado. Puedes cerrar la app y volver luego.`,
+      );
+      router.push(result.data.progressPath);
+    }
+  }
+
   async function uploadFile(file: File) {
     setError(null);
     setSuccess(null);
@@ -176,10 +215,35 @@ export function DocumentUploader({
           ? await uploadSameOrigin(file)
           : await uploadPresigned(file);
 
+      // 1) Subida confirmada → UI de “listo”.
       applyUploadResult(file.name, data);
       if (fileRef.current) fileRef.current.value = "";
       await onUploaded?.();
       router.refresh();
+
+      // 2) Análisis solo después de guardar el PDF.
+      if (
+        data.analysis?.status === "ready_to_analyze" &&
+        data.analysis.caseId
+      ) {
+        await startAnalysisAfterUpload({
+          documentId: data.id,
+          caseId: data.analysis.caseId,
+          fileName: file.name,
+        });
+      } else if (
+        data.analysis?.status === "existing" &&
+        data.analysis.shouldProcess !== false &&
+        data.analysis.jobId &&
+        data.analysis.caseId
+      ) {
+        // Job QUEUED previo: arrancar procesamiento ahora (ya no lo hace confirm).
+        await startAnalysisAfterUpload({
+          documentId: data.id,
+          caseId: data.analysis.caseId,
+          fileName: file.name,
+        });
+      }
     } catch (err) {
       const classified = classifyUploadError({
         error: err,

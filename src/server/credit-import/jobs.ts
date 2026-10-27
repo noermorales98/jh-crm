@@ -129,6 +129,13 @@ export type EnqueuedCreditPdfJob = {
 
 export type CreditPdfUploadAnalysisMeta =
   | {
+      /** Documento ya guardado; el cliente debe llamar startCreditPdfImportAction. */
+      status: "ready_to_analyze";
+      caseId: string;
+      message: string;
+    }
+  | {
+      /** @deprecated Jobs ya no se crean en confirm; se mantiene por compat. */
       status: "queued" | "existing";
       jobId: string;
       caseId: string;
@@ -328,9 +335,9 @@ export async function startCreditPdfImportJob(
 
 /**
  * Tras crear un Document CREDIT_REPORT/UPDATE_REPORT PDF:
- * encola análisis si hay permiso y caso resuelto.
- * Sin caso OPEN y con cases.manage: crea CREDIT_REPAIR OPEN y encola.
- * Debe llamarse post-commit del Document (createCreditCase usa su propia tx).
+ * resuelve/crea caso y deja el documento listo para analizar.
+ * No encola ni arranca OpenRouter aquí: primero subida, después análisis
+ * (el cliente llama startCreditPdfImportAction).
  */
 export async function maybeEnqueueCreditPdfAnalysisAfterUpload(
   ctx: OrganizationContext,
@@ -415,33 +422,30 @@ export async function maybeEnqueueCreditPdfAnalysisAfterUpload(
     });
   }
 
-  const enqueued = await enqueueCreditPdfImportJob(
-    ctx,
-    { caseId: resolution.caseId, documentId: input.documentId },
+  // Si ya hay job abierto (p. ej. reintento de confirm), no duplicar: avisar existing.
+  const existing = await findOpenJobForDocument(
+    input.documentId,
+    ctx.organizationId,
     db,
   );
-
-  if (enqueued.created) {
+  if (existing) {
     return {
-      status: "queued",
-      jobId: enqueued.jobId,
-      caseId: enqueued.caseId,
-      progressPath: enqueued.progressPath,
-      shouldProcess: enqueued.shouldProcess,
-      message: caseAutoCreated
-        ? "Caso de crédito creado. Documento guardado y análisis encolado. Puedes cerrar la app y volver a la página de progreso cuando quieras."
-        : "Documento guardado y análisis encolado. Puedes cerrar la app y volver a la página de progreso cuando quieras.",
+      status: "existing",
+      jobId: existing.id,
+      caseId: existing.caseId,
+      progressPath: progressPath(existing.caseId, existing.id),
+      shouldProcess: existing.status === "QUEUED",
+      message:
+        "Documento guardado. Ya había un análisis en curso para este PDF.",
     };
   }
 
   return {
-    status: "existing",
-    jobId: enqueued.jobId,
-    caseId: enqueued.caseId,
-    progressPath: enqueued.progressPath,
-    shouldProcess: enqueued.shouldProcess,
-    message:
-      "Ya hay un análisis abierto para este documento. Abre el progreso para revisarlo.",
+    status: "ready_to_analyze",
+    caseId: resolution.caseId,
+    message: caseAutoCreated
+      ? "Caso de crédito creado. Documento guardado; el análisis empieza a continuación."
+      : "Documento guardado; el análisis empieza a continuación.",
   };
 }
 

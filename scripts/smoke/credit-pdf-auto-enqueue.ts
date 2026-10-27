@@ -1,5 +1,6 @@
 /**
- * Auto-enqueue de CreditPdfImportJob al confirmar PDF CREDIT_REPORT/UPDATE_REPORT.
+ * Tras confirmar PDF CREDIT_REPORT/UPDATE_REPORT: ready_to_analyze (sin job).
+ * El análisis se encola después (startCreditPdfImport / enqueue).
  *
  *   npm run smoke:credit-pdf-auto-enqueue
  *
@@ -45,7 +46,7 @@ async function main() {
     throw new Error("Faltan S3_* para este smoke.");
   }
 
-  console.log("\n[credit-pdf-auto-enqueue] upload → job");
+  console.log("\n[credit-pdf-auto-enqueue] upload → ready → enqueue");
 
   check(
     "estrategia small < 4MB = same-origin",
@@ -113,12 +114,6 @@ async function main() {
       sensitivity: "CONFIDENTIAL",
     });
     documentIds.push(result.id);
-    if (
-      result.analysis &&
-      (result.analysis.status === "queued" || result.analysis.status === "existing")
-    ) {
-      jobIds.push(result.analysis.jobId);
-    }
     return result;
   }
 
@@ -132,22 +127,43 @@ async function main() {
       name: "small",
     });
     check("small: document creado", Boolean(small.id));
-    check("small: analysis queued", small.analysis?.status === "queued", small.analysis);
-    check("small: jobId presente", Boolean(small.analysis && "jobId" in small.analysis));
+    check(
+      "small: ready_to_analyze (sin job aún)",
+      small.analysis?.status === "ready_to_analyze",
+      small.analysis,
+    );
+    check(
+      "small: caseId en meta",
+      small.analysis?.status === "ready_to_analyze" &&
+        small.analysis.caseId === creditCase.id,
+    );
+    check(
+      "small: confirm no crea job",
+      (await prisma.creditPdfImportJob.count({ where: { documentId: small.id } })) ===
+        0,
+    );
+
+    const enqueuedSmall = await enqueueCreditPdfImportJob(ctx, {
+      caseId: creditCase.id,
+      documentId: small.id,
+    });
+    jobIds.push(enqueuedSmall.jobId);
+    check("small: enqueue crea job", enqueuedSmall.created === true);
+    check("small: shouldProcess", enqueuedSmall.shouldProcess === true);
 
     const jobsForSmall = await prisma.creditPdfImportJob.findMany({
       where: { documentId: small.id },
     });
-    check("small: exactamente 1 job", jobsForSmall.length === 1);
+    check("small: exactamente 1 job tras enqueue", jobsForSmall.length === 1);
     check("small: status QUEUED", jobsForSmall[0]?.status === "QUEUED");
 
-    // --- Confirmación / enqueue repetido (idempotencia por documento) ---
+    // --- Enqueue repetido (idempotencia por documento) ---
     const again = await enqueueCreditPdfImportJob(ctx, {
       caseId: creditCase.id,
       documentId: small.id,
     });
-    check("manual tras auto: mismo jobId", again.jobId === jobsForSmall[0]!.id);
-    check("manual tras auto: created=false", again.created === false);
+    check("manual tras enqueue: mismo jobId", again.jobId === jobsForSmall[0]!.id);
+    check("manual tras enqueue: created=false", again.created === false);
 
     const open = await findOpenJobForDocument(small.id, ctx.organizationId);
     check("findOpenJob: uno", open?.id === jobsForSmall[0]!.id);
@@ -170,14 +186,19 @@ async function main() {
       sizePad: largePad,
       name: "large",
     });
-    check("large: analysis queued", large.analysis?.status === "queued", large.analysis);
+    check(
+      "large: ready_to_analyze",
+      large.analysis?.status === "ready_to_analyze",
+      large.analysis,
+    );
+    const enqueuedLarge = await enqueueCreditPdfImportJob(ctx, {
+      caseId: creditCase.id,
+      documentId: large.id,
+    });
+    jobIds.push(enqueuedLarge.jobId);
     check(
       "large: job distinto al small",
-      Boolean(
-        large.analysis &&
-          "jobId" in large.analysis &&
-          large.analysis.jobId !== jobsForSmall[0]!.id,
-      ),
+      enqueuedLarge.jobId !== jobsForSmall[0]!.id,
     );
 
     // --- Sin permiso manage ---
@@ -224,9 +245,8 @@ async function main() {
           name: "onecase",
         });
         check(
-          "1 caso: auto-encolado",
-          autoCase.analysis?.status === "queued" ||
-            autoCase.analysis?.status === "existing",
+          "1 caso: ready_to_analyze",
+          autoCase.analysis?.status === "ready_to_analyze",
           autoCase.analysis,
         );
         check(
@@ -234,6 +254,14 @@ async function main() {
           autoCase.caseId === oneResolved.caseId,
           autoCase.caseId,
         );
+        if (autoCase.analysis?.status === "ready_to_analyze") {
+          const enq = await enqueueCreditPdfImportJob(ctx, {
+            caseId: autoCase.analysis.caseId,
+            documentId: autoCase.id,
+          });
+          jobIds.push(enq.jobId);
+          check("1 caso: enqueue tras upload", enq.created);
+        }
       }
     } else {
       console.log("  · skip 1-caso (no hay cliente con un solo OPEN)");
@@ -303,7 +331,7 @@ async function main() {
 
     void multiOpen;
 
-    // --- 0 casos: cliente sintético sin CreditCase → auto-crea OPEN + encola ---
+    // --- 0 casos: cliente sintético sin CreditCase → auto-crea OPEN; job al enqueue ---
     const lonely = await prisma.client.create({
       data: {
         organizationId: member.organizationId,
@@ -321,22 +349,33 @@ async function main() {
       sizePad: 1_200,
       name: "zerocase",
     });
-    check("0 casos: queued", zero.analysis?.status === "queued", zero.analysis);
     check(
-      "0 casos: job creado",
-      (await prisma.creditPdfImportJob.count({ where: { documentId: zero.id } })) === 1,
+      "0 casos: ready_to_analyze",
+      zero.analysis?.status === "ready_to_analyze",
+      zero.analysis,
+    );
+    check(
+      "0 casos: confirm sin job",
+      (await prisma.creditPdfImportJob.count({ where: { documentId: zero.id } })) ===
+        0,
     );
     const autoCase = await prisma.creditCase.findFirst({
       where: { clientId: lonely.id, organizationId: member.organizationId, state: "OPEN" },
       select: { id: true, serviceCaseId: true },
     });
     check("0 casos: CreditCase OPEN creado", !!autoCase, autoCase);
-    if (zero.analysis && (zero.analysis.status === "queued" || zero.analysis.status === "existing")) {
+    if (zero.analysis?.status === "ready_to_analyze") {
       check(
-        "0 casos: job apunta al caso auto-creado",
+        "0 casos: meta apunta al caso auto-creado",
         zero.analysis.caseId === autoCase?.id,
-        { jobCaseId: zero.analysis.caseId, autoCaseId: autoCase?.id },
+        { metaCaseId: zero.analysis.caseId, autoCaseId: autoCase?.id },
       );
+      const enq = await enqueueCreditPdfImportJob(ctx, {
+        caseId: zero.analysis.caseId,
+        documentId: zero.id,
+      });
+      jobIds.push(enq.jobId);
+      check("0 casos: enqueue crea job", enq.created);
     }
 
     // VIEWER: documento guardado, sin auto-crear ni encolar

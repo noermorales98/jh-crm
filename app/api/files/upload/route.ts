@@ -1,4 +1,4 @@
-import { after, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiPermission } from "@/src/server/auth/guards";
 import { apiErrorResponse } from "@/src/server/http";
@@ -9,10 +9,9 @@ import {
   getUploadMaxBytesForCategory,
   isAllowedMimeType,
 } from "@/src/lib/storage/policy";
-import { processCreditPdfImportJob } from "@/src/server/credit-import/jobs";
 
-/** after() arranca el PDF; Hobby Vercel limita a 300s (sigue el cron si corta). */
-export const maxDuration = 300;
+/** Solo sube y registra el Document. El análisis PDF lo arranca el cliente después. */
+export const maxDuration = 60;
 
 const metaSchema = z.object({
   clientId: z.string().min(1),
@@ -79,16 +78,6 @@ export async function POST(request: Request) {
       sizeBytes: body.byteLength,
       body,
     });
-
-    if (
-      document.analysis &&
-      (document.analysis.status === "queued" ||
-        document.analysis.status === "existing") &&
-      document.analysis.shouldProcess
-    ) {
-      const jobId = document.analysis.jobId;
-      after(() => processCreditPdfImportJob(jobId));
-    }
 
     return NextResponse.json(
       {

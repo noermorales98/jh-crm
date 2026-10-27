@@ -14,6 +14,7 @@ import { FilterPills } from "@/src/components/agency/filter-pills";
 import { ClientsActionBar } from "@/src/components/clients/clients-action-bar";
 import { getOrganizationShareUrl } from "@/src/server/org-share";
 import type { FondifyBucket } from "@/src/lib/fondify/status";
+import { getClientCreditSegments } from "@/src/server/credit-segments";
 
 export const metadata: Metadata = {
   title: "Clientes",
@@ -53,6 +54,9 @@ export default async function ClientsPage({
     getOrganizationShareUrl(ctx),
   ]);
 
+  const segments = can(ctx.role, "creditReports.view")
+    ? await getClientCreditSegments(ctx, result.items.map((c) => c.id))
+    : new Map();
   const active: FondifyBucket | "all" = fondifyStatus ?? "all";
   const visibleCount = fondifyStatus ? counts[fondifyStatus] : counts.all;
 
@@ -114,6 +118,8 @@ export default async function ClientsPage({
               roundNumber={client.roundNumber}
               nextActionAt={client.nextAction?.at ?? null}
               reportsCount={client.reportsCount}
+              creditSegment={segments.get(client.id)?.segment}
+              stale={segments.get(client.id)?.stale}
               isLast={index === result.items.length - 1}
             />
           ))}

@@ -16,6 +16,7 @@ import {
 } from "@/src/server/page-helpers";
 import { AgencyClientDetail } from "@/src/components/clients/agency-client-detail";
 import { qualifyCreditProfile } from "@/src/lib/credit/qualification";
+import { getClientCreditSegments } from "@/src/server/credit-segments";
 import { formatMoney } from "@/src/lib/format";
 import * as creditReports from "@/src/server/credit-reports";
 import * as catalog from "@/src/server/services";
@@ -113,7 +114,7 @@ export default async function ClientSummaryPage({
       ? prisma.quote.findFirst({
           where: { organizationId: ctx.organizationId, clientId },
           orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
-          select: { id: true, status: true },
+          select: { id: true, status: true, total: true, currency: true },
         })
       : Promise.resolve(null),
     canViewContracts
@@ -221,6 +222,10 @@ export default async function ClientSummaryPage({
     createdAt: a.createdAt,
   }));
 
+  const creditSegment = can(ctx.role, "creditReports.view")
+    ? (await getClientCreditSegments(ctx, [clientId])).get(clientId) ?? null
+    : null;
+
   const creditQualification = qualifyCreditProfile({
     hasReport: (overview.credit?.reportCount ?? 0) > 0,
     snapshotCount: overview.credit?.bureaus?.length ?? 0,
@@ -252,6 +257,7 @@ export default async function ClientSummaryPage({
       fullName={clientFullName(overview.client)}
       reportsCount={overview.credit?.reportCount ?? 0}
       creditQualification={creditQualification}
+      creditSegment={creditSegment}
       roundNumber={overview.credit?.round?.roundNumber ?? null}
       nextReviewAt={
         overview.nextAction?.at ??
@@ -338,6 +344,8 @@ export default async function ClientSummaryPage({
           href: latestQuote
             ? `/crm/cotizaciones/${latestQuote.id}`
             : quoteHref,
+          total: latestQuote ? Number(latestQuote.total) : null,
+          currency: latestQuote?.currency ?? null,
         },
         contract: {
           label: contractStatusLabel(latestContract?.status),

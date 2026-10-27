@@ -32,6 +32,7 @@ import {
   MoreHorizontal,
   History,
   type LucideIcon,
+  MessageSquareText,
 } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
 import { Alert, Button } from "@/src/components/ui";
@@ -118,6 +119,8 @@ import type {
   ScoreHistoryPointDto,
 } from "@/src/server/clients/overview";
 import { creditAnalysisHref } from "@/src/lib/routes/case-routes";
+import { CREDIT_SEGMENTS, CREDIT_SEGMENT_SHORT, type CreditSegment } from "@/src/lib/credit/segments";
+import { SalesPitch } from "@/src/components/clients/sales-pitch";
 
 export type AgencyClientDetailProps = {
   client: {
@@ -138,6 +141,8 @@ export type AgencyClientDetailProps = {
   reportsCount: number;
   /** Calificación crediticia (reporte); distinta del pipeline comercial. */
   creditQualification: CreditQualificationResult;
+  /** Calificación por el último reporte (misma matriz que el análisis). */
+  creditSegment?: { segment: CreditSegment; stale: boolean } | null;
   roundNumber: number | null;
   nextReviewAt: Date | null;
   caseId: string | null;
@@ -208,7 +213,14 @@ export type AgencyClientDetailProps = {
   organizationName: string;
   /** Estados cápsulas Cierre (Fondify-like). */
   cierre: {
-    quote: { label: string; id: string | null; href: string };
+    quote: {
+      label: string;
+      id: string | null;
+      href: string;
+      /** Total de la última cotización (para el guion de venta). */
+      total?: number | null;
+      currency?: string | null;
+    };
     contract: {
       label: string;
       id: string | null;
@@ -238,6 +250,7 @@ type Panel =
   | "score"
   | "fondeo"
   | "script"
+  | "pitch"
   | "quote"
   | "contract"
   | "avance"
@@ -639,13 +652,28 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 {props.fullName}
               </h1>
               <FondifyStatusCapsule status={props.client.status} />
-              <CreditQualificationCapsule
-                kind={props.creditQualification.kind}
-                label={props.creditQualification.label}
-              />
+              {props.creditSegment ? (
+                <>
+                  <Capsule
+                    tone={CREDIT_SEGMENTS.find((s) => s.id === props.creditSegment?.segment)?.tone ?? "neutral"}
+                  >
+                    {CREDIT_SEGMENT_SHORT[props.creditSegment.segment]}
+                  </Capsule>
+                  {props.creditSegment.stale ? (
+                    <Capsule tone="warning">Toca actualizar reporte</Capsule>
+                  ) : null}
+                </>
+              ) : (
+                <CreditQualificationCapsule
+                  kind={props.creditQualification.kind}
+                  label={props.creditQualification.label}
+                />
+              )}
             </div>
             <p className="mt-1 text-[12px] text-text-secondary">
-              {props.creditQualification.hint}
+              {props.creditSegment
+                ? CREDIT_SEGMENTS.find((s) => s.id === props.creditSegment?.segment)?.hint
+                : props.creditQualification.hint}
             </p>
             <p className="mt-1 text-[13px] text-text-secondary">
               {props.client.email ?? "Sin correo"}
@@ -923,6 +951,12 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             title="Formulario"
             subtitle={props.cierre.intake.label}
             onClick={() => setPanel("script")}
+          />
+          <ActionCapsule
+            icon={MessageSquareText}
+            title="¿Qué le digo?"
+            subtitle="Guion de venta"
+            onClick={() => setPanel("pitch")}
           />
         </CapsuleGroup>
 
@@ -1260,6 +1294,22 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         </div>
       </AgencyModal>
 
+      <AgencyModal
+        open={panel === "pitch"}
+        onClose={() => setPanel(null)}
+        title="¿Qué le digo al cliente?"
+        size="lg"
+      >
+        {panel === "pitch" ? (
+          <SalesPitch
+            clientFirstName={props.fullName.split(" ")[0] ?? props.fullName}
+            negatives={props.opsMeta.negativeCount}
+            total={props.cierre.quote.total ?? null}
+            currency={props.cierre.quote.currency ?? null}
+            quoteHref={props.cierre.quote.href}
+          />
+        ) : null}
+      </AgencyModal>
       <AgencyModal
         open={panel === "quote"}
         onClose={() => setPanel(null)}

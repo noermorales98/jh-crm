@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
+import { can } from "@/src/server/auth/permissions";
+import { ClientQualification } from "@/src/components/dashboard/client-qualification";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -396,6 +399,12 @@ export default async function DashboardPage() {
           ))}
         </div>
       </section>
+
+      {can(ctx.role, "creditReports.view") ? (
+        <Suspense fallback={null}>
+          <ClientQualification ctx={ctx} />
+        </Suspense>
+      ) : null}
 
       <div className="grid items-stretch gap-8 lg:grid-cols-2">
         <section

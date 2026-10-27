@@ -7,6 +7,7 @@ import {
   reviewInLabel,
 } from "@/src/lib/fondify/status";
 import { Capsule, FondifyStatusCapsule } from "@/src/components/agency/capsule";
+import { CREDIT_SEGMENTS, CREDIT_SEGMENT_SHORT, type CreditSegment } from "@/src/lib/credit/segments";
 
 export { FondifyStatusCapsule as FondifyStatusPill };
 
@@ -18,6 +19,8 @@ export function ClientRowCard({
   roundNumber,
   nextActionAt,
   reportsCount,
+  creditSegment,
+  stale = false,
   isLast = false,
 }: {
   id: string;
@@ -27,6 +30,9 @@ export function ClientRowCard({
   roundNumber: number | null;
   nextActionAt: Date | null;
   reportsCount: number;
+  /** Calificación por el último reporte (opcional). */
+  creditSegment?: CreditSegment;
+  stale?: boolean;
   isLast?: boolean;
 }) {
   const days = nextActionAt ? daysUntil(nextActionAt) : null;
@@ -46,8 +52,14 @@ export function ClientRowCard({
           </span>
           <FondifyStatusCapsule status={status} />
           <Capsule tone="accent">
-            {roundNumber != null ? `Ronda ${roundNumber}` : "Ronda —"}
+            {roundNumber != null ? `Ronda ${roundNumber}` : "Sin ronda"}
           </Capsule>
+          {creditSegment ? (
+            <Capsule tone={CREDIT_SEGMENTS.find((s) => s.id === creditSegment)?.tone ?? "neutral"}>
+              {CREDIT_SEGMENT_SHORT[creditSegment]}
+            </Capsule>
+          ) : null}
+          {stale ? <Capsule tone="warning">Toca actualizar</Capsule> : null}
         </div>
         <p className="mt-1 truncate text-[13px] text-text-secondary">
           {email ?? "Sin correo"}

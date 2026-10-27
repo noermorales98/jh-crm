@@ -32,6 +32,7 @@ import {
   TH,
   THead,
   TR,
+  Tabs,
 } from "@/src/components/ui";
 import { formatDate, formatMoney } from "@/src/lib/format";
 import {
@@ -40,6 +41,7 @@ import {
   PAYMENT_STATUS_LABELS,
 } from "@/src/lib/labels";
 import { PaymentRowActions } from "@/src/components/payments/payment-row-actions";
+import { PAGOS_TABS } from "@/src/lib/nav/section-tabs";
 
 export const metadata: Metadata = {
   title: "Cobrar",
@@ -89,6 +91,7 @@ export default async function PaymentsPage({
           ) : null
         }
       />
+      <Tabs items={PAGOS_TABS} />
 
       <Card className="mb-6">
         <CardBody className="flex flex-wrap items-center justify-between gap-3">

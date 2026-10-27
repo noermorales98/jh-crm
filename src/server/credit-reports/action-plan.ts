@@ -233,6 +233,38 @@ function pickPriorities(input: {
   return list;
 }
 
+/** Reporte que usa el Plan de Acción cuando no se indica uno (el más reciente útil). */
+export async function selectClientActionPlanReport(
+  ctx: OrganizationContext,
+  clientId: string,
+) {
+  const candidates = await prisma.creditReport.findMany({
+    where: { organizationId: ctx.organizationId, clientId },
+    orderBy: [{ reportDate: "desc" }, { importedAt: "desc" }],
+    select: {
+      id: true,
+      reportDate: true,
+      importedAt: true,
+      snapshots: { select: { id: true }, take: 1 },
+      items: { select: { accountType: true, creditLimit: true } },
+    },
+  });
+  const choice = selectActionPlanReport(
+    candidates.map((candidate) => ({
+      id: candidate.id,
+      reportDate: candidate.reportDate.toISOString().slice(0, 10),
+      importedAt: candidate.importedAt.toISOString(),
+      hasSnapshot: candidate.snapshots.length > 0,
+      hasItem: candidate.items.length > 0,
+      usable: candidate.items.some(
+        (item) =>
+          (item.accountType?.trim().length ?? 0) > 0 || item.creditLimit != null,
+      ),
+    })),
+  );
+  return choice;
+}
+
 export async function getClientActionPlan(
   ctx: OrganizationContext,
   clientId: string,
@@ -247,30 +279,7 @@ export async function getClientActionPlan(
   let resolvedReportId = reportId ?? null;
   let newerIncompleteReport = false;
   if (!resolvedReportId) {
-    const candidates = await prisma.creditReport.findMany({
-      where: { organizationId: ctx.organizationId, clientId },
-      orderBy: [{ reportDate: "desc" }, { importedAt: "desc" }],
-      select: {
-        id: true,
-        reportDate: true,
-        importedAt: true,
-        snapshots: { select: { id: true }, take: 1 },
-        items: { select: { accountType: true, creditLimit: true } },
-      },
-    });
-    const choice = selectActionPlanReport(
-      candidates.map((candidate) => ({
-        id: candidate.id,
-        reportDate: candidate.reportDate.toISOString().slice(0, 10),
-        importedAt: candidate.importedAt.toISOString(),
-        hasSnapshot: candidate.snapshots.length > 0,
-        hasItem: candidate.items.length > 0,
-        usable: candidate.items.some(
-          (item) =>
-            (item.accountType?.trim().length ?? 0) > 0 || item.creditLimit != null,
-        ),
-      })),
-    );
+    const choice = await selectClientActionPlanReport(ctx, clientId);
     resolvedReportId = choice.reportId;
     newerIncompleteReport = choice.newerIncomplete;
   }

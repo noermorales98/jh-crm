@@ -21,6 +21,7 @@ import {
 import { searchCrm } from "@/src/server/ai/queries";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 const TAKE = 6;
 
@@ -133,7 +134,7 @@ async function browseCategoryHits(
             caseCode: true,
             state: true,
             stage: { select: { name: true } },
-            client: { select: { firstName: true, lastName: true } },
+            client: { select: { id: true, firstName: true, lastName: true } },
           },
           take: 5,
           orderBy: { openedAt: "desc" },
@@ -145,7 +146,7 @@ async function browseCategoryHits(
               kind: "case",
               title: row.caseCode,
               subtitle: [fullName(row.client), row.stage.name, labelFor(CASE_STATE_LABELS, row.state)].join(" · "),
-              href: `/crm/casos/${row.id}`,
+              href: caseHref(row.client.id, row.id),
               score,
             });
           }
@@ -166,7 +167,7 @@ async function browseCategoryHits(
               select: {
                 id: true,
                 caseCode: true,
-                client: { select: { firstName: true, lastName: true } },
+                client: { select: { id: true, firstName: true, lastName: true } },
               },
             },
           },
@@ -180,7 +181,7 @@ async function browseCategoryHits(
               kind: "round",
               title: `Ronda ${row.roundNumber}`,
               subtitle: [row.case.caseCode, fullName(row.case.client), labelFor(ROUND_STATUS_LABELS, row.status)].join(" · "),
-              href: `/crm/casos/${row.case.id}/rondas`,
+              href: caseHref(row.case.client.id, row.case.id, "/rondas"),
               score,
             });
           }
@@ -199,7 +200,7 @@ async function browseCategoryHits(
             status: true,
             total: true,
             currency: true,
-            client: { select: { firstName: true, lastName: true } },
+            client: { select: { id: true, firstName: true, lastName: true } },
           },
           take: 5,
           orderBy: { issuedAt: "desc" },
@@ -229,7 +230,7 @@ async function browseCategoryHits(
             amount: true,
             currency: true,
             status: true,
-            client: { select: { firstName: true, lastName: true } },
+            client: { select: { id: true, firstName: true, lastName: true } },
           },
           take: 5,
           orderBy: { createdAt: "desc" },

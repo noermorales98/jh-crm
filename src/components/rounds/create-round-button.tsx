@@ -13,6 +13,7 @@ import {
 } from "@/src/components/ui";
 import { createRound } from "@/src/actions/rounds";
 import { playActionResult } from "@/src/lib/cuelume";
+import { useCaseHref } from "@/src/lib/routes/use-case-href";
 
 /**
  * Botón + modal para crear una ronda de disputa en un caso abierto.
@@ -33,6 +34,7 @@ export function CreateRoundButton({
   onCreated?: (roundId: string) => void;
 }) {
   const router = useRouter();
+  const caseLink = useCaseHref();
   const [open, setOpen] = useState(false);
   const [notes, setNotes] = useState("");
   const [lettersCount, setLettersCount] = useState("");
@@ -63,7 +65,7 @@ export function CreateRoundButton({
         return;
       }
       // Legacy push: la ruta de casos redirige al hub con Avance abierto.
-      router.push(`/crm/casos/${caseId}/rondas/${result.data.id}`);
+      router.push(caseLink(caseId, `/rondas/${result.data.id}`));
       router.refresh();
     });
   }

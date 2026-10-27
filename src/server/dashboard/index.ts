@@ -607,12 +607,12 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       },
       openCases: {
         count: openCases,
-        link: "/crm/casos?state=OPEN",
+        link: "/crm/clientes",
       },
       casesWaitingUpdate: {
         count: casesWaitingUpdateItems.length,
         items: casesWaitingUpdateItems,
-        link: "/crm/casos?state=OPEN",
+        link: "/crm/clientes",
       },
       activeRounds: {
         count: activeRounds,
@@ -665,11 +665,11 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       documentsPendingCases: {
         count: documentsPendingCases,
         items: documentsPendingList,
-        link: "/crm/casos?state=OPEN",
+        link: "/crm/clientes",
       },
       reportsToReview: {
         count: reportsToReview,
-        link: "/crm/casos",
+        link: "/crm/clientes",
       },
       roundsToPrepare: {
         count: roundsToPrepare,
@@ -682,7 +682,7 @@ export async function getDashboardSummary(ctx: OrganizationContext) {
       overdueUpdates: {
         count: overdueUpdates,
         items: overdueUpdateItems,
-        link: "/crm/casos?state=OPEN",
+        link: "/crm/clientes",
       },
       overduePayments: {
         count: overduePayments,

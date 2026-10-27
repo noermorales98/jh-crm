@@ -35,7 +35,8 @@ import {
   PENDING_CONFIRM_REVIEW_HEADING,
   PENDING_CONFIRM_REVIEW_SUB,
 } from "@/src/lib/credit/pending-confirm-copy";
-import { creditAnalysisHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
+import { creditAnalysisHref } from "@/src/lib/routes/case-routes";
+import { useCaseHref } from "@/src/lib/routes/use-case-href";
 
 const CLIENT_KEYS = [
   "firstName",
@@ -95,6 +96,7 @@ export function CreditPdfImportProgressClient({
   initialJob: JobView;
 }) {
   const router = useRouter();
+  const caseLink = useCaseHref();
   const { engageLock, releaseLock, dismissReadyChip } =
     useCreditPdfImportLock();
   const [job, setJob] = useState(initialJob);
@@ -392,7 +394,7 @@ export function CreditPdfImportProgressClient({
           <Button
             type="button"
             variant="secondary"
-            onClick={() => router.push(legacyCaseHref(caseId, "/credito"))}
+            onClick={() => router.push(caseLink(caseId, "/credito"))}
           >
             Volver a crédito
           </Button>
@@ -651,7 +653,7 @@ export function CreditPdfImportProgressClient({
               type="button"
               variant="ghost"
               disabled={pending}
-              onClick={() => router.push(legacyCaseHref(caseId, "/credito"))}
+              onClick={() => router.push(caseLink(caseId, "/credito"))}
             >
               Más tarde
             </Button>

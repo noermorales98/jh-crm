@@ -30,10 +30,12 @@ import {
   TH,
   THead,
   TR,
+  Tabs,
 } from "@/src/components/ui";
 import { formatDate, formatMoney } from "@/src/lib/format";
 import { labelFor, PAYMENT_METHOD_LABELS } from "@/src/lib/labels";
 import { VoidReceiptButton } from "@/src/components/receipts/void-receipt-button";
+import { PAGOS_TABS } from "@/src/lib/nav/section-tabs";
 
 export const metadata: Metadata = {
   title: "Recibos",
@@ -76,6 +78,7 @@ export default async function ReceiptsPage({
         title="Recibos"
         description="Recibos emitidos por pagos recibidos. La anulación nunca borra el registro."
       />
+      <Tabs items={PAGOS_TABS} />
 
       <ListToolbar
         filters={

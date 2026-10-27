@@ -65,6 +65,7 @@ import {
   type LeadsViewMode,
 } from "@/src/lib/opportunity-stages";
 import { formatDate, formatDateTime, formatMoney, isPast } from "@/src/lib/format";
+import { caseHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
 
 export type OppCard = {
   id: string;
@@ -1049,7 +1050,7 @@ export function OpportunityKanban({
                 selected.wonCase ?? selected.wonServiceCase?.creditCase ?? null;
               return wonCreditCase ? (
                 <Link
-                  href={`/crm/casos/${wonCreditCase.id}`}
+                  href={selected.client ? caseHref(selected.client.id, wonCreditCase.id) : legacyCaseHref(wonCreditCase.id)}
                   className="inline-flex text-sm font-medium text-action-primary hover:text-action-secondary"
                 >
                   Caso {wonCreditCase.caseCode}

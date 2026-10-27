@@ -24,6 +24,7 @@ import {
   PAYMENT_STATUS_LABELS,
 } from "@/src/lib/labels";
 import { CancelPlanButton } from "@/src/components/payment-plans/cancel-plan-button";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export const metadata: Metadata = {
   title: "Detalle del plan",
@@ -95,7 +96,7 @@ export default async function PaymentPlanDetailPage({
           <>
             {" · "}
             <Link
-              href={`/crm/casos/${plan.case.id}`}
+              href={caseHref(plan.client.id, plan.case.id)}
               className="text-action-primary hover:underline"
             >
               Caso {plan.case.caseCode}

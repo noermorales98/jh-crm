@@ -117,6 +117,7 @@ import type {
   ClientOverviewRound,
   ScoreHistoryPointDto,
 } from "@/src/server/clients/overview";
+import { creditAnalysisHref } from "@/src/lib/routes/case-routes";
 
 export type AgencyClientDetailProps = {
   client: {
@@ -861,9 +862,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             title="Plan de Acción"
             subtitle="Lectura + pasos a dar"
             badge="Nuevo"
-            href={`/crm/clientes/${props.client.id}/plan-de-accion${
-              effectiveReportId ? `?reportId=${effectiveReportId}` : ""
-            }`}
+            href={
+              effectiveReportId
+                ? creditAnalysisHref(effectiveReportId)
+                : `/crm/clientes/${props.client.id}/plan-de-accion`
+            }
           />
           <ActionCapsule
             icon={Search}
@@ -1650,7 +1653,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               <p className="mt-2 text-[12px] text-text-secondary">{PROGRAM_NOT_VERSIONED}</p>
               <p className="mt-2 text-[12px] text-text-secondary">{CAPACITY_NOT_INFERRED}</p>
               <Link
-                href={`/crm/clientes/${props.client.id}/plan-de-accion?reportId=${fundingPrep.reportId}`}
+                href={creditAnalysisHref(fundingPrep.reportId)}
                 className="mt-2 inline-flex text-[12px] font-medium text-action-primary"
               >
                 Ver plan de acción completo →

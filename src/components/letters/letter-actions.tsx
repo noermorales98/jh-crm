@@ -10,6 +10,7 @@ import {
 } from "@/src/actions/letters";
 import { playActionResult } from "@/src/lib/cuelume";
 import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
+import { useCaseHref } from "@/src/lib/routes/use-case-href";
 
 export function LetterActions({
   letterId,
@@ -26,13 +27,14 @@ export function LetterActions({
   roundId: string;
   /** En la tabla de la ronda: solo acciones + enlace Ver. */
   compact?: boolean;
-  /** Si se pasa, Ver no navega a /crm/casos (embed en modal). */
+  /** Si se pasa, Ver no navega a la carta (embed en modal). */
   onViewLetter?: (letterId: string) => void;
   onChanged?: () => void;
 }) {
   const router = useRouter();
+  const caseLink = useCaseHref();
   const [pending, startTransition] = useTransition();
-  const viewHref = `/crm/casos/${caseId}/rondas/${roundId}/cartas/${letterId}`;
+  const viewHref = caseLink(caseId, `/rondas/${roundId}/cartas/${letterId}`);
   const pdfHref = `/api/letters/${letterId}/pdf`;
 
   function afterMutation() {

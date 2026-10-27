@@ -5,6 +5,7 @@ import { actionFail, actionOk, isNextControlError, type ActionResult } from "@/s
 import { getRoundDetail } from "@/src/server/disputes";
 import { getPaymentDetail } from "@/src/server/payments";
 import { getReportPeek } from "@/src/server/credit-reports";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export async function peekRoundAction(
   roundId: string,
@@ -148,7 +149,7 @@ export async function peekReportAction(
       itemsNegative: peek.itemsNegative,
       comparisonAvailable: peek.comparison != null,
       comparisonHref: peek.comparison
-        ? `/crm/casos/${peek.caseId}${peek.comparison.hrefSuffix}`
+        ? caseHref(peek.clientId, peek.caseId, peek.comparison.hrefSuffix)
         : null,
       nearbyEvents: peek.nearbyEvents,
     });

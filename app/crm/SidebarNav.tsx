@@ -33,15 +33,22 @@ type PrimaryItem = {
   icon: LucideIcon;
   mails?: boolean;
   chats?: boolean;
+  /** Rutas hermanas que viven como pestañas de esta sección. */
+  related?: readonly string[];
 };
 
 /** Navegación diaria: Inicio… Mensajes, Chats, Más. */
 const PRIMARY_ITEMS: readonly PrimaryItem[] = [
   { href: "/crm/dashboard", label: "Inicio", icon: Home },
   { href: "/crm/tareas", label: "Pendientes", icon: ClipboardList },
-  { href: "/crm/oportunidades", label: "Leads", icon: Target },
+  { href: "/crm/oportunidades", label: "Ventas", icon: Target, related: ["/crm/consultas"] },
   { href: "/crm/clientes", label: "Clientes", icon: Users },
-  { href: "/crm/pagos", label: "Cobrar", icon: CreditCard },
+  {
+    href: "/crm/pagos",
+    label: "Pagos",
+    icon: CreditCard,
+    related: ["/crm/planes-pago", "/crm/recibos"],
+  },
   { href: "/crm/mails", label: "Mensajes", icon: Inbox, mails: true },
   { href: "/crm/chats", label: "Chats", icon: MessageCircle, chats: true },
 ];
@@ -105,12 +112,14 @@ export function SidebarNav() {
         className="flex-1 space-y-0.5 overflow-y-auto px-2 py-1"
         aria-label="Principal"
       >
-        {PRIMARY_ITEMS.map(({ href, label, icon: Lucide, mails, chats }) => {
+        {PRIMARY_ITEMS.map(({ href, label, icon: Lucide, mails, chats, related }) => {
           const active = mails
             ? inMails
             : chats
               ? inChats
-              : pathname === href || pathname.startsWith(`${href}/`);
+              : [href, ...(related ?? [])].some(
+                  (h) => pathname === h || pathname.startsWith(`${h}/`),
+                );
 
           return (
             <div key={href}>

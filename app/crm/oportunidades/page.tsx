@@ -5,10 +5,11 @@ import * as opportunities from "@/src/server/opportunities";
 import * as clientService from "@/src/server/clients";
 import { listMemberOptions, clientFullName } from "@/src/server/page-helpers";
 import { listVerticalServiceOptions } from "@/src/server/services/verticals";
-import { PageHeader } from "@/src/components/ui";
+import { PageHeader, Tabs } from "@/src/components/ui";
 import { OpportunityKanban } from "@/src/components/opportunities/opportunity-kanban";
 import { CreateLeadButton } from "@/src/components/opportunities/create-lead-button";
 import { CreateOpportunityButton } from "@/src/components/opportunities/create-opportunity-button";
+import { VENTAS_TABS } from "@/src/lib/nav/section-tabs";
 
 export const metadata: Metadata = {
   title: "Leads",
@@ -58,6 +59,7 @@ export default async function LeadsPage() {
           ) : undefined
         }
       />
+      <Tabs items={VENTAS_TABS} />
       <OpportunityKanban
         columns={columns}
         canManage={canManage}

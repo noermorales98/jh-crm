@@ -140,7 +140,7 @@ const CATALOG: CatalogEntry[] = [
     kind: "page",
     title: "Casos",
     subtitle: "Pipeline de crédito",
-    href: "/crm/casos",
+    href: "/crm/clientes",
     aliases: ["casos", "pipeline", "expedientes"],
     permission: "cases.view",
   },

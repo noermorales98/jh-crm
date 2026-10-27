@@ -23,6 +23,7 @@ import {
 import { formatDate, formatDateTime, formatMoney } from "@/src/lib/format";
 import { labelFor, PAYMENT_METHOD_LABELS } from "@/src/lib/labels";
 import { QuoteActions } from "@/src/components/quotes/quote-actions";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 const QUOTE_EVENT_LABELS: Record<string, string> = {
   CREATED: "Creación",
@@ -80,7 +81,7 @@ export async function QuoteDetailPanel({ quoteId }: { quoteId: string }) {
               <>
                 {" · Caso "}
                 <Link
-                  href={`/crm/casos/${quote.case.id}`}
+                  href={caseHref(quote.client.id, quote.case.id)}
                   className="font-medium text-action-primary hover:text-action-secondary"
                 >
                   {quote.case.caseCode}

@@ -39,6 +39,7 @@ import { DomainError } from "@/src/server/errors";
 import * as clientService from "@/src/server/clients";
 import * as caseService from "@/src/server/cases";
 import * as serviceCatalog from "@/src/server/services";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 const SEARCH_LIMIT = 12;
 const LIST_LIMIT = 50;
@@ -352,7 +353,7 @@ export async function getDashboardSnapshot(ctx: OrganizationContext) {
       nextActionAt: serviceCase.nextActionAt,
       client: fullName(serviceCase.client),
       href: serviceCase.caseId
-        ? `/crm/casos/${serviceCase.caseId}`
+        ? caseHref(serviceCase.client.id, serviceCase.caseId)
         : `/crm/clientes/${serviceCase.client.id}/servicios`,
     })),
     pendingPayments: w.pendingPayments.items.map((payment) => ({
@@ -388,7 +389,7 @@ const LIST_PERMISSION: Record<CrmListEntity, PermissionAction> = {
 
 const LIST_HREF: Record<CrmListEntity, string> = {
   clients: "/crm/clientes",
-  cases: "/crm/casos",
+  cases: "/crm/clientes",
   payments: "/crm/pagos",
   tasks: "/crm/tareas",
   quotes: "/crm/cotizaciones",
@@ -525,7 +526,7 @@ export async function listCrm(
           stage: row.stage.name,
           nextReviewAt: row.nextReviewAt,
           client: fullName(row.client),
-          href: `/crm/casos/${row.id}`,
+          href: caseHref(row.client.id, row.id),
         })),
       }),
     );
@@ -621,7 +622,7 @@ export async function listCrm(
           status: true,
           priority: true,
           dueAt: true,
-          client: { select: { firstName: true, lastName: true } },
+          client: { select: { id: true, firstName: true, lastName: true } },
           case: { select: { id: true, caseCode: true } },
         },
         orderBy: [{ dueAt: "asc" }, { id: "desc" }],
@@ -683,7 +684,7 @@ export async function listCrm(
           total: true,
           currency: true,
           issuedAt: true,
-          client: { select: { firstName: true, lastName: true } },
+          client: { select: { id: true, firstName: true, lastName: true } },
         },
         orderBy: { issuedAt: "desc" },
         take: LIST_LIMIT,
@@ -745,7 +746,7 @@ export async function listCrm(
             select: {
               id: true,
               caseCode: true,
-              client: { select: { firstName: true, lastName: true } },
+              client: { select: { id: true, firstName: true, lastName: true } },
             },
           },
         },
@@ -776,7 +777,7 @@ export async function listCrm(
           expectedReviewAt: row.expectedReviewAt,
           caseCode: row.case.caseCode,
           client: fullName(row.case.client),
-          href: `/crm/casos/${row.case.id}/rondas`,
+          href: caseHref(row.case.client.id, row.case.id, "/rondas"),
         })),
       }),
     );
@@ -805,7 +806,7 @@ export async function listCrm(
         amount: true,
         currency: true,
         issuedAt: true,
-        client: { select: { firstName: true, lastName: true } },
+        client: { select: { id: true, firstName: true, lastName: true } },
       },
       orderBy: { issuedAt: "desc" },
       take: LIST_LIMIT,
@@ -974,7 +975,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               status: true,
               priority: true,
               dueAt: true,
-              client: { select: { firstName: true, lastName: true } },
+              client: { select: { id: true, firstName: true, lastName: true } },
               case: { select: { id: true, caseCode: true } },
             },
             take: SEARCH_LIMIT,
@@ -1006,7 +1007,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
                 select: {
                   id: true,
                   caseCode: true,
-                  client: { select: { firstName: true, lastName: true } },
+                  client: { select: { id: true, firstName: true, lastName: true } },
                 },
               },
             },
@@ -1026,7 +1027,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               status: true,
               amount: true,
               currency: true,
-              client: { select: { firstName: true, lastName: true } },
+              client: { select: { id: true, firstName: true, lastName: true } },
             },
             take: SEARCH_LIMIT,
             orderBy: { issuedAt: "desc" },
@@ -1081,7 +1082,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               totalAmount: true,
               currency: true,
               numberOfInstallments: true,
-              client: { select: { firstName: true, lastName: true } },
+              client: { select: { id: true, firstName: true, lastName: true } },
             },
             take: SEARCH_LIMIT,
             orderBy: { updatedAt: "desc" },
@@ -1122,7 +1123,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               status: true,
               version: true,
               signerName: true,
-              client: { select: { firstName: true, lastName: true } },
+              client: { select: { id: true, firstName: true, lastName: true } },
             },
             take: SEARCH_LIMIT,
             orderBy: { updatedAt: "desc" },
@@ -1144,7 +1145,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
               displayName: true,
               status: true,
               rating: true,
-              client: { select: { firstName: true, lastName: true } },
+              client: { select: { id: true, firstName: true, lastName: true } },
             },
             take: SEARCH_LIMIT,
             orderBy: { updatedAt: "desc" },
@@ -1191,7 +1192,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       stage: row.stage.name,
       nextReviewAt: row.nextReviewAt,
       client: fullName(row.client),
-      href: `/crm/casos/${row.id}`,
+      href: caseHref(row.client.id, row.id),
       clientHref: `/crm/clientes/${row.client.id}`,
     })),
     quotes: quotes?.map((row) => ({
@@ -1233,7 +1234,7 @@ export async function searchCrm(ctx: OrganizationContext, rawQuery: string) {
       expectedReviewAt: row.expectedReviewAt,
       caseCode: row.case.caseCode,
       client: fullName(row.case.client),
-      href: `/crm/casos/${row.case.id}/rondas`,
+      href: caseHref(row.case.client.id, row.case.id, "/rondas"),
     })),
     receipts: receipts?.map((row) => ({
       id: row.id,
@@ -1325,12 +1326,12 @@ export async function getClientBrief(ctx: OrganizationContext, clientId: string)
         statusLabel: labelFor(CLIENT_STATUS_LABELS, detail.client.status),
         href: `/crm/clientes/${detail.client.id}`,
         expedienteHref: `/crm/clientes/${detail.client.id}/expediente`,
-        casosHref: `/crm/clientes/${detail.client.id}/casos`,
+        casosHref: `/crm/clientes/${detail.client.id}/servicios`,
         actividadHref: `/crm/clientes/${detail.client.id}/actividad`,
       },
       cases: detail.cases.map((row) => ({
         ...row,
-        href: `/crm/casos/${row.id}`,
+        href: caseHref(detail.client.id, row.id),
       })),
       openTasks: detail.openTasks.map((row) => ({
         ...row,
@@ -1370,12 +1371,12 @@ export async function getCaseBrief(ctx: OrganizationContext, caseId: string) {
     return jsonSafe({
       case: {
         ...detail.case,
-        href: `/crm/casos/${caseId}`,
-        rondasHref: `/crm/casos/${caseId}/rondas`,
-        tareasHref: `/crm/casos/${caseId}/tareas`,
-        documentosHref: `/crm/casos/${caseId}/documentos`,
-        cotizacionesHref: `/crm/casos/${caseId}/cotizaciones`,
-        pagosHref: `/crm/casos/${caseId}/pagos`,
+        href: caseHref(detail.case.client.id, caseId),
+        rondasHref: caseHref(detail.case.client.id, caseId, "/rondas"),
+        tareasHref: caseHref(detail.case.client.id, caseId, "/tareas"),
+        documentosHref: caseHref(detail.case.client.id, caseId, "/documentos"),
+        cotizacionesHref: caseHref(detail.case.client.id, caseId, "/cotizaciones"),
+        pagosHref: caseHref(detail.case.client.id, caseId, "/pagos"),
         clientHref: `/crm/clientes/${detail.case.client.id}`,
       },
       rounds: detail.rounds.map((row) => ({
@@ -1406,7 +1407,7 @@ export async function getCaseBrief(ctx: OrganizationContext, caseId: string) {
         amount: formatMoney(row.amount, row.currency),
         status: row.status,
         method: row.method,
-        href: `/crm/casos/${caseId}/pagos`,
+        href: caseHref(detail.case.client.id, caseId, "/pagos"),
       })),
       timeline: detail.timeline.slice(0, 12),
     });
@@ -1583,9 +1584,9 @@ export async function getCreditCaseDetail(
       stage: creditCase.stage.name,
       stageKey: creditCase.stage.key,
       nextReviewAt: creditCase.nextReviewAt,
-      href: `/crm/casos/${creditCase.id}`,
-      creditoHref: `/crm/casos/${creditCase.id}/credito`,
-      rondasHref: `/crm/casos/${creditCase.id}/rondas`,
+      href: caseHref(creditCase.client.id, creditCase.id),
+      creditoHref: caseHref(creditCase.client.id, creditCase.id, "/credito"),
+      rondasHref: caseHref(creditCase.client.id, creditCase.id, "/rondas"),
       client: {
         id: creditCase.client.id,
         name: fullName(creditCase.client),
@@ -1646,7 +1647,7 @@ export async function getCreditCaseDetail(
           createdAt: latestComparison.createdAt,
           notes: latestComparison.notes,
           summary: comparisonSummary,
-          href: `/crm/casos/${caseId}/comparaciones/${latestComparison.id}`,
+          href: caseHref(creditCase.client.id, caseId, `/comparaciones/${latestComparison.id}`),
           resultLabels: COMPARISON_RESULT_LABELS,
         }
       : null,
@@ -1682,7 +1683,7 @@ export async function listCreditAttention(ctx: OrganizationContext) {
             select: {
               id: true,
               caseCode: true,
-              client: { select: { firstName: true, lastName: true } },
+              client: { select: { id: true, firstName: true, lastName: true } },
             },
           },
         },
@@ -1702,7 +1703,7 @@ export async function listCreditAttention(ctx: OrganizationContext) {
         select: {
           id: true,
           caseCode: true,
-          client: { select: { firstName: true, lastName: true } },
+          client: { select: { id: true, firstName: true, lastName: true } },
           serviceCase: { select: { nextActionAt: true } },
         },
         orderBy: { serviceCase: { nextActionAt: "asc" } },
@@ -1717,7 +1718,7 @@ export async function listCreditAttention(ctx: OrganizationContext) {
         select: {
           id: true,
           caseCode: true,
-          client: { select: { firstName: true, lastName: true } },
+          client: { select: { id: true, firstName: true, lastName: true } },
         },
         take: 10,
       }),
@@ -1734,7 +1735,7 @@ export async function listCreditAttention(ctx: OrganizationContext) {
             select: {
               id: true,
               caseCode: true,
-              client: { select: { firstName: true, lastName: true } },
+              client: { select: { id: true, firstName: true, lastName: true } },
             },
           },
         },
@@ -1748,30 +1749,30 @@ export async function listCreditAttention(ctx: OrganizationContext) {
       expectedReviewAt: r.expectedReviewAt,
       caseCode: r.case.caseCode,
       client: fullName(r.case.client),
-      href: `/crm/casos/${r.case.id}/rondas`,
+      href: caseHref(r.case.client.id, r.case.id, "/rondas"),
     })),
     reviewsThisWeek: reviewsThisWeek.map((c) => ({
       caseCode: c.caseCode,
       nextActionAt: c.serviceCase.nextActionAt,
       nextReviewAt: c.serviceCase.nextActionAt,
       client: fullName(c.client),
-      href: `/crm/casos/${c.id}`,
+      href: caseHref(c.client.id, c.id),
     })),
     documentsPending: docsPending.map((c) => ({
       caseCode: c.caseCode,
       client: fullName(c.client),
-      href: `/crm/casos/${c.id}`,
+      href: caseHref(c.client.id, c.id),
     })),
     roundsToPrepare: roundsPreparing.map((r) => ({
       roundNumber: r.roundNumber,
       statusLabel: labelFor(ROUND_STATUS_LABELS, r.status),
       caseCode: r.case.caseCode,
       client: fullName(r.case.client),
-      href: `/crm/casos/${r.case.id}/rondas`,
+      href: caseHref(r.case.client.id, r.case.id, "/rondas"),
     })),
     links: {
       dashboard: "/crm/dashboard",
-      cases: "/crm/casos",
+      cases: "/crm/clientes",
       rounds: "/crm/rondas",
     },
   });
@@ -1892,7 +1893,7 @@ export async function searchCreditProgress(
       comparisonSummary = {
         id: latestComparison.id,
         createdAt: latestComparison.createdAt,
-        href: `/crm/casos/${latestComparison.caseId}/comparaciones/${latestComparison.id}`,
+        href: caseHref(client.id, latestComparison.caseId, `/comparaciones/${latestComparison.id}`),
         summary,
       };
     }
@@ -1909,7 +1910,7 @@ export async function searchCreditProgress(
         stateLabel: labelFor(CASE_STATE_LABELS, c.state),
         stage: c.stage.name,
         nextReviewAt: c.nextReviewAt,
-        href: `/crm/casos/${c.id}/credito`,
+        href: caseHref(client.id, c.id, "/credito"),
       })),
       progress: {
         activeDisputes,

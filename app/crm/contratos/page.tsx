@@ -17,6 +17,7 @@ import {
   TH,
   THead,
   TR,
+  Tabs,
 } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
 import { CONTRACT_STATUS_LABELS, labelFor } from "@/src/lib/labels";
@@ -25,6 +26,7 @@ import {
   UpsertTemplateButton,
 } from "@/src/components/contracts/contract-actions";
 import { ContractRowActions } from "@/src/components/contracts/contract-row-actions";
+import { CONFIG_TABS } from "@/app/crm/configuracion/config-tabs";
 
 export const metadata: Metadata = {
   title: "Contratos",
@@ -93,6 +95,7 @@ export default async function ContratosPage() {
           ) : null
         }
       />
+      <Tabs items={CONFIG_TABS} />
 
       {canManage ? (
         <Card className="mb-4">

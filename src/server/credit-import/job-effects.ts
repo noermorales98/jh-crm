@@ -7,10 +7,10 @@ import { writeAuditLog } from "@/src/server/audit";
 import { createNotification } from "@/src/server/notifications";
 import { creditPdfExtractionProposalSchema } from "@/src/lib/validation/credit-import";
 import { autoConfirmCreditPdfImportIfEligible } from "./auto-confirm";
-import { creditAnalysisHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
+import { caseHref, creditAnalysisHref } from "@/src/lib/routes/case-routes";
 
-function progressPath(caseId: string, jobId: string) {
-  return legacyCaseHref(caseId, `/credito/importaciones/${jobId}`);
+function progressPath(clientId: string, caseId: string, jobId: string) {
+  return caseHref(clientId, caseId, `/credito/importaciones/${jobId}`);
 }
 
 function logJob(event: string, data: Record<string, string | number | boolean | null>) {
@@ -44,6 +44,7 @@ export async function settleFailedCreditPdfImportNotify(
       organizationId: true,
       createdById: true,
       caseId: true,
+      clientId: true,
       errorMessage: true,
     },
   });
@@ -67,7 +68,7 @@ export async function settleFailedCreditPdfImportNotify(
       type: "CREDIT_PDF_IMPORT",
       title: "Falló el análisis de PDF",
       body,
-      link: progressPath(job.caseId, job.id),
+      link: progressPath(job.clientId, job.caseId, job.id),
       dedupeKey,
       skipWhatsapp: true,
       skipEmail: true,
@@ -139,6 +140,7 @@ export async function settleSucceededCreditPdfImportEffects(
           organizationId: true,
           createdById: true,
           caseId: true,
+          clientId: true,
           fileName: true,
           proposalJson: true,
           extractMode: true,
@@ -198,7 +200,7 @@ export async function settleSucceededCreditPdfImportEffects(
             body: `${job.fileName || "reporte.pdf"}: ya está en el expediente.`,
             link: reportId
               ? reportPath(reportId)
-              : progressPath(job.caseId, job.id),
+              : progressPath(job.clientId, job.caseId, job.id),
             dedupeKey: doneNotifyDedupeKey(job.id),
             skipWhatsapp: true,
             skipEmail: true,
@@ -213,7 +215,7 @@ export async function settleSucceededCreditPdfImportEffects(
             type: "CREDIT_PDF_IMPORT",
             title: "Análisis de PDF listo",
             body: `${job.fileName || "reporte.pdf"}: revisa y confirma la importación.`,
-            link: progressPath(job.caseId, job.id),
+            link: progressPath(job.clientId, job.caseId, job.id),
             dedupeKey: doneNotifyDedupeKey(job.id),
             skipWhatsapp: true,
             skipEmail: true,

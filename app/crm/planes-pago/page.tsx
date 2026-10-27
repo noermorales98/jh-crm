@@ -18,6 +18,7 @@ import {
   TH,
   THead,
   TR,
+  Tabs,
 } from "@/src/components/ui";
 import { formatDate, formatMoney } from "@/src/lib/format";
 import {
@@ -26,6 +27,7 @@ import {
   PAYMENT_PLAN_STATUS_LABELS,
 } from "@/src/lib/labels";
 import { CreatePlanButton } from "@/src/components/payment-plans/create-plan-button";
+import { PAGOS_TABS } from "@/src/lib/nav/section-tabs";
 
 export const metadata: Metadata = {
   title: "Cuotas",
@@ -84,6 +86,7 @@ export default async function PaymentPlansPage() {
           ) : null
         }
       />
+      <Tabs items={PAGOS_TABS} />
 
       <Card>
         {items.length === 0 ? (

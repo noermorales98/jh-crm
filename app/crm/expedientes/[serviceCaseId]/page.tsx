@@ -35,6 +35,7 @@ import { ServiceCaseStateActions } from "@/src/components/service-cases/service-
 import { ServiceCaseAmountsForm } from "@/src/components/service-cases/service-case-amounts-form";
 import { ServiceCaseNoteForm } from "@/src/components/service-cases/service-case-note-form";
 import { ServiceCaseNextActionForm } from "@/src/components/service-cases/service-case-next-action-form";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export const metadata: Metadata = {
   title: "Expediente",
@@ -120,7 +121,7 @@ export default async function ServiceCasePage({
           <div className="flex flex-wrap items-center gap-2">
             {creditCase ? (
               <ButtonLink
-                href={`/crm/casos/${creditCase.id}`}
+                href={caseHref(serviceCase.client.id, creditCase.id)}
                 variant="primary"
                 size="sm"
               >

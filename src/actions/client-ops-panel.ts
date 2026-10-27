@@ -20,6 +20,7 @@ import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import { listMemberOptions } from "@/src/server/page-helpers";
 import { listVerticalServiceOptions } from "@/src/server/services/verticals";
 import { prisma } from "@/src/lib/db";
+import { listClientActivityEvents } from "@/src/server/activity";
 
 const panelSchema = z.enum([
   "services",
@@ -307,31 +308,7 @@ export async function loadClientOpsPanelAction(
 
     // activity
     await assertClientInOrg(ctx.organizationId, id);
-    const events = await prisma.activityLog.findMany({
-      where: { clientId: id, organizationId: ctx.organizationId },
-      select: {
-        id: true,
-        type: true,
-        description: true,
-        createdAt: true,
-        caseId: true,
-        roundId: true,
-        serviceCaseId: true,
-        metadata: true,
-        actor: { select: { name: true, email: true } },
-        case: { select: { caseCode: true, summary: true } },
-        serviceCase: {
-          select: {
-            caseNumber: true,
-            notes: true,
-            service: { select: { name: true } },
-          },
-        },
-        round: { select: { roundNumber: true } },
-      },
-      orderBy: { createdAt: "desc" },
-      take: 80,
-    });
+    const events = await listClientActivityEvents(ctx.organizationId, id);
     return actionOk({
       panel: "activity",
       events,

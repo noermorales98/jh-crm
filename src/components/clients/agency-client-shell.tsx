@@ -2,9 +2,11 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import type { ClientStatus } from "@prisma/client";
 import { FondifyStatusCapsule } from "@/src/components/agency/capsule";
+import { Tabs } from "@/src/components/ui";
+import { clientTabs } from "@/src/lib/routes/client-tabs";
 
 /**
- * Chrome Fondify para subrutas del cliente (sin Tabs del ClientHeader antiguo).
+ * Chrome Fondify para subrutas del cliente, con las mismas pestañas que la ficha.
  */
 export function AgencyClientShell({
   clientId,
@@ -52,6 +54,9 @@ export function AgencyClientShell({
               {actions}
             </div>
           ) : null}
+        </div>
+        <div className="mt-3">
+          <Tabs items={clientTabs(clientId)} />
         </div>
       </div>
       {children}

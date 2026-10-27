@@ -52,7 +52,7 @@ export {
   settlePendingSucceededCreditPdfImportEffects,
   type CreditPdfCreateNotification,
 } from "./job-effects";
-import { creditAnalysisHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
+import { caseHref, creditAnalysisHref } from "@/src/lib/routes/case-routes";
 
 const PHASES = {
   download: { progress: 10, label: "Descargando PDF" },
@@ -72,8 +72,8 @@ class LeaseLostError extends Error {
   }
 }
 
-function progressPath(caseId: string, jobId: string) {
-  return legacyCaseHref(caseId, `/credito/importaciones/${jobId}`);
+function progressPath(clientId: string, caseId: string, jobId: string) {
+  return caseHref(clientId, caseId, `/credito/importaciones/${jobId}`);
 }
 
 /** Log seguro: solo ids/status, nunca PDF ni PII. */
@@ -286,7 +286,7 @@ export async function enqueueCreditPdfImportJob(
     return {
       jobId: existing.id,
       caseId: existing.caseId,
-      progressPath: progressPath(existing.caseId, existing.id),
+      progressPath: progressPath(existing.clientId, existing.caseId, existing.id),
       created: false,
       shouldProcess: existing.status === "QUEUED",
     };
@@ -313,7 +313,7 @@ export async function enqueueCreditPdfImportJob(
   return {
     jobId: job.id,
     caseId: creditCase.id,
-    progressPath: progressPath(creditCase.id, job.id),
+    progressPath: progressPath(creditCase.clientId, creditCase.id, job.id),
     created: true,
     shouldProcess: true,
   };
@@ -434,7 +434,7 @@ export async function maybeEnqueueCreditPdfAnalysisAfterUpload(
       status: "existing",
       jobId: existing.id,
       caseId: existing.caseId,
-      progressPath: progressPath(existing.caseId, existing.id),
+      progressPath: progressPath(existing.clientId, existing.caseId, existing.id),
       shouldProcess: existing.status === "QUEUED",
       message:
         "Documento guardado. Ya había un análisis en curso para este PDF.",
@@ -1094,7 +1094,7 @@ export async function getCreditPdfImportJob(
     startedAt: job.startedAt,
     finishedAt: job.finishedAt,
     createdAt: job.createdAt,
-    progressPath: progressPath(job.caseId, job.id),
+    progressPath: progressPath(job.clientId, job.caseId, job.id),
     reportId,
     reportPath: reportId ? creditAnalysisHref(reportId) : null,
   };
@@ -1177,6 +1177,7 @@ export async function listPendingConfirmCreditPdfJobs(
     select: {
       id: true,
       caseId: true,
+      clientId: true,
       fileName: true,
       finishedAt: true,
       proposalJson: true,
@@ -1196,7 +1197,7 @@ export async function listPendingConfirmCreditPdfJobs(
       documentKind: proposal?.documentKind ?? null,
       snapshotCount: proposal?.report?.snapshots?.length ?? 0,
       itemCount: proposal?.report?.items?.length ?? 0,
-      progressPath: progressPath(row.caseId, row.id),
+      progressPath: progressPath(row.clientId, row.caseId, row.id),
     };
   });
 }

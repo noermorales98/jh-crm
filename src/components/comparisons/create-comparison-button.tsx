@@ -14,6 +14,7 @@ import { createComparison } from "@/src/actions/comparisons";
 import { playActionResult } from "@/src/lib/cuelume";
 import { CREDIT_REPORT_TYPE_LABELS, labelFor } from "@/src/lib/labels";
 import { formatDate } from "@/src/lib/format";
+import { useCaseHref } from "@/src/lib/routes/use-case-href";
 
 export type ReportOption = {
   id: string;
@@ -29,6 +30,7 @@ export function CreateComparisonButton({
   reports: ReportOption[];
 }) {
   const router = useRouter();
+  const caseLink = useCaseHref();
   const sorted = [...reports].sort(
     (a, b) =>
       new Date(a.reportDate).getTime() - new Date(b.reportDate).getTime(),
@@ -62,7 +64,7 @@ export function CreateComparisonButton({
       }
       playActionResult(true);
       setOpen(false);
-      router.push(`/crm/casos/${caseId}/comparaciones/${result.data.id}`);
+      router.push(caseLink(caseId, `/comparaciones/${result.data.id}`));
       router.refresh();
     });
   }

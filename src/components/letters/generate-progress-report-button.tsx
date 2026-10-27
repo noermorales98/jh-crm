@@ -6,6 +6,7 @@ import { Alert, Button, Field, Modal, Textarea } from "@/src/components/ui";
 import { generateClientProgressReport } from "@/src/actions/letters";
 import { playActionResult } from "@/src/lib/cuelume";
 import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
+import { useCaseHref } from "@/src/lib/routes/use-case-href";
 
 export function GenerateProgressReportButton({
   caseId,
@@ -15,11 +16,12 @@ export function GenerateProgressReportButton({
 }: {
   caseId: string;
   roundId?: string | null;
-  /** Si true, no navega a /crm/casos/.../reportes. */
+  /** Si true, no navega al reporte de progreso del caso. */
   stayOnPage?: boolean;
   onCreated?: (reportId: string) => void;
 }) {
   const router = useRouter();
+  const caseLink = useCaseHref();
   const [open, setOpen] = useState(false);
   const [nextSteps, setNextSteps] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +51,7 @@ export function GenerateProgressReportButton({
         return;
       }
       router.push(
-        `/crm/casos/${result.data.caseId}/reportes/${result.data.reportId}`,
+        caseLink(result.data.caseId, `/reportes/${result.data.reportId}`),
       );
       router.refresh();
     });

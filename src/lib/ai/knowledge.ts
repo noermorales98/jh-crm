@@ -13,16 +13,16 @@ export const CRM_ROUTES = [
   { href: "/crm/clientes/{id}/expediente", label: "Expediente", how: "Datos del cliente, perfil sensible (SSN, licencia) y documentos." },
   { href: "/crm/clientes/{id}/casos", label: "Casos del cliente", how: "Casos de crédito del cliente. Aquí se crea un caso nuevo." },
   { href: "/crm/clientes/{id}/actividad", label: "Actividad del cliente", how: "Bitácora de notas y eventos del cliente." },
-  { href: "/crm/casos", label: "Casos", how: "Pipeline de casos de crédito. Un caso se crea desde la ficha del cliente (Casos)." },
-  { href: "/crm/casos/{id}", label: "Detalle de caso", how: "Resumen, etapa, responsable y próxima revisión." },
-  { href: "/crm/casos/{id}/credito", label: "Crédito del caso", how: "Reportes, ítems, burós y scores del caso." },
-  { href: "/crm/casos/{id}/rondas", label: "Rondas del caso", how: "Rondas de disputa de ese caso." },
-  { href: "/crm/casos/{id}/comparaciones/{comparisonId}", label: "Comparación de reportes", how: "Resultados DELETED/UPDATED/VERIFIED entre dos reportes." },
-  { href: "/crm/casos/{id}/tareas", label: "Tareas del caso", how: "Tareas ligadas al caso." },
-  { href: "/crm/casos/{id}/documentos", label: "Documentos del caso", how: "Archivos asociados al caso." },
-  { href: "/crm/casos/{id}/cotizaciones", label: "Cotizaciones del caso", how: "Cotizaciones ligadas al caso." },
-  { href: "/crm/casos/{id}/pagos", label: "Pagos del caso", how: "Pagos ligados al caso." },
-  { href: "/crm/rondas", label: "Rondas", how: "Rondas de disputa ligadas a un caso. Crear desde /crm/casos/{id}/rondas." },
+  { href: "/crm/clientes/{clientId}/servicios", label: "Servicios del cliente", how: "Los casos de crédito viven dentro de la ficha del cliente (pestaña Servicios). Se crean desde ahí." },
+  { href: "/crm/clientes/{clientId}/servicios/{id}", label: "Detalle de caso", how: "Resumen, etapa, responsable y próxima revisión." },
+  { href: "/crm/clientes/{clientId}/servicios/{id}/credito", label: "Crédito del caso", how: "Reportes, ítems, burós y scores del caso." },
+  { href: "/crm/clientes/{clientId}/servicios/{id}/rondas", label: "Rondas del caso", how: "Rondas de disputa de ese caso." },
+  { href: "/crm/clientes/{clientId}/servicios/{id}/comparaciones/{comparisonId}", label: "Comparación de reportes", how: "Resultados DELETED/UPDATED/VERIFIED entre dos reportes." },
+  { href: "/crm/clientes/{clientId}/servicios/{id}/tareas", label: "Tareas del caso", how: "Tareas ligadas al caso." },
+  { href: "/crm/clientes/{clientId}/servicios/{id}/documentos", label: "Documentos del caso", how: "Archivos asociados al caso." },
+  { href: "/crm/clientes/{clientId}/servicios/{id}/cotizaciones", label: "Cotizaciones del caso", how: "Cotizaciones ligadas al caso." },
+  { href: "/crm/clientes/{clientId}/servicios/{id}/pagos", label: "Pagos del caso", how: "Pagos ligados al caso." },
+  { href: "/crm/rondas", label: "Rondas", how: "Rondas de disputa ligadas a un caso. Crear desde /crm/clientes/{clientId}/servicios/{id}/rondas." },
   { href: "/crm/consultas", label: "Consultas", how: "Consultas de $1 desde el sitio (REQUESTED). No marcar PAID sin pasarela." },
   { href: "/crm/contratos", label: "Contratos", how: "Plantillas y contratos de cliente; firma desde el portal." },
   { href: "/crm/testimonios", label: "Testimonios", how: "Reseñas de clientes con consentimiento." },
@@ -64,14 +64,14 @@ export const HOW_TO_GUIDE = `
 ### Crear un caso
 1. Abrir el cliente → pestaña Casos → botón de crear caso.
 2. Elegir etapa (o se usa la primera activa), responsable, resumen y próxima revisión.
-3. El caso aparece en [Casos](/crm/casos). Detalle: /crm/casos/{id}.
+3. El caso aparece en la pestaña Servicios del cliente. Detalle: /crm/clientes/{clientId}/servicios/{id}.
 
 ### Crear una ronda de disputa
 1. Abrir el caso → pestaña Rondas, o [Rondas](/crm/rondas).
 2. Crear ronda, marcar enviada cuando salga la carta, luego revisar resultado.
 
 ### Ver progreso crediticio
-1. Abrir el caso → [Crédito](/crm/casos) (pestaña crédito del caso).
+1. Abrir el cliente → Servicios → caso → pestaña Crédito. El análisis del reporte vive en [Reportes](/crm/reportes).
 2. Comparar reportes desde Comparaciones. Solo contar eliminaciones con outcome DELETED o resultado de comparación.
 
 ### Consultas

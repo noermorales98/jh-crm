@@ -21,6 +21,7 @@ import { TASK_TYPE_LABELS, labelFor } from "@/src/lib/labels";
 import { taskWorkBadge, type TaskWorkBadgeTone } from "@/src/lib/task-work-badge";
 import { clientFullName } from "@/src/server/page-helpers";
 import { TaskRowActions } from "./task-row-actions";
+import { caseHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
 
 export interface TaskRow {
   id: string;
@@ -163,7 +164,7 @@ export function TaskTable({
                     )}
                     {task.case ? (
                       <Link
-                        href={`/crm/casos/${task.case.id}`}
+                        href={task.client ? caseHref(task.client.id, task.case.id) : legacyCaseHref(task.case.id)}
                         className="block truncate text-text-secondary hover:text-ink"
                         title={caseLabel(task.case)}
                       >

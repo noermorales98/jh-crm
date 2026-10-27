@@ -15,9 +15,11 @@ import {
   TH,
   THead,
   TR,
+  Tabs,
 } from "@/src/components/ui";
 import { formatDate, formatMoney } from "@/src/lib/format";
 import { ConsultationStatusActions } from "@/src/components/consultations/consultation-status-actions";
+import { VENTAS_TABS } from "@/src/lib/nav/section-tabs";
 
 export const metadata: Metadata = {
   title: "Consultas",
@@ -41,6 +43,7 @@ export default async function ConsultationsPage() {
             : "Solicitudes de consulta ($1). Sin pasarela configurada: permanecen en «Solicitada» (nunca se finge el pago)."
         }
       />
+      <Tabs items={VENTAS_TABS} />
 
       <Card>
         {items.length === 0 ? (

@@ -17,6 +17,7 @@ import {
 import { createCreditReport } from "@/src/actions/credit-reports";
 import { playActionResult } from "@/src/lib/cuelume";
 import { CREDIT_BUREAU_LABELS, CREDIT_REPORT_TYPE_LABELS } from "@/src/lib/labels";
+import { useCaseHref } from "@/src/lib/routes/use-case-href";
 
 const BUREAUS = ["EXPERIAN", "EQUIFAX", "TRANSUNION"] as const;
 
@@ -38,6 +39,7 @@ export function CreateCreditReportButton({
   variant?: ButtonVariant;
 }) {
   const router = useRouter();
+  const caseLink = useCaseHref();
   const [open, setOpen] = useState(false);
   const [type, setType] = useState<"INITIAL" | "UPDATE" | "MANUAL">("INITIAL");
   const [reportDate, setReportDate] = useState(() =>
@@ -86,7 +88,7 @@ export function CreateCreditReportButton({
       playActionResult(true);
       setOpen(false);
       reset();
-      router.push(`/crm/casos/${caseId}/credito/reportes/${result.data.id}`);
+      router.push(caseLink(caseId, `/credito/reportes/${result.data.id}`));
       router.refresh();
     });
   }

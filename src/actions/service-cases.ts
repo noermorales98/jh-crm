@@ -21,6 +21,7 @@ import * as caseService from "@/src/server/cases";
 import * as serviceCaseService from "@/src/server/service-cases";
 import { createServiceCaseNote } from "@/src/server/notes";
 import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 function revalidateServiceCase(
   serviceCaseId: string,
@@ -82,7 +83,7 @@ export async function createServiceCaseAction(
       caseId: creditCase?.id ?? null,
       caseNumber: serviceCase.caseNumber,
       href: creditCase
-        ? `/crm/casos/${creditCase.id}`
+        ? caseHref(serviceCase.clientId, creditCase.id)
         : `/crm/expedientes/${serviceCase.id}`,
     });
   } catch (error) {

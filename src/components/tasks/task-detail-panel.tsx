@@ -16,6 +16,7 @@ import {
   intakeSummaryOneLiner,
 } from "@/src/server/intake/summary";
 import { getOrganizationTimezone } from "@/src/server/org-timezone";
+import { caseHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
 
 function isLeadFollowUpTask(task: {
   type: string;
@@ -138,7 +139,7 @@ export async function TaskDetailPanel({ taskId }: { taskId: string }) {
               <dd>
                 {task.case ? (
                   <Link
-                    href={`/crm/casos/${task.case.id}`}
+                    href={task.client ? caseHref(task.client.id, task.case.id) : legacyCaseHref(task.case.id)}
                     className="text-action-primary hover:text-action-secondary"
                   >
                     {task.case.summary?.trim() ||

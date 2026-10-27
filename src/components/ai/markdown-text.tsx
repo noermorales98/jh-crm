@@ -413,7 +413,7 @@ export function hintLinksForText(text: string): { href: string; label: string }[
   if (lower.includes("expediente") || lower.includes("documento")) {
     add("/crm/clientes", "Clientes / expediente");
   }
-  if (lower.includes("caso")) add("/crm/casos", "Casos");
+  if (lower.includes("caso")) add("/crm/clientes", "Clientes");
   if (lower.includes("cotiz")) add("/crm/cotizaciones/nueva", "Nueva cotización");
   if (lower.includes("pago")) add("/crm/pagos/nuevo", "Registrar pago");
   if (lower.includes("recibo")) add("/crm/recibos", "Recibos");

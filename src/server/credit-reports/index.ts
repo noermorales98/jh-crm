@@ -788,6 +788,7 @@ export type ReportPeekNearbyEvent = {
 export type ReportPeekResult = {
   id: string;
   caseId: string;
+  clientId: string;
   reportDate: Date;
   type: CreditReportType;
   provider: string | null;
@@ -815,6 +816,7 @@ export async function getReportPeek(
     select: {
       id: true,
       caseId: true,
+      clientId: true,
       reportDate: true,
       type: true,
       provider: true,
@@ -964,6 +966,7 @@ export async function getReportPeek(
   return {
     id: report.id,
     caseId: report.caseId,
+    clientId: report.clientId,
     reportDate: report.reportDate,
     type: report.type,
     provider: report.provider,

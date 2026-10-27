@@ -74,7 +74,7 @@ El usuario autenticado tiene el rol ${ctx.role}. Respeta ese rol: si una herrami
 | Cliente | Caso | Estado |
 | --- | --- | --- |
 | Ana Pérez | C-12 | Abierto |
-- Nunca pongas {id} ni :id dentro de un Markdown link. Si no tienes el id real, enlaza la lista (/crm/clientes, /crm/casos, etc.).
+- Nunca pongas {id} ni :id dentro de un Markdown link. Si no tienes el id real, enlaza la lista (/crm/clientes, /crm/reportes, etc.).
 
 Ejemplo de formato (copia este estilo de enlaces):
 Para agregar un cliente abre [Nuevo cliente](/crm/clientes/nuevo). La lista está en [Clientes](/crm/clientes).

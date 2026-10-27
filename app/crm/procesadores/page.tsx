@@ -14,9 +14,11 @@ import {
   TH,
   THead,
   TR,
+  Tabs,
 } from "@/src/components/ui";
 import { formatMoney } from "@/src/lib/format";
 import { ProcessorFormButton } from "@/src/components/processors/processor-form-button";
+import { CONFIG_TABS } from "@/app/crm/configuracion/config-tabs";
 
 export const metadata: Metadata = {
   title: "Procesadores",
@@ -34,6 +36,7 @@ export default async function ProcessorsPage() {
         description="Catálogo de servicios externos (monitoreo, afiliados). Sin contraseñas."
         actions={canManage ? <ProcessorFormButton mode="create" /> : null}
       />
+      <Tabs items={CONFIG_TABS} />
 
       <Card>
         {rows.length === 0 ? (

@@ -1,4 +1,5 @@
 import type { PillTone } from "@/src/components/ui";
+import { caseHref, creditAnalysisHref } from "@/src/lib/routes/case-routes";
 
 /** Categoría visual de un ActivityType (agrupa colores). */
 export type ActivityCategory =
@@ -226,7 +227,7 @@ export function resolveActivityLinks(event: {
   const t = event.type;
 
   if (caseId) {
-    links.push({ href: `/crm/casos/${caseId}`, label: "Ver caso" });
+    links.push({ href: caseHref(event.clientId, caseId), label: "Ver caso" });
   }
 
   if (
@@ -236,11 +237,11 @@ export function resolveActivityLinks(event: {
   ) {
     if (caseId && roundId) {
       links.push({
-        href: `/crm/casos/${caseId}/rondas/${roundId}`,
+        href: caseHref(event.clientId, caseId, `/rondas/${roundId}`),
         label: "Ver ronda",
       });
     } else if (caseId) {
-      links.push({ href: `/crm/casos/${caseId}/rondas`, label: "Ver rondas" });
+      links.push({ href: caseHref(event.clientId, caseId, "/rondas"), label: "Ver rondas" });
     }
   }
 
@@ -252,12 +253,12 @@ export function resolveActivityLinks(event: {
   ) {
     if (caseId && reportId) {
       links.push({
-        href: `/crm/casos/${caseId}/credito/reportes/${reportId}`,
+        href: creditAnalysisHref(reportId),
         label: "Ver reporte",
       });
     } else if (caseId) {
       links.push({
-        href: `/crm/casos/${caseId}/credito`,
+        href: caseHref(event.clientId, caseId, "/credito"),
         label: "Ver crédito",
       });
     }

@@ -4,18 +4,13 @@ import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
-  CalendarClock,
-  Cpu,
   CreditCard,
   FileText,
-  Headphones,
   Inbox,
   MessageCircle,
   MessageSquareQuote,
   Package,
-  Receipt,
   RefreshCcw,
-  Scale,
   Settings,
   Target,
   UsersRound,
@@ -51,9 +46,9 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
     items: [
       {
         href: "/crm/pagos",
-        label: "Cobrar",
+        label: "Pagos",
         icon: CreditCard,
-        description: "Registra pagos o genera links Stripe de cotizaciones.",
+        description: "Cobrar, cuotas y recibos en un solo lugar.",
       },
       {
         href: "/crm/mails?folder=inbox",
@@ -67,22 +62,11 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
         icon: MessageCircle,
         description: "Conversaciones con el asistente de IA.",
       },
-    ],
-  },
-  {
-    label: "Ventas",
-    items: [
       {
         href: "/crm/oportunidades",
-        label: "Leads",
+        label: "Ventas",
         icon: Target,
-        description: "Pipeline de oportunidades y seguimiento.",
-      },
-      {
-        href: "/crm/consultas",
-        label: "Consultas",
-        icon: Headphones,
-        description: "Solicitudes de consulta y cobro online.",
+        description: "Leads y consultas.",
       },
     ],
   },
@@ -90,34 +74,22 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
     label: "Crédito",
     items: [
       {
-        href: "/crm/rondas",
-        label: "Rondas",
-        icon: RefreshCcw,
-        description: "Rondas de disputa y seguimiento por buró.",
-      },
-      {
         href: REPORTES_HREF,
         label: REPORTES_NAV_LABEL,
         icon: FileText,
         description: REPORTES_NAV_DESCRIPTION,
       },
+      {
+        href: "/crm/rondas",
+        label: "Rondas",
+        icon: RefreshCcw,
+        description: "Rondas de disputa y seguimiento por buró.",
+      },
     ],
   },
   {
-    label: "Dinero",
+    label: "Catálogo",
     items: [
-      {
-        href: "/crm/planes-pago",
-        label: "Cuotas",
-        icon: CalendarClock,
-        description: "Planes de pago a plazos.",
-      },
-      {
-        href: "/crm/recibos",
-        label: "Recibos",
-        icon: Receipt,
-        description: "Comprobantes emitidos a clientes.",
-      },
       {
         href: "/crm/cotizaciones",
         label: "Cotizaciones",
@@ -130,28 +102,11 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
         icon: Package,
         description: "Catálogo de servicios y paquetes.",
       },
-    ],
-  },
-  {
-    label: "Extra",
-    items: [
       {
         href: "/crm/testimonios",
         label: "Testimonios",
         icon: MessageSquareQuote,
         description: "Opiniones y casos de éxito.",
-      },
-      {
-        href: "/crm/contratos",
-        label: "Contratos",
-        icon: Scale,
-        description: "Acuerdos y documentos contractuales.",
-      },
-      {
-        href: "/crm/procesadores",
-        label: "Procesadores",
-        icon: Cpu,
-        description: "Portales externos (SmartCredit, etc.).",
       },
     ],
   },
@@ -168,7 +123,7 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
         href: "/crm/configuracion",
         label: "Configuración",
         icon: Settings,
-        description: "Org, Stripe, Whapi, notificaciones y más.",
+        description: "Empresa, notificaciones, procesadores, contratos y más.",
       },
     ],
   },
@@ -178,6 +133,11 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
 export const MORE_NAV_HREFS = [
   ...MORE_NAV_GROUPS.flatMap((g) => g.items.map((i) => i.href.split("?")[0])),
   "/crm/pagos",
+  "/crm/planes-pago",
+  "/crm/recibos",
+  "/crm/consultas",
+  "/crm/procesadores",
+  "/crm/contratos",
   "/crm/mails",
   "/crm/chats",
 ];
@@ -187,8 +147,11 @@ export const SIDEBAR_PRIMARY_HREFS = [
   "/crm/dashboard",
   "/crm/tareas",
   "/crm/oportunidades",
+  "/crm/consultas",
   "/crm/clientes",
   "/crm/pagos",
+  "/crm/planes-pago",
+  "/crm/recibos",
   "/crm/mails",
   "/crm/chats",
 ] as const;

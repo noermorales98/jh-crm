@@ -8,7 +8,7 @@ import {
   REPORTES_LIMIT,
   type ReportesKind,
 } from "@/src/lib/reports/agency-reportes";
-import { creditAnalysisHref, legacyCaseHref } from "@/src/lib/routes/case-routes";
+import { caseHref, creditAnalysisHref } from "@/src/lib/routes/case-routes";
 
 export type AgencyCreditReportRow = {
   kind: "credit";
@@ -90,6 +90,7 @@ export async function listAgencyReports(
             caseCode: true,
             periodLabel: true,
             roundLabel: true,
+            case: { select: { clientId: true } },
           },
         }),
   ]);
@@ -121,7 +122,7 @@ export async function listAgencyReports(
     caseCode: r.caseCode,
     periodLabel: r.periodLabel,
     roundLabel: r.roundLabel,
-    href: legacyCaseHref(r.caseId, `/reportes/${r.id}`),
+    href: caseHref(r.case.clientId, r.caseId, `/reportes/${r.id}`),
   }));
 
   const items = [...creditRows, ...progressRows]

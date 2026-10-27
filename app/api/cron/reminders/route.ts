@@ -3,6 +3,7 @@ import { prisma } from "@/src/lib/db";
 import { classifyTaskDue, DEFAULT_TIMEZONE } from "@/src/lib/format/dates";
 import { safeEqual } from "@/src/lib/security/tokens";
 import { createNotification } from "@/src/server/notifications";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 /**
  * GET /api/cron/reminders — cron-job.org cada 15 minutos.
@@ -135,6 +136,7 @@ export async function GET(request: Request) {
     select: {
       id: true,
       organizationId: true,
+      clientId: true,
       caseNumber: true,
       nextActionAt: true,
       assignedToId: true,
@@ -148,7 +150,7 @@ export async function GET(request: Request) {
     const dedupeEntityId = creditCase?.id ?? serviceCase.id;
     const label = creditCase?.caseCode ?? serviceCase.caseNumber;
     const link = creditCase
-      ? `/crm/casos/${creditCase.id}`
+      ? caseHref(serviceCase.clientId, creditCase.id)
       : `/crm/expedientes/${serviceCase.id}`;
     for (const userId of await resolveRecipients(serviceCase.organizationId, assigneeId)) {
       await notify({

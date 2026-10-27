@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 import { Mail, Phone, User } from "lucide-react";
 import { StatusPill, Tabs } from "@/src/components/ui";
 import { clientFullName } from "@/src/server/page-helpers";
+import { clientTabs } from "@/src/lib/routes/client-tabs";
 
 export interface ClientHeaderData {
   id: string;
@@ -30,7 +30,6 @@ export function ClientHeader({
   meta?: ReactNode;
   below?: ReactNode;
 }) {
-  const base = `/crm/clientes/${client.id}`;
   const initials = `${client.firstName.charAt(0)}${client.lastName?.charAt(0) ?? ""}`.toUpperCase();
   const contactBits = [
     client.phone ? (
@@ -77,12 +76,6 @@ export function ClientHeader({
               <span className="font-mono text-[11px] text-text-secondary">
                 {client.clientCode}
               </span>
-              <Link
-                href={`${base}/expediente`}
-                className="text-xs font-medium text-action-primary hover:text-action-secondary"
-              >
-                Ver expediente
-              </Link>
             </div>
             {contactBits.length > 0 ? (
               <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[13px] text-text-secondary">
@@ -98,18 +91,7 @@ export function ClientHeader({
       </div>
       {below}
       <div className="mt-2">
-        <Tabs
-          items={[
-            { href: base, label: "Resumen" },
-            { href: `${base}/servicios`, label: "Servicios" },
-            { href: `${base}/actividad`, label: "Actividad" },
-            { href: `${base}/tareas`, label: "Tareas" },
-            { href: `${base}/documentos`, label: "Documentos" },
-            { href: `${base}/pagos`, label: "Pagos" },
-            { href: `${base}/notas`, label: "Notas" },
-            { href: `${base}/testimonios`, label: "Testimonios" },
-          ]}
-        />
+        <Tabs items={clientTabs(client.id)} />
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { formatDate, formatMoney } from "@/src/lib/format";
 import { labelFor, PAYMENT_METHOD_LABELS } from "@/src/lib/labels";
 import { clientFullName, toDateInputValue } from "@/src/server/page-helpers";
 import { PaymentRowActions } from "@/src/components/payments/payment-row-actions";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
   const ctx = await requireOrganization();
@@ -69,7 +70,7 @@ export async function PaymentDetailPanel({ paymentId }: { paymentId: string }) {
               <dd className="text-[13px] text-ink">
                 {payment.case ? (
                   <Link
-                    href={`/crm/casos?id=${payment.case.id}`}
+                    href={caseHref(payment.client.id, payment.case.id)}
                     className="text-action-primary hover:text-action-secondary"
                   >
                     {payment.case.caseCode}

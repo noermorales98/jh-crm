@@ -15,6 +15,7 @@ import {
   getCreditPdfImportJobAction,
   listActiveCreditPdfImportJobsAction,
 } from "@/src/actions/credit-import";
+import { useCaseHref } from "@/src/lib/routes/use-case-href";
 
 const STORAGE_KEY = "jh.creditPdfImport.follow";
 /** Persistente entre sesiones: un “Análisis listo” aceptado/cerrado no debe volver. */
@@ -100,6 +101,7 @@ export function CreditPdfImportLockProvider({
   canManageCreditImports?: boolean;
 }) {
   const [follow, setFollow] = useState<FollowState | null>(null);
+  const caseLink = useCaseHref();
   const [dismissedReady, setDismissedReady] = useState<Set<string>>(() => {
     if (typeof window === "undefined") return new Set();
     return readDismissedReady();
@@ -287,7 +289,7 @@ export function CreditPdfImportLockProvider({
                 />
               </div>
               <Link
-                href={`/crm/casos/${runningChip.caseId}/credito/importaciones/${runningChip.id}`}
+                href={caseLink(runningChip.caseId, `/credito/importaciones/${runningChip.id}`)}
                 className="mt-2 inline-block text-xs font-medium text-white underline"
               >
                 Ver progreso
@@ -309,7 +311,7 @@ export function CreditPdfImportLockProvider({
                 {readyChip.fileName ?? "PDF"} — revisa y confirma
               </p>
               <Link
-                href={`/crm/casos/${readyChip.caseId}/credito/importaciones/${readyChip.id}`}
+                href={caseLink(readyChip.caseId, `/credito/importaciones/${readyChip.id}`)}
                 className="mt-2 inline-block text-xs font-medium text-action-primary underline"
                 onClick={() => dismissReadyChip(readyChip.id)}
               >

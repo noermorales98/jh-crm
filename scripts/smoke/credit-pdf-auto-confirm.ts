@@ -63,8 +63,8 @@ const noDate = creditPdfExtractionProposalSchema.parse({
 });
 const noDateResult = isCreditPdfAutoConfirmEligible(noDate);
 check(
-  "sin reportDate → no elegible",
-  noDateResult.ok === false && noDateResult.reason === "missing_report_date",
+  "sin reportDate → elegible (usa la fecha de subida)",
+  noDateResult.ok === true,
 );
 
 if (failed > 0) {

@@ -17,6 +17,7 @@ import {
   saveCreditPdfImportDraftAction,
 } from "@/src/actions/credit-import";
 import { playActionResult } from "@/src/lib/cuelume";
+import { formatDate } from "@/src/lib/format";
 import { kickCreditPdfImportProcess } from "@/src/lib/credit/kick-pdf-import";
 import {
   CREDIT_BUREAU_LABELS,
@@ -517,6 +518,8 @@ export function CreditPdfImportProgressClient({
                         <span className="font-medium">{item.creditorName}</span>{" "}
                         · {CREDIT_BUREAU_LABELS[item.bureau] ?? item.bureau}
                         {item.isNegative ? " · negativo" : ""}
+                        {item.dateOpened ? ` · abierta ${formatDate(item.dateOpened, "UTC")}` : ""}
+                        {item.dateReported ? ` · reportada ${formatDate(item.dateReported, "UTC")}` : ""}
                         {item.sourcePage ? ` · p.${item.sourcePage}` : ""}
                         {item.fieldQuality?.family
                           ? ` · ${item.fieldQuality.family} ${item.fieldQuality.familyQuality ?? ""}`

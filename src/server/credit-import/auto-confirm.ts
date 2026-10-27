@@ -39,11 +39,10 @@ function logAuto(
 export function isCreditPdfAutoConfirmEligible(
   proposal: CreditPdfExtractionProposal,
 ): { ok: true } | { ok: false; reason: string } {
+  // Sin fecha del reporte se usa la de subida (ver autoConfirm…); solo se
+  // bloquea si la extracción no dejó nada publicable.
   if (pdfImportConfirmBlocked(proposal.coverage)) {
     return { ok: false, reason: "metrics_blocked" };
-  }
-  if (!proposedPdfReportDate(proposal.report?.reportDate)) {
-    return { ok: false, reason: "missing_report_date" };
   }
   return { ok: true };
 }
@@ -96,6 +95,7 @@ export async function autoConfirmCreditPdfImportIfEligible(
       suggestedReportType: true,
       proposalJson: true,
       currentClientJson: true,
+      createdAt: true,
     },
   });
 
@@ -168,7 +168,9 @@ export async function autoConfirmCreditPdfImportIfEligible(
       country: null,
     };
 
-  const reportDateStr = proposedPdfReportDate(proposal.report?.reportDate);
+  const reportDateStr =
+    proposedPdfReportDate(proposal.report?.reportDate) ||
+    job.createdAt.toISOString().slice(0, 10);
   const items = proposal.report?.items ?? [];
   const selectedItemIndexes = items.map((_, index) => index);
   const identities = identitiesFromProposal(proposal);

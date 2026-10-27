@@ -75,13 +75,54 @@ function requireAi() {
   }
 }
 
-function parseJsonObject(text: string): unknown {
+/**
+ * Cierra un JSON cortado a mitad (los modelos free a veces paran sin terminar):
+ * corta tras el último objeto/array completo y cierra lo que quedó abierto.
+ */
+export function repairTruncatedJson(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start < 0) return null;
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+  let safeEnd = -1;
+  let safeStack: string[] = [];
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === "{" || ch === "[") stack.push(ch === "{" ? "}" : "]");
+    else if (ch === "}" || ch === "]") {
+      stack.pop();
+      if (stack.length === 0) return text.slice(start, i + 1);
+      safeEnd = i + 1;
+      safeStack = [...stack];
+    }
+  }
+  if (safeEnd < 0) return null;
+  return text.slice(start, safeEnd) + safeStack.reverse().join("");
+}
+
+function parseJsonObject(text: string): { value: unknown; repaired: boolean } {
   const match = text.match(/\{[\s\S]*\}/);
-  if (!match) return null;
+  if (match) {
+    try {
+      return { value: JSON.parse(match[0]), repaired: false };
+    } catch {
+      // cae al rescate
+    }
+  }
+  const repaired = repairTruncatedJson(text);
+  if (!repaired) return { value: null, repaired: false };
   try {
-    return JSON.parse(match[0]);
+    return { value: JSON.parse(repaired), repaired: true };
   } catch {
-    return null;
+    return { value: null, repaired: false };
   }
 }
 
@@ -114,7 +155,8 @@ Responde SOLO JSON válido (sin markdown) con esta forma:
   "progress": { "periodLabel": string|null, "nextSteps": string|null }
 }
 Reglas:
-- Devuelve sólo información presente en el texto suministrado. Si no está, usa null.
+- Salida COMPACTA: JSON en una sola línea, sin espacios ni saltos. En cada cuenta OMITE las claves null, false o vacías (no escribas "x":null). remarks solo en cuentas negativas y en pocas palabras.
+- Devuelve sólo información presente en el texto suministrado. Si no está, omite la clave.
 - Extrae todas las cuentas, no sólo las negativas. Incluye positivas, cerradas y colecciones cuando consten.
 - No calcules score futuro ni elegibilidad.
 - Incluye sourcePage con el número de página o bloque que viste.
@@ -169,7 +211,15 @@ function emptyManualReviewProposal(
 
 function normalizeProposal(raw: unknown): CreditPdfExtractionProposal {
   const coerced = coerceExtractionRaw(raw);
-  const parsed = creditPdfExtractionProposalSchema.safeParse(coerced);
+  let parsed = creditPdfExtractionProposalSchema.safeParse(coerced);
+  if (!parsed.success && coerced && typeof coerced === "object") {
+    // Rescatar scores y cuentas aunque cliente/progreso vengan mal formados.
+    parsed = creditPdfExtractionProposalSchema.safeParse({
+      ...(coerced as Record<string, unknown>),
+      client: null,
+      progress: null,
+    });
+  }
   if (parsed.success) {
     const data = parsed.data;
     if (data.client) {
@@ -282,7 +332,7 @@ function scoreWindowFor(pages: readonly PdfPageText[], text: string): PlannedWin
  *
  * `onWindowStart` / `onWindowComplete` — renovar lease / checkpoint.
  * `windowSeed` — reanudar tras timeout (ventanas ya hechas).
- * Concurrencia 2 por defecto (free tier OpenRouter).
+ * Concurrencia 3 por defecto (free tier OpenRouter: ventanas chicas en paralelo).
  */
 export async function classifyAndExtractFromPdf(input: {
   extract: PdfExtractResult;
@@ -305,7 +355,7 @@ export async function classifyAndExtractFromPdf(input: {
     extract,
     fileName,
     windowSeed,
-    concurrency = 2,
+    concurrency = 3,
     onWindowStart,
     onWindowComplete,
   } = input;
@@ -371,13 +421,25 @@ export async function classifyAndExtractFromPdf(input: {
         model: createOpenRouterModel({ purpose: "credit-pdf" }),
         system: prompt.system,
         prompt: prompt.prompt,
+        // Sin límite explícito algunos proveedores free cortan la salida (~5k tokens).
+        maxOutputTokens: 32_000,
         maxRetries: 1,
       });
-      const proposal = stampWindow(
-        normalizeProposal(parseJsonObject(result.text)),
+      const parsedJson = parseJsonObject(result.text);
+      let proposal = stampWindow(
+        normalizeProposal(parsedJson.value),
         window,
         index,
       );
+      if (parsedJson.repaired) {
+        proposal = {
+          ...proposal,
+          warnings: [
+            ...proposal.warnings,
+            `Ventana ${index + 1}: respuesta de la IA cortada; se rescataron las cuentas completas.`,
+          ],
+        };
+      }
       if (onWindowComplete) {
         await onWindowComplete({ ...windowInfo, proposal });
       }

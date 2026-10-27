@@ -771,7 +771,7 @@ export async function runClaimedCreditPdfImportJob(
       pdfBytes,
       fileName: fileName || "reporte.pdf",
       windowSeed: windowSeed.size > 0 ? windowSeed : undefined,
-      concurrency: 2,
+      concurrency: 3,
       // Renovar lease ANTES de cada llamada OpenRouter (puede durar minutos).
       onWindowStart: async ({ windowIndex, windowTotal }) => {
         const raw = Math.min(

@@ -5,6 +5,7 @@
  */
 import {
   AI_MAX_WINDOWS,
+  AI_TEXT_WINDOW,
   GENERAL_EXTRACTION_SYSTEM,
   assessExtractionCoverage,
   buildExtractionWindows,
@@ -17,6 +18,7 @@ import {
   mergeHeuristicScores,
   planPageWindows,
   planTextWindows,
+  repairTruncatedJson,
   splitTextWindows,
 } from "../../src/server/credit-import/extract";
 import { redactBureauText } from "../../src/server/credit-import/redact";
@@ -171,6 +173,13 @@ check(
 check(
   "heuristic TransUnion 721",
   heur.find((s) => s.bureau === "TRANSUNION")?.score === 721,
+);
+const spaced = extractScoreSnapshotsFromText("Credit Score  TransUnion 721  Experian 718  Equifax 648");
+check(
+  "heuristic no salta al score del buró siguiente",
+  spaced.find((s) => s.bureau === "EXPERIAN")?.score === 718 &&
+    spaced.find((s) => s.bureau === "TRANSUNION")?.score === 721 &&
+    spaced.find((s) => s.bureau === "EQUIFAX")?.score === 648,
 );
 
 const padded = `${"x".repeat(20_000)} Credit Score and Rating ${sample} ${"y".repeat(40_000)}`;
@@ -345,10 +354,10 @@ const emptyCoverage = assessExtractionCoverage({
   omittedItems: 0,
   incompleteWindows: 0,
 });
-check("una página vacía deja la cobertura parcial", emptyCoverage.status === "PARTIAL" && emptyCoverage.metricsBlocked);
+check("una página vacía no vuelve parcial la cobertura", emptyCoverage.status === "COMPLETE" && !emptyCoverage.metricsBlocked && emptyCoverage.emptyPages === 1);
 
 // Texto > AI_MAX_WINDOWS × AI_TEXT_WINDOW para forzar omisión de presupuesto.
-const huge = "abcdefghij".repeat(15_000); // 150k
+const huge = "abcdefghij".repeat(Math.ceil(((AI_MAX_WINDOWS + 1) * AI_TEXT_WINDOW) / 10));
 const longPlan = planTextWindows(huge);
 check("el plan de texto no esconde el resto", longPlan.length > AI_MAX_WINDOWS);
 const budgeted = buildExtractionWindows(huge);
@@ -383,6 +392,45 @@ check("sin job guardado la propuesta no bloquea por ilegible", storedPdfProposal
 check("una fecha ausente no se sustituye por hoy", proposedPdfReportDate(null) === "" && proposedPdfReportDate("  ") === "");
 check("la fecha de la propuesta se conserva", proposedPdfReportDate("2024-06-01") === "2024-06-01");
 
+// Cuentas mal formadas por la IA: se normalizan o se descartan una a una.
+{
+  const messy = coerceExtractionRaw({
+    documentKind: "CREDIT_BUREAU_REPORT",
+    confidence: "certain",
+    warnings: [],
+    report: {
+      reportDate: "10/17/2026",
+      snapshots: [{ bureau: "Experian", score: 718 }],
+      items: [
+        { creditorName: "CAPITAL ONE", bureau: "All", accountNumberMasked: "517805123456", balance: "$1,234.50", dateOpened: "03/2019" },
+        { creditorName: "MIDLAND", bureau: "TU", negativeType: "collection account", isNegative: true },
+        { creditorName: "SIN BURO", bureau: "desconocido" },
+      ],
+      inquiriesObserved: [{ bureau: "Equifax", inquiredOn: "2026-01-05" }, { bureau: "??" }],
+    },
+  }) as { confidence: string; warnings: string[]; report: { reportDate: string; items: Array<Record<string, unknown>> } };
+  const items = messy.report.items;
+  const capital = items.filter((item) => item.creditorName === "CAPITAL ONE");
+  check("buró 'All' se expande a los 3 burós", capital.length === 3);
+  check("número de cuenta completo se enmascara", capital[0]?.accountNumberMasked === "****3456");
+  check("monto con $ y comas se convierte", capital[0]?.balance === 1234.5);
+  check("fecha MM/YYYY → YYYY-MM-01", capital[0]?.dateOpened === "2019-03-01");
+  check("buró 'TU' → TRANSUNION y tipo negativo desconocido → OTHER", items.some((item) => item.bureau === "TRANSUNION" && item.negativeType === "OTHER"));
+  check("cuenta sin buró reconocible se descarta con aviso", !items.some((item) => item.creditorName === "SIN BURO") && messy.warnings.some((w) => w.includes("descartaron 1")));
+  check("fecha de reporte MM/DD/YYYY se normaliza", messy.report.reportDate === "2026-10-17");
+  check("confianza inválida → low", messy.confidence === "low");
+  check("la propuesta normalizada valida contra el esquema", creditPdfExtractionProposalSchema.safeParse(messy).success);
+}
+
+// JSON cortado por el modelo: se rescatan las cuentas completas.
+{
+  const cut = 'noise {"documentKind":"CREDIT_BUREAU_REPORT","report":{"snapshots":[],"items":[{"creditorName":"A \\"B\\" }","bureau":"EXPERIAN"},{"creditorName":"C","bureau":"EQUIFAX"},{"creditorName":"D","bur';
+  const fixed = repairTruncatedJson(cut);
+  const parsed = fixed ? (JSON.parse(fixed) as { report: { items: Array<{ creditorName: string }> } }) : null;
+  check("JSON cortado se rescata con las cuentas completas", parsed?.report.items.length === 2 && parsed.report.items[0]?.creditorName === 'A "B" }');
+  check("JSON completo se devuelve tal cual", repairTruncatedJson('x {"a":[1,2]} y') === '{"a":[1,2]}');
+}
+
 async function checkpoint() {
   const calls: number[] = [];
   const run = extractWindowsWithCheckpoint({
@@ -406,7 +454,19 @@ async function checkpoint() {
     omittedItems: 0,
     incompleteWindows: result.incomplete.length,
   });
-  check("la salida cortada bloquea métricas", partial.metricsBlocked && partial.pipelineVersion === "t07-2026-10-20");
+  check(
+    "la salida cortada queda parcial pero publicable",
+    partial.status === "PARTIAL" && !partial.metricsBlocked && partial.pipelineVersion === "t07-2026-10-20",
+  );
+  const nothing = assessExtractionCoverage({
+    plannedWindows: 3,
+    validWindows: 0,
+    plannedPages: 3,
+    emptyPages: 0,
+    omittedItems: 0,
+    incompleteWindows: 3,
+  });
+  check("sin ninguna ventana válida se bloquea", nothing.metricsBlocked);
 }
 
 async function seedAndConcurrency() {

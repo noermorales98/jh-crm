@@ -477,8 +477,8 @@ function main() {
     blocked = error instanceof Error ? error.message : "otro";
   }
   check(
-    "F24 una página vacía queda parcial y no se publica",
-    emptyPage.status === "PARTIAL" && emptyPage.metricsBlocked === true && blocked === "PUBLICATION_BLOCKED",
+    "F24 una página vacía no bloquea; metricsBlocked sigue impidiendo publicar",
+    emptyPage.status === "COMPLETE" && emptyPage.metricsBlocked === false && blocked === "PUBLICATION_BLOCKED",
   );
 
   const expired = evaluateProgram(ruleset(), facts({ asOf: "2027-01-01" }));

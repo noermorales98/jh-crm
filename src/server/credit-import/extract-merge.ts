@@ -7,6 +7,10 @@ import {
   creditPdfExtractionProposalSchema,
   type CreditPdfExtractionProposal,
 } from "@/src/lib/validation/credit-import";
+import {
+  creditItemInputSchema,
+  creditNegativeTypeSchema,
+} from "@/src/lib/validation/credit-reports";
 
 type Proposal = CreditPdfExtractionProposal;
 type Snapshot = NonNullable<
@@ -36,27 +40,106 @@ function optionalIntField(value: unknown): number | null {
   return i >= 0 ? i : null;
 }
 
-function sanitizeRawItem(item: unknown): unknown {
-  if (!item || typeof item !== "object") return item;
+function asBureau(raw: unknown): Bureau | null {
+  if (typeof raw !== "string") return null;
+  const u = raw.trim().toUpperCase().replace(/[\s._-]+/g, "");
+  if (u === "EXPERIAN" || u === "EXP" || u === "XPN" || u === "EX") return "EXPERIAN";
+  if (u === "EQUIFAX" || u === "EQF" || u === "EFX" || u === "EQ") return "EQUIFAX";
+  if (u === "TRANSUNION" || u === "TRANS" || u === "TU" || u === "TUC") return "TRANSUNION";
+  return null;
+}
+
+/** "Experian, TransUnion" / "All" / "3 bureaus" → lista de burós; [] si no se reconoce. */
+function bureausFrom(raw: unknown): Bureau[] {
+  const single = asBureau(raw);
+  if (single) return [single];
+  if (typeof raw !== "string") return [];
+  const u = raw.toUpperCase();
+  if (/\b(ALL|TODOS|3 ?BUREAUS|TRI-?MERGE)\b/.test(u)) return [...BUREAUS];
+  return BUREAUS.filter((bureau) =>
+    bureau === "TRANSUNION" ? /TRANS\s*UNION|\bTU\b/.test(u) : u.includes(bureau),
+  );
+}
+
+/** "$1,234.50" → 1234.5; no numérico → null. */
+function asMoney(raw: unknown): number | null {
+  if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
+  if (typeof raw !== "string") return null;
+  const cleaned = raw.replace(/[$,\s]/g, "").replace(/^\((.*)\)$/, "-$1");
+  if (!cleaned) return null;
+  const n = Number(cleaned);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** YYYY-MM-DD, MM/DD/YYYY o MM/YYYY → YYYY-MM-DD; otro formato → null. */
+function asIsoDate(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})/.exec(t);
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);
+  if (m) return `${m[3]}-${m[1]!.padStart(2, "0")}-${m[2]!.padStart(2, "0")}`;
+  m = /^(\d{1,2})\/(\d{4})$/.exec(t);
+  if (m) return `${m[2]}-${m[1]!.padStart(2, "0")}-01`;
+  return null;
+}
+
+/** Número de cuenta → solo dígitos enmascarados (****1234); nunca el número completo. */
+function asMaskedAccount(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  if (!t) return null;
+  if (/^[*\dXx\- ]*$/.test(t) && /[*Xx]/.test(t)) return t.slice(-32);
+  const digits = t.replace(/\D/g, "");
+  return digits.length >= 4 ? `****${digits.slice(-4)}` : null;
+}
+
+function clip(raw: unknown, max: number): string | null {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim();
+  return t ? t.slice(0, max) : null;
+}
+
+/**
+ * Normaliza una cuenta de la IA. Devuelve una entrada por buró (la IA a veces
+ * agrupa "All" o varios burós en una fila). [] si no hay acreedor ni buró.
+ */
+function sanitizeRawItem(item: unknown): Record<string, unknown>[] {
+  if (!item || typeof item !== "object") return [];
   const next = { ...(item as Record<string, unknown>) };
   const page = optionalIntField(next.sourcePage);
   if (page == null || page < 1) delete next.sourcePage;
-  else next.sourcePage = page;
+  else next.sourcePage = Math.min(page, 9999);
   const windowIndex = optionalIntField(next.sourceWindow);
   if (windowIndex == null) delete next.sourceWindow;
-  else next.sourceWindow = windowIndex;
-  if (typeof next.responsibility !== "string") delete next.responsibility;
+  else next.sourceWindow = Math.min(windowIndex, 99);
+  next.responsibility = clip(next.responsibility, 80);
   delete next.fieldQuality;
-  return next;
-}
 
-function asBureau(raw: unknown): Bureau | null {
-  if (typeof raw !== "string") return null;
-  const u = raw.trim().toUpperCase().replace(/\s+/g, "");
-  if (u === "EXPERIAN") return "EXPERIAN";
-  if (u === "EQUIFAX") return "EQUIFAX";
-  if (u === "TRANSUNION" || u === "TRANS") return "TRANSUNION";
-  return null;
+  next.creditorName = clip(next.creditorName, 200);
+  next.accountNumberMasked = asMaskedAccount(next.accountNumberMasked);
+  next.accountType = clip(next.accountType, 80);
+  next.accountStatus = clip(next.accountStatus, 120);
+  next.paymentStatus = clip(next.paymentStatus, 120);
+  next.openClosedStatus = clip(next.openClosedStatus, 120);
+  next.remarks = clip(next.remarks, 5000);
+  next.balance = asMoney(next.balance);
+  next.creditLimit = asMoney(next.creditLimit);
+  next.monthlyPayment = asMoney(next.monthlyPayment);
+  next.dateOpened = asIsoDate(next.dateOpened);
+  next.dateReported = asIsoDate(next.dateReported);
+  const negative =
+    typeof next.negativeType === "string" ? next.negativeType.trim().toUpperCase().replace(/[\s-]+/g, "_") : null;
+  next.negativeType = negative
+    ? creditNegativeTypeSchema.safeParse(negative).success
+      ? negative
+      : "OTHER"
+    : null;
+  if (typeof next.isNegative !== "boolean") next.isNegative = Boolean(next.negativeType);
+  if (typeof next.disputeEligible !== "boolean") delete next.disputeEligible;
+
+  if (!next.creditorName) return [];
+  return bureausFrom(next.bureau).map((bureau) => ({ ...next, bureau }));
 }
 
 function asScore(raw: unknown): number | null {
@@ -136,7 +219,23 @@ export function coerceExtractionRaw(raw: unknown): unknown {
   }
 
   if (Array.isArray(r.items)) {
-    r.items = r.items.map((item) => sanitizeRawItem(item));
+    // Una cuenta inválida se descarta sola; antes tumbaba la ventana entera.
+    let dropped = 0;
+    const valid: unknown[] = [];
+    for (const raw of r.items) {
+      const expanded = sanitizeRawItem(raw);
+      if (expanded.length === 0) dropped += 1;
+      for (const candidate of expanded) {
+        if (creditItemInputSchema.safeParse(candidate).success) valid.push(candidate);
+        else dropped += 1;
+      }
+    }
+    r.items = valid;
+    if (dropped > 0) {
+      const warnings = Array.isArray(o.warnings) ? [...o.warnings] : [];
+      warnings.push(`Se descartaron ${dropped} cuenta(s) ilegibles de la IA.`);
+      o.warnings = warnings;
+    }
   }
 
   if (Array.isArray(r.items) && r.items.length > EXTRACTION_ITEM_CEILING) {
@@ -147,6 +246,33 @@ export function coerceExtractionRaw(raw: unknown): unknown {
     o.warnings = warnings;
   }
 
+  if (Array.isArray(r.inquiriesObserved)) {
+    r.inquiriesObserved = r.inquiriesObserved.flatMap((entry) => {
+      if (!entry || typeof entry !== "object") return [];
+      const q = entry as Record<string, unknown>;
+      const bureau = asBureau(q.bureau);
+      if (!bureau) return [];
+      return [{ bureau, inquiredOn: asIsoDate(q.inquiredOn), kind: clip(q.kind, 40) }];
+    }).slice(0, EXTRACTION_ITEM_CEILING);
+  } else {
+    delete r.inquiriesObserved;
+  }
+  r.reportDate = asIsoDate(r.reportDate);
+  r.provider = clip(r.provider, 120);
+  r.notes = clip(r.notes, 5000);
+  if (r.typeHint !== "INITIAL" && r.typeHint !== "UPDATE" && r.typeHint !== "MANUAL") {
+    r.typeHint = null;
+  }
+  if (o.confidence !== "low" && o.confidence !== "medium" && o.confidence !== "high") {
+    o.confidence = "low";
+  }
+  if (Array.isArray(o.warnings)) {
+    o.warnings = o.warnings
+      .filter((w): w is string => typeof w === "string")
+      .map((w) => w.slice(0, 500))
+      .slice(0, 30);
+  }
+
   o.report = r;
   return o;
 }
@@ -155,11 +281,12 @@ export function coerceExtractionRaw(raw: unknown): unknown {
 export function extractScoreSnapshotsFromText(text: string): Snapshot[] {
   const byBureau = new Map<Bureau, Snapshot>();
   const patterns: Array<{ bureau: Bureau; re: RegExp }> = [
-    { bureau: "EQUIFAX", re: /\bEquifax\s*\d*\s*[^\d]{0,12}?(\d{3})\b/gi },
-    { bureau: "EXPERIAN", re: /\bExperian\s*\d*\s*[^\d]{0,12}?(\d{3})\b/gi },
+    // \d? = nota al pie pegada ("Equifax1 648"); con espacio, el número ES el score.
+    { bureau: "EQUIFAX", re: /\bEquifax\d?\s*[^\d]{0,12}?(\d{3})\b/gi },
+    { bureau: "EXPERIAN", re: /\bExperian\d?\s*[^\d]{0,12}?(\d{3})\b/gi },
     {
       bureau: "TRANSUNION",
-      re: /\bTrans\s*-?\s*Union\s*\d*\s*[^\d]{0,12}?(\d{3})\b/gi,
+      re: /\bTrans\s*-?\s*Union\d?\s*[^\d]{0,12}?(\d{3})\b/gi,
     },
   ];
 

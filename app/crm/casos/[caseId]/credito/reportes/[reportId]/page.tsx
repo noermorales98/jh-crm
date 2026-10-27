@@ -153,6 +153,7 @@ export default async function CreditReportDetailPage({
                 <TH>Buró</TH>
                 <TH>Cuenta</TH>
                 <TH>Saldo</TH>
+                <TH>Fechas</TH>
                 <TH>Negativo</TH>
                 <TH>Estado</TH>
                 {canManageItems ? <TH /> : null}
@@ -177,6 +178,22 @@ export default async function CreditReportDetailPage({
                   </TD>
                   <TD className="tabular-nums">
                     {item.balance != null ? formatMoney(item.balance) : "—"}
+                  </TD>
+                  <TD className="whitespace-nowrap text-sm text-text-secondary">
+                    {item.dateOpened || item.dateReported ? (
+                      <>
+                        <div>
+                          Abierta{" "}
+                          {item.dateOpened ? formatDate(item.dateOpened, "UTC") : "—"}
+                        </div>
+                        <div className="text-xs">
+                          Reportada{" "}
+                          {item.dateReported ? formatDate(item.dateReported, "UTC") : "—"}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-text-placeholder">—</span>
+                    )}
                   </TD>
                   <TD>
                     {item.isNegative ? (

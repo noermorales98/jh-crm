@@ -276,8 +276,9 @@ export function assessExtractionCoverage(input: {
   omittedItems: number;
   incompleteWindows: number;
 }): NonNullable<CreditPdfExtractionProposal["coverage"]> {
+  // Páginas en blanco (portadas, separadores) son normales: se cuentan, pero no
+  // vuelven parcial la extracción.
   const partial =
-    input.emptyPages > 0 ||
     input.validWindows < input.plannedWindows ||
     input.omittedItems > 0 ||
     input.incompleteWindows > 0;
@@ -289,6 +290,7 @@ export function assessExtractionCoverage(input: {
     plannedPages: input.plannedPages,
     emptyPages: input.emptyPages,
     omittedItems: input.omittedItems,
-    metricsBlocked: partial,
+    // Parcial se publica igual (con aviso); solo se bloquea si no hubo nada útil.
+    metricsBlocked: input.validWindows <= 0,
   };
 }

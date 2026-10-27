@@ -14,10 +14,14 @@ export const CREDIT_PDF_DEFAULT_FREE_MODEL =
 
 const CREDIT_PDF_FREE_FALLBACKS = [
   CREDIT_PDF_DEFAULT_FREE_MODEL,
-  "poolside/laguna-xs-2.1:free",
   "google/gemma-4-26b-a4b-it:free",
-  OPENROUTER_FREE_ROUTER,
+  // Sin openrouter/free: puede caer en content-safety o en modelos con
+  // razonamiento obligatorio (rechazan reasoning.enabled=false).
+  "google/gemma-4-31b-it:free",
 ] as const;
+
+/** OpenRouter rechaza (400) un array `models` con más de 3 entradas. */
+const OPENROUTER_MAX_FALLBACK_MODELS = 3;
 
 export type OpenRouterPurpose = "default" | "credit-pdf";
 
@@ -70,7 +74,7 @@ function fallbackModels(primary: string, purpose: OpenRouterPurpose): string[] {
     const list = [primary, ...CREDIT_PDF_FREE_FALLBACKS].filter(
       (id, index, arr) => isFreeOpenRouterModel(id) && arr.indexOf(id) === index,
     );
-    return list;
+    return list.slice(0, OPENROUTER_MAX_FALLBACK_MODELS);
   }
   return [primary];
 }
@@ -99,6 +103,8 @@ export function createOpenRouterModel(
     extraBody: {
       models,
       provider: { allow_fallbacks: true, require_parameters: true },
+      // Extracción JSON: sin razonamiento (~1s vs 5–9s por ventana en free).
+      ...(purpose === "credit-pdf" ? { reasoning: { enabled: false } } : {}),
     },
     fetch: async (url, init) => {
       const first = await fetch(url, init);

@@ -451,6 +451,10 @@ export async function confirmCreditPdfImport(
       notes,
       snapshots,
       items,
+      inquiries:
+        input.documentKind === "CLIENT_PROGRESS_REPORT"
+          ? []
+          : (proposal.report?.inquiriesObserved ?? []),
     });
   } catch (error) {
     await revertConfirmPhase();

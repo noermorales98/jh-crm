@@ -68,6 +68,13 @@ export interface CreateCreditReportData {
   notes?: string | null;
   snapshots?: BureauSnapshotInput[];
   items?: CreditItemInput[];
+  /** Consultas observadas en el reporte (con fecha si consta). */
+  inquiries?: {
+    bureau: CreditBureau;
+    creditorName?: string | null;
+    inquiredOn?: string | null;
+    kind?: string | null;
+  }[];
 }
 
 export interface UpdateCreditReportData {
@@ -246,6 +253,26 @@ export async function createCreditReport(ctx: OrganizationContext, data: CreateC
             reportId: report.id,
           }),
         ),
+      });
+    }
+
+    const hardInquiries = (data.inquiries ?? []).filter(
+      (q) => !/soft/i.test(q.kind ?? ""),
+    );
+    if (hardInquiries.length > 0) {
+      await tx.creditInquiry.createMany({
+        data: hardInquiries.map((q, index) => ({
+          organizationId: ctx.organizationId,
+          clientId: creditCase.clientId,
+          reportId: report.id,
+          bureau: q.bureau,
+          creditorName: q.creditorName?.trim() || "Sin acreedor",
+          inquiryDate: q.inquiredOn ? new Date(`${q.inquiredOn}T12:00:00.000Z`) : null,
+          datePrecision: q.inquiredOn ? "DAY" : null,
+          inquiryType: "HARD",
+          sourceIdempotencyKey: `${report.id}:${index}`,
+        })),
+        skipDuplicates: true,
       });
     }
 

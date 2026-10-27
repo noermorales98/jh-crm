@@ -103,9 +103,9 @@ function rateUtil(util: number | null): Rating {
 
 function rateAggregateUtil(util: number | null): Rating {
   if (util == null) return { label: "Sin dato", tone: "warning" };
-  if (util <= UTIL_MAX) return { label: "Excelente", tone: "success" };
-  if (util <= 30) return { label: "Bueno", tone: "warning" };
-  return { label: "Necesita mejorar", tone: "danger" };
+  return util <= UTIL_MAX
+    ? { label: "Excelente", tone: "success" }
+    : { label: `Por encima del ${UTIL_MAX}%`, tone: "danger" };
 }
 
 function money(value: number | null, currency: string | null): string {
@@ -162,14 +162,18 @@ export function ClientActionPlanView({
   const label = (b: ClientActionPlan["bureaus"][number]) =>
     CREDIT_BUREAU_LABELS[b.bureau] ?? b.bureau;
   const scoreFails = plan.bureaus.filter((b) => !b.scoreOk).map(label);
-  const utilFails = plan.bureaus.filter((b) => !b.utilOk).map(label);
+  const utilFails = plan.bureaus
+    .filter((b) => b.utilization != null && !b.utilOk)
+    .map(label);
+  const utilUnknown = plan.bureaus.every((b) => b.utilization == null);
   const inquiryFails = plan.bureaus
     .filter((b) => b.inquiries != null && b.inquiries > INQUIRY_MAX)
     .map(label);
   const ageFails = plan.bureaus
     .filter((b) => b.avgAgeMonths == null || b.avgAgeMonths < AGE_IDEAL_MONTHS)
     .map(label);
-  const negativeBureaus = plan.bureaus.filter((b) => b.negatives > 0).map(label);
+  const negativeBureaus = plan.bureaus.filter((b) => b.blockingNegatives > 0).map(label);
+  const oldLates = plan.negativeAccounts.filter((n) => n.old).length;
 
   const cards = dedupeCards(plan.revolving.cards);
   const highCards = cards.filter((c) => (c.utilizationBps ?? 0) > 3000).length;
@@ -290,7 +294,9 @@ export function ClientActionPlanView({
               }))}
             />
             <p className="mt-2 text-[11px] text-text-secondary">
-              {utilFails.length > 0
+              {utilUnknown
+                ? "El reporte no trae límites de tarjetas para calcular la utilización"
+                : utilFails.length > 0
                 ? `Uno o más burós superan el umbral de ${UTIL_MAX}%`
                 : `Los 3 burós están dentro del ${UTIL_MAX}%`}
             </p>
@@ -336,7 +342,8 @@ export function ClientActionPlanView({
               )}
             </li>
             <li>
-              Hard inquiries ({plan.bureaus.map((b) => `${label(b)} ${b.inquiries ?? "Sin dato"}`).join(", ")}):{" "}
+              Hard inquiries ({plan.bureaus.map((b) => `${label(b)} ${b.inquiries ?? "Sin dato"}`).join(", ")}
+              {plan.bureaus[0]?.inquiriesNote ? `, ${plan.bureaus[0].inquiriesNote}` : ""}):{" "}
               {inquiryFails.length > 0 ? (
                 <>
                   <strong className="text-ink">Necesita mejorar</strong>:{" "}
@@ -368,13 +375,17 @@ export function ClientActionPlanView({
               {negativeBureaus.length > 0 ? (
                 <>
                   <strong className="text-ink">Necesita mejorar</strong>:{" "}
-                  {bureauList(negativeBureaus)} reporta negativos (
+                  {bureauList(negativeBureaus)} reporta negativos que bloquean fondeo (
                   {plan.negativeCount} de {plan.totalItems} cuentas).
+                  {oldLates > 0
+                    ? ` ${oldLates} atraso${oldLates === 1 ? "" : "s"} de más de 3 años no cuenta${oldLates === 1 ? "" : "n"}.`
+                    : ""}
                 </>
               ) : (
                 <>
-                  <strong className="text-ink">Bueno</strong>: sin negativos
-                  reportados.
+                  <strong className="text-ink">Bueno</strong>: sin negativos que
+                  bloqueen fondeo
+                  {oldLates > 0 ? ` (${oldLates} atraso${oldLates === 1 ? "" : "s"} de más de 3 años)` : ""}.
                 </>
               )}
             </li>
@@ -619,7 +630,7 @@ export function ClientActionPlanView({
                   [`Utilización <= ${UTIL_MAX}%`, (r) => r.utilOk],
                   ["Edad de Crédito >= 2.5 Años", (r) => r.ageOk],
                   [
-                    `<= ${INQUIRY_MAX} Consultas`,
+                    `<= ${INQUIRY_MAX} Consultas (últimos 6 meses)`,
                     (r) => {
                       const b = plan.bureaus.find((x) => x.bureau === r.bureau);
                       return b?.inquiries == null ? null : b.inquiries <= INQUIRY_MAX;
@@ -786,10 +797,8 @@ export function ClientActionPlanView({
         <BigStat
           tone="success"
           icon={CreditCard}
-          value={utilText(
-            averageBps(plan.bureaus.map((b) => b.utilizationBps)),
-          )}
-          label="Utilización Promedio"
+          value={utilText(plan.revolving.utilizationBps)}
+          label="Utilización total (saldo / límite)"
         />
         <BigStat
           tone="warning"
@@ -815,12 +824,6 @@ export function ClientActionPlanView({
       </Modal>
     </div>
   );
-}
-
-function averageBps(values: (number | null)[]): number | null {
-  const known = values.filter((v): v is number => v != null);
-  if (known.length === 0) return null;
-  return Math.round(known.reduce((a, b) => a + b, 0) / known.length);
 }
 
 function dedupeCards(cards: ClientActionPlan["revolving"]["cards"]) {
@@ -1236,6 +1239,11 @@ function NegativeAccounts({
               {account.negativeType ? (CREDIT_NEGATIVE_TYPE_LABELS[account.negativeType] ?? account.negativeType) : "Negativo"}
               {account.accountStatus ? ` · ${account.accountStatus}` : ""}
             </p>
+            {account.old ? (
+              <p className="mt-0.5 text-[11px] font-medium text-success-ink">
+                Atraso de más de 3 años: no bloquea fondeo
+              </p>
+            ) : null}
             <p className="mt-0.5 text-text-secondary">
               {account.dateOpened ? `Abierta ${formatDate(account.dateOpened, "UTC")}` : "Apertura sin dato"}
               {account.dateReported ? ` · reportada ${formatDate(account.dateReported, "UTC")}` : ""}

@@ -202,8 +202,10 @@ function main() {
       !panel.includes("Abrir ronda"),
   );
   check(
-    "la matriz no marca sin negativos sin cobertura",
-    plan.includes('negativeListed("UNKNOWN"') && !plan.includes("Errores o discrepancias"),
+    "la matriz usa negativos que bloquean (atrasos de más de 3 años no bloquean)",
+    plan.includes("blockingByBureau.get(bureau) ?? 0) === 0") &&
+      plan.includes("practicalNegatives(") &&
+      !plan.includes("Errores o discrepancias"),
   );
 
   console.log("\nOK credit-anomalies\n");

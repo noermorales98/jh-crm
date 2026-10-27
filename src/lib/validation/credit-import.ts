@@ -102,6 +102,7 @@ export const creditPdfExtractionProposalSchema = z.object({
         .array(
           z.object({
             bureau: creditBureauSchema,
+            creditorName: z.string().trim().max(200).optional().nullable(),
             inquiredOn: z
               .string()
               .trim()

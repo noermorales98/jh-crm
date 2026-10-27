@@ -153,7 +153,8 @@ export default async function CreditReportDetailPage({
                 <TH>Acreedor</TH>
                 <TH>Buró</TH>
                 <TH>Cuenta</TH>
-                <TH>Saldo</TH>
+                <TH>Saldo / límite</TH>
+                <TH>Tipo y titular</TH>
                 <TH>Fechas</TH>
                 <TH>Negativo</TH>
                 <TH>Estado</TH>
@@ -178,7 +179,14 @@ export default async function CreditReportDetailPage({
                     {item.accountNumberMasked ?? "—"}
                   </TD>
                   <TD className="tabular-nums">
-                    {item.balance != null ? formatMoney(item.balance) : "—"}
+                    <div>{item.balance != null ? formatMoney(item.balance) : "—"}</div>
+                    <div className="text-xs text-text-secondary">
+                      Límite {item.creditLimit != null ? formatMoney(item.creditLimit) : "sin dato"}
+                    </div>
+                  </TD>
+                  <TD className="text-sm text-text-secondary">
+                    <div>{item.accountType ?? "Tipo sin dato"}</div>
+                    <div className="text-xs">{item.ownershipType ?? "Titular sin dato"}</div>
                   </TD>
                   <TD className="whitespace-nowrap text-sm text-text-secondary">
                     {item.dateOpened || item.dateReported ? (

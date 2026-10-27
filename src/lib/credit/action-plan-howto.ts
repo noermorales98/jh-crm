@@ -5,6 +5,7 @@
 
 export type ActionPlanPriorityId =
   | "charge_offs"
+  | "collections"
   | "late_payments"
   | "high_utilization"
   | "no_high_limit"
@@ -62,6 +63,38 @@ export const ACTION_PLAN_HOWTO: Record<ActionPlanPriorityId, ActionPlanHowTo> = 
     ],
     expectations:
       "Los charge-offs exactos y verificables pueden permanecer hasta 7 años; la eliminación depende de inexactitud o falta de verificación — no está garantizada.",
+  },
+  collections: {
+    id: "collections",
+    title: "Colecciones (cuentas en cobro)",
+    severity: "CRITICO",
+    summary:
+      "Una cuenta en cobranza la reporta una agencia externa. Muchas veces la deuda fue revendida, sin documentos o con fechas y saldos que no cuadran.",
+    ficoImpact: ACTION_PLAN_POINT_IMPACT_UNAVAILABLE,
+    timeline: "30-90 días",
+    why: "Las agencias de cobranza están sujetas a la FDCPA: si el consumidor pide validación por escrito dentro de 30 días del primer aviso, deben probar la deuda antes de seguir cobrando. Ante los burós aplica la FCRA: lo que no se pueda verificar debe corregirse o eliminarse.",
+    steps: [
+      "Revisa cada cobranza por buró: acreedor original, saldo, fecha de primera morosidad y si aparece duplicada (original + agencia).",
+      "Envía carta de validación de deuda a la agencia (FDCPA §809) por correo certificado.",
+      "Disputa con los burós lo inexacto o no validado (FCRA §611), adjuntando la respuesta o la falta de respuesta.",
+      "Si la deuda es válida y exacta, evalúa negociar un pago a cambio de eliminación por escrito antes de pagar.",
+      "No reconozcas la deuda por teléfono ni hagas pagos parciales sin acuerdo escrito.",
+    ],
+    commonMistakes: [
+      "Pagar sin acuerdo escrito: la cuenta queda como pagada pero sigue en el reporte.",
+      "Reconocer la deuda por teléfono y reiniciar plazos en algunos estados.",
+      "Ignorar duplicados: la misma deuda reportada por el acreedor original y por la agencia.",
+      "Disputar en línea con motivos genéricos en lugar de cartas con evidencia.",
+    ],
+    professionalOrder: [
+      "Inventario de cobranzas por buró y detección de duplicados.",
+      "Carta de validación a cada agencia.",
+      "Disputa a los burós de lo no validado o inexacto.",
+      "Negociación de eliminación solo para deudas válidas.",
+      "Nuevo reporte para confirmar cambios.",
+    ],
+    expectations:
+      "Una cobranza exacta y validada puede permanecer hasta 7 años desde la primera morosidad; la eliminación depende de inexactitud, falta de validación o acuerdo con el cobrador. No está garantizada.",
   },
   late_payments: {
     id: "late_payments",

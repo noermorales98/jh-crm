@@ -8,11 +8,23 @@ import { es } from "date-fns/locale";
 
 export const DEFAULT_TIMEZONE = "America/Chicago";
 
-export function formatDate(date: Date | string, timezone = DEFAULT_TIMEZONE): string {
+/** Medianoche UTC exacta = campo de solo fecha (@db.Date), no un instante. */
+function isDateOnly(d: Date): boolean {
+  return (
+    d.getUTCHours() === 0 &&
+    d.getUTCMinutes() === 0 &&
+    d.getUTCSeconds() === 0 &&
+    d.getUTCMilliseconds() === 0
+  );
+}
+
+export function formatDate(date: Date | string, timezone?: string): string {
   const d = typeof date === "string" ? new Date(date) : date;
+  // Un campo de solo fecha se muestra tal cual (en la zona local saldría un día antes).
+  const zone = timezone ?? (isDateOnly(d) ? "UTC" : DEFAULT_TIMEZONE);
   return new Intl.DateTimeFormat("es-US", {
     dateStyle: "medium",
-    timeZone: timezone,
+    timeZone: zone,
   }).format(d);
 }
 

@@ -2,6 +2,7 @@
  * Coerción, merge y heurística de scores de propuestas PDF.
  */
 import { normalizeCreditObservation } from "@/src/lib/credit/normalize";
+import { classifyNegative } from "@/src/lib/credit/practical";
 import {
   EXTRACTION_ITEM_CEILING,
   creditPdfExtractionProposalSchema,
@@ -252,7 +253,12 @@ export function coerceExtractionRaw(raw: unknown): unknown {
       const q = entry as Record<string, unknown>;
       const bureau = asBureau(q.bureau);
       if (!bureau) return [];
-      return [{ bureau, inquiredOn: asIsoDate(q.inquiredOn), kind: clip(q.kind, 40) }];
+      return [{
+        bureau,
+        creditorName: clip(q.creditorName, 200),
+        inquiredOn: asIsoDate(q.inquiredOn),
+        kind: clip(q.kind, 40),
+      }];
     }).slice(0, EXTRACTION_ITEM_CEILING);
   } else {
     delete r.inquiriesObserved;
@@ -391,6 +397,10 @@ export function mergeExtractionProposals(
   let provider: string | null = null;
   let typeHint: NonNullable<Proposal["report"]>["typeHint"] = null;
   let notes: string | null = null;
+  const inquiriesByKey = new Map<
+    string,
+    NonNullable<NonNullable<NonNullable<Proposal["report"]>["inquiriesObserved"]>>[number]
+  >();
   const itemsByKey = new Map<
     string,
     NonNullable<NonNullable<Proposal["report"]>["items"]>[number]
@@ -428,6 +438,10 @@ export function mergeExtractionProposals(
     for (const it of r.items ?? []) {
       const k = itemKey(it);
       if (!itemsByKey.has(k)) itemsByKey.set(k, it);
+    }
+    for (const q of r.inquiriesObserved ?? []) {
+      const k = `${q.bureau}|${q.inquiredOn ?? ""}|${(q.creditorName ?? "").toLowerCase()}`;
+      if (!inquiriesByKey.has(k)) inquiriesByKey.set(k, q);
     }
   }
 
@@ -479,6 +493,7 @@ export function mergeExtractionProposals(
         notes,
         snapshots: [...snapByBureau.values()],
         items,
+        inquiriesObserved: [...inquiriesByKey.values()].slice(0, EXTRACTION_ITEM_CEILING),
       },
       progress,
     }),
@@ -503,8 +518,29 @@ export function withObservationQuality(
         blockId: item.sourceWindow != null ? `window-${item.sourceWindow}` : null,
       },
     });
+    // Tipo de negativo según el texto del estado (corrige a la IA).
+    const negativeType = classifyNegative({
+      id: `${item.bureau}-${index}`,
+      creditorName: item.creditorName,
+      accountNumberMasked: item.accountNumberMasked ?? null,
+      accountType: item.accountType ?? null,
+      bureau: item.bureau,
+      balance: item.balance == null ? null : Number(item.balance),
+      creditLimit: item.creditLimit == null ? null : Number(item.creditLimit),
+      dateOpened: null,
+      dateReported: null,
+      accountStatus: item.accountStatus ?? null,
+      paymentStatus: item.paymentStatus ?? null,
+      openClosedStatus: item.openClosedStatus ?? null,
+      remarks: item.remarks ?? null,
+      ownershipType: item.responsibility ?? null,
+      isNegative: item.isNegative ?? false,
+      negativeType: item.negativeType ?? null,
+    });
     return {
       ...item,
+      isNegative: negativeType != null,
+      negativeType,
       fieldQuality: {
         family: normalized.family.value ?? "UNKNOWN",
         familyQuality: normalized.family.quality,

@@ -133,7 +133,11 @@ export function DateInput({
   const cells = useMemo(() => buildCells(viewMonth), [viewMonth]);
   const minDate = min ? parseYmd(min) : null;
   const maxDate = max ? parseYmd(max) : null;
-  const todayYmd = toYmd(new Date());
+  // Evitar hydration #418: no usar "hoy" del servidor (TZ) en el primer paint.
+  const [todayYmd, setTodayYmd] = useState<string | null>(null);
+  useEffect(() => {
+    setTodayYmd(toYmd(new Date()));
+  }, []);
   const display = current ? formatDisplay(current) : "Elegir fecha…";
 
   function isDisabledDay(date: Date): boolean {

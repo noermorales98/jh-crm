@@ -17,6 +17,7 @@ import {
   saveCreditPdfImportDraftAction,
 } from "@/src/actions/credit-import";
 import { playActionResult } from "@/src/lib/cuelume";
+import { kickCreditPdfImportProcess } from "@/src/lib/credit/kick-pdf-import";
 import {
   CREDIT_BUREAU_LABELS,
   CREDIT_REPORT_TYPE_LABELS,
@@ -138,6 +139,12 @@ export function CreditPdfImportProgressClient({
     engageLock,
     releaseLock,
   ]);
+
+  // Si el job quedó en cola (after() de la action no arrancó), empujar el worker.
+  useEffect(() => {
+    if (job.status !== "QUEUED") return;
+    void kickCreditPdfImportProcess(jobId);
+  }, [jobId, job.status]);
 
   // Poll
   useEffect(() => {
@@ -343,7 +350,8 @@ export function CreditPdfImportProgressClient({
             />
           </div>
           <p className="text-xs text-text-secondary">
-            {job.progress}% · reportes largos: varios minutos (varias pasadas de IA)
+            {Math.max(job.progress, job.status === "QUEUED" ? 5 : 0)}% ·
+            reportes largos: varios minutos (varias pasadas de IA)
             {pending ? " · actualizando…" : null}
           </p>
           <ol className="space-y-1 text-sm text-text-secondary">

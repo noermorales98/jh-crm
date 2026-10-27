@@ -9,6 +9,7 @@ import {
   startCreditPdfImportAction,
 } from "@/src/actions/credit-import";
 import { playActionResult } from "@/src/lib/cuelume";
+import { kickCreditPdfImportProcess } from "@/src/lib/credit/kick-pdf-import";
 import { useCreditPdfImportLock } from "./credit-pdf-import-lock";
 
 type PdfOption = {
@@ -67,6 +68,7 @@ export function AnalyzePdfImportButton({
         return;
       }
       playActionResult(true);
+      void kickCreditPdfImportProcess(result.data.jobId);
       const selected = pdfs.find((p) => p.id === documentId);
       engageLock({
         jobId: result.data.jobId,

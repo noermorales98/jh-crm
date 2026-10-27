@@ -27,6 +27,7 @@ import {
   startCreditPdfImportAction,
 } from "@/src/actions/credit-import";
 import { playActionResult } from "@/src/lib/cuelume";
+import { kickCreditPdfImportProcess } from "@/src/lib/credit/kick-pdf-import";
 import { useCreditPdfImportLock } from "@/src/components/credit-reports/credit-pdf-import-lock";
 
 const ALLOWED = ["application/pdf", "image/jpeg", "image/png"];
@@ -165,6 +166,8 @@ export function DocumentUploader({
       return;
     }
     playActionResult(true);
+    // Arranque real del worker (Route Handler + maxDuration); after() de la action no basta en Hobby.
+    void kickCreditPdfImportProcess(result.data.jobId);
     engageLock({
       jobId: result.data.jobId,
       caseId: result.data.caseId,

@@ -1,9 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { prisma } from "@/src/lib/db";
-import { Tabs } from "@/src/components/ui";
 import { clientFullName } from "@/src/server/page-helpers";
-import { clientTabs } from "@/src/lib/routes/client-tabs";
 import { ServiceSwitcher } from "@/src/components/cases/service-switcher";
 
 export interface CaseHeaderData {
@@ -20,8 +18,8 @@ export interface CaseHeaderData {
 }
 
 /**
- * Cabecera de las vistas de un servicio: es la ficha del cliente (mismas
- * pestañas) con el servicio activo y un selector si tiene varios.
+ * Cabecera de las vistas de un servicio: cliente, servicio activo, selector
+ * si tiene varios y regreso a la ficha (sin pestañas, estilo Fondify).
  */
 export async function CaseHeader({
   creditCase,
@@ -50,7 +48,7 @@ export async function CaseHeader({
         href={`/crm/clientes/${clientId}`}
         className="text-[13px] font-medium text-action-primary"
       >
-        ← Resumen
+        ← Volver a la ficha
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -79,7 +77,6 @@ export async function CaseHeader({
           <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>
         ) : null}
       </div>
-      <Tabs items={clientTabs(clientId)} />
     </div>
   );
 }

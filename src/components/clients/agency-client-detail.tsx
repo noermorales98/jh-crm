@@ -33,6 +33,7 @@ import {
   History,
   type LucideIcon,
   MessageSquareText,
+  IdCard,
 } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
 import { Alert, Button } from "@/src/components/ui";
@@ -686,7 +687,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
               <Capsule tone="accent">
                 {props.roundNumber != null
                   ? `Ronda ${props.roundNumber}`
-                  : "Ronda —"}
+                  : "Sin ronda"}
               </Capsule>
               {days != null ? (
                 <span
@@ -878,7 +879,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           Action Center
         </h2>
 
-        <CapsuleGroup label="Ahora">
+        <CapsuleGroup label="1 · Analiza y muestra el valor">
           <ActionCapsule
             icon={FileBarChart}
             title="Reporte de crédito"
@@ -933,7 +934,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           />
         </CapsuleGroup>
 
-        <CapsuleGroup label="Cierre">
+        <CapsuleGroup label="2 · Cierra la venta">
           <ActionCapsule
             icon={Receipt}
             title="Cotización"
@@ -960,7 +961,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           />
         </CapsuleGroup>
 
-        <CapsuleGroup label="Expediente">
+        <CapsuleGroup label="3 · Expediente del cliente">
           <ActionCapsule
             icon={Briefcase}
             title="Servicios"
@@ -968,8 +969,14 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             onClick={() => setPanel("services")}
           />
           <ActionCapsule
+            icon={IdCard}
+            title="Expediente"
+            subtitle="Datos, SSN y requisitos"
+            href={`/crm/clientes/${props.client.id}/expediente`}
+          />
+          <ActionCapsule
             icon={FileBarChart}
-            title="Evolución"
+            title="Reportes"
             subtitle={
               props.reportsCount > 0
                 ? `${props.reportsCount} score${props.reportsCount === 1 ? "" : "s"}`

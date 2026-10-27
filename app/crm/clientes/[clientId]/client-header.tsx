@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Mail, Phone, User } from "lucide-react";
-import { StatusPill, Tabs } from "@/src/components/ui";
+import Link from "next/link";
+import { StatusPill } from "@/src/components/ui";
 import { clientFullName } from "@/src/server/page-helpers";
-import { clientTabs } from "@/src/lib/routes/client-tabs";
 
 export interface ClientHeaderData {
   id: string;
@@ -59,6 +59,12 @@ export function ClientHeader({
 
   return (
     <div className="mb-3">
+      <Link
+        href={`/crm/clientes/${client.id}`}
+        className="mb-2 inline-flex text-[13px] font-medium text-action-primary"
+      >
+        ← Volver a la ficha
+      </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-3">
           <span
@@ -90,9 +96,6 @@ export function ClientHeader({
         ) : null}
       </div>
       {below}
-      <div className="mt-2">
-        <Tabs items={clientTabs(client.id)} />
-      </div>
     </div>
   );
 }

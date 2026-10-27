@@ -86,6 +86,9 @@ function empty(v: string | null | undefined) {
   return !v?.trim();
 }
 
+/** Tope de espera de la publicación automática antes de pedir revisión. */
+const PUBLISH_WAIT_MS = 90_000;
+
 export function CreditPdfImportProgressClient({
   caseId,
   jobId,
@@ -150,9 +153,27 @@ export function CreditPdfImportProgressClient({
     void kickCreditPdfImportProcess(jobId);
   }, [jobId, job.status]);
 
+  // Publicación automática en curso: se sigue consultando hasta un tope;
+  // después se muestra la revisión manual como respaldo.
+  const [publishingSince, setPublishingSince] = useState<number | null>(null);
+  const [publishTimedOut, setPublishTimedOut] = useState(false);
+  const publishingPhase = job.status === "SUCCEEDED" && job.phase === "publishing";
+  const publishing = publishingPhase && !publishTimedOut;
+  useEffect(() => {
+    if (!publishingPhase || publishingSince != null) return;
+    const t = window.setTimeout(() => setPublishingSince(Date.now()), 0);
+    return () => window.clearTimeout(t);
+  }, [publishingPhase, publishingSince]);
+  useEffect(() => {
+    if (publishingSince == null || publishTimedOut) return;
+    const left = PUBLISH_WAIT_MS - (Date.now() - publishingSince);
+    const t = window.setTimeout(() => setPublishTimedOut(true), Math.max(left, 0));
+    return () => window.clearTimeout(t);
+  }, [publishingSince, publishTimedOut]);
+
   // Poll
   useEffect(() => {
-    if (job.status !== "QUEUED" && job.status !== "RUNNING") return;
+    if (job.status !== "QUEUED" && job.status !== "RUNNING" && !publishing) return;
     const id = window.setInterval(() => {
       startTransition(async () => {
         const result = await getCreditPdfImportJobAction(jobId);
@@ -164,7 +185,7 @@ export function CreditPdfImportProgressClient({
       });
     }, 2000);
     return () => window.clearInterval(id);
-  }, [job.status, jobId]);
+  }, [job.status, jobId, publishing]);
 
   // Hydrate review form once
   useEffect(() => {
@@ -284,7 +305,7 @@ export function CreditPdfImportProgressClient({
     });
   }
 
-  const running = job.status === "QUEUED" || job.status === "RUNNING";
+  const running = job.status === "QUEUED" || job.status === "RUNNING" || publishing;
   const autoApplied =
     job.status === "SUCCEEDED" &&
     job.phase === "confirmed" &&
@@ -339,7 +360,7 @@ export function CreditPdfImportProgressClient({
             quieras revisar el progreso.
           </Alert>
           <h1 className="text-xl font-semibold text-ink">
-            Analizando PDF…
+            {publishing ? "Publicando el análisis…" : "Analizando PDF…"}
           </h1>
           <p className="text-sm text-text-secondary">
             {job.fileName ?? "reporte.pdf"}
@@ -363,6 +384,7 @@ export function CreditPdfImportProgressClient({
                 ["extract", "Extraer texto"],
                 ["ai", "Analizar con IA"],
                 ["validate", "Validar"],
+                ["publishing", "Publicar en el expediente"],
                 ["done", "Listo"],
               ] as const
             ).map(([key, label]) => {
@@ -371,6 +393,7 @@ export function CreditPdfImportProgressClient({
                 "extract",
                 "ai",
                 "validate",
+                "publishing",
                 "done",
               ];
               const cur = order.indexOf(job.phase ?? "download");
@@ -401,7 +424,7 @@ export function CreditPdfImportProgressClient({
         </div>
       ) : null}
 
-      {job.status === "SUCCEEDED" && proposal && !autoApplied ? (
+      {job.status === "SUCCEEDED" && proposal && !autoApplied && !publishing ? (
         <div className="space-y-4 rounded-xl bg-surface-elevated p-6 ring-1 ring-border-subtle">
           <div className="space-y-1">
             <h1 className="text-xl font-semibold tracking-[-0.02em] text-ink">

@@ -537,3 +537,57 @@ export async function assistSearch(
     summary,
   };
 }
+
+/**
+ * Resumen en lenguaje claro del Análisis de Crédito (para explicar al cliente).
+ * Solo métricas agregadas: sin nombres, cuentas ni datos personales.
+ */
+export async function summarizeCreditAnalysis(
+  ctx: OrganizationContext,
+  reportId: string,
+) {
+  requireAi();
+  const { getClientActionPlan } = await import("@/src/server/credit-reports/action-plan");
+  const { prisma } = await import("@/src/lib/db");
+  const report = await prisma.creditReport.findFirst({
+    where: { id: reportId, organizationId: ctx.organizationId },
+    select: { clientId: true },
+  });
+  if (!report) throw new DomainError("Reporte no encontrado.");
+  const plan = await getClientActionPlan(ctx, report.clientId, reportId);
+  const payload = sanitizeForAI({
+    bureaus: plan.bureaus.map((b) => ({
+      bureau: b.bureau,
+      score: b.score,
+      utilizationPct: b.utilization,
+      hardInquiries: b.inquiries,
+      negatives: b.negatives,
+      averageAgeMonths: b.avgAgeMonths == null ? null : Math.round(b.avgAgeMonths),
+    })),
+    revolving: {
+      openCards: plan.revolving.openCards,
+      totalLimit: plan.revolving.totalLimit,
+      totalUsed: plan.revolving.totalUsed,
+      cardsAtLeast2k: plan.revolving.cardsGe2k,
+      cardsAtLeast5k: plan.revolving.cardsGe5k,
+    },
+    authorizedUserAccounts: plan.authorizedUsers.confirmedCount,
+    negativeTypes: plan.negativeAccounts.map((n) => n.negativeType ?? "OTHER"),
+    bureausMeetingAllCriteria: plan.bureausApproved,
+    priorities: plan.priorities.map((p) => p.title),
+    thresholds: { score: 720, utilizationPct: 10, averageAgeMonths: 30, combinedLimit: 40000 },
+  });
+  const { text } = await generateText({
+    model: createOpenRouterModel(),
+    system: [
+      "Eres analista de crédito de una agencia en EE. UU. Explicas un reporte de crédito a un cliente hispanohablante.",
+      "Usa SOLO los datos del JSON. No inventes scores, cuentas, fechas ni montos.",
+      "Prohibido: prometer eliminaciones, puntos FICO, aprobaciones o montos de financiamiento (ley CROA).",
+      "Formato en español, máximo 160 palabras: una frase de diagnóstico y luego 3-5 viñetas con lo más importante a corregir, en orden de impacto (historial de pagos, utilización, edad, consultas).",
+      "Si un dato es null, dilo como 'sin dato'.",
+    ].join(" "),
+    prompt: `Datos del análisis:\n${JSON.stringify(payload).slice(0, 8000)}`,
+    maxRetries: 1,
+  });
+  return { summary: text.trim() };
+}

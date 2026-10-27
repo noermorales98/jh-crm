@@ -241,3 +241,14 @@ export async function autoConfirmCreditPdfImportIfEligible(
     return { applied: false, reason };
   }
 }
+
+/**
+ * Si la publicación automática no aplicó, el job pasa de «publishing» a «done»
+ * para que la UI muestre la revisión manual (respaldo).
+ */
+export async function releasePublishingPhase(jobId: string): Promise<void> {
+  await prisma.creditPdfImportJob.updateMany({
+    where: { id: jobId, status: "SUCCEEDED", phase: "publishing" },
+    data: { phase: "done" },
+  });
+}

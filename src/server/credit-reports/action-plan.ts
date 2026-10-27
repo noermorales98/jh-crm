@@ -134,6 +134,17 @@ export type ClientActionPlan = {
   priorities: ActionPlanPriority[];
   actions: CreditAction[];
     negativeCount: number;
+  /** Cuentas negativas del reporte (para disputa), con fechas del reporte. */
+  negativeAccounts: {
+    id: string;
+    creditorName: string;
+    bureau: CreditBureau;
+    negativeType: CreditNegativeType | null;
+    accountStatus: string | null;
+    balance: number | null;
+    dateOpened: Date | null;
+    dateReported: Date | null;
+  }[];
   totalItems: number;
   authorizedUsers: {
     confirmedCount: number;
@@ -462,9 +473,9 @@ export async function getClientActionPlan(
     const ageOk =
       ages.ageCoverage.total === 0 ||
       ages.ageCoverage.known < ages.ageCoverage.total ||
-      ages.oldestMonths == null
+      ages.averageKnownMonths == null
         ? null
-        : ages.oldestMonths >= AGE_MONTHS_MIN;
+        : ages.averageKnownMonths >= AGE_MONTHS_MIN;
     const row = {
       bureau,
       scoreOk: m.scoreOk,
@@ -583,6 +594,16 @@ export async function getClientActionPlan(
     priorities,
     actions,
     negativeCount: negatives.length,
+    negativeAccounts: negatives.slice(0, 60).map((item) => ({
+      id: item.id,
+      creditorName: item.creditorName,
+      bureau: item.bureau,
+      negativeType: item.negativeType,
+      accountStatus: item.accountStatus ?? item.paymentStatus,
+      balance: num(item.balance),
+      dateOpened: item.dateOpened,
+      dateReported: item.dateReported,
+    })),
     totalItems: items.length,
     authorizedUsers: {
       confirmedCount: ownership.auCanonicalIds.length,

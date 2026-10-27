@@ -43,7 +43,10 @@ import {
   settleSucceededCreditPdfImportEffects,
   settlePendingSucceededCreditPdfImportEffects,
 } from "./job-effects";
-import { autoConfirmCreditPdfImportIfEligible } from "./auto-confirm";
+import {
+  autoConfirmCreditPdfImportIfEligible,
+  releasePublishingPhase,
+} from "./auto-confirm";
 
 export {
   settleFailedCreditPdfImportNotify,
@@ -60,6 +63,8 @@ const PHASES = {
   /** Arranque de IA; las ventanas suben de 40→90 sin bajar. */
   ai: { progress: 40, label: "Analizando con IA" },
   validate: { progress: 90, label: "Validando resultado" },
+  /** SUCCEEDED mientras se publica al expediente (auto-confirmación). */
+  publishing: { progress: 100, label: "Publicando en el expediente" },
   done: { progress: 100, label: "Listo" },
 } as const;
 
@@ -865,7 +870,7 @@ export async function runClaimedCreditPdfImportJob(
       where: { id: jobId, leaseToken, status: "RUNNING" },
       data: {
         status: "SUCCEEDED",
-        phase: "done",
+        phase: "publishing",
         progress: 100,
         finishedAt: new Date(),
         leaseToken: null,
@@ -897,6 +902,7 @@ export async function runClaimedCreditPdfImportJob(
 
   // Publicar al expediente cuando la propuesta es elegible (sin UI de confirmar).
   const auto = await autoConfirmCreditPdfImportIfEligible(jobId);
+  if (!auto.applied) await releasePublishingPhase(jobId);
   logJob("auto_confirm", {
     jobId,
     applied: auto.applied,

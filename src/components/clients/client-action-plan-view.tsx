@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -11,6 +11,7 @@ import {
   CreditCard,
   Eye,
   Info,
+  Sparkles,
   Landmark,
   ListChecks,
   ShieldCheck,
@@ -26,7 +27,9 @@ import type {
   ClientActionPlan,
 } from "@/src/server/credit-reports/action-plan";
 import { Modal } from "@/src/components/ui";
-import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
+import { MarkdownText } from "@/src/components/ai/markdown-text";
+import { summarizeCreditAnalysisAction } from "@/src/actions/credit-analysis-ai";
+import { CREDIT_BUREAU_LABELS, CREDIT_NEGATIVE_TYPE_LABELS } from "@/src/lib/labels";
 import { ACTION_KIND_LABEL, ACTION_PRIORITY_LABEL } from "@/src/lib/credit/actions";
 import { ACTION_PLAN_POINT_IMPACT_UNAVAILABLE } from "@/src/lib/credit/action-plan-howto";
 import { formatDate } from "@/src/lib/format";
@@ -49,6 +52,27 @@ const TONE: Record<Tone, { soft: string; ink: string }> = {
   warning: { soft: "bg-warning-soft", ink: "text-warning-ink" },
   danger: { soft: "bg-danger-soft", ink: "text-danger-ink" },
 };
+
+/** Color fijo por buró (mismo en gráficas, leyendas y matriz). */
+const BUREAU_COLOR: Record<string, string> = {
+  EQUIFAX: "light-dark(#c8364f, #f27088)",
+  EXPERIAN: "light-dark(#2f5bd3, #7d9cff)",
+  TRANSUNION: "light-dark(#0b8f8a, #3cc9c1)",
+};
+
+function bureauColor(bureau: string): string {
+  return BUREAU_COLOR[bureau] ?? "var(--color-text-secondary)";
+}
+
+/** Cambia a true tras el primer frame: dispara las animaciones de entrada. */
+function useMounted() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    const id = window.requestAnimationFrame(() => setMounted(true));
+    return () => window.cancelAnimationFrame(id);
+  }, []);
+  return mounted;
+}
 
 const CARD_COLORS = [
   "#3b82f6",
@@ -133,6 +157,7 @@ export function ClientActionPlanView({
 }) {
   const [detailOpen, setDetailOpen] = useState(false);
   const [howTo, setHowTo] = useState<ActionPlanPriority | null>(null);
+  const [activeCard, setActiveCard] = useState<number | null>(null);
 
   const label = (b: ClientActionPlan["bureaus"][number]) =>
     CREDIT_BUREAU_LABELS[b.bureau] ?? b.bureau;
@@ -147,6 +172,8 @@ export function ClientActionPlanView({
   const negativeBureaus = plan.bureaus.filter((b) => b.negatives > 0).map(label);
 
   const cards = dedupeCards(plan.revolving.cards);
+  const highCards = cards.filter((c) => (c.utilizationBps ?? 0) > 3000).length;
+  const overLimit = cards.filter((c) => (c.utilizationBps ?? 0) > 10000).length;
   const fundingLabel = plan.qualified ? "En revisión" : "Califica primero";
 
   return (
@@ -205,6 +232,8 @@ export function ClientActionPlanView({
         </div>
       </header>
 
+      <AiSummary reportId={plan.reportId} />
+
       <Section n={1} tone="info" icon={TrendingUp} title="Desglose por Buró (Equifax, Experian, TransUnion)">
         <div className="grid gap-5 md:grid-cols-2">
           <div>
@@ -215,16 +244,17 @@ export function ClientActionPlanView({
               bars={plan.bureaus.map((b) => ({
                 label: label(b),
                 value: b.score,
-                display: b.score?.toString() ?? "—",
+                display: b.score?.toString() ?? "Sin dato",
+                color: bureauColor(b.bureau),
               }))}
               min={550}
               max={850}
-              color="bg-[#3b82f6]"
+              threshold={SCORE_MIN}
             />
             <RatingList
               rows={plan.bureaus.map((b) => ({
                 label: label(b),
-                value: b.score?.toString() ?? "—",
+                value: b.score?.toString() ?? "Sin dato",
                 rating: rateScore(b.score),
               }))}
             />
@@ -243,13 +273,14 @@ export function ClientActionPlanView({
                 label: label(b),
                 value: utilPercent(b),
                 display: b.utilizationText,
+                color: bureauColor(b.bureau),
               }))}
               min={0}
               max={Math.max(
                 25,
                 ...plan.bureaus.map((b) => Math.ceil(utilPercent(b) ?? 0)),
               )}
-              color="bg-[#22c55e]"
+              threshold={UTIL_MAX}
             />
             <RatingList
               rows={plan.bureaus.map((b) => ({
@@ -277,15 +308,15 @@ export function ClientActionPlanView({
         {detailOpen ? (
           <ul className="list-disc space-y-2 pl-5 text-[13px] text-text-secondary">
             <li>
-              Puntaje de crédito ({plan.bureaus.map((b) => `${label(b)} ${b.score ?? "—"}`).join(", ")}):{" "}
+              Puntaje de crédito ({plan.bureaus.map((b) => `${label(b)} ${b.score ?? "Sin dato"}`).join(", ")}):{" "}
               {scoreFails.length > 0 ? (
                 <>
-                  <strong className="text-ink">Necesita mejorar</strong> —{" "}
+                  <strong className="text-ink">Necesita mejorar</strong>:{" "}
                   {bureauList(scoreFails)} no alcanza el mínimo de {SCORE_MIN} puntos.
                 </>
               ) : (
                 <>
-                  <strong className="text-ink">Excelente</strong> — los 3 burós
+                  <strong className="text-ink">Excelente</strong>: los 3 burós
                   alcanzan {SCORE_MIN}+.
                 </>
               )}
@@ -294,26 +325,26 @@ export function ClientActionPlanView({
               Utilización de crédito ({plan.bureaus.map((b) => `${label(b)} ${b.utilizationText}`).join(", ")}):{" "}
               {utilFails.length > 0 ? (
                 <>
-                  <strong className="text-ink">Necesita mejorar</strong> —{" "}
+                  <strong className="text-ink">Necesita mejorar</strong>:{" "}
                   {bureauList(utilFails)} supera el {UTIL_MAX}%.
                 </>
               ) : (
                 <>
-                  <strong className="text-ink">Excelente</strong> — los 3 burós
+                  <strong className="text-ink">Excelente</strong>: los 3 burós
                   quedan en {UTIL_MAX}% o menos.
                 </>
               )}
             </li>
             <li>
-              Hard inquiries ({plan.bureaus.map((b) => `${label(b)} ${b.inquiries ?? "—"}`).join(", ")}):{" "}
+              Hard inquiries ({plan.bureaus.map((b) => `${label(b)} ${b.inquiries ?? "Sin dato"}`).join(", ")}):{" "}
               {inquiryFails.length > 0 ? (
                 <>
-                  <strong className="text-ink">Necesita mejorar</strong> —{" "}
+                  <strong className="text-ink">Necesita mejorar</strong>:{" "}
                   {bureauList(inquiryFails)} tiene más de {INQUIRY_MAX} consultas.
                 </>
               ) : (
                 <>
-                  <strong className="text-ink">Bueno</strong> — los 3 burós
+                  <strong className="text-ink">Bueno</strong>: los 3 burós
                   tienen {INQUIRY_MAX} consultas o menos.
                 </>
               )}
@@ -322,12 +353,12 @@ export function ClientActionPlanView({
               Edad promedio de crédito ({plan.bureaus.map((b) => `${label(b)} ${years(b.avgAgeMonths)}`).join(", ")}):{" "}
               {ageFails.length > 0 ? (
                 <>
-                  <strong className="text-ink">Necesita mejorar</strong> —{" "}
+                  <strong className="text-ink">Necesita mejorar</strong>:{" "}
                   {bureauList(ageFails)} no llega a los 3+ años ideales.
                 </>
               ) : (
                 <>
-                  <strong className="text-ink">Excelente</strong> — alcanza
+                  <strong className="text-ink">Excelente</strong>: alcanza
                   los 3+ años ideales en los 3 burós.
                 </>
               )}
@@ -336,13 +367,13 @@ export function ClientActionPlanView({
               Historial de pagos:{" "}
               {negativeBureaus.length > 0 ? (
                 <>
-                  <strong className="text-ink">Necesita mejorar</strong> —{" "}
+                  <strong className="text-ink">Necesita mejorar</strong>:{" "}
                   {bureauList(negativeBureaus)} reporta negativos (
                   {plan.negativeCount} de {plan.totalItems} cuentas).
                 </>
               ) : (
                 <>
-                  <strong className="text-ink">Bueno</strong> — sin negativos
+                  <strong className="text-ink">Bueno</strong>: sin negativos
                   reportados.
                 </>
               )}
@@ -361,8 +392,8 @@ export function ClientActionPlanView({
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <Kpi
             label="Tarjetas abiertas"
-            value={plan.revolving.openCards?.toString() ?? "—"}
-            hint={`${plan.revolving.primaryCards ?? "—"} Principal, ${plan.revolving.auCards} AU`}
+            value={plan.revolving.openCards?.toString() ?? "Sin dato"}
+            hint={`${plan.revolving.primaryCards ?? "Sin dato"} Principal, ${plan.revolving.auCards} AU`}
           />
           <Kpi
             label="Límite total"
@@ -372,7 +403,7 @@ export function ClientActionPlanView({
           <Kpi
             label="Tarjetas ≥ 2 000"
             value={String(plan.revolving.cardsGe2k)}
-            hint={`${plan.revolving.cardsGe2k} de ${plan.revolving.openCards ?? "—"}`}
+            hint={`${plan.revolving.cardsGe2k} de ${plan.revolving.openCards ?? "Sin dato"}`}
           />
           <Kpi
             label="Tarjetas ≥ 5 000"
@@ -396,8 +427,15 @@ export function ClientActionPlanView({
               slices={cards.map((c, i) => ({
                 value: c.limit ?? 0,
                 color: CARD_COLORS[i % CARD_COLORS.length],
+                label: c.creditorName,
               }))}
-              center={money(plan.revolving.totalLimit, plan.revolving.currency)}
+              center={
+                activeCard != null && cards[activeCard]
+                  ? money(cards[activeCard].limit, cards[activeCard].currency)
+                  : money(plan.revolving.totalLimit, plan.revolving.currency)
+              }
+              active={activeCard}
+              onActive={setActiveCard}
             />
             <div className="overflow-x-auto">
               <table className="w-full text-left text-[13px]">
@@ -411,7 +449,14 @@ export function ClientActionPlanView({
                 </thead>
                 <tbody>
                   {cards.map((c, i) => (
-                    <tr key={`${c.creditorName}-${i}`} className="border-t border-border-subtle">
+                    <tr
+                      key={`${c.creditorName}-${i}`}
+                      className={`border-t border-border-subtle transition-colors ${
+                        activeCard === i ? "bg-nav-hover" : ""
+                      }`}
+                      onMouseEnter={() => setActiveCard(i)}
+                      onMouseLeave={() => setActiveCard(null)}
+                    >
                       <td className="py-2 text-ink">
                         <span className="inline-flex items-center gap-2">
                           <span
@@ -431,8 +476,17 @@ export function ClientActionPlanView({
                       <td className="py-2 text-right tabular-nums text-text-secondary">
                         {money(c.balance, c.currency)}
                       </td>
-                      <td className="py-2 text-right tabular-nums text-text-secondary">
-                        {c.openStatusUnknown ? "—" : utilText(c.utilizationBps)}
+                      <td
+                        className={`py-2 text-right tabular-nums ${
+                          (c.utilizationBps ?? 0) > 3000 ? "font-semibold text-danger-ink" : "text-text-secondary"
+                        }`}
+                      >
+                        {c.openStatusUnknown ? "Sin dato" : utilText(c.utilizationBps)}
+                        {(c.utilizationBps ?? 0) > 10000 ? (
+                          <span className="ml-1.5 rounded-full bg-danger-soft px-1.5 py-0.5 text-[10px] font-medium">
+                            Sobre el límite
+                          </span>
+                        ) : null}
                       </td>
                     </tr>
                   ))}
@@ -449,15 +503,22 @@ export function ClientActionPlanView({
         <Callout tone="success" title="Análisis">
           <ul className="space-y-1">
             <li>
-              Tarjetas abiertas: {plan.revolving.openCards ?? "—"} en total,{" "}
-              {plan.revolving.primaryCards ?? "—"} primarias y{" "}
+              Tarjetas abiertas: {plan.revolving.openCards ?? "Sin dato"} en total,{" "}
+              {plan.revolving.primaryCards ?? "Sin dato"} primarias y{" "}
               {plan.revolving.auCards} usuarios autorizados.
             </li>
             <li>Límite total combinado: {money(plan.revolving.totalLimit, plan.revolving.currency)}.</li>
             <li>
               Tarjetas con límite ≥ 2 000: {plan.revolving.cardsGe2k} de{" "}
-              {plan.revolving.openCards ?? "—"}.
+              {plan.revolving.openCards ?? "Sin dato"}.
             </li>
+            {highCards > 0 ? (
+              <li className="font-medium text-danger-ink">
+                {highCards} tarjeta{highCards === 1 ? "" : "s"} por encima del 30% de
+                uso{overLimit > 0 ? `, ${overLimit} sobre su límite` : ""}. Bajar esos
+                saldos antes del corte es lo que más rápido mueve el puntaje.
+              </li>
+            ) : null}
             <li>
               {plan.revolving.cardsGe5k > 0
                 ? `Tarjetas con límite ≥ 5 000: ${plan.revolving.cardsGe5k}.`
@@ -482,7 +543,7 @@ export function ClientActionPlanView({
           />
           <Kpi
             label="Tarjetas primarias"
-            value={plan.revolving.primaryCards?.toString() ?? "—"}
+            value={plan.revolving.primaryCards?.toString() ?? "Sin dato"}
           />
           <Kpi
             label="Tope de AU usado"
@@ -542,7 +603,10 @@ export function ClientActionPlanView({
                 <th className="py-2 font-medium">Categoría</th>
                 {plan.fundingMatrix.map((r) => (
                   <th key={r.bureau} className="py-2 text-center font-medium">
-                    {CREDIT_BUREAU_LABELS[r.bureau]}
+                    <span className="inline-flex items-center gap-1.5">
+                      <span className="size-2 rounded-full" style={{ background: bureauColor(r.bureau) }} aria-hidden />
+                      {CREDIT_BUREAU_LABELS[r.bureau]}
+                    </span>
                   </th>
                 ))}
               </tr>
@@ -616,6 +680,9 @@ export function ClientActionPlanView({
       </Section>
 
       <Section n={6} tone="success" icon={ListChecks} title="Plan de Acción">
+        {plan.negativeAccounts.length > 0 ? (
+          <NegativeAccounts accounts={plan.negativeAccounts} />
+        ) : null}
         <div className="grid gap-3 md:grid-cols-2">
           {plan.priorities.map((priority, index) => (
             <article
@@ -651,7 +718,7 @@ export function ClientActionPlanView({
               <button
                 type="button"
                 onClick={() => setHowTo(priority)}
-                className="mt-auto inline-flex w-fit items-center gap-1 rounded-control bg-purple-ink px-3 py-1.5 text-[12px] font-semibold text-white hover:opacity-90"
+                className="mt-auto inline-flex w-fit items-center gap-1 rounded-control bg-purple-ink px-3 py-1.5 text-[12px] font-semibold text-[light-dark(#ffffff,#1c1c1e)] hover:opacity-90"
               >
                 Ver cómo solucionar
                 <ChevronRight className="size-3.5" aria-hidden />
@@ -713,7 +780,7 @@ export function ClientActionPlanView({
         <BigStat
           tone="purple"
           icon={TrendingUp}
-          value={plan.avgScore?.toString() ?? "—"}
+          value={plan.avgScore?.toString() ?? "Sin dato"}
           label="Score promedio informativo"
         />
         <BigStat
@@ -731,6 +798,13 @@ export function ClientActionPlanView({
           label="Potencial de Financiamiento"
         />
       </div>
+
+      <p className="text-center text-[11px] leading-relaxed text-text-secondary">
+        Análisis educativo basado en el reporte importado. No garantiza la
+        eliminación de cuentas, cambios de puntaje ni aprobaciones de
+        financiamiento. Los datos exactos y verificables pueden permanecer
+        en el reporte hasta 7 años (10 en bancarrota Capítulo 7).
+      </p>
 
       <Modal
         open={howTo != null}
@@ -867,7 +941,7 @@ function RatingList({
         <div key={row.label} className="flex justify-between gap-2">
           <dt className="text-text-secondary">{row.label}:</dt>
           <dd className={`font-medium ${TONE[row.rating.tone].ink}`}>
-            {row.value} – {row.rating.label}
+            {row.value} · {row.rating.label}
           </dd>
         </div>
       ))}
@@ -879,34 +953,64 @@ function BarChart({
   bars,
   min,
   max,
-  color,
+  threshold,
 }: {
-  bars: { label: string; value: number | null; display: string }[];
+  bars: { label: string; value: number | null; display: string; color: string }[];
   min: number;
   max: number;
-  color: string;
+  /** Línea de referencia (p. ej. 720 o 10%). */
+  threshold?: number;
 }) {
+  const mounted = useMounted();
   const span = Math.max(max - min, 1);
+  const thresholdPct =
+    threshold == null ? null : Math.min(Math.max((threshold - min) / span, 0), 1) * 100;
   return (
-    <div className="flex h-40 items-end justify-around gap-3 border-b border-border-subtle px-2">
-      {bars.map((bar) => {
-        const height =
-          bar.value == null
-            ? 0
-            : Math.min(Math.max((bar.value - min) / span, 0.03), 1) * 100;
-        return (
-          <div key={bar.label} className="flex h-full w-full max-w-20 flex-col items-center justify-end gap-1">
-            <span className="text-[12px] font-semibold tabular-nums text-ink">
-              {bar.display}
-            </span>
+    <div className="relative">
+      <div className="relative flex h-44 items-end justify-around gap-3 border-b border-border-subtle px-2 pt-5">
+        {thresholdPct != null ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 border-t border-dashed border-text-secondary/40"
+            style={{ bottom: `calc(${thresholdPct}% * 0.82)` }}
+            aria-hidden
+          />
+        ) : null}
+        {bars.map((bar, i) => {
+          const ratio =
+            bar.value == null ? 0 : Math.min(Math.max((bar.value - min) / span, 0.03), 1);
+          return (
             <div
-              className={`w-full rounded-t-[4px] ${color}`}
-              style={{ height: `${height}%` }}
-            />
-            <span className="pb-1 text-[11px] text-text-secondary">{bar.label}</span>
-          </div>
-        );
-      })}
+              key={bar.label}
+              className="group flex h-full w-full max-w-20 flex-col items-center justify-end gap-1"
+            >
+              <span className="text-[13px] font-semibold tabular-nums text-ink transition-transform duration-200 group-hover:-translate-y-0.5">
+                {bar.display}
+              </span>
+              <div
+                className="w-full origin-bottom rounded-t-[6px] motion-safe:transition-transform motion-safe:duration-700 motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:brightness-110"
+                style={{
+                  height: `${ratio * 82}%`,
+                  background: bar.color,
+                  transform: mounted ? "scaleY(1)" : "scaleY(0)",
+                  transitionDelay: `${i * 90}ms`,
+                }}
+                title={`${bar.label}: ${bar.display}`}
+              />
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex justify-around gap-3 px-2 pt-1.5">
+        {bars.map((bar) => (
+          <span
+            key={bar.label}
+            className="inline-flex w-full max-w-20 items-center justify-center gap-1.5 text-[11px] text-text-secondary"
+          >
+            <span className="size-2 rounded-full" style={{ background: bar.color }} aria-hidden />
+            {bar.label}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
@@ -914,21 +1018,28 @@ function BarChart({
 function Donut({
   slices,
   center,
+  active,
+  onActive,
 }: {
-  slices: { value: number; color: string }[];
+  slices: { value: number; color: string; label: string }[];
   center: string;
+  active: number | null;
+  onActive: (index: number | null) => void;
 }) {
+  const mounted = useMounted();
   const total = slices.reduce((a, s) => a + s.value, 0);
   const radius = 70;
   const circumference = 2 * Math.PI * radius;
   let offset = 0;
+  const activeSlice = active == null ? null : slices[active];
   return (
     <div className="relative mx-auto size-[200px]">
       <svg viewBox="0 0 200 200" className="size-full -rotate-90">
-        <circle cx="100" cy="100" r={radius} fill="none" strokeWidth="34" className="stroke-nav-hover" />
+        <circle cx="100" cy="100" r={radius} fill="none" strokeWidth="30" className="stroke-nav-hover" />
         {total > 0
           ? slices.map((slice, i) => {
               const length = (slice.value / total) * circumference;
+              const shown = mounted ? length : 0;
               const el = (
                 <circle
                   key={i}
@@ -937,22 +1048,28 @@ function Donut({
                   r={radius}
                   fill="none"
                   stroke={slice.color}
-                  strokeWidth="34"
-                  strokeDasharray={`${length} ${circumference - length}`}
+                  strokeWidth={active === i ? 38 : 30}
+                  strokeDasharray={`${shown} ${circumference - shown}`}
                   strokeDashoffset={-offset}
-                />
+                  opacity={active == null || active === i ? 1 : 0.35}
+                  className="cursor-pointer motion-safe:transition-all motion-safe:duration-700 motion-safe:ease-[cubic-bezier(0.16,1,0.3,1)]"
+                  onMouseEnter={() => onActive(i)}
+                  onMouseLeave={() => onActive(null)}
+                >
+                  <title>{slice.label}</title>
+                </circle>
               );
               offset += length;
               return el;
             })
           : null}
       </svg>
-      <div className="absolute inset-0 grid place-items-center text-center">
-        <div>
-          <p className="text-[10px] font-medium uppercase tracking-wide text-text-secondary">
-            Límite total
+      <div className="pointer-events-none absolute inset-0 grid place-items-center text-center">
+        <div className="max-w-[110px]">
+          <p className="truncate text-[10px] font-medium uppercase tracking-wide text-text-secondary">
+            {activeSlice ? activeSlice.label : "Límite total"}
           </p>
-          <p className="text-[20px] font-bold tabular-nums text-ink">{center}</p>
+          <p className="text-[19px] font-bold tabular-nums text-ink">{center}</p>
         </div>
       </div>
     </div>
@@ -1032,6 +1149,109 @@ function HowToBlock({ title, children }: { title: string; children: ReactNode })
         {title}
       </p>
       {children}
+    </div>
+  );
+}
+
+function AiSummary({ reportId }: { reportId: string }) {
+  const [summary, setSummary] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function generate() {
+    setError(null);
+    startTransition(async () => {
+      const result = await summarizeCreditAnalysisAction(reportId);
+      if (result.ok) setSummary(result.data.summary);
+      else setError(result.error);
+    });
+  }
+
+  return (
+    <section className="rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle/60">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-purple-ink" aria-hidden />
+          <h2 className="text-[15px] font-semibold text-ink">Resumen con IA</h2>
+        </div>
+        <button
+          type="button"
+          onClick={generate}
+          disabled={pending}
+          className="inline-flex items-center rounded-control px-3 py-1.5 text-[12px] font-semibold text-purple-ink ring-1 ring-border-subtle transition-transform hover:bg-nav-hover active:scale-[0.98] disabled:opacity-60"
+        >
+          {pending ? "Generando…" : summary ? "Volver a generar" : "Explicar este reporte"}
+        </button>
+      </div>
+      {pending && !summary ? (
+        <div className="mt-3 space-y-2" aria-hidden>
+          <div className="h-3 w-4/5 animate-pulse rounded bg-nav-hover" />
+          <div className="h-3 w-3/5 animate-pulse rounded bg-nav-hover" />
+          <div className="h-3 w-2/3 animate-pulse rounded bg-nav-hover" />
+        </div>
+      ) : null}
+      {summary ? (
+        <div className="mt-3">
+          <MarkdownText text={summary} />
+          <p className="mt-2 text-[11px] text-text-secondary">
+            Generado con IA a partir de las métricas del reporte. Revísalo antes de compartirlo.
+          </p>
+        </div>
+      ) : !pending ? (
+        <p className="mt-2 text-[13px] text-text-secondary">
+          Un párrafo en lenguaje claro para explicarle al cliente su situación y qué corregir primero.
+        </p>
+      ) : null}
+      {error ? <p className="mt-2 text-[12px] text-danger-ink">{error}</p> : null}
+    </section>
+  );
+}
+
+function NegativeAccounts({
+  accounts,
+}: {
+  accounts: ClientActionPlan["negativeAccounts"];
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? accounts : accounts.slice(0, 6);
+  return (
+    <div className="space-y-2">
+      <p className="text-[13px] font-semibold text-ink">
+        Cuentas negativas a revisar ({accounts.length})
+      </p>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {visible.map((account) => (
+          <div
+            key={account.id}
+            className="rounded-control px-3 py-2 text-[12px] ring-1 ring-border-subtle"
+            style={{ borderLeft: `3px solid ${bureauColor(account.bureau)}` }}
+          >
+            <p className="flex items-center justify-between gap-2">
+              <span className="truncate font-medium text-ink">{account.creditorName}</span>
+              <span className="shrink-0 text-text-secondary">
+                {CREDIT_BUREAU_LABELS[account.bureau] ?? account.bureau}
+              </span>
+            </p>
+            <p className="mt-0.5 text-text-secondary">
+              {account.negativeType ? (CREDIT_NEGATIVE_TYPE_LABELS[account.negativeType] ?? account.negativeType) : "Negativo"}
+              {account.accountStatus ? ` · ${account.accountStatus}` : ""}
+            </p>
+            <p className="mt-0.5 text-text-secondary">
+              {account.dateOpened ? `Abierta ${formatDate(account.dateOpened, "UTC")}` : "Apertura sin dato"}
+              {account.dateReported ? ` · reportada ${formatDate(account.dateReported, "UTC")}` : ""}
+            </p>
+          </div>
+        ))}
+      </div>
+      {accounts.length > 6 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((v) => !v)}
+          className="text-[12px] font-medium text-action-primary"
+        >
+          {showAll ? "Ver menos" : `Ver las ${accounts.length}`}
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -6,7 +6,10 @@ import { prisma } from "@/src/lib/db";
 import { writeAuditLog } from "@/src/server/audit";
 import { createNotification } from "@/src/server/notifications";
 import { creditPdfExtractionProposalSchema } from "@/src/lib/validation/credit-import";
-import { autoConfirmCreditPdfImportIfEligible } from "./auto-confirm";
+import {
+  autoConfirmCreditPdfImportIfEligible,
+  releasePublishingPhase,
+} from "./auto-confirm";
 import { caseHref, creditAnalysisHref } from "@/src/lib/routes/case-routes";
 
 function progressPath(clientId: string, caseId: string, jobId: string) {
@@ -258,7 +261,8 @@ export async function settlePendingSucceededCreditPdfImportEffects(
     select: { id: true },
   });
   for (const row of pendingConfirm) {
-    await autoConfirmCreditPdfImportIfEligible(row.id);
+    const auto = await autoConfirmCreditPdfImportIfEligible(row.id);
+    if (!auto.applied) await releasePublishingPhase(row.id);
   }
 
   const candidates = await prisma.creditPdfImportJob.findMany({

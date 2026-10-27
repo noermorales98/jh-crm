@@ -7,6 +7,7 @@ import { DomainError } from "@/src/server/errors";
 import { prisma } from "@/src/lib/db";
 import * as progressService from "@/src/server/progress-reports";
 import { ProgressReportHtmlView } from "@/src/components/letters/progress-report-html-view";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export const metadata: Metadata = {
   title: "Reporte de progreso",
@@ -72,8 +73,8 @@ export default async function ProgressReportPage({
     .join(" · ");
 
   const backHref = report.roundId
-    ? `/crm/clientes/${clientId}/servicios/${caseId}/rondas/${report.roundId}`
-    : `/crm/clientes/${clientId}/servicios/${caseId}/credito`;
+    ? caseHref(clientId, caseId, `/rondas/${report.roundId}`)
+    : caseHref(clientId, caseId, `/credito`);
 
   return (
     <ProgressReportHtmlView

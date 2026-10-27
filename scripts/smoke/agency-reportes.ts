@@ -64,11 +64,8 @@ function main() {
     serverSrc.includes("prisma.clientProgressReport.findMany"),
   );
 
-  const moreSrc = readFileSync(
-    join(root, "src/components/layout/more-nav-panel.tsx"),
-    "utf8",
-  );
-  check("Más nav imports REPORTES_HREF", moreSrc.includes("REPORTES_HREF"));
+  const sidebarSrc = readFileSync(join(root, "app/crm/SidebarNav.tsx"), "utf8");
+  check("Sidebar principal usa REPORTES_HREF", sidebarSrc.includes("REPORTES_HREF"));
 
   if (failed > 0) {
     console.error(`\n[agency-reportes] ${failed} check(s) failed\n`);

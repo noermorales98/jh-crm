@@ -6,7 +6,9 @@ import { can } from "@/src/server/auth/permissions";
 import * as clientService from "@/src/server/clients";
 import * as creditReports from "@/src/server/credit-reports";
 import { DomainError } from "@/src/server/errors";
-import { clientFullName } from "@/src/server/page-helpers";
+import { clientFullName, firstParam, type SearchParams } from "@/src/server/page-helpers";
+import { resolveClientCase } from "@/src/server/cases/resolve-client-case";
+import CaseCreditView from "../_vistas-caso/credito/page";
 import { AgencyClientShell } from "@/src/components/clients/agency-client-shell";
 import { ClientCreditReportsPanel } from "@/src/components/clients/client-credit-reports-panel";
 import { CreateCreditReportButton } from "@/src/components/credit-reports/create-report-button";
@@ -18,14 +20,28 @@ export const metadata: Metadata = {
 
 export default async function ClientCreditReportsPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ clientId: string }>;
+  searchParams: SearchParams;
 }) {
   const { clientId } = await params;
+  const servicio = firstParam(await searchParams, "servicio");
   const ctx = await requireOrganization();
 
   if (!can(ctx.role, "creditReports.view")) {
     notFound();
+  }
+
+  // Con servicio de crédito: la vista completa (reportes, evolución,
+  // comparaciones y progreso) del servicio elegido.
+  const resolved = await resolveClientCase(ctx, clientId, servicio);
+  if (resolved) {
+    return (
+      <CaseCreditView
+        params={Promise.resolve({ clientId, caseId: resolved.caseId })}
+      />
+    );
   }
 
   let detail: Awaited<ReturnType<typeof clientService.getClientDetail>>;

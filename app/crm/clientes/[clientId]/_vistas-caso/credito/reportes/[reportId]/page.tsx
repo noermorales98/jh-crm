@@ -27,8 +27,9 @@ import {
 } from "@/src/lib/labels";
 import { AddCreditItemButton } from "@/src/components/credit-reports/add-item-button";
 import { DeleteCreditItemButton } from "@/src/components/credit-reports/delete-item-button";
-import { CaseHeader } from "../../../case-header";
+import { CaseHeader } from "@/src/components/cases/case-header";
 import { List } from "lucide-react";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export const metadata: Metadata = {
   title: "Detalle de reporte",
@@ -70,7 +71,7 @@ export default async function CreditReportDetailPage({
 
       <p className="text-sm text-text-secondary">
         <Link
-          href={`/crm/clientes/${clientId}/servicios/${caseId}/credito`}
+          href={caseHref(clientId, caseId, `/credito`)}
           className="font-medium text-action-primary hover:text-action-secondary"
         >
           ← Evolución del crédito

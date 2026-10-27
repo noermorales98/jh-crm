@@ -25,7 +25,7 @@ import { CaseAmountsForm } from "@/src/components/cases/case-amounts-form";
 import { CaseNoteForm } from "@/src/components/cases/case-note-form";
 import { CaseNextActionForm } from "@/src/components/cases/case-review-form";
 import { CaseNextStepsCard } from "@/src/components/cases/case-next-steps-card";
-import { CaseHeader } from "@/app/crm/clientes/[clientId]/servicios/[caseId]/case-header";
+import { CaseHeader } from "@/src/components/cases/case-header";
 import { CreditScoreGauge } from "@/src/components/clients/credit-score-gauge";
 import { caseHref } from "@/src/lib/routes/case-routes";
 

@@ -34,7 +34,8 @@ import { CreateComparisonButton } from "@/src/components/comparisons/create-comp
 import { listPendingConfirmCreditPdfJobs } from "@/src/server/credit-import/jobs";
 import { GenerateProgressReportButton } from "@/src/components/letters/generate-progress-report-button";
 import { CreditEvolutionSection } from "@/src/components/credit-reports/credit-evolution-section";
-import { CaseHeader } from "../case-header";
+import { CaseHeader } from "@/src/components/cases/case-header";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export const metadata: Metadata = {
   title: "Crédito del caso",
@@ -119,7 +120,7 @@ export default async function CaseCreditPage({
           canManage ? <CreateCreditReportButton caseId={creditCase.id} /> : null
         }
         reportHref={(row) =>
-          `/crm/clientes/${clientId}/servicios/${row.caseId}/credito/reportes/${row.reportId}`
+          caseHref(clientId, row.caseId, `/credito/reportes/${row.reportId}`)
         }
       />
 
@@ -161,7 +162,7 @@ export default async function CaseCreditPage({
                   <TR key={report.id}>
                     <TD>
                       <Link
-                        href={`/crm/clientes/${clientId}/servicios/${caseId}/credito/reportes/${report.id}`}
+                        href={caseHref(clientId, caseId, `/credito/reportes/${report.id}`)}
                         className="font-medium text-action-primary hover:text-action-secondary"
                       >
                         {formatDate(report.reportDate)}
@@ -229,7 +230,7 @@ export default async function CaseCreditPage({
                     <TD className="text-right">
                       <div className="flex flex-wrap items-center justify-end gap-3">
                         <Link
-                          href={`/crm/clientes/${clientId}/servicios/${caseId}/reportes/${report.id}`}
+                          href={caseHref(clientId, caseId, `/reportes/${report.id}`)}
                           className="text-sm font-medium text-action-primary"
                         >
                           Ver
@@ -289,7 +290,7 @@ export default async function CaseCreditPage({
                   <TR key={cmp.id}>
                     <TD>
                       <Link
-                        href={`/crm/clientes/${clientId}/servicios/${caseId}/comparaciones/${cmp.id}`}
+                        href={caseHref(clientId, caseId, `/comparaciones/${cmp.id}`)}
                         className="font-medium text-action-primary hover:text-action-secondary"
                       >
                         {formatDate(cmp.createdAt)}

@@ -65,7 +65,7 @@ check(
 );
 
 const creditPage = readFileSync(
-  join(root, "app/crm/clientes/[clientId]/servicios/[caseId]/credito/page.tsx"),
+  join(root, "app/crm/clientes/[clientId]/_vistas-caso/credito/page.tsx"),
   "utf8",
 );
 check(

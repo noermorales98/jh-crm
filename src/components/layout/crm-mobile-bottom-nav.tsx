@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   FileBarChart2,
-  ClipboardList,
+  Scale,
   Ellipsis,
   Home,
   Users,
@@ -24,10 +24,10 @@ const BOTTOM_ITEMS: readonly {
   icon: LucideIcon;
   match?: "exact" | "prefix";
 }[] = [
-  { href: "/crm/dashboard", label: "Inicio", icon: Home, match: "exact" },
-  { href: "/crm/tareas", label: "Pendientes", icon: ClipboardList, match: "prefix" },
+  { href: "/crm/dashboard", label: "Resumen", icon: Home, match: "exact" },
   { href: "/crm/clientes", label: "Clientes", icon: Users, match: "prefix" },
   { href: "/crm/reportes", label: "Reportes", icon: FileBarChart2, match: "prefix" },
+  { href: "/crm/rondas", label: "Disputas", icon: Scale, match: "prefix" },
 ];
 
 function isActive(pathname: string, href: string, match: "exact" | "prefix") {

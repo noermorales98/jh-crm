@@ -5,14 +5,13 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
   Archive,
-  ClipboardList,
-  CreditCard,
   Ellipsis,
+  FileBarChart2,
   FileText,
   Home,
   Inbox,
-  MessageCircle,
   Send,
+  Scale,
   Settings,
   ShieldAlert,
   Target,
@@ -26,31 +25,23 @@ import {
   isMoreNavPath,
 } from "@/src/components/layout/more-nav-panel";
 import { lockBodyScroll } from "@/src/lib/ui/body-scroll-lock";
+import { REPORTES_HREF, REPORTES_NAV_LABEL } from "@/src/lib/reports/agency-reportes";
 
 type PrimaryItem = {
   href: string;
   label: string;
   icon: LucideIcon;
-  mails?: boolean;
-  chats?: boolean;
   /** Rutas hermanas que viven como pestañas de esta sección. */
   related?: readonly string[];
 };
 
-/** Navegación diaria: Inicio… Mensajes, Chats, Más. */
+/** Navegación estilo Fondify: lo diario; el resto vive en Más. */
 const PRIMARY_ITEMS: readonly PrimaryItem[] = [
-  { href: "/crm/dashboard", label: "Inicio", icon: Home },
-  { href: "/crm/tareas", label: "Pendientes", icon: ClipboardList },
-  { href: "/crm/oportunidades", label: "Ventas", icon: Target, related: ["/crm/consultas"] },
+  { href: "/crm/dashboard", label: "Resumen", icon: Home },
   { href: "/crm/clientes", label: "Clientes", icon: Users },
-  {
-    href: "/crm/pagos",
-    label: "Pagos",
-    icon: CreditCard,
-    related: ["/crm/planes-pago", "/crm/recibos"],
-  },
-  { href: "/crm/mails", label: "Mensajes", icon: Inbox, mails: true },
-  { href: "/crm/chats", label: "Chats", icon: MessageCircle, chats: true },
+  { href: REPORTES_HREF, label: REPORTES_NAV_LABEL, icon: FileBarChart2 },
+  { href: "/crm/rondas", label: "Disputas", icon: Scale },
+  { href: "/crm/oportunidades", label: "Ventas", icon: Target, related: ["/crm/consultas"] },
 ];
 
 const MAIL_FOLDERS: readonly {
@@ -67,8 +58,6 @@ const MAIL_FOLDERS: readonly {
   { folder: "trash", href: "/crm/mails?folder=trash", label: "Papelera", icon: Trash2 },
 ];
 
-const MAIL_HREF = "/crm/mails?folder=inbox";
-
 const linkClass = (active: boolean, extra = "") =>
   `flex min-h-11 items-center gap-2.5 rounded-[8px] px-2.5 text-[14px] font-normal text-ink transition-colors duration-150 motion-reduce:transition-none lg:min-h-[34px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus ${
     active ? "bg-ink/8" : "hover:bg-ink/5"
@@ -79,7 +68,6 @@ export function SidebarNav() {
   const searchParams = useSearchParams();
   const [moreOpen, setMoreOpen] = useState(false);
   const inMails = pathname.startsWith("/crm/mails");
-  const inChats = pathname.startsWith("/crm/chats");
   const moreActive = isMoreNavPath(pathname, SIDEBAR_PRIMARY_HREFS);
   const currentFolder =
     pathname === "/crm/mails"
@@ -112,19 +100,15 @@ export function SidebarNav() {
         className="flex-1 space-y-0.5 overflow-y-auto px-2 py-1"
         aria-label="Principal"
       >
-        {PRIMARY_ITEMS.map(({ href, label, icon: Lucide, mails, chats, related }) => {
-          const active = mails
-            ? inMails
-            : chats
-              ? inChats
-              : [href, ...(related ?? [])].some(
-                  (h) => pathname === h || pathname.startsWith(`${h}/`),
-                );
+        {PRIMARY_ITEMS.map(({ href, label, icon: Lucide, related }) => {
+          const active = [href, ...(related ?? [])].some(
+            (h) => pathname === h || pathname.startsWith(`${h}/`),
+          );
 
           return (
             <div key={href}>
               <Link
-                href={mails ? MAIL_HREF : href}
+                href={href}
                 aria-current={active ? "page" : undefined}
                 data-cuelume-hover="tick"
                 className={linkClass(active)}
@@ -136,38 +120,38 @@ export function SidebarNav() {
                 />
                 <span className="flex-1">{label}</span>
               </Link>
-
-              {mails && inMails ? (
-                <div
-                  className="mt-0.5 space-y-0.5 pl-4"
-                  role="group"
-                  aria-label="Carpetas de correo"
-                >
-                  {MAIL_FOLDERS.map((folder) => {
-                    const folderActive = currentFolder === folder.folder;
-                    const FolderIcon = folder.icon;
-                    return (
-                      <Link
-                        key={folder.folder}
-                        href={folder.href}
-                        aria-current={folderActive ? "page" : undefined}
-                        data-cuelume-hover="tick"
-                        className={linkClass(folderActive)}
-                      >
-                        <FolderIcon
-                          className="size-4 shrink-0 text-text-secondary"
-                          strokeWidth={1.5}
-                          aria-hidden
-                        />
-                        {folder.label}
-                      </Link>
-                    );
-                  })}
-                </div>
-              ) : null}
             </div>
           );
         })}
+
+        {inMails ? (
+          <div
+            className="mt-2 space-y-0.5 border-t border-border-subtle pt-2"
+            role="group"
+            aria-label="Carpetas de correo"
+          >
+            {MAIL_FOLDERS.map((folder) => {
+              const folderActive = currentFolder === folder.folder;
+              const FolderIcon = folder.icon;
+              return (
+                <Link
+                  key={folder.folder}
+                  href={folder.href}
+                  aria-current={folderActive ? "page" : undefined}
+                  data-cuelume-hover="tick"
+                  className={linkClass(folderActive)}
+                >
+                  <FolderIcon
+                    className="size-4 shrink-0 text-text-secondary"
+                    strokeWidth={1.5}
+                    aria-hidden
+                  />
+                  {folder.label}
+                </Link>
+              );
+            })}
+          </div>
+        ) : null}
 
         <button
           type="button"

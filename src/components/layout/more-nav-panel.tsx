@@ -4,15 +4,14 @@ import { useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
+  ClipboardList,
   CreditCard,
   FileText,
   Inbox,
   MessageCircle,
   MessageSquareQuote,
   Package,
-  RefreshCcw,
   Settings,
-  Target,
   UsersRound,
   X,
 } from "lucide-react";
@@ -22,11 +21,6 @@ import {
   EQUIPO_NAV_DESCRIPTION,
   EQUIPO_NAV_LABEL,
 } from "@/src/lib/users/equipo";
-import {
-  REPORTES_HREF,
-  REPORTES_NAV_DESCRIPTION,
-  REPORTES_NAV_LABEL,
-} from "@/src/lib/reports/agency-reportes";
 
 type MoreItem = {
   href: string;
@@ -45,6 +39,12 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
     label: "Diario",
     items: [
       {
+        href: "/crm/tareas",
+        label: "Pendientes",
+        icon: ClipboardList,
+        description: "Tareas y seguimientos del equipo.",
+      },
+      {
         href: "/crm/pagos",
         label: "Pagos",
         icon: CreditCard,
@@ -61,29 +61,6 @@ export const MORE_NAV_GROUPS: readonly MoreGroup[] = [
         label: "Chats",
         icon: MessageCircle,
         description: "Conversaciones con el asistente de IA.",
-      },
-      {
-        href: "/crm/oportunidades",
-        label: "Ventas",
-        icon: Target,
-        description: "Leads y consultas.",
-      },
-    ],
-  },
-  {
-    label: "Crédito",
-    items: [
-      {
-        href: REPORTES_HREF,
-        label: REPORTES_NAV_LABEL,
-        icon: FileText,
-        description: REPORTES_NAV_DESCRIPTION,
-      },
-      {
-        href: "/crm/rondas",
-        label: "Rondas",
-        icon: RefreshCcw,
-        description: "Rondas de disputa y seguimiento por buró.",
       },
     ],
   },
@@ -145,23 +122,19 @@ export const MORE_NAV_HREFS = [
 /** Primarios del sidebar: Más no se marca en estas rutas. */
 export const SIDEBAR_PRIMARY_HREFS = [
   "/crm/dashboard",
-  "/crm/tareas",
-  "/crm/oportunidades",
-  "/crm/consultas",
-  "/crm/clientes",
-  "/crm/pagos",
-  "/crm/planes-pago",
-  "/crm/recibos",
-  "/crm/mails",
-  "/crm/chats",
-] as const;
-
-/** Primarios de la barra inferior móvil. Cobrar, Mensajes y Chats viven en Más. */
-export const MOBILE_BOTTOM_PRIMARY_HREFS = [
-  "/crm/dashboard",
-  "/crm/tareas",
   "/crm/clientes",
   "/crm/reportes",
+  "/crm/rondas",
+  "/crm/oportunidades",
+  "/crm/consultas",
+] as const;
+
+/** Primarios de la barra inferior móvil; el resto vive en Más. */
+export const MOBILE_BOTTOM_PRIMARY_HREFS = [
+  "/crm/dashboard",
+  "/crm/clientes",
+  "/crm/reportes",
+  "/crm/rondas",
 ] as const;
 
 export function isMoreNavPath(

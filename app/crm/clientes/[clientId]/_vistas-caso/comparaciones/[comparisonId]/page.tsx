@@ -29,7 +29,8 @@ import {
   COVERAGE_NOT_CERTIFIED,
   OBSERVED_DIFFERENCE,
 } from "@/src/lib/credit/changes";
-import { CaseHeader } from "../../case-header";
+import { CaseHeader } from "@/src/components/cases/case-header";
+import { caseHref } from "@/src/lib/routes/case-routes";
 
 export const metadata: Metadata = {
   title: "Comparación de reportes",
@@ -75,7 +76,7 @@ export default async function ComparisonDetailPage({
 
       <p className="text-sm text-text-secondary">
         <Link
-          href={`/crm/clientes/${clientId}/servicios/${caseId}/credito`}
+          href={caseHref(clientId, caseId, `/credito`)}
           className="font-medium text-action-primary hover:text-action-secondary"
         >
           ← Evolución del crédito

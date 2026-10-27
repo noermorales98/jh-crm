@@ -9,7 +9,10 @@ import { isStorageConfigured } from "@/src/lib/storage/s3";
 import { listMemberOptions } from "@/src/server/page-helpers";
 import { formatDateTime } from "@/src/lib/format";
 import { DomainError } from "@/src/server/errors";
-import { Alert, Card, CardBody, CardHeader } from "@/src/components/ui";
+import { Alert, Card, CardBody, CardHeader, Pill } from "@/src/components/ui";
+import { resolveClientCase } from "@/src/server/cases/resolve-client-case";
+import { getCaseDocumentChecklist } from "@/src/server/documents/checklist";
+import { DOCUMENT_CATEGORY_LABELS, labelFor } from "@/src/lib/labels";
 import { ClientForm, type ClientFormValues } from "@/src/components/clients/client-form";
 import { SensitiveProfileForm } from "@/src/components/clients/sensitive-profile-form";
 import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
@@ -43,9 +46,11 @@ export default async function ClientRecordPage({
   const canUpload = can(ctx.role, "documents.upload");
   const storageReady = isStorageConfigured();
 
-  const [members, documents] = await Promise.all([
+  const activeCase = await resolveClientCase(ctx, client.id);
+  const [members, documents, checklist] = await Promise.all([
     canEdit ? listMemberOptions(ctx) : Promise.resolve([]),
     documentService.listDocuments(ctx, { clientId: client.id, limit: 50 }),
+    activeCase ? getCaseDocumentChecklist(ctx, activeCase.caseId) : Promise.resolve(null),
   ]);
 
   const formValues: ClientFormValues = {
@@ -123,6 +128,44 @@ export default async function ClientRecordPage({
               )}
             </CardBody>
           </Card>
+
+          {checklist ? (
+            <Card>
+              <CardHeader
+                title="Documentos requeridos"
+                description={
+                  checklist.serviceName
+                    ? `Para ${checklist.serviceName}.`
+                    : "Para el servicio activo."
+                }
+                compact
+              />
+              <CardBody className="px-4 py-3">
+                <ul className="grid gap-2 sm:grid-cols-2">
+                  {checklist.rows.map((row) => (
+                    <li
+                      key={row.category}
+                      className="flex items-center justify-between gap-3 rounded-control bg-surface-app px-3 py-2"
+                    >
+                      <span className="text-[13px] text-ink">
+                        {labelFor(DOCUMENT_CATEGORY_LABELS, row.category)}
+                        {row.required ? null : (
+                          <span className="ml-1.5 text-[11px] text-text-secondary">opcional</span>
+                        )}
+                      </span>
+                      {row.present ? (
+                        <Pill tone="green">Recibido{row.count > 1 ? ` · ${row.count}` : ""}</Pill>
+                      ) : (
+                        <Pill tone={row.required ? "red" : "slate"}>
+                          {row.required ? "Pendiente" : "Sin archivo"}
+                        </Pill>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </CardBody>
+            </Card>
+          ) : null}
 
           <Card className="overflow-hidden">
             <CardHeader

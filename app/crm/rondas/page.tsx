@@ -33,7 +33,7 @@ import { ROUND_STATUS_LABELS } from "@/src/lib/labels";
 import { RoundActions } from "@/src/components/rounds/round-actions";
 
 export const metadata: Metadata = {
-  title: "Rondas",
+  title: "Disputas",
 };
 
 const ROUND_STATUSES = Object.keys(ROUND_STATUS_LABELS) as RoundStatus[];
@@ -62,7 +62,7 @@ export default async function RoundsPage({
   return (
     <div>
       <PageHeader
-        title="Rondas"
+        title="Centro de disputas"
         description="Rondas de disputa de todos los casos. La creación se hace desde el caso correspondiente."
       />
 

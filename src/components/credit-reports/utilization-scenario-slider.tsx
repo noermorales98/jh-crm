@@ -21,13 +21,10 @@ export function UtilizationScenarioSlider({
   max?: number;
 }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const valueRef = useRef(value);
   const gestureStart = useRef<number | null>(null);
   const undoValue = useRef<number | null>(null);
   const [canUndo, setCanUndo] = useState(false);
   const [dragging, setDragging] = useState(false);
-
-  valueRef.current = value;
 
   function clamp(next: number) {
     return Math.min(max, Math.max(min, Math.round(next)));
@@ -113,7 +110,7 @@ export function UtilizationScenarioSlider({
         onPointerDown={(event) => {
           if (event.button !== 0) return;
           event.currentTarget.setPointerCapture(event.pointerId);
-          gestureStart.current = valueRef.current;
+          gestureStart.current = value;
           setDragging(true);
           onChange(valueFromClientX(event.clientX));
         }}
@@ -134,7 +131,7 @@ export function UtilizationScenarioSlider({
           const start = gestureStart.current;
           gestureStart.current = null;
           setDragging(false);
-          if (start != null) rememberUndo(start, valueRef.current);
+          if (start != null) rememberUndo(start, value);
         }}
       >
         <div

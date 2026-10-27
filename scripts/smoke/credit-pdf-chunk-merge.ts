@@ -434,10 +434,10 @@ async function seedAndConcurrency() {
 }
 
 function freeModelOnly() {
+  const defaultPdfModel: string = CREDIT_PDF_DEFAULT_FREE_MODEL;
   check(
     "default PDF es :free concreto",
-    CREDIT_PDF_DEFAULT_FREE_MODEL.endsWith(":free") &&
-      CREDIT_PDF_DEFAULT_FREE_MODEL !== "openrouter/free",
+    defaultPdfModel.endsWith(":free") && defaultPdfModel !== "openrouter/free",
   );
   check("gemma free pasa", isFreeOpenRouterModel("google/gemma-4-26b-a4b-it:free"));
   check("router free pasa", isFreeOpenRouterModel("openrouter/free"));

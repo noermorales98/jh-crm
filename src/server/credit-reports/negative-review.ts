@@ -9,7 +9,7 @@ import {
   type NegativeDebt,
   type ReasonCode,
 } from "@/src/lib/credit/negative-review";
-import { selectClientActionPlanReport } from "@/src/server/credit-reports/action-plan";
+import { getOrgPdfInfo, selectClientActionPlanReport } from "@/src/server/credit-reports/action-plan";
 import { cancelRound, createRound } from "@/src/server/rounds";
 import { addDisputeItem } from "@/src/server/disputes";
 import { createLetterDraft, ensureDefaultTemplates } from "@/src/server/letters";
@@ -243,4 +243,36 @@ export async function createRoundFromNegativeReview(
     await cancelRound(ctx, round.id).catch(() => undefined);
     throw error;
   }
+}
+
+/** PDF on-demand del análisis de cuentas negativas (staff). */
+export async function buildNegativeReviewPdf(
+  ctx: OrganizationContext,
+  clientId: string,
+  reportId?: string | null,
+): Promise<{ pdf: Buffer; filename: string }> {
+  const { generateNegativeReviewPdf } = await import("@/src/lib/pdf/negative-review");
+  const { CREDIT_BUREAU_LABELS, CREDIT_NEGATIVE_TYPE_LABELS } = await import("@/src/lib/labels");
+  const review = await getNegativeReview(ctx, clientId, reportId);
+  const org = await getOrgPdfInfo(ctx.organizationId);
+  const pdf = generateNegativeReviewPdf({
+    organization: {
+      legalName: org.legalName,
+      phone: org.phone,
+      email: org.email,
+      website: org.website,
+      addressLine: org.addressLine,
+      logo: org.logo,
+    },
+    review,
+    bureauLabels: CREDIT_BUREAU_LABELS,
+    negativeTypeLabels: CREDIT_NEGATIVE_TYPE_LABELS,
+  });
+  const day = review.reportDate.toISOString().slice(0, 10);
+  const safeName = review.clientName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 40);
+  return { pdf, filename: `cuentas-negativas-${safeName || "cliente"}-${day}.pdf` };
 }

@@ -82,6 +82,40 @@ function main() {
   check("abierta hace más de 7 años = revisar antigüedad", jpm?.reasons.some((r) => r.code === "OBSOLETE") === true, jpm?.reasons);
   check("sin número de cuenta = datos incompletos", jpm?.reasons.some((r) => r.code === "INCOMPLETE") === true);
 
+  // Caso real (PDF del 3 sep 2026): TransUnion enmascara otro número.
+  const real: PracticalItem[] = [
+    item({ creditorName: "Jpmcb Card Services", accountNumberMasked: "xxxxxxxx 9622", bureau: "EQUIFAX", balance: 0, creditLimit: 1000, accountStatus: "Collection Account", openClosedStatus: "Closed", dateOpened: d("2016-10-01"), dateReported: d("2026-07-01") }),
+    item({ creditorName: "Jpmcb Card Services", accountNumberMasked: "xxxxxxxx 9622", bureau: "EXPERIAN", balance: 1118, creditLimit: 1000, accountStatus: "Over 120 Days Past Due", openClosedStatus: "Closed", dateOpened: d("2016-10-01"), dateReported: d("2023-03-01") }),
+    item({ creditorName: "Jpmcb Card Services", accountNumberMasked: "xxxxxxxxxxxx 1456", bureau: "TRANSUNION", balance: 0, creditLimit: 1000, accountStatus: "Closed", remarks: "PAID CHARGE OFF", negativeType: "CHARGE_OFF", openClosedStatus: "Closed", dateOpened: d("2016-10-01"), dateReported: d("2023-02-01") }),
+    item({ creditorName: "Jpmcb Card Services", accountNumberMasked: "xxxxxxxx 2338", bureau: "EQUIFAX", balance: 0, creditLimit: 700, accountStatus: "Collection Account", dateOpened: d("2017-05-01"), dateReported: d("2026-07-01") }),
+    item({ creditorName: "Jpmcb Card Services", accountNumberMasked: "xxxxxxxx 2338", bureau: "EXPERIAN", balance: 0, creditLimit: 700, accountStatus: "Collection Account", dateOpened: d("2017-05-01"), dateReported: d("2023-02-01") }),
+    item({ creditorName: "Merrick Bk", accountNumberMasked: "xxxxxxxxxxxx 8772", bureau: "TRANSUNION", balance: 1820, creditLimit: 1400, accountStatus: "Closed", remarks: "ACCOUNT CHARGED TO PROFIT AND LOSS", negativeType: "CHARGE_OFF" }),
+    item({ creditorName: "Portfolio Recovery A", accountNumberMasked: "xxxxxxxxxxxxxxxx 6081", balance: 2149, accountStatus: "Collection Account", dateOpened: d("2021-10-01") }),
+  ];
+  const realDebts = groupNegativeDebts(real, asOf);
+  const jpm9622 = realDebts.find((x) => x.last4 === "9622");
+  check("JPMCB ****9622 junta la fila de TransUnion ****1456", jpm9622?.rows.length === 3, realDebts.map((x) => [x.creditorName, x.last4, x.rows.length]));
+  check("JPMCB ****2338 queda aparte (otra apertura y límite)", realDebts.find((x) => x.last4 === "2338")?.rows.length === 2);
+  check("4 deudas en el caso real", realDebts.length === 4, realDebts.length);
+  const jpmDetail = jpm9622?.reasons.find((r) => r.code === "INCONSISTENT")?.detail ?? "";
+  check("explica saldo en un buró y 0 en otros", jpmDetail.includes("Experian reporta saldo 1,118"), jpmDetail);
+  check("detecta buró sin actualizar", jpmDetail.includes("no la actualiza desde"), jpmDetail);
+  check(
+    "número de cuenta distinto no cuenta como diferencia",
+    jpm9622?.fields.find((f) => f.label === "Número de cuenta")?.differs === false,
+  );
+  check(
+    "antigüedad pide la fecha de primera morosidad, no afirma que expiró",
+    jpm9622?.reasons.find((r) => r.code === "OBSOLETE")?.detail.includes("primera morosidad") === true,
+  );
+  const merrick = realDebts.find((x) => x.creditorName === "Merrick Bk");
+  check(
+    "Merrick: saldo mayor al límite y sin apertura",
+    merrick?.reasons.some((r) => r.code === "INCOMPLETE" && r.detail.includes("saldo mayor al límite") && r.detail.includes("sin fecha de apertura")) === true,
+    merrick?.reasons,
+  );
+  check("cobranza sola sin pistas = solo verificación", realDebts.find((x) => x.last4 === "6081")?.reasons[0]?.code === "VERIFY");
+
   const text = disputeTextFor({ reasons: ["INCONSISTENT", "INCOMPLETE"], answer: "NOT_MINE", clientWords: "Nunca abrí esta cuenta" });
   check("motivo de carta en inglés y de máximo 200", text.reason.startsWith("I do not recognize this account.") && text.reason.length <= 200, text.reason);
   check("detalle incluye palabras del cliente", text.details.includes("Consumer statement: Nunca abrí esta cuenta"));

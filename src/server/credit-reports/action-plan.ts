@@ -893,7 +893,7 @@ export async function getClientNegativeAnalysis(
   };
 }
 
-async function getOrgPdfInfo(organizationId: string) {
+export async function getOrgPdfInfo(organizationId: string) {
   const { loadPdfOrganization } = await import("@/src/server/pdf/org-info");
   const { info, timezone } = await loadPdfOrganization(organizationId);
   return { ...info, timezone };

@@ -36,7 +36,7 @@ import {
   IdCard,
 } from "lucide-react";
 import type { ClientStatus } from "@prisma/client";
-import { Alert, Button } from "@/src/components/ui";
+import { Button } from "@/src/components/ui";
 import { AgencyModal } from "@/src/components/agency/agency-modal";
 import {
   Capsule,
@@ -74,10 +74,10 @@ import { ClientPaymentsPanel } from "@/src/components/clients/client-payments-pa
 import { ClientNotesPanel } from "@/src/components/clients/client-notes-panel";
 import { ClientTestimonialsPanel } from "@/src/components/clients/client-testimonials-panel";
 import { AnalyzePdfImportButton } from "@/src/components/credit-reports/analyze-pdf-import";
-import { UtilizationScenarioSlider } from "@/src/components/credit-reports/utilization-scenario-slider";
 import { CreditPdfPendingConfirmBanner } from "@/src/components/credit-reports/credit-pdf-pending-confirm";
 import type { PendingConfirmCreditPdfJob } from "@/src/server/credit-import/jobs";
 import { ClientNegativeAnalysisPanel } from "@/src/components/clients/client-negative-analysis-panel";
+import { ClientScorePlanPanel } from "@/src/components/clients/client-score-plan-panel";
 import { ClientAvancePanel } from "@/src/components/clients/client-avance-panel";
 import { ClientQuoteHubPanel } from "@/src/components/clients/client-quote-hub-panel";
 import { ClientContractHubPanel } from "@/src/components/clients/client-contract-hub-panel";
@@ -92,20 +92,6 @@ import {
   type CreditReportPdfDto,
 } from "@/src/components/clients/client-credit-report-entry";
 import { formatDate } from "@/src/lib/format";
-import {
-  SCORE_PLAN_EMPTY_COPY,
-  SCORE_PLAN_INSUFFICIENT_LABEL,
-  buildScorePlan,
-  buildUtilizationScenario,
-  formatScorePlanCopy,
-  formatScorePlanMoney,
-} from "@/src/lib/credit/score-plan";
-import { utilizationBps } from "@/src/lib/credit/revolving";
-import {
-  allocateUtilizationBudget,
-  budgetExclusionLabel,
-  parseExtraBudgetCents,
-} from "@/src/lib/credit/budget";
 import { buildFundingPrepPanel } from "@/src/lib/credit/funding-prep";
 import { PROGRAM_NOT_VERSIONED } from "@/src/lib/credit/programs";
 import { CAPACITY_NOT_INFERRED } from "@/src/lib/credit/capacity";
@@ -372,12 +358,6 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
-  const [utilPct, setUtilPct] = useState(10);
-  const [extraBudget, setExtraBudget] = useState("");
-  const [copyNotice, setCopyNotice] = useState<{
-    tone: "success" | "error";
-    text: string;
-  } | null>(null);
   const [planHub, setPlanHub] = useState<ClientActionPlanHubDto | null>(null);
   const [planHubError, setPlanHubError] = useState<string | null>(null);
   const [planHubSettledKey, setPlanHubSettledKey] = useState<string | null>(
@@ -481,45 +461,6 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     };
   }, [planHubKey, props.client.id, effectiveReportId]);
 
-  const scenario = useMemo(() => {
-    if (!planHub) return null;
-    return buildUtilizationScenario({
-      snapshotId: planHub.reportId,
-      targetBps: Math.round(utilPct * 100),
-      aggregateStatus: planHub.revolving.aggregateStatus,
-      accounts: planHub.revolving.scenarioAccounts,
-    });
-  }, [planHub, utilPct]);
-  const scoreRows = useMemo(() => {
-    const accounts = planHub?.revolving.scenarioAccounts ?? [];
-    if (scenario && accounts.length > 0) {
-      return accounts.map((account, index) => {
-        const payment = scenario.perAccountPaydownCents[index]?.payment ?? null;
-        const current = utilizationBps(account.balanceCents, account.limitCents);
-        if (payment == null || current == null) {
-          return { kind: "insufficient" as const, name: account.creditorName };
-        }
-        return {
-          kind: "ready" as const,
-          name: account.creditorName,
-          pct: current / 100,
-          amount: payment / 100,
-        };
-      });
-    }
-    return buildScorePlan(planHub?.revolving.cards ?? [], utilPct);
-  }, [planHub, scenario, utilPct]);
-  const extraBudgetCents = parseExtraBudgetCents(extraBudget);
-  const budgetAllocation = useMemo(() => {
-    if (!planHub || extraBudgetCents == null) return null;
-    return allocateUtilizationBudget({
-      snapshotId: planHub.reportId,
-      extraBudgetCents,
-      aggregateStatus: planHub.revolving.aggregateStatus,
-      accounts: planHub.revolving.scenarioAccounts,
-    });
-  }, [planHub, extraBudgetCents]);
-  const scorePlanReady = Boolean(planHub) && !planHubLoading && !planHubError;
   // Mientras carga o hay error, no pasar hub previo (evita resumen de otro reporte).
   const fundingPrep = useMemo(
     () =>
@@ -909,9 +850,8 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           />
           <ActionCapsule
             icon={TrendingUp}
-            title="Optimización de utilización"
-            subtitle="Escenario de pago"
-            badge="Beta"
+            title="Score Plan"
+            subtitle="Sube el puntaje ya"
             onClick={() => setPanel("score")}
           />
           <ActionCapsule
@@ -1477,207 +1417,13 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
 
       <AgencyModal
         open={panel === "score"}
-        onClose={() => {
-          setCopyNotice(null);
-          setPanel(null);
-        }}
-        title="Optimización de utilización"
+        onClose={() => setPanel(null)}
+        title="Score Plan · sube el puntaje ya"
         size="lg"
-        centerBody
       >
-        <div className="space-y-4">
-          <ol className="space-y-1 text-[13px] text-text-secondary">
-            <li>1. Elige el escenario.</li>
-            <li>2. Indica un presupuesto extra si hace falta.</li>
-            <li>3. Revisa el pago y copia el plan.</li>
-          </ol>
-          {planHubLoading ? (
-            <p className="text-center text-[13px] text-text-secondary">
-              Cargando revolving del reporte…
-            </p>
-          ) : null}
-          {planHubError ? (
-            <p className="text-center text-sm text-danger">{planHubError}</p>
-          ) : null}
-          {scorePlanReady ? (
-            <p className="text-center text-[12px] text-text-secondary">
-              {scoreRows.length}{" "}
-              {scoreRows.length === 1 ? "registro" : "registros"}
-              {planHub?.avgScore != null ? ` · promedio informativo ${planHub.avgScore}` : ""}
-            </p>
-          ) : null}
-          <UtilizationScenarioSlider value={utilPct} onChange={setUtilPct} />
-          <p className="text-[13px] text-text-secondary">
-            0%, 10%, 30% y 100% son escenarios. No predicen puntos de score.
-          </p>
-          <label className="block text-[13px]">
-            <span className="mb-1 block font-medium">Presupuesto extra</span>
-            <input
-              type="text"
-              inputMode="decimal"
-              value={extraBudget}
-              onChange={(event) => setExtraBudget(event.target.value)}
-              placeholder="0"
-              className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm"
-            />
-            <span className="text-text-secondary">
-              Lo que queda después de mínimos y gastos. No se infiere del ingreso.
-            </span>
-          </label>
-          {scorePlanReady ? (
-            <div className="space-y-2">
-              <p className="text-[13px] font-semibold text-ink">
-                Estimación por cuenta
-              </p>
-              <p className="text-[12px] text-text-secondary">
-                Las cifras calculables son estimaciones del reporte. Revísalas
-                antes de compartirlas.
-              </p>
-              {scoreRows.length === 0 ? (
-                <p className="text-[13px] text-text-secondary">
-                  {SCORE_PLAN_EMPTY_COPY}
-                </p>
-              ) : (
-                scoreRows.map((row, index) => {
-                  const dates = scenario?.perAccountPaydownCents[index];
-                  const reported = [
-                    dates?.balanceReportedOn
-                      ? `Saldo al ${dates.balanceReportedOn}`
-                      : null,
-                    dates?.statementClose ? `Cierre ${dates.statementClose}` : null,
-                    dates?.dueDate ? `Vence ${dates.dueDate}` : null,
-                  ].filter((part): part is string => part != null);
-                  return (
-                    <div
-                      key={`${row.name}-${index}`}
-                      className="flex items-center justify-between gap-3 rounded-control bg-nav-hover/50 px-3 py-2 text-[13px]"
-                    >
-                      {row.kind === "ready" ? (
-                        <>
-                          <span>
-                            {row.name} · ahora {row.pct}%
-                            {reported.length > 0 ? ` · ${reported.join(" · ")}` : ""}
-                          </span>
-                          <span className="font-mono tabular-nums">
-                            ${formatScorePlanMoney(row.amount)}
-                          </span>
-                        </>
-                      ) : (
-                        <>
-                          <span>{row.name}</span>
-                          <span className="text-text-secondary">
-                            {SCORE_PLAN_INSUFFICIENT_LABEL}
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  );
-                })
-              )}
-              <div className="rounded-control bg-nav-hover/50 px-3 py-2 text-[13px]">
-                <p className="font-medium text-ink">Pago del conjunto</p>
-                {scenario?.aggregatePaydownCents != null &&
-                scenario.perAccountTotalCents != null ? (
-                  <p className="mt-1 font-mono tabular-nums">
-                    Por tarjeta $
-                    {formatScorePlanMoney(scenario.perAccountTotalCents / 100)}
-                    {" · "}
-                    Conjunto $
-                    {formatScorePlanMoney(scenario.aggregatePaydownCents / 100)}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-text-secondary">
-                    No calculado. Falta el límite, la moneda no coincide o el
-                    agregado no está conocido.
-                  </p>
-                )}
-                {scenario?.difference ? (
-                  <p className="mt-1 text-text-secondary">{scenario.difference}</p>
-                ) : null}
-              </div>
-              {extraBudget.trim() !== "" && extraBudgetCents == null ? (
-                <p className="text-[13px] text-text-secondary">
-                  Usa dólares con hasta dos decimales.
-                </p>
-              ) : null}
-              {budgetAllocation ? (
-                <div className="rounded-control bg-nav-hover/50 px-3 py-2 text-[13px]">
-                  <p className="font-medium text-ink">Presupuesto extra</p>
-                  {budgetAllocation.complete ? (
-                    <>
-                      {budgetAllocation.cards.length === 0 ? (
-                        <p className="mt-1 text-text-secondary">Sin cuentas para repartir.</p>
-                      ) : (
-                        budgetAllocation.cards.map((card) => (
-                          <p key={card.canonicalId} className="mt-1 font-mono tabular-nums">
-                            {card.creditorName} · pago $
-                            {formatScorePlanMoney(card.paymentCents / 100)}
-                            {" · saldo simulado $"}
-                            {formatScorePlanMoney(card.balanceCents / 100)}
-                          </p>
-                        ))
-                      )}
-                      <p className="mt-1 font-mono tabular-nums">
-                        Gastado $
-                        {formatScorePlanMoney((budgetAllocation.spentCents ?? 0) / 100)}
-                        {" · sobra $"}
-                        {formatScorePlanMoney((budgetAllocation.remainingCents ?? 0) / 100)}
-                      </p>
-                      {budgetAllocation.simulatedUtilizationBps != null ? (
-                        <p className="mt-1 text-text-secondary">
-                          Utilización simulada del conjunto:{" "}
-                          {budgetAllocation.simulatedUtilizationBps / 100}%
-                        </p>
-                      ) : null}
-                    </>
-                  ) : (
-                    <>
-                      <p className="mt-1 text-text-secondary">
-                        El reparto no está completo.
-                      </p>
-                      {budgetAllocation.excluded.map((account) => (
-                        <p key={`${account.canonicalId}-${account.reason}`} className="mt-1">
-                          {account.creditorName} · {budgetExclusionLabel(account.reason)}
-                        </p>
-                      ))}
-                    </>
-                  )}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-          {copyNotice ? (
-            <Alert tone={copyNotice.tone}>{copyNotice.text}</Alert>
-          ) : null}
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-full"
-            disabled={!scorePlanReady}
-            onClick={() => {
-              if (!scorePlanReady) return;
-              const base = formatScorePlanCopy(scoreRows, utilPct);
-              const aggregate =
-                scenario?.aggregatePaydownCents != null &&
-                scenario.perAccountTotalCents != null
-                  ? `\nPor tarjeta $${formatScorePlanMoney(scenario.perAccountTotalCents / 100)} · Conjunto $${formatScorePlanMoney(scenario.aggregatePaydownCents / 100)}${scenario.difference ? `\n${scenario.difference}` : ""}`
-                  : "";
-              void navigator.clipboard
-                .writeText(`${base}${aggregate}`)
-                .then(() =>
-                  setCopyNotice({ tone: "success", text: "Plan copiado." }),
-                )
-                .catch(() =>
-                  setCopyNotice({
-                    tone: "error",
-                    text: "No se pudo copiar el plan.",
-                  }),
-                );
-            }}
-          >
-            Copiar plan para el cliente
-          </Button>
-        </div>
+        {panel === "score" ? (
+          <ClientScorePlanPanel clientId={props.client.id} reportId={effectiveReportId} />
+        ) : null}
       </AgencyModal>
 
       <AgencyModal

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, Check, ChevronDown, FileWarning, Sparkles } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, Download, FileWarning, Sparkles } from "lucide-react";
 import {
   createRoundFromNegativesAction,
   loadNegativeReview,
@@ -12,6 +12,7 @@ import type { NegativeReview, NegativeReviewDebt } from "@/src/server/credit-rep
 import {
   CLIENT_ANSWER_LABELS,
   REASON_TITLES,
+  hasStrongReason,
   type ClientAnswer,
   type ReasonCode,
 } from "@/src/lib/credit/negative-review";
@@ -41,10 +42,6 @@ function plural(count: number, word: string) {
   return `${count} ${word}${count === 1 ? "" : "s"}`;
 }
 
-/** Tiene un motivo concreto además de la verificación general. */
-function hasStrongReason(debt: NegativeReviewDebt) {
-  return debt.reasons.some((r) => r.code !== "VERIFY");
-}
 
 type Pick = { itemIds: string[]; reasons: ReasonCode[] };
 type InterviewValue = { answer: ClientAnswer | null; words: string | null };
@@ -222,9 +219,18 @@ export function ClientNegativeAnalysisPanel({
     <div className="space-y-4">
       {/* Resumen */}
       <section className="rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle">
-        <p className="text-[12px] text-text-secondary">
-          {review.clientName} · reporte del {formatDate(review.reportDate)}
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[12px] text-text-secondary">
+            {review.clientName} · reporte del {formatDate(review.reportDate)}
+          </p>
+          <a
+            href={`/api/clients/${clientId}/negative-review/pdf?reportId=${review.reportId}`}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[12px] font-medium text-ink ring-1 ring-border-subtle transition-colors hover:bg-nav-hover"
+          >
+            <Download className="size-3.5" aria-hidden />
+            Descargar PDF
+          </a>
+        </div>
         <dl className="mt-3 grid grid-cols-3 gap-3">
           <Stat label="Deudas negativas" value={String(review.debts.length)} tone="danger" />
           <Stat label="Saldo reportado" value={money(totalBalance)} />
@@ -437,7 +443,7 @@ function DebtCard({
   const reasons = pick?.reasons ?? debt.reasons.map((r) => r.code);
   const suggested = new Set(debt.reasons.map((r) => r.code));
   const reported = new Set(debt.rows.map((r) => r.bureau));
-  const strong = debt.reasons.filter((r) => r.code !== "VERIFY");
+  const strong = debt.reasons.filter((r) => r.code !== "VERIFY" && r.code !== "OBSOLETE");
   const disabled = blocked != null;
 
   return (

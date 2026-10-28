@@ -208,7 +208,7 @@ function main() {
   }
   check("barrido de 300 conserva el dinero", true);
 
-  const modal = readFileSync("src/components/clients/agency-client-detail.tsx", "utf8");
+  const modal = readFileSync("src/components/clients/client-score-plan-panel.tsx", "utf8");
   const pdf = readFileSync("src/lib/pdf/action-plan.ts", "utf8");
   check(
     "el modal pide el extra y no lo infiere",

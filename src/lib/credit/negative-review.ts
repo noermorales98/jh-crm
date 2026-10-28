@@ -11,10 +11,16 @@
 import type { CreditBureau, CreditNegativeType } from "@prisma/client";
 import { classifyNegative, type PracticalItem } from "@/src/lib/credit/practical";
 
-export const NEGATIVE_REVIEW_VERSION = "nr01-2026-10-28";
+export const NEGATIVE_REVIEW_VERSION = "nr02-2026-10-28";
 
-/** FCRA §605: 7 años (+180 días desde la primera morosidad). Sin esa fecha, se usa la apertura como aviso. */
+/**
+ * FCRA §605(c): 7 años desde la primera morosidad (+180 días). El reporte no
+ * trae esa fecha, así que una apertura de hace más de 7½ años solo sugiere
+ * pedirla; no prueba que la cuenta ya deba salir.
+ */
 const OBSOLETE_MONTHS = 7 * 12 + 6;
+/** Diferencia de fecha de reporte que ya indica un buró sin actualizar. */
+const STALE_REPORT_MONTHS = 3;
 
 export type ReasonCode = "INCONSISTENT" | "DUPLICATE" | "INCOMPLETE" | "OBSOLETE" | "VERIFY";
 
@@ -38,7 +44,7 @@ export const REASON_TITLES: Record<ReasonCode, string> = {
   INCONSISTENT: "Diferencias entre burós",
   DUPLICATE: "Posible duplicado",
   INCOMPLETE: "Datos incompletos o raros",
-  OBSOLETE: "Revisar antigüedad (+7 años)",
+  OBSOLETE: "Revisar fecha de salida (7 años)",
   VERIFY: "Solicitar verificación",
 };
 
@@ -80,6 +86,13 @@ export type NegativeDebt = {
   differences: number;
 };
 
+/** Motivos que señalan un problema concreto (no solo pedir verificación). */
+const STRONG_REASONS: ReadonlySet<ReasonCode> = new Set(["INCONSISTENT", "DUPLICATE", "INCOMPLETE"]);
+
+export function hasStrongReason(debt: Pick<NegativeDebt, "reasons">): boolean {
+  return debt.reasons.some((reason) => STRONG_REASONS.has(reason.code));
+}
+
 function digits(masked: string | null): string {
   return (masked ?? "").replace(/\D/g, "").slice(-4);
 }
@@ -113,30 +126,56 @@ function clean(value: string | null | undefined): string | null {
   return text ? text : null;
 }
 
-/** Tabla campo por campo entre los burós que reportan la deuda. */
+type FieldRule = "exact" | "stale" | "info";
+
+/**
+ * Tabla campo por campo entre los burós que reportan la deuda.
+ * - exact: cuenta como diferencia si dos burós dan valores distintos.
+ * - stale: fechas de reporte; solo cuenta si se separan más de 3 meses.
+ * - info: se muestra pero no cuenta (TransUnion enmascara otro número de
+ *   cuenta y cada buró redacta sus comentarios a su manera).
+ */
 function compareFields(members: readonly ReviewItem[]): DebtField[] {
-  const spec: [string, (item: ReviewItem) => string | null][] = [
-    ["Estado de la cuenta", (i) => clean(i.accountStatus)],
-    ["Estado de pago", (i) => clean(i.paymentStatus)],
-    ["Abierta / cerrada", (i) => clean(i.openClosedStatus)],
-    ["Tipo de cuenta", (i) => clean(i.accountType)],
-    ["Fecha de apertura", (i) => dayKey(i.dateOpened)],
-    ["Fecha reportada", (i) => dayKey(i.dateReported)],
-    ["Límite de crédito", (i) => moneyText(i.creditLimit)],
-    ["Saldo reportado", (i) => moneyText(i.balance)],
-    ["Monto vencido", (i) => moneyText(i.pastDueAmount)],
-    ["Pago mensual", (i) => moneyText(i.monthlyPayment)],
-    ["Número de cuenta", (i) => digits(i.accountNumberMasked) || null],
-    ["Comentarios", (i) => clean(i.remarks)],
+  const spec: [string, FieldRule, (item: ReviewItem) => string | null][] = [
+    ["Estado de la cuenta", "exact", (i) => clean(i.accountStatus)],
+    ["Estado de pago", "exact", (i) => clean(i.paymentStatus)],
+    ["Abierta / cerrada", "exact", (i) => clean(i.openClosedStatus)],
+    ["Tipo de cuenta", "exact", (i) => clean(i.accountType)],
+    ["Fecha de apertura", "exact", (i) => dayKey(i.dateOpened)],
+    ["Fecha reportada", "stale", (i) => dayKey(i.dateReported)],
+    ["Límite de crédito", "exact", (i) => moneyText(i.creditLimit)],
+    ["Saldo reportado", "exact", (i) => moneyText(i.balance)],
+    ["Monto vencido", "exact", (i) => moneyText(i.pastDueAmount)],
+    ["Pago mensual", "exact", (i) => moneyText(i.monthlyPayment)],
+    ["Número de cuenta", "info", (i) => digits(i.accountNumberMasked) || null],
+    ["Comentarios", "info", (i) => clean(i.remarks)],
   ];
   return spec
-    .map(([label, get]) => {
+    .map(([label, rule, get]) => {
       const values = members.map((item) => ({ bureau: item.bureau, value: get(item) }));
       const present = values.map((v) => v.value?.toLowerCase()).filter((v): v is string => v != null);
-      return { label, values, differs: present.length >= 2 && new Set(present).size > 1 };
+      let differs = false;
+      if (rule === "exact") differs = present.length >= 2 && new Set(present).size > 1;
+      if (rule === "stale" && present.length >= 2) {
+        const dates = present.map((v) => new Date(`${v}T00:00:00.000Z`)).sort((a, b) => a.getTime() - b.getTime());
+        differs = monthsBetween(dates[0]!, dates[dates.length - 1]!) > STALE_REPORT_MONTHS;
+      }
+      return { label, values, differs };
     })
     .filter((field) => field.values.some((v) => v.value != null));
 }
+
+function monthKey(date: Date | null): string | null {
+  return date ? date.toISOString().slice(0, 7) : null;
+}
+
+const MONTH_FMT = new Intl.DateTimeFormat("es-MX", { month: "short", year: "numeric", timeZone: "UTC" });
+
+const BUREAU_SHORT: Record<CreditBureau, string> = {
+  EQUIFAX: "Equifax",
+  EXPERIAN: "Experian",
+  TRANSUNION: "TransUnion",
+};
 
 const TYPE_RANK: Record<CreditNegativeType, number> = {
   BANKRUPTCY: 7,
@@ -155,22 +194,44 @@ export function groupNegativeDebts(items: readonly ReviewItem[], asOf: Date): Ne
     .map((item) => ({ item, type: classifyNegative(item) }))
     .filter((entry): entry is { item: PracticalItem; type: CreditNegativeType } => entry.type != null);
 
-  // 1) Misma deuda: mismo acreedor y mismos últimos 4; si un buró no trae
-  //    número, se une por acreedor + saldo.
+  // 1) Misma deuda, en este orden:
+  //    a) mismo acreedor y mismos últimos 4;
+  //    b) mismo acreedor, mes de apertura y límite (TransUnion suele enmascarar
+  //       otro número para la misma cuenta);
+  //    c) si un buró no trae número, mismo acreedor + saldo.
+  //    Nunca se juntan dos filas del mismo buró.
   const groups: { name: string; last4: string; balance: number | null; members: typeof negatives }[] = [];
   for (const entry of negatives) {
     const name = normName(entry.item.creditorName);
     const last4 = digits(entry.item.accountNumberMasked);
     const balance = entry.item.balance;
-    const match = groups.find(
-      (g) =>
-        g.name === name &&
-        ((last4 !== "" && g.last4 !== "" && g.last4 === last4) ||
-          ((last4 === "" || g.last4 === "") && balance != null && balance > 0 && g.balance === balance)),
+    const opened = monthKey(entry.item.dateOpened);
+    const candidates = groups.filter(
+      (g) => g.name === name && !g.members.some((m) => m.item.bureau === entry.item.bureau),
     );
+    const match =
+      candidates.find((g) => last4 !== "" && g.members.some((m) => digits(m.item.accountNumberMasked) === last4)) ??
+      candidates.find(
+        (g) =>
+          opened != null &&
+          g.members.some(
+            (m) => monthKey(m.item.dateOpened) === opened && (m.item.creditLimit ?? null) === (entry.item.creditLimit ?? null),
+          ),
+      ) ??
+      candidates.find(
+        (g) => (last4 === "" || g.last4 === "") && balance != null && balance > 0 && g.balance === balance,
+      );
     if (match) {
       match.members.push(entry);
       if (!match.last4 && last4) match.last4 = last4;
+      // Se muestra el número que repite la mayoría de los burós.
+      const counts = new Map<string, number>();
+      for (const m of match.members) {
+        const d = digits(m.item.accountNumberMasked);
+        if (d) counts.set(d, (counts.get(d) ?? 0) + 1);
+      }
+      const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+      if (top && top[1] > 1) match.last4 = top[0];
       if (match.balance == null) match.balance = balance;
     } else {
       groups.push({ name, last4, balance, members: [entry] });
@@ -197,12 +258,34 @@ export function groupNegativeDebts(items: readonly ReviewItem[], asOf: Date): Ne
 
     // Diferencias entre burós (solo cuando dos burós sí reportan algo distinto).
     if (differing.length > 0) {
+      const notes: string[] = [];
+      const balances = g.members.filter(({ item }) => item.balance != null);
+      const zero = balances.filter(({ item }) => item.balance === 0);
+      const owing = balances.filter(({ item }) => (item.balance ?? 0) > 0);
+      if (zero.length > 0 && owing.length > 0) {
+        notes.push(
+          `${owing.map(({ item }) => BUREAU_SHORT[item.bureau]).join(" y ")} reporta saldo ${moneyText(owing[0]!.item.balance)} y ${zero
+            .map(({ item }) => BUREAU_SHORT[item.bureau])
+            .join(" y ")} lo reporta en 0`,
+        );
+      }
+      const reported = g.members
+        .filter(({ item }) => item.dateReported != null)
+        .sort((a, b) => a.item.dateReported!.getTime() - b.item.dateReported!.getTime());
+      const latest = reported[reported.length - 1]?.item.dateReported;
+      if (latest) {
+        for (const { item } of reported) {
+          if (monthsBetween(item.dateReported!, latest) > STALE_REPORT_MONTHS) {
+            notes.push(`${BUREAU_SHORT[item.bureau]} no la actualiza desde ${MONTH_FMT.format(item.dateReported!)}`);
+          }
+        }
+      }
       reasons.push({
         code: "INCONSISTENT",
         title: REASON_TITLES.INCONSISTENT,
         detail: `${differing.length} diferencia${differing.length === 1 ? "" : "s"} entre burós: ${differing
           .map((f) => f.label.toLowerCase())
-          .join(", ")}.`,
+          .join(", ")}.${notes.length > 0 ? ` ${notes.join("; ")}.` : ""}`,
       });
     }
 
@@ -226,10 +309,11 @@ export function groupNegativeDebts(items: readonly ReviewItem[], asOf: Date): Ne
       .filter((d): d is Date => d != null)
       .sort((a, b) => a.getTime() - b.getTime())[0];
     if (opened && monthsBetween(opened, asOf) > OBSOLETE_MONTHS) {
+      const cutoff = new Date(Date.UTC(asOf.getUTCFullYear() - 7, asOf.getUTCMonth() - 6, 1));
       reasons.push({
         code: "OBSOLETE",
         title: REASON_TITLES.OBSOLETE,
-        detail: `Abierta hace más de 7 años; confirma la fecha de primera morosidad (FCRA §605).`,
+        detail: `Abierta en ${MONTH_FMT.format(opened)}. Los 7 años se cuentan desde la primera morosidad, no desde la apertura: pide esa fecha al buró; si es anterior a ${MONTH_FMT.format(cutoff)}, debe salir (FCRA §605).`,
       });
     }
 
@@ -238,7 +322,8 @@ export function groupNegativeDebts(items: readonly ReviewItem[], asOf: Date): Ne
       creditorName: g.members[0]!.item.creditorName,
       last4: g.last4 || null,
       type,
-      balance: g.balance,
+      // El saldo más alto que reporta algún buró (otro puede tenerla en 0).
+      balance: rows.reduce<number | null>((max, r) => (r.balance != null && (max == null || r.balance > max) ? r.balance : max), null),
       rows,
       reasons,
       fields,
@@ -288,7 +373,7 @@ const LETTER_REASON: Record<ReasonCode, string> = {
     "This debt appears to be reported more than once (original creditor and collection agency).",
   INCOMPLETE: "This account is reported with incomplete or inaccurate information.",
   OBSOLETE:
-    "This account appears to exceed the reporting period allowed under FCRA section 605.",
+    "Please provide the date of first delinquency; if it is older than 7 years, this account must be removed (FCRA 605).",
   VERIFY:
     "Please verify this account and provide the method used to verify it, as required by FCRA section 611.",
 };

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, Copy, CreditCard, Download } from "lucide-react";
+import { Check, Copy, CreditCard, Download, RotateCcw } from "lucide-react";
 import { loadScorePlan } from "@/src/actions/score-plan";
 import type { ScorePlanData } from "@/src/server/credit-reports/score-plan";
 import {
@@ -27,10 +27,8 @@ const BAND_TONE: Record<UtilBand, { ink: string; fill: string; soft: string }> =
   VERY_HIGH: { ink: "text-danger-ink", fill: "bg-danger-ink", soft: "bg-danger-soft" },
 };
 
-const TARGETS = [
-  { pct: 29, label: "Menos de 30%", hint: "Deja de restar" },
-  { pct: DEFAULT_TARGET_PCT, label: "Menos de 10%", hint: "Lo ideal" },
-] as const;
+const TARGET_MIN = 1;
+const TARGET_MAX = 50;
 
 function usd(amount: number) {
   return `$${Math.round(amount).toLocaleString("en-US")}`;
@@ -130,6 +128,10 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
     });
   }, [budgetCents, cards, data?.reportId]);
   const closing = closeKey ? closeCardImpact(cards, closeKey) : null;
+  // "Hoy" redondeado y tope del control (sube si hoy ya pasa de 50%).
+  const currentPct =
+    now.utilizationBps != null ? Math.min(Math.max(Math.round(now.utilizationBps / 100), TARGET_MIN), 100) : null;
+  const targetMax = Math.max(TARGET_MAX, currentPct ?? 0);
 
   if (loading) {
     return (
@@ -154,6 +156,7 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
 
   const band = bandFor(now.utilizationBps);
   const afterBand = bandFor(plan.afterBps);
+  const targetBand = bandFor(targetPct * 100);
 
   async function copyPlan() {
     if (!data) return;
@@ -169,7 +172,7 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
   return (
     <div className="space-y-5">
       {/* Hoy */}
-      <section className="rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle">
+      <section>
         <div className="flex items-start justify-between gap-3">
           <p className="text-[12px] text-text-secondary">
             {data.clientName} · reporte del {formatDate(data.reportDate)}
@@ -193,30 +196,75 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
       </section>
 
       {/* Meta y plan */}
-      <section>
+      {/* Meta ajustable */}
+      <section className="rounded-surface bg-surface-app p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h3 className="text-[15px] font-semibold text-ink">Paga en este orden</h3>
-            <p className="text-[12px] text-text-secondary">La de mayor porcentaje primero: es la que más resta.</p>
+            <p className="text-[12px] text-text-secondary">Meta de utilización</p>
+            <p className="mt-0.5 flex items-baseline gap-2">
+              <span className="text-[28px] font-semibold leading-none tracking-[-0.02em] tabular-nums text-ink">
+                {targetPct}%
+              </span>
+              <BandChip band={targetBand} />
+            </p>
           </div>
-          <div role="radiogroup" aria-label="Meta de utilización" className="flex gap-1 rounded-control bg-surface-app p-1">
-            {TARGETS.map((target) => (
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              onClick={() => setTargetPct(DEFAULT_TARGET_PCT)}
+              aria-pressed={targetPct === DEFAULT_TARGET_PCT}
+              className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                targetPct === DEFAULT_TARGET_PCT
+                  ? "bg-action-primary text-action-primary-foreground"
+                  : "bg-surface-panel text-ink hover:bg-nav-hover"
+              }`}
+            >
+              <RotateCcw className="size-3" aria-hidden />
+              Recomendado · {DEFAULT_TARGET_PCT}%
+            </button>
+            {currentPct != null ? (
               <button
-                key={target.pct}
                 type="button"
-                role="radio"
-                aria-checked={targetPct === target.pct}
-                onClick={() => setTargetPct(target.pct)}
-                className={`rounded-[7px] px-2.5 py-1 text-left transition-colors ${
-                  targetPct === target.pct ? "bg-surface-elevated shadow-sm" : "hover:bg-nav-hover"
+                onClick={() => setTargetPct(currentPct)}
+                aria-pressed={targetPct === currentPct}
+                className={`rounded-full px-3 py-1.5 text-[12px] font-medium transition-colors ${
+                  targetPct === currentPct
+                    ? "bg-action-primary text-action-primary-foreground"
+                    : "bg-surface-panel text-ink hover:bg-nav-hover"
                 }`}
               >
-                <span className="block text-[12px] font-semibold text-ink">{target.label}</span>
-                <span className="block text-[10.5px] text-text-secondary">{target.hint}</span>
+                Hoy · {currentPct}%
               </button>
-            ))}
+            ) : null}
           </div>
         </div>
+        <input
+          type="range"
+          min={TARGET_MIN}
+          max={targetMax}
+          step={1}
+          value={targetPct}
+          onChange={(event) => setTargetPct(Number(event.target.value))}
+          aria-label="Meta de utilización"
+          aria-valuetext={`${targetPct}%`}
+          className="mt-4 h-6 w-full cursor-pointer accent-[var(--color-action-primary)]"
+        />
+        <div className="relative h-4 text-[10.5px] tabular-nums text-text-secondary" aria-hidden>
+          {[TARGET_MIN, 10, 30, targetMax].map((mark) => (
+            <span
+              key={mark}
+              className="absolute -translate-x-1/2"
+              style={{ left: `${((mark - TARGET_MIN) / (targetMax - TARGET_MIN)) * 100}%` }}
+            >
+              {mark === 10 ? "10% ideal" : `${mark}%`}
+            </span>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h3 className="text-[15px] font-semibold text-ink">Paga en este orden</h3>
+        <p className="text-[12px] text-text-secondary">La de mayor porcentaje primero: es la que más resta.</p>
 
         {plan.rows.length === 0 ? (
           <p className="mt-3 flex items-center gap-2 rounded-control bg-success-soft px-3 py-2.5 text-[13px] text-success-ink">
@@ -224,9 +272,9 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
             Todas las tarjetas ya están en la meta. Mantén los saldos así.
           </p>
         ) : (
-          <ol className="mt-3 divide-y divide-border-subtle/60 overflow-hidden rounded-surface ring-1 ring-border-subtle">
+          <ol className="mt-3 divide-y divide-border-subtle/50">
             {plan.rows.map((row, index) => (
-              <li key={row.key} className="grid grid-cols-[1.25rem_1fr_auto] items-center gap-3 bg-surface-panel px-3 py-2.5">
+              <li key={row.key} className="grid grid-cols-[1.25rem_1fr_auto] items-center gap-3 py-3">
                 <span className="text-[12px] font-semibold tabular-nums text-text-secondary">{index + 1}</span>
                 <div className="min-w-0">
                   <div className="flex items-baseline justify-between gap-2">
@@ -250,7 +298,7 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
                 </p>
               </li>
             ))}
-            <li className="flex items-center justify-between gap-3 bg-surface-app px-3 py-2.5">
+            <li className="mt-1 flex items-center justify-between gap-3 rounded-control bg-surface-app px-3 py-2.5">
               <span className="text-[13px] font-semibold text-ink">
                 Total <span className="font-normal text-text-secondary">· quedarías en {pct(plan.afterBps)}</span>{" "}
                 <BandChip band={afterBand} />
@@ -268,13 +316,13 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
       </section>
 
       {/* Presupuesto */}
-      <section className="rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle">
+      <section className="rounded-surface bg-surface-app p-4">
         <label className="block">
           <span className="text-[14px] font-semibold text-ink">Presupuesto extra</span>
           <span className="mt-0.5 block text-[12px] text-text-secondary">
             ¿Cuánto puede pagar este mes además de los mínimos? No se infiere del ingreso.
           </span>
-          <span className="mt-2 flex items-center gap-2 rounded-control bg-surface-app px-3 ring-1 ring-border-subtle focus-within:ring-2 focus-within:ring-action-primary">
+          <span className="mt-2 flex items-center gap-2 rounded-control bg-surface-panel px-3 focus-within:ring-2 focus-within:ring-action-primary">
             <span className="text-[14px] text-text-secondary">$</span>
             <input
               type="text"
@@ -317,13 +365,13 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
       </section>
 
       {/* Cerrar una tarjeta */}
-      <section className="rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle">
+      <section className="rounded-surface bg-surface-app p-4">
         <label className="block">
           <span className="text-[14px] font-semibold text-ink">¿Y si cierra una tarjeta?</span>
           <select
             value={closeKey}
             onChange={(event) => setCloseKey(event.target.value)}
-            className="mt-2 w-full rounded-control bg-surface-app px-3 py-2.5 text-[13px] text-ink ring-1 ring-border-subtle"
+            className="mt-2 w-full rounded-control bg-surface-panel px-3 py-2.5 text-[13px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-action-primary"
           >
             <option value="">Elige una tarjeta para simular…</option>
             {cards.map((card) => (
@@ -383,11 +431,11 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
         VantageScore) pesa la utilización a su manera. Es aparte de la reparación de cuentas negativas.
       </p>
 
-      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-end gap-2 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] ring-1 ring-border-subtle">
+      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-end gap-2 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
         <button
           type="button"
           onClick={() => void copyPlan()}
-          className="inline-flex items-center gap-1.5 rounded-control px-3 py-2 text-[13px] font-medium text-ink ring-1 ring-border-subtle transition-colors hover:bg-nav-hover"
+          className="inline-flex items-center gap-1.5 rounded-control bg-nav-hover/70 px-3 py-2 text-[13px] font-medium text-ink transition-colors hover:bg-nav-hover"
         >
           {copied ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
           {copied ? "Copiado" : "Copiar plan para el cliente"}

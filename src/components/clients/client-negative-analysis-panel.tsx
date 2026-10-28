@@ -218,14 +218,14 @@ export function ClientNegativeAnalysisPanel({
   return (
     <div className="space-y-4">
       {/* Resumen */}
-      <section className="rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle">
+      <section>
         <div className="flex items-center justify-between gap-3">
           <p className="text-[12px] text-text-secondary">
             {review.clientName} · reporte del {formatDate(review.reportDate)}
           </p>
           <a
             href={`/api/clients/${clientId}/negative-review/pdf?reportId=${review.reportId}`}
-            className="inline-flex shrink-0 items-center gap-1.5 rounded-control px-2.5 py-1.5 text-[12px] font-medium text-ink ring-1 ring-border-subtle transition-colors hover:bg-nav-hover"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-control bg-nav-hover/70 px-2.5 py-1.5 text-[12px] font-medium text-ink transition-colors hover:bg-nav-hover"
           >
             <Download className="size-3.5" aria-hidden />
             Descargar PDF
@@ -321,7 +321,7 @@ export function ClientNegativeAnalysisPanel({
       </div>
 
       {review.inquiries.length > 0 ? (
-        <section className="rounded-surface bg-surface-panel p-4 ring-1 ring-border-subtle">
+        <section className="rounded-surface bg-surface-app p-4">
           <h3 className="text-[14px] font-semibold text-ink">
             Consultas duras <span className="font-normal text-text-secondary">· {review.inquiries.length}</span>
           </h3>
@@ -353,7 +353,7 @@ export function ClientNegativeAnalysisPanel({
       </p>
 
       {/* Barra de acción */}
-      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] ring-1 ring-border-subtle">
+      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
         <div className="min-w-0 text-[13px]">
           {createError ? (
             <p className="text-danger-ink" role="alert">
@@ -448,8 +448,8 @@ function DebtCard({
 
   return (
     <article
-      className={`overflow-hidden rounded-surface ring-1 transition-colors ${
-        included ? "bg-nav-active/40 ring-action-primary/50" : "bg-surface-panel ring-border-subtle"
+      className={`overflow-hidden rounded-surface transition-colors ${
+        included ? "bg-nav-active/60" : "bg-surface-app hover:bg-nav-hover/50"
       }`}
     >
       <div className="flex items-start gap-3 p-3">
@@ -525,9 +525,9 @@ function DebtCard({
       </div>
 
       {expanded ? (
-        <div className="space-y-4 border-t border-border-subtle/60 px-3 pb-3 pt-3 sm:pl-11">
+        <div className="space-y-4 px-3 pb-4 pt-1 sm:pl-11">
           <Section step={1} title="Qué reporta cada buró">
-            <ul className="divide-y divide-border-subtle/60 rounded-control ring-1 ring-border-subtle">
+            <ul className="divide-y divide-border-subtle/50 rounded-control bg-surface-panel">
               {debt.rows.map((row) => {
                 const rowIncluded = pick?.itemIds.includes(row.itemId) ?? false;
                 return (
@@ -582,7 +582,7 @@ function DebtCard({
                     disabled={disabled}
                     onClick={() => onChange({ reasons: on ? reasons.filter((r) => r !== code) : [...reasons, code] })}
                     className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors disabled:opacity-50 ${
-                      on ? "bg-warning-soft text-warning-ink" : "text-text-secondary ring-1 ring-border-subtle hover:bg-nav-hover"
+                      on ? "bg-warning-soft text-warning-ink" : "bg-surface-panel text-text-secondary hover:bg-nav-hover"
                     }`}
                   >
                     {on ? <Check className="size-3" aria-hidden /> : null}
@@ -688,7 +688,7 @@ function Interview({
   }, [words]);
 
   return (
-    <fieldset className="space-y-2 rounded-control bg-surface-app px-3 py-2.5">
+    <fieldset className="space-y-2 rounded-control bg-surface-panel px-3 py-2.5">
       <legend className="sr-only">Entrevista al cliente</legend>
       <p className="text-[12px] font-medium text-ink">¿El dato reportado es correcto?</p>
       <div className="flex flex-wrap gap-1.5">
@@ -705,7 +705,7 @@ function Interview({
             className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
               answer === option
                 ? "bg-action-primary text-action-primary-foreground"
-                : "bg-surface-panel text-text-secondary ring-1 ring-border-subtle hover:bg-nav-hover"
+                : "bg-surface-app text-text-secondary hover:bg-nav-hover"
             }`}
           >
             {CLIENT_ANSWER_LABELS[option]}
@@ -727,7 +727,7 @@ function Interview({
           }}
           rows={2}
           placeholder="Ej. Nunca abrí esta cuenta / La pagué en 2023"
-          className="mt-1 w-full rounded-control bg-surface-panel px-3 py-2 text-[13px] text-ink ring-1 ring-border-subtle"
+          className="mt-1 w-full rounded-control bg-surface-app px-3 py-2 text-[13px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-action-primary"
         />
       </label>
       <p className="text-[11px] text-text-secondary" aria-live="polite">
@@ -762,7 +762,7 @@ function FieldComparison({ debt }: { debt: NegativeReviewDebt }) {
         ) : null}
       </button>
       {open ? (
-        <div className="mt-1.5 overflow-x-auto rounded-control ring-1 ring-border-subtle">
+        <div className="mt-1.5 overflow-x-auto rounded-control bg-surface-panel">
           <table className="w-full text-left text-[11.5px]">
             <thead className="bg-surface-app text-text-secondary">
               <tr>

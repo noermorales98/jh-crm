@@ -67,6 +67,12 @@ function main() {
     discover?.reasons,
   );
   check(
+    "Discover: la tabla marca 'Estado de la cuenta' y no cuenta datos ausentes",
+    discover?.fields.find((f) => f.label === "Estado de la cuenta")?.differs === true &&
+      discover?.fields.find((f) => f.label === "Estado de pago")?.differs === false,
+    discover?.fields,
+  );
+  check(
     "Discover: saldo mayor al límite",
     discover?.reasons.some((r) => r.code === "INCOMPLETE" && r.detail.includes("saldo mayor al límite")) === true,
   );

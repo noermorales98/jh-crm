@@ -53,6 +53,20 @@ export type DebtBureauRow = {
   dateReported: Date | null;
 };
 
+/** Campo comparado entre burós (como el detalle de Fondify, sin contar "N/A"). */
+export type DebtField = {
+  label: string;
+  values: { bureau: CreditBureau; value: string | null }[];
+  /** Dos o más burós reportan valores distintos (un dato ausente no cuenta). */
+  differs: boolean;
+};
+
+/** Cuenta del reporte con los montos extra que guarda el CRM. */
+export type ReviewItem = PracticalItem & {
+  monthlyPayment?: number | null;
+  pastDueAmount?: number | null;
+};
+
 export type NegativeDebt = {
   key: string;
   creditorName: string;
@@ -61,6 +75,9 @@ export type NegativeDebt = {
   balance: number | null;
   rows: DebtBureauRow[];
   reasons: SuggestedReason[];
+  /** Comparación campo por campo entre burós. */
+  fields: DebtField[];
+  differences: number;
 };
 
 function digits(masked: string | null): string {
@@ -86,6 +103,41 @@ function statusOf(item: PracticalItem): string | null {
   return parts.length > 0 ? parts.join(" · ") : null;
 }
 
+function moneyText(value: number | null | undefined): string | null {
+  if (value == null) return null;
+  return value.toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+}
+
+function clean(value: string | null | undefined): string | null {
+  const text = value?.trim();
+  return text ? text : null;
+}
+
+/** Tabla campo por campo entre los burós que reportan la deuda. */
+function compareFields(members: readonly ReviewItem[]): DebtField[] {
+  const spec: [string, (item: ReviewItem) => string | null][] = [
+    ["Estado de la cuenta", (i) => clean(i.accountStatus)],
+    ["Estado de pago", (i) => clean(i.paymentStatus)],
+    ["Abierta / cerrada", (i) => clean(i.openClosedStatus)],
+    ["Tipo de cuenta", (i) => clean(i.accountType)],
+    ["Fecha de apertura", (i) => dayKey(i.dateOpened)],
+    ["Fecha reportada", (i) => dayKey(i.dateReported)],
+    ["Límite de crédito", (i) => moneyText(i.creditLimit)],
+    ["Saldo reportado", (i) => moneyText(i.balance)],
+    ["Monto vencido", (i) => moneyText(i.pastDueAmount)],
+    ["Pago mensual", (i) => moneyText(i.monthlyPayment)],
+    ["Número de cuenta", (i) => digits(i.accountNumberMasked) || null],
+    ["Comentarios", (i) => clean(i.remarks)],
+  ];
+  return spec
+    .map(([label, get]) => {
+      const values = members.map((item) => ({ bureau: item.bureau, value: get(item) }));
+      const present = values.map((v) => v.value?.toLowerCase()).filter((v): v is string => v != null);
+      return { label, values, differs: present.length >= 2 && new Set(present).size > 1 };
+    })
+    .filter((field) => field.values.some((v) => v.value != null));
+}
+
 const TYPE_RANK: Record<CreditNegativeType, number> = {
   BANKRUPTCY: 7,
   FORECLOSURE: 6,
@@ -98,7 +150,7 @@ const TYPE_RANK: Record<CreditNegativeType, number> = {
 };
 
 /** Agrupa las cuentas negativas por deuda y sugiere motivos de disputa. */
-export function groupNegativeDebts(items: readonly PracticalItem[], asOf: Date): NegativeDebt[] {
+export function groupNegativeDebts(items: readonly ReviewItem[], asOf: Date): NegativeDebt[] {
   const negatives = items
     .map((item) => ({ item, type: classifyNegative(item) }))
     .filter((entry): entry is { item: PracticalItem; type: CreditNegativeType } => entry.type != null);
@@ -140,22 +192,18 @@ export function groupNegativeDebts(items: readonly PracticalItem[], asOf: Date):
       .map((m) => m.type)
       .sort((a, b) => TYPE_RANK[b] - TYPE_RANK[a])[0]!;
     const reasons: SuggestedReason[] = [];
+    const fields = compareFields(g.members.map((m) => m.item as ReviewItem));
+    const differing = fields.filter((f) => f.differs);
 
-    // Diferencias entre burós.
-    if (rows.length > 1) {
-      const diffs: string[] = [];
-      const distinct = (values: (string | null)[]) => new Set(values.map((v) => v ?? "sin dato")).size > 1;
-      if (distinct(rows.map((r) => (r.balance == null ? null : String(r.balance))))) diffs.push("saldo");
-      if (distinct(rows.map((r) => r.status))) diffs.push("estado");
-      if (distinct(rows.map((r) => dayKey(r.dateOpened)))) diffs.push("fecha de apertura");
-      if (distinct(rows.map((r) => digits(r.accountNumberMasked) || null))) diffs.push("número de cuenta");
-      if (diffs.length > 0) {
-        reasons.push({
-          code: "INCONSISTENT",
-          title: REASON_TITLES.INCONSISTENT,
-          detail: `Cada buró reporta distinto: ${diffs.join(", ")}.`,
-        });
-      }
+    // Diferencias entre burós (solo cuando dos burós sí reportan algo distinto).
+    if (differing.length > 0) {
+      reasons.push({
+        code: "INCONSISTENT",
+        title: REASON_TITLES.INCONSISTENT,
+        detail: `${differing.length} diferencia${differing.length === 1 ? "" : "s"} entre burós: ${differing
+          .map((f) => f.label.toLowerCase())
+          .join(", ")}.`,
+      });
     }
 
     // Datos incompletos o raros.
@@ -193,6 +241,8 @@ export function groupNegativeDebts(items: readonly PracticalItem[], asOf: Date):
       balance: g.balance,
       rows,
       reasons,
+      fields,
+      differences: differing.length,
     };
   });
 

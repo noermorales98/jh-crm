@@ -177,6 +177,36 @@ export function ClientNegativeAnalysisPanel({
         />
       ))}
 
+      {review.inquiries.length > 0 ? (
+        <section className="rounded-surface bg-surface-panel p-3 ring-1 ring-border-subtle">
+          <h3 className="text-[14px] font-semibold text-ink">
+            Consultas duras <span className="text-text-secondary">· {review.inquiries.length}</span>
+          </h3>
+          <p className="mt-0.5 text-[12px] text-text-secondary">
+            Bajan el puntaje un poco y pesan si son muchas. Se disputan solo las que el cliente no reconoce.
+          </p>
+          <ul className="mt-2 divide-y divide-border-subtle/60 text-[13px]">
+            {review.inquiries.map((inquiry) => (
+              <li key={inquiry.id} className="flex items-center justify-between gap-3 py-1.5">
+                <span className="inline-flex items-center gap-2 text-ink">
+                  <span className="size-2 rounded-full" style={{ background: BUREAU_COLOR[inquiry.bureau] }} aria-hidden />
+                  {inquiry.creditorName}
+                </span>
+                <span className="text-[12px] text-text-secondary">
+                  {CREDIT_BUREAU_LABELS[inquiry.bureau] ?? inquiry.bureau}
+                  {inquiry.inquiryDate ? ` · ${formatDate(inquiry.inquiryDate)}` : " · sin fecha"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <p className="text-center text-[11px] text-text-secondary">
+        Herramienta para ejercer los derechos de disputa bajo la FCRA. No es asesoría legal ni garantiza la
+        eliminación de registros; la decisión final es del buró tras su reinvestigación.
+      </p>
+
       <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.08)] ring-1 ring-border-subtle">
         <p className="text-[13px] text-text-secondary">
           {created ??
@@ -293,6 +323,8 @@ function DebtCard({
             </table>
           </div>
 
+          {debt.fields.length > 0 ? <FieldComparison debt={debt} /> : null}
+
           <div className="mt-2 flex flex-wrap gap-1.5" aria-label="Motivos de disputa">
             {ALL_REASONS.map((code) => {
               const on = reasons.includes(code);
@@ -404,5 +436,64 @@ function Interview({
               : "No crea una disputa. Se guarda para usarla en la carta."}
       </p>
     </fieldset>
+  );
+}
+
+function FieldComparison({ debt }: { debt: NegativeReviewDebt }) {
+  const [open, setOpen] = useState(false);
+  const bureaus = debt.rows.map((row) => row.bureau);
+  return (
+    <div className="mt-2">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        aria-expanded={open}
+        className="text-[12px] font-medium text-action-primary"
+      >
+        {open ? "Ocultar detalle" : "Ver detalle"}
+        {debt.differences > 0 ? (
+          <span className="ml-1.5 rounded-full bg-warning-soft px-1.5 py-0.5 text-[10.5px] font-semibold text-warning-ink">
+            {debt.differences} diferencia{debt.differences === 1 ? "" : "s"}
+          </span>
+        ) : null}
+      </button>
+      {open ? (
+        <div className="mt-1.5 overflow-x-auto rounded-control ring-1 ring-border-subtle">
+          <table className="w-full text-left text-[11.5px]">
+            <thead className="bg-surface-app text-text-secondary">
+              <tr>
+                <th className="px-2 py-1.5 font-medium">Campo</th>
+                {bureaus.map((bureau, index) => (
+                  <th key={`${bureau}-${index}`} className="px-2 py-1.5 font-medium">
+                    {CREDIT_BUREAU_LABELS[bureau] ?? bureau}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {debt.fields.map((field) => (
+                <tr
+                  key={field.label}
+                  className={`border-t border-border-subtle/60 ${field.differs ? "bg-warning-soft" : ""}`}
+                >
+                  <td className="px-2 py-1 font-medium text-ink">
+                    {field.differs ? "⚠ " : ""}
+                    {field.label}
+                  </td>
+                  {field.values.map((cell, index) => (
+                    <td key={`${cell.bureau}-${index}`} className="px-2 py-1 text-text-secondary">
+                      {cell.value ?? "N/A"}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="px-2 py-1.5 text-[11px] text-text-secondary">
+            Solo se marca cuando dos burós reportan valores distintos; un dato ausente (N/A) no cuenta.
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 }

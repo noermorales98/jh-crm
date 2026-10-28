@@ -37,6 +37,8 @@ export type NegativeReview = {
   caseId: string;
   caseOpen: boolean;
   totalItems: number;
+  /** Consultas duras guardadas del reporte (si se importó con fechas). */
+  inquiries: { id: string; bureau: CreditBureau; creditorName: string; inquiryDate: Date | null }[];
   debts: NegativeReviewDebt[];
 };
 
@@ -80,11 +82,13 @@ export async function getNegativeReview(
       ownershipType: item.ownershipType,
       isNegative: item.isNegative,
       negativeType: item.negativeType,
+      monthlyPayment: num(item.monthlyPayment),
+      pastDueAmount: num(item.pastDueAmount),
     })),
     report.reportDate,
   );
   const itemIds = debts.flatMap((debt) => debt.rows.map((row) => row.itemId));
-  const [assertions, openDisputes] = await Promise.all([
+  const [assertions, openDisputes, inquiries] = await Promise.all([
     prisma.creditDisputeAssertion.findMany({
       where: { organizationId: ctx.organizationId, clientId, creditItemId: { in: itemIds }, fieldKey: INTERVIEW_FIELD },
       orderBy: { updatedAt: "desc" },
@@ -99,6 +103,11 @@ export async function getNegativeReview(
       },
       select: { creditItemId: true },
     }),
+    prisma.creditInquiry.findMany({
+      where: { organizationId: ctx.organizationId, reportId: report.id },
+      orderBy: [{ inquiryDate: "desc" }],
+      select: { id: true, bureau: true, creditorName: true, inquiryDate: true },
+    }),
   ]);
   const disputed = new Set(openDisputes.map((d) => d.creditItemId));
   return {
@@ -108,6 +117,7 @@ export async function getNegativeReview(
     caseId: report.case.id,
     caseOpen: report.case.state === "OPEN",
     totalItems: report.items.length,
+    inquiries,
     debts: debts.map((debt) => {
       const saved = assertions.find((a) => debt.rows.some((row) => row.itemId === a.creditItemId));
       const answer = ANSWERS.includes(saved?.assertedValue as ClientAnswer)

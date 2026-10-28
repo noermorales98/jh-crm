@@ -50,9 +50,11 @@ const d = (iso: string) => new Date(`${iso}T00:00:00.000Z`);
 const bureaus = ["EXPERIAN", "EQUIFAX", "TRANSUNION"] as const;
 
 const items: PracticalItem[] = [
-  ...bureaus.map((bureau) =>
-    item({ creditorName: "Tilt/webbank", bureau, balance: 331, creditLimit: 2000, openClosedStatus: "Open", paymentStatus: "Pays as Agreed", dateOpened: d("2026-02-01") }),
+  // Tilt: Equifax/TransUnion con un número de cuenta y Experian con otro (713P / EK).
+  ...(["EQUIFAX", "TRANSUNION"] as const).map((bureau) =>
+    item({ creditorName: "Tilt/webbank", accountNumberMasked: "xxxxxx 713P", bureau, balance: 331, creditLimit: 2000, openClosedStatus: "Open", paymentStatus: "Pays as Agreed", dateOpened: d("2026-02-01") }),
   ),
+  item({ creditorName: "Tilt/webbank", accountNumberMasked: "xxxx EK", bureau: "EXPERIAN", balance: 331, creditLimit: 2000, openClosedStatus: "Open", paymentStatus: "Pays as Agreed", dateOpened: d("2026-02-01") }),
   ...bureaus.map((bureau) =>
     item({ creditorName: "First Premier", bureau, balance: 112, creditLimit: 600, openClosedStatus: "Open", paymentStatus: "Pays as Agreed", dateOpened: d("2025-11-01") }),
   ),
@@ -85,14 +87,14 @@ function main() {
   check("utilización total 10.9% (saldo/límite)", totalUtilizationBps(cards) === 1090, totalUtilizationBps(cards));
   check("Tilt aparece en los 3 burós", cards.find((c) => c.creditorName === "Tilt/webbank")?.bureaus.length === 3);
 
-  check("cerrada con 120 días de atraso = atraso, no colección", classifyNegative(items.find((i) => i.creditorName === "Discover Card")!) === "LATE_PAYMENT");
+  check("cerrada, con saldo y 120+ días de atraso = charge-off", classifyNegative(items.find((i) => i.creditorName === "Discover Card")!) === "CHARGE_OFF");
   check("'Pays as Agreed' marcada charge-off = no negativa", classifyNegative(items.find((i) => i.creditorName === "DISCOVER CARD")!) === null);
   check("cuenta en cobranza = colección", classifyNegative(items.find((i) => i.creditorName === "PORTFOLIO RECOVERY A")!) === "COLLECTION");
 
   const negatives = practicalNegatives(items, asOf);
   const old = negatives.find((n) => n.item.creditorName === "Jpmcb Card");
   check("atraso con más de 3 años no bloquea", old?.old === true, old);
-  check("atraso reciente sí bloquea", negatives.filter((n) => n.item.creditorName === "Discover Card").every((n) => !n.old));
+  check("charge-off reciente sí bloquea", negatives.filter((n) => n.item.creditorName === "Discover Card").every((n) => !n.old));
 
   const equifaxAge = averageAgeMonths(items.filter((i) => i.bureau === "EQUIFAX"), asOf);
   check("edad promedio incluye cerradas (más de 2.5 años en Equifax)", equifaxAge != null && equifaxAge > 30, equifaxAge);

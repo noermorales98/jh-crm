@@ -138,8 +138,8 @@ function main() {
       view.includes("ACTION_PLAN_POINT_IMPACT_UNAVAILABLE"),
   );
   check(
-    "el PDF lista acciones y no imprime puntos",
-    pdf.includes("4. Acciones") && !pdf.includes("ficoImpact"),
+    "el PDF lista acciones y no inventa puntos",
+    pdf.includes("ACCIONES DETECTADAS") && pdf.includes("ACTION_PLAN_POINT_IMPACT_UNAVAILABLE"),
   );
 
   console.log("\nOK credit-actions\n");

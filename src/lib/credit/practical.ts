@@ -7,7 +7,8 @@
  * - Tarjeta: el tipo lo dice, o tiene límite y no es préstamo ni cobranza.
  * - Titular: sin dato = titular principal (solo "authorized user" es AU).
  * - Abierta: todo lo que no esté marcado como cerrado, cobranza o charge-off.
- * - Una tarjeta repetida en varios burós cuenta una vez (nombre + últimos 4 + límite).
+ * - Una tarjeta repetida en varios burós cuenta una vez (nombre + límite + mes de
+ *   apertura): cada buró puede mostrar otro número de cuenta (713P / EK).
  * - Edad promedio: incluye cuentas cerradas que siguen en el reporte (como FICO),
  *   excluye cobranzas de terceros.
  * - Negativos: reglas fijas sobre el texto de estado; un atraso cuyo último
@@ -102,6 +103,14 @@ export function classifyNegative(item: PracticalItem): CreditNegativeType | null
   if (/foreclos|ejecuci[oó]n hipotecaria/.test(t)) return "FORECLOSURE";
   if (CHARGE_OFF_RE.test(t)) return "CHARGE_OFF";
   if (COLLECTION_RE.test(t)) return "COLLECTION";
+  // Cerrada, con saldo y 120+ días de atraso: el acreedor ya la cargó a pérdida.
+  if (
+    /(1[2-8]0)\s*days?\s*(past due|late)/.test(t) &&
+    CLOSED_RE.test(t) &&
+    (item.balance ?? 0) > 0
+  ) {
+    return "CHARGE_OFF";
+  }
   if (LATE_RE.test(t)) return "LATE_PAYMENT";
   if (item.negativeType === "HARD_INQUIRY") return null;
   if (!item.isNegative) return null;
@@ -138,8 +147,10 @@ function isOpen(item: PracticalItem): boolean {
 }
 
 function cardKey(item: PracticalItem): string {
-  const digits = last4(item.accountNumberMasked);
-  return `${normName(item.creditorName)}#${digits || "x"}#${item.creditLimit ?? "x"}`;
+  const opened = item.dateOpened
+    ? `${item.dateOpened.getUTCFullYear()}-${item.dateOpened.getUTCMonth() + 1}`
+    : last4(item.accountNumberMasked) || "x";
+  return `${normName(item.creditorName)}#${item.creditLimit ?? "x"}#${opened}`;
 }
 
 /** Tarjetas abiertas con límite (deduplicadas entre burós). */

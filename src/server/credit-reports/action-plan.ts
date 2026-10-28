@@ -62,6 +62,8 @@ export type BureauMetric = {
   utilizationBps: number | null;
   utilizationStatus: "KNOWN" | "PARTIAL" | "NOT_APPLICABLE";
   utilizationText: string;
+  /** bureau = resumen oficial del buró; accounts = calculada con sus tarjetas. */
+  utilizationSource: "bureau" | "accounts" | "summary";
   inquiries: number | null;
   /** De dónde sale el conteo de consultas (ventana o resumen del PDF). */
   inquiriesNote: string | null;
@@ -462,6 +464,10 @@ export async function getClientActionPlan(
             ? `Parcial ${certified.known}/${certified.total}`
             : "Sin cuentas elegibles";
 
+  const snapshotUtils = report.snapshots
+    .map((s) => num(s.utilization))
+    .filter((value): value is number => value != null);
+  const officialSnapshots = snapshotUtils.length >= 2 && new Set(snapshotUtils).size > 1;
   const bureaus: BureauMetric[] = BUREAUS.map((bureau) => {
     const snap = report.snapshots.find((s) => s.bureau === bureau);
     const score = snap?.score ?? null;
@@ -477,8 +483,13 @@ export async function getClientActionPlan(
               (card) => !card.authorizedUser,
             ),
           );
-    const status = bureauBps != null ? "KNOWN" : strictStatus;
-    const utilization = bureauBps != null ? bureauBps / 100 : num(snap?.utilization);
+    // El resumen oficial de cada buró manda cuando viene bien extraído (valores
+    // distintos entre burós); si la IA copió el mismo valor, se usan las cuentas.
+    const snapUtil = num(snap?.utilization);
+    const officialBps = officialSnapshots && snapUtil != null ? Math.round(snapUtil * 100) : null;
+    const chosenBps = officialBps ?? bureauBps;
+    const status = chosenBps != null ? "KNOWN" : strictStatus;
+    const utilization = chosenBps != null ? chosenBps / 100 : snapUtil;
     // Consultas: con fecha → últimos 6 meses del reporte; sin filas → resumen del PDF.
     const bureauInquiries = inquiryRows.filter((row) => row.bureau === bureau);
     const window = inquiriesInWindow(bureauInquiries, reportAsOf);
@@ -501,11 +512,12 @@ export async function getClientActionPlan(
       bureau,
       score,
       utilization,
-      utilizationBps: bureauBps,
+      utilizationBps: chosenBps,
       utilizationStatus: status,
+      utilizationSource: officialBps != null ? "bureau" : bureauBps != null ? "accounts" : "summary",
       utilizationText:
-        bureauBps != null
-          ? metricText(presentUtilization({ basisPoints: bureauBps, status: "KNOWN" }))
+        chosenBps != null
+          ? metricText(presentUtilization({ basisPoints: chosenBps, status: "KNOWN" }))
           : utilization != null
             ? `${utilization}%`
             : bureauOpenUnknown
@@ -894,7 +906,8 @@ export async function buildClientActionPlanPdf(
   reportId?: string | null,
 ): Promise<{ pdf: Buffer; filename: string }> {
   const { generateActionPlanPdf } = await import("@/src/lib/pdf/action-plan");
-  const { CREDIT_BUREAU_LABELS } = await import("@/src/lib/labels");
+  const { CREDIT_BUREAU_LABELS, CREDIT_NEGATIVE_TYPE_LABELS } = await import("@/src/lib/labels");
+  const { ACTION_KIND_LABEL, ACTION_PRIORITY_LABEL } = await import("@/src/lib/credit/actions");
   const plan = await getClientActionPlan(ctx, clientId, reportId);
   const org = await getOrgPdfInfo(ctx.organizationId);
   const pdf = generateActionPlanPdf({
@@ -906,39 +919,12 @@ export async function buildClientActionPlanPdf(
       addressLine: org.addressLine,
       logo: org.logo,
     },
-    clientName: plan.clientName,
-    reportDate: plan.reportDate,
+    plan,
+    bureauLabels: CREDIT_BUREAU_LABELS,
+    negativeTypeLabels: CREDIT_NEGATIVE_TYPE_LABELS,
+    actionKindLabels: ACTION_KIND_LABEL,
+    actionPriorityLabels: ACTION_PRIORITY_LABEL,
     timezone: org.timezone,
-    verdict: plan.verdict,
-    avgScore: plan.avgScore,
-    avgUtilization: plan.avgUtilization,
-    bureaus: plan.bureaus.map((b) => ({
-      bureau: CREDIT_BUREAU_LABELS[b.bureau] ?? b.bureau,
-      score: b.score,
-      utilizationBps: b.utilizationBps,
-      utilizationStatus: b.utilizationStatus === "KNOWN" || b.utilizationStatus === "PARTIAL" ? b.utilizationStatus : "UNKNOWN",
-      inquiries: b.inquiries,
-    })),
-    revolving: {
-      openCards: plan.revolving.openCards,
-      auCards: plan.revolving.auCards,
-      totalLimit: plan.revolving.totalLimit,
-      currency: plan.revolving.currency,
-      utilizationBps: plan.revolving.utilizationBps,
-      utilizationStatus: plan.revolving.aggregateStatus === "KNOWN" || plan.revolving.aggregateStatus === "PARTIAL"
-        ? plan.revolving.aggregateStatus
-        : "UNKNOWN",
-    },
-    authorizedUsers: {
-      confirmedCount: plan.authorizedUsers.confirmedCount,
-      withAuthorizedUsersBps: plan.authorizedUsers.withAuthorizedUsersBps,
-      note: plan.authorizedUsers.note,
-    },
-    actions: plan.actions.map((action) => ({
-      priority: action.priority,
-      summary: action.summary,
-      observationIds: action.observationIds,
-    })),
   });
   const day = plan.reportDate.toISOString().slice(0, 10);
   const safeName = plan.clientName

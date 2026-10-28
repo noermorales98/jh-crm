@@ -300,6 +300,13 @@ export function ClientActionPlanView({
                 ? `Uno o más burós superan el umbral de ${UTIL_MAX}%`
                 : `Los 3 burós están dentro del ${UTIL_MAX}%`}
             </p>
+            {!utilUnknown ? (
+              <p className="mt-1 text-[11px] text-text-secondary">
+                {plan.bureaus.every((b) => b.utilizationSource === "bureau")
+                  ? "Fuente: resumen oficial de cada buró (incluye lo que el buró reporta como abierto)."
+                  : "Fuente: tarjetas abiertas de cada buró (saldo / límite)."}
+              </p>
+            ) : null}
           </div>
         </div>
 

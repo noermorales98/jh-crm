@@ -905,7 +905,6 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
                 ? `${props.kpis.porArreglar} negativos`
                 : "Negativos"
             }
-            badge="Beta"
             onClick={() => setPanel("analisis")}
           />
           <ActionCapsule

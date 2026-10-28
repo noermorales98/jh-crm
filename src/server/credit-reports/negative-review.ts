@@ -10,7 +10,7 @@ import {
   type ReasonCode,
 } from "@/src/lib/credit/negative-review";
 import { selectClientActionPlanReport } from "@/src/server/credit-reports/action-plan";
-import { createRound } from "@/src/server/rounds";
+import { cancelRound, createRound } from "@/src/server/rounds";
 import { addDisputeItem } from "@/src/server/disputes";
 import { createLetterDraft, ensureDefaultTemplates } from "@/src/server/letters";
 
@@ -188,6 +188,12 @@ export async function createRoundFromNegativeReview(
     .map((selection) => {
       const debt = review.debts.find((d) => d.rows.some((row) => selection.itemIds.includes(row.itemId)));
       if (!debt) return null;
+      if (debt.inOpenRound) {
+        throw new DomainError(`${debt.creditorName} ya está en una ronda abierta.`);
+      }
+      if (debt.interview.answer === "CORRECT") {
+        throw new DomainError(`El cliente confirmó que ${debt.creditorName} es correcta; no se disputa.`);
+      }
       const rows = debt.rows.filter((row) => selection.itemIds.includes(row.itemId));
       return rows.length > 0 ? { debt, rows, reasons: selection.reasons } : null;
     })
@@ -199,36 +205,42 @@ export async function createRoundFromNegativeReview(
     notes: `Creada desde Análisis de cuentas negativas (${chosen.length} deudas).`,
   });
 
-  const byBureau = new Map<CreditBureau, string[]>();
-  let disputes = 0;
-  for (const { debt, rows, reasons } of chosen) {
-    const text = disputeTextFor({
-      reasons,
-      answer: debt.interview.answer,
-      clientWords: debt.interview.words,
-    });
-    for (const row of rows) {
-      const item = await addDisputeItem(ctx, {
-        roundId: round.id,
-        creditItemId: row.itemId,
-        bureau: row.bureau,
-        disputeReason: text.reason,
-        action: "Eliminar o corregir",
-        disputeDetails: text.details,
+  // Si algo falla a medias, la ronda se cancela para no dejarla incompleta.
+  try {
+    const byBureau = new Map<CreditBureau, string[]>();
+    let disputes = 0;
+    for (const { debt, rows, reasons } of chosen) {
+      const text = disputeTextFor({
+        reasons,
+        answer: debt.interview.answer,
+        clientWords: debt.interview.words,
       });
-      byBureau.set(row.bureau, [...(byBureau.get(row.bureau) ?? []), item.id]);
-      disputes += 1;
+      for (const row of rows) {
+        const item = await addDisputeItem(ctx, {
+          roundId: round.id,
+          creditItemId: row.itemId,
+          bureau: row.bureau,
+          disputeReason: text.reason,
+          action: "Eliminar o corregir",
+          disputeDetails: text.details,
+        });
+        byBureau.set(row.bureau, [...(byBureau.get(row.bureau) ?? []), item.id]);
+        disputes += 1;
+      }
     }
-  }
 
-  const templates = await ensureDefaultTemplates(ctx);
-  const template = templates.find((t) => t.active) ?? templates[0];
-  let letters = 0;
-  if (template) {
-    for (const [bureau, disputeItemIds] of byBureau) {
-      await createLetterDraft(ctx, { roundId: round.id, bureau, templateId: template.id, disputeItemIds });
-      letters += 1;
+    const templates = await ensureDefaultTemplates(ctx);
+    const template = templates.find((t) => t.active) ?? templates[0];
+    let letters = 0;
+    if (template) {
+      for (const [bureau, disputeItemIds] of byBureau) {
+        await createLetterDraft(ctx, { roundId: round.id, bureau, templateId: template.id, disputeItemIds });
+        letters += 1;
+      }
     }
+    return { roundId: round.id, roundNumber: round.roundNumber, disputes, letters };
+  } catch (error) {
+    await cancelRound(ctx, round.id).catch(() => undefined);
+    throw error;
   }
-  return { roundId: round.id, roundNumber: round.roundNumber, disputes, letters };
 }

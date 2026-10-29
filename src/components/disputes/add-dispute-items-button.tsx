@@ -2,14 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import {
-  Alert,
-  Button,
-  Field,
-  Input,
-  Modal,
-  Textarea,
-} from "@/src/components/ui";
+import { Alert, Button, Field, Input, Modal, Textarea, Select } from "@/src/components/ui";
 import { addDisputeItemsBulk } from "@/src/actions/disputes";
 import { playActionResult } from "@/src/lib/cuelume";
 import { notifyEmbedRefresh } from "@/src/lib/embed-refresh";
@@ -125,49 +118,46 @@ export function AddDisputeItemsButton({
             />
           </Field>
           <Field label="Acción" htmlFor="dispute-action" required>
-            <select
+            <Select
               id="dispute-action"
               required
               value={action}
               onChange={(e) => setAction(e.target.value)}
-              className="w-full rounded-control border border-border-subtle bg-surface-panel px-3 py-2 text-sm text-ink"
             >
               <option value="Disputar">Disputar</option>
               <option value="Verificar">Verificar</option>
               <option value="Eliminar">Eliminar</option>
               <option value="Actualizar">Actualizar</option>
-            </select>
+            </Select>
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Alcance" htmlFor="dispute-scope" required>
-              <select
+              <Select
                 id="dispute-scope"
                 required
                 value={scope}
                 onChange={(e) => setScope(e.target.value as DisputeScope)}
-                className="w-full rounded-control border border-border-subtle bg-surface-panel px-3 py-2 text-sm text-ink"
               >
                 {Object.entries(DISPUTE_SCOPE_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
             <Field label="Método" htmlFor="dispute-method" required>
-              <select
+              <Select
                 id="dispute-method"
                 required
                 value={method}
                 onChange={(e) => setMethod(e.target.value as DisputeMethod)}
-                className="w-full rounded-control border border-border-subtle bg-surface-panel px-3 py-2 text-sm text-ink"
               >
                 {Object.entries(DISPUTE_METHOD_LABELS).map(([value, label]) => (
                   <option key={value} value={value}>
                     {label}
                   </option>
                 ))}
-              </select>
+              </Select>
             </Field>
           </div>
           <div className="max-h-64 space-y-2 overflow-y-auto rounded-control border border-border-subtle p-2">

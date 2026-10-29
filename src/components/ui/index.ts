@@ -12,6 +12,8 @@ export { Input, Textarea, inputClasses } from "./input";
 export { Select } from "./select";
 export type { SelectOption } from "./select";
 export { DateInput } from "./date-input";
+export { RangeSlider } from "./range-slider";
+export type { RangeMark } from "./range-slider";
 export { Field } from "./field";
 export { Card, CardHeader, CardBody } from "./card";
 export { Pill, StatusPill, StagePill } from "./pill";

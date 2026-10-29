@@ -24,6 +24,8 @@ import * as configService from "@/src/server/config";
 import * as contractsService from "@/src/server/contracts";
 import { listPendingConfirmCreditPdfJobs } from "@/src/server/credit-import/jobs";
 import { prisma } from "@/src/lib/db";
+import { CASE_STATE_LABELS } from "@/src/lib/labels";
+import { sanitizeContractHtml } from "@/src/lib/contracts/sanitize";
 
 export const metadata: Metadata = {
   title: "Cliente",
@@ -284,6 +286,8 @@ export default async function ClientSummaryPage({
         .map((s) => ({
           id: s.creditCaseId!,
           caseCode: s.caseCode,
+          label: s.label,
+          detail: s.stage?.name ?? CASE_STATE_LABELS[s.state] ?? null,
         }))}
       intakeLinks={intakeLinks}
       canEdit={canEdit}
@@ -383,6 +387,8 @@ export default async function ClientSummaryPage({
             id: t.id,
             name: t.name,
             version: t.version,
+            // Para la vista previa antes de crear el contrato.
+            contentHtml: sanitizeContractHtml(t.contentHtml),
           })),
       }}
     />

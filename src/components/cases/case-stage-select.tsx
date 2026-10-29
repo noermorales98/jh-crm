@@ -3,7 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Alert } from "@/src/components/ui";
+import { Alert, Select } from "@/src/components/ui";
 import { moveCaseToStage } from "@/src/actions/cases";
 import { playActionResult } from "@/src/lib/cuelume";
 import type { StageOption } from "./create-case-button";
@@ -44,8 +44,9 @@ export function CaseStageSelect({
             style={{ backgroundColor: current.color }}
           />
         ) : null}
-        <select
+        <Select
           aria-label="Etapa del expediente"
+          pickerTitle="Etapa del expediente"
           value={value}
           disabled={disabled || pending}
           onChange={(e) => {
@@ -69,14 +70,13 @@ export function CaseStageSelect({
               router.refresh();
             });
           }}
-          className="block rounded-control border border-border-subtle bg-surface-elevated px-3 py-1.5 text-sm font-medium text-ink focus:border-focus focus:outline-none focus:ring-2 focus:ring-focus/15 disabled:opacity-60"
         >
           {stages.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
             </option>
           ))}
-        </select>
+        </Select>
         {pending ? (
           <span className="text-xs text-text-secondary">Guardando…</span>
         ) : null}

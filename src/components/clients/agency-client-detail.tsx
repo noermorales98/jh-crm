@@ -142,7 +142,7 @@ export type AgencyClientDetailProps = {
   initialAvanceRoundId?: string | null;
   intakeUrl: string | null;
   intakeEnabled: boolean;
-  intakeCases: { id: string; caseCode: string }[];
+  intakeCases: { id: string; caseCode: string; label?: string; detail?: string | null }[];
   intakeLinks: {
     id: string;
     url: string;
@@ -217,7 +217,7 @@ export type AgencyClientDetailProps = {
   } | null;
   contractHub: {
     canManage: boolean;
-    templates: { id: string; name: string; version: string }[];
+    templates: { id: string; name: string; version: string; contentHtml: string }[];
   };
 };
 
@@ -1240,6 +1240,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
             statusLabel={props.cierre.contract.label}
             templates={props.contractHub.templates}
             canManage={props.contractHub.canManage}
+            clientName={[props.client.firstName, props.client.lastName].filter(Boolean).join(" ")}
           />
         ) : null}
       </AgencyModal>

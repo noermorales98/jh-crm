@@ -8,6 +8,21 @@ import { createIntakeLink, revokeIntakeLink } from "@/src/actions/intake";
 import { playActionResult } from "@/src/lib/cuelume";
 import { formatDate } from "@/src/lib/format";
 
+/** Servicio al que se pueden asociar las respuestas del formulario. */
+export type IntakeCaseOption = {
+  id: string;
+  caseCode: string;
+  /** Nombre del servicio (p. ej. "Reparación de crédito"). */
+  label?: string;
+  /** Estado o etapa, para distinguir dos servicios iguales. */
+  detail?: string | null;
+};
+
+function caseOptionText(c: IntakeCaseOption): string {
+  const name = c.label?.trim() || "Servicio";
+  return [name, c.detail?.trim() || null, c.caseCode].filter(Boolean).join(" · ");
+}
+
 type ExistingLink = {
   id: string;
   url: string;
@@ -29,7 +44,7 @@ export function CreateIntakeLinkCard({
   compact = false,
 }: {
   clientId: string;
-  cases?: { id: string; caseCode: string }[];
+  cases?: IntakeCaseOption[];
   existingLinks?: ExistingLink[];
   /** Layout denso para columnas laterales (ficha cliente). */
   compact?: boolean;
@@ -99,17 +114,18 @@ export function CreateIntakeLinkCard({
           compact ? "grid gap-2" : "grid gap-3 sm:grid-cols-3"
         }
       >
-        <Field label="Caso (opcional)" htmlFor="intake-case">
+        <Field label="Servicio (opcional)" htmlFor="intake-case">
           <Select
             id="intake-case"
             value={caseId}
             onChange={(e) => setCaseId(e.target.value)}
             disabled={pending}
+            pickerTitle="¿A qué servicio corresponde?"
           >
-            <option value="">Sin caso</option>
+            <option value="">Ninguno (solo la ficha del cliente)</option>
             {cases.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.caseCode}
+                {caseOptionText(c)}
               </option>
             ))}
           </Select>
@@ -232,7 +248,9 @@ export function CreateIntakeLinkCard({
                     {link.usable ? "Activo" : link.isActive ? "Agotado" : "Revocado"}
                     {" · "}
                     {link.useCount}/{link.maxUses}
-                    {link.caseCode ? ` · ${link.caseCode}` : ""}
+                    {link.caseCode
+                      ? ` · ${cases.find((c) => c.caseCode === link.caseCode)?.label ?? link.caseCode}`
+                      : ""}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">

@@ -20,7 +20,7 @@ import type {
   StageOption,
 } from "@/src/components/cases/create-case-button";
 import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
-import { CreateIntakeLinkCard } from "@/src/components/intake/create-intake-link-card";
+import { CreateIntakeLinkCard, type IntakeCaseOption } from "@/src/components/intake/create-intake-link-card";
 import { caseHref } from "@/src/lib/routes/case-routes";
 
 type MemberOption = { id: string; name: string };
@@ -58,7 +58,7 @@ export function ClientQuickAdd({
   members: MemberOption[];
   stages?: StageOption[];
   services?: ServiceOption[];
-  intakeCases?: { id: string; caseCode: string }[];
+  intakeCases?: IntakeCaseOption[];
   intakeLinks?: {
     id: string;
     url: string;

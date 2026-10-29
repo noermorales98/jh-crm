@@ -161,7 +161,7 @@ export function scorePlanCopy(input: {
   const now = totals(input.cards);
   const band = bandFor(now.utilizationBps);
   const lines = [
-    `Plan para bajar el uso de tus tarjetas — ${input.clientName}`,
+    `Plan para bajar el uso de tus tarjetas: ${input.clientName}`,
     `Hoy usas ${usd(now.balance)} de ${usd(now.limit)}: ${pct(now.utilizationBps)}${band ? ` (${BAND_LABEL[band]})` : ""}.`,
     `Meta: menos de ${input.plan.targetPct + 1}% en total y en cada tarjeta.`,
     "",
@@ -179,9 +179,9 @@ export function scorePlanCopy(input: {
     "",
     "Consejos:",
     "- Paga antes de la fecha de corte del estado de cuenta: ese es el saldo que se reporta.",
-    "- Deja un saldo pequeño (1–9%) en una tarjeta; no todas en $0.",
+    "- Deja un saldo pequeño (1% a 9%) en una tarjeta; no todas en $0.",
     "- No cierres tarjetas viejas: pierdes límite y antigüedad.",
-    "- El cambio se ve cuando el banco reporta, normalmente en 30–45 días.",
+    "- El cambio se ve cuando el banco reporta, normalmente en 30 a 45 días.",
     "",
     "Es una estimación con los datos de tu reporte, no una garantía de puntaje.",
   );

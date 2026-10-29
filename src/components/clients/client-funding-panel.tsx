@@ -14,13 +14,14 @@ import {
   type TimeInBusiness,
 } from "@/src/lib/credit/funding-calc";
 import { formatDate } from "@/src/lib/format";
+import { Select } from "@/src/components/ui";
 
 function usd(amount: number) {
   return `$${Math.round(amount).toLocaleString("en-US")}`;
 }
 
 function rangeText(range: { low: number; high: number }) {
-  return range.low === range.high ? usd(range.low) : `${usd(range.low)} – ${usd(range.high)}`;
+  return range.low === range.high ? usd(range.low) : `${usd(range.low)} a ${usd(range.high)}`;
 }
 
 const STATUS: Record<FundingResult["status"], { label: string; tone: string }> = {
@@ -146,7 +147,7 @@ export function ClientFundingPanel({ clientId, reportId }: { clientId: string; r
 
   async function copySummary() {
     if (!data || !result) return;
-    const lines = [`Tu camino al fondeo — ${data.clientName}`];
+    const lines = [`Tu camino al fondeo: ${data.clientName}`];
     if (result.best) {
       lines.push(`Hoy podrías calificar para ${productName(result.best.product).toLowerCase()}: ${rangeText(result.best)} (estimado).`);
     } else if (result.bestPotential) {
@@ -282,23 +283,26 @@ export function ClientFundingPanel({ clientId, reportId }: { clientId: string; r
                 value={profile.monthlyRevenue}
                 onCommit={(value) => update({ monthlyRevenue: value })}
               />
-              <label className="block">
+              <div className="block">
                 <span className="text-[12.5px] font-medium text-ink">Tiempo operando</span>
-                <select
-                  value={profile.timeInBusiness ?? ""}
-                  onChange={(event) =>
-                    update({ timeInBusiness: event.target.value ? (event.target.value as TimeInBusiness) : null })
-                  }
-                  className="mt-1 w-full rounded-control bg-surface-panel px-3 py-2 text-[13.5px] text-ink outline-none focus-visible:ring-2 focus-visible:ring-action-primary"
-                >
-                  <option value="">Elige…</option>
-                  {(Object.keys(TIME_IN_BUSINESS_LABEL) as TimeInBusiness[]).map((key) => (
-                    <option key={key} value={key}>
-                      {TIME_IN_BUSINESS_LABEL[key]}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div className="mt-1">
+                  <Select
+                    value={profile.timeInBusiness ?? ""}
+                    onChange={(event) =>
+                      update({ timeInBusiness: event.target.value ? (event.target.value as TimeInBusiness) : null })
+                    }
+                    pickerTitle="Tiempo operando"
+                    aria-label="Tiempo operando"
+                  >
+                    <option value="">Elige</option>
+                    {(Object.keys(TIME_IN_BUSINESS_LABEL) as TimeInBusiness[]).map((key) => (
+                      <option key={key} value={key}>
+                        {TIME_IN_BUSINESS_LABEL[key]}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
             </>
           ) : null}
         </div>
@@ -338,7 +342,7 @@ export function ClientFundingPanel({ clientId, reportId }: { clientId: string; r
                           </span>
                         </>
                       ) : (
-                        <span className="block text-[12.5px] text-text-secondary">—</span>
+                        <span className="block text-[12.5px] text-text-secondary">Sin monto</span>
                       )}
                     </span>
                     <ChevronDown

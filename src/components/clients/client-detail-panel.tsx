@@ -20,6 +20,7 @@ import { InvitePortalButton } from "@/src/components/portal/invite-portal-button
 import { isPortalEnabled, getPortalAccess } from "@/src/server/portal";
 import { Pill } from "@/src/components/ui";
 import {
+  CASE_STATE_LABELS,
   labelFor,
   PROCESSOR_ACCOUNT_STATUS_LABELS,
 } from "@/src/lib/labels";
@@ -117,6 +118,8 @@ export async function ClientDetailPanel({
                 .map((s) => ({
                   id: s.creditCaseId!,
                   caseCode: s.caseCode,
+                  label: s.label,
+                  detail: s.stage?.name ?? CASE_STATE_LABELS[s.state] ?? null,
                 }))}
               intakeLinks={intakeLinks}
               intakeEnabled={intakeEnabled}

@@ -278,7 +278,7 @@ async function main() {
 
   const summary = await disputes.getRoundDisputeSummary(ctx, round.id);
   const byName = Object.fromEntries(
-    summary.items.map((i) => [i.creditItem.creditorName, i.id]),
+    summary.items.map((i) => [i.creditItem?.creditorName ?? "", i.id]),
   );
   await disputes.updateDisputeItem(ctx, byName["ABC Collections"], {
     outcome: "DELETED",

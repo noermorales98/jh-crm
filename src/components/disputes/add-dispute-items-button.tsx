@@ -18,6 +18,7 @@ import {
   type DisputeMethod,
   type DisputeScope,
 } from "@/src/lib/validation/disputes";
+import { DISPUTE_STRATEGIES, STRATEGY_INFO, type DisputeStrategy } from "@/src/lib/disputes/strategies";
 
 export type EligibleItem = {
   id: string;
@@ -43,6 +44,7 @@ export function AddDisputeItemsButton({
   const [scope, setScope] = useState<DisputeScope>(DEFAULT_DISPUTE_SCOPE);
   const [method, setMethod] = useState<DisputeMethod>(DEFAULT_DISPUTE_METHOD);
   const [details, setDetails] = useState("");
+  const [strategy, setStrategy] = useState<DisputeStrategy>("ACCURACY_R1");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -70,6 +72,7 @@ export function AddDisputeItemsButton({
         action,
         scope,
         method,
+        strategy,
         ...(details.trim() ? { disputeDetails: details.trim() } : {}),
       });
       if (!result.ok) {
@@ -107,6 +110,21 @@ export function AddDisputeItemsButton({
       >
         <form onSubmit={handleSubmit} className="space-y-4">
           {error ? <Alert tone="error">{error}</Alert> : null}
+          <Field label="Método" htmlFor="dispute-strategy" required>
+            <Select
+              id="dispute-strategy"
+              value={strategy}
+              onChange={(e) => setStrategy(e.target.value as DisputeStrategy)}
+              pickerTitle="Método de disputa"
+            >
+              {DISPUTE_STRATEGIES.filter((s) => STRATEGY_INFO[s].target === "ACCOUNT").map((s) => (
+                <option key={s} value={s}>
+                  {STRATEGY_INFO[s].label}
+                </option>
+              ))}
+            </Select>
+            <p className="mt-1 text-[12px] text-text-secondary">{STRATEGY_INFO[strategy].when}</p>
+          </Field>
           <Field label="Motivo de disputa" htmlFor="dispute-reason" required>
             <Input
               id="dispute-reason"

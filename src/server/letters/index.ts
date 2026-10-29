@@ -6,12 +6,19 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
 import { clientFullName } from "@/src/server/page-helpers";
 import {
-  DEFAULT_LETTER_CONTENT,
   renderTemplate,
   type LetterTemplateVars,
 } from "@/src/lib/letters/template";
 import { generateDisputeLetterPdf } from "@/src/lib/pdf/dispute-letter";
 import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
+import {
+  CFPB_TEMPLATE,
+  DISPUTE_STRATEGIES,
+  REVIEW_DAYS,
+  STRATEGY_TEMPLATES,
+  isDisputeStrategy,
+  type DisputeStrategy,
+} from "@/src/lib/disputes/strategies";
 
 const BUREAU_RECIPIENTS: Record<CreditBureau, string> = {
   EXPERIAN: "Experian — Dispute Department",
@@ -41,23 +48,48 @@ async function getOrgPdfInfo(organizationId: string) {
   return { ...info, timezone };
 }
 
+/**
+ * Deja una plantilla por método (y la de la queja al CFPB). Solo crea las que
+ * faltan; nunca pisa una que la organización ya editó. La "Disputa general"
+ * vieja (sin método) cuenta como GENERAL.
+ */
 export async function ensureDefaultTemplates(ctx: OrganizationContext) {
-  const count = await prisma.disputeLetterTemplate.count({
+  const existing = await prisma.disputeLetterTemplate.findMany({
     where: { organizationId: ctx.organizationId },
+    select: { strategy: true, name: true },
   });
-  if (count > 0) return listTemplates(ctx);
-
-  await prisma.disputeLetterTemplate.create({
-    data: {
-      organizationId: ctx.organizationId,
-      name: "Disputa general FCRA",
-      subject: "Request for investigation under the FCRA",
-      content: DEFAULT_LETTER_CONTENT,
-      version: 1,
-      active: true,
-    },
-  });
+  const have = new Set(existing.map((t) => t.strategy ?? (t.name === "Disputa general FCRA" ? "GENERAL" : "")));
+  const missing: { strategy: string; name: string; subject: string; content: string }[] = [];
+  for (const strategy of DISPUTE_STRATEGIES) {
+    if (!have.has(strategy)) missing.push({ strategy, ...STRATEGY_TEMPLATES[strategy] });
+  }
+  if (!have.has("CFPB")) missing.push({ strategy: "CFPB", ...CFPB_TEMPLATE });
+  if (missing.length > 0) {
+    await prisma.disputeLetterTemplate.createMany({
+      data: missing.map((t) => ({
+        organizationId: ctx.organizationId,
+        name: t.name,
+        subject: t.subject,
+        content: t.content,
+        strategy: t.strategy,
+        version: 1,
+        active: true,
+      })),
+    });
+  }
   return listTemplates(ctx);
+}
+
+/** Plantilla activa de un método (o la general si falta). */
+export async function templateForStrategy(ctx: OrganizationContext, strategy: DisputeStrategy | "CFPB") {
+  const templates = await ensureDefaultTemplates(ctx);
+  const active = templates.filter((t) => t.active);
+  return (
+    active.find((t) => t.strategy === strategy) ??
+    active.find((t) => t.strategy === "GENERAL" || (t.strategy == null && t.name === "Disputa general FCRA")) ??
+    active[0] ??
+    null
+  );
 }
 
 export async function listTemplates(ctx: OrganizationContext) {
@@ -116,12 +148,19 @@ export async function updateTemplate(
   });
 }
 
+type LetterItem = {
+  id: string;
+  creditorName: string;
+  accountNumberMasked: string | null;
+  disputeReason: string;
+};
+
 async function buildVarsForItems(
   ctx: OrganizationContext,
   roundId: string,
   bureau: CreditBureau,
   disputeItemIds: string[],
-): Promise<{ vars: LetterTemplateVars; items: { id: string; creditorName: string; accountNumberMasked: string | null; disputeReason: string }[] }> {
+): Promise<{ vars: LetterTemplateVars; items: LetterItem[] }> {
   const round = await prisma.creditRound.findFirst({
     where: { id: roundId, organizationId: ctx.organizationId },
     include: {
@@ -149,16 +188,34 @@ async function buildVarsForItems(
           accountNumberMasked: true,
         },
       },
+      inquiry: { select: { creditorName: true, inquiryDate: true } },
     },
   });
   if (disputeItems.length === 0) {
     throw new DomainError("Selecciona al menos un elemento disputado de este buró.");
   }
 
+  const items: LetterItem[] = disputeItems.map((d) => ({
+    id: d.id,
+    creditorName:
+      d.creditItem?.creditorName ??
+      (d.inquiry
+        ? `${d.inquiry.creditorName}${d.inquiry.inquiryDate ? ` (inquiry ${d.inquiry.inquiryDate.toISOString().slice(0, 10)})` : " (inquiry)"}`
+        : d.targetLabel ?? "Item"),
+    accountNumberMasked: d.creditItem?.accountNumberMasked ?? null,
+    disputeReason: d.disputeReason,
+  }));
+
   const settings = await getOrgPdfInfo(ctx.organizationId);
   const client = round.case.client;
   const address = [client.addressLine1, client.addressLine2].filter(Boolean).join(", ");
-  const first = disputeItems[0];
+  const first = items[0]!;
+  const itemLines = items
+    .map((item, index) => {
+      const account = item.accountNumberMasked ? ` - Account ${item.accountNumberMasked}` : "";
+      return `${index + 1}. ${item.creditorName}${account}\n   Reason: ${item.disputeReason}`;
+    })
+    .join("\n");
 
   const vars: LetterTemplateVars = {
     "client.fullName": clientFullName(client),
@@ -167,33 +224,22 @@ async function buildVarsForItems(
     "client.state": client.state ?? "",
     "client.zip": client.postalCode ?? "",
     bureau: CREDIT_BUREAU_LABELS[bureau] ?? bureau,
-    creditor: first.creditItem.creditorName,
-    accountNumber: first.creditItem.accountNumberMasked ?? "****",
+    creditor: first.creditorName,
+    accountNumber: first.accountNumberMasked ?? "****",
     disputeReason: first.disputeReason,
+    items: itemLines,
     date: new Date().toLocaleDateString("en-US"),
     "organization.legalName": settings.legalName,
   };
 
   // Si hay varios ítems, listar acreedores en disputeReason ampliado
-  if (disputeItems.length > 1) {
-    vars.creditor = disputeItems.map((d) => d.creditItem.creditorName).join("; ");
-    vars.accountNumber = disputeItems
-      .map((d) => d.creditItem.accountNumberMasked ?? "****")
-      .join("; ");
-    vars.disputeReason = disputeItems
-      .map((d) => `${d.creditItem.creditorName}: ${d.disputeReason}`)
-      .join("\n");
+  if (items.length > 1) {
+    vars.creditor = items.map((d) => d.creditorName).join("; ");
+    vars.accountNumber = items.map((d) => d.accountNumberMasked ?? "****").join("; ");
+    vars.disputeReason = items.map((d) => `${d.creditorName}: ${d.disputeReason}`).join("\n");
   }
 
-  return {
-    vars,
-    items: disputeItems.map((d) => ({
-      id: d.id,
-      creditorName: d.creditItem.creditorName,
-      accountNumberMasked: d.creditItem.accountNumberMasked,
-      disputeReason: d.disputeReason,
-    })),
-  };
+  return { vars, items };
 }
 
 export async function previewLetter(
@@ -263,6 +309,8 @@ export async function createLetterDraft(
         contentSnapshot: data.content ?? preview.content,
         status: "READY_FOR_REVIEW",
         notes: emptyToNull(data.notes),
+        channel: preview.template.strategy === "CFPB" ? "CFPB" : "MAIL",
+        strategy: preview.template.strategy ?? null,
         items: {
           create: data.disputeItemIds.map((disputeItemId) => ({ disputeItemId })),
         },
@@ -412,6 +460,7 @@ export async function markLetterSent(
     data: {
       status: "SENT",
       sentAt: new Date(),
+      followUpAt: letter.followUpAt ?? new Date(Date.now() + REVIEW_DAYS * 86_400_000),
       trackingNumber: emptyToNull(data.trackingNumber),
       ...(data.notes !== undefined ? { notes: emptyToNull(data.notes) } : {}),
     },
@@ -435,6 +484,88 @@ export async function markLetterSent(
   });
 
   return updated;
+}
+
+/** Guarda el Complaint ID del CFPB y/o la fecha de revisión de una carta o queja. */
+export async function updateLetterFollowUp(
+  ctx: OrganizationContext,
+  letterId: string,
+  data: { complaintId?: string | null; followUpAt?: Date | null },
+) {
+  const letter = await getLetterOrThrow(ctx, letterId);
+  const complaintId = data.complaintId !== undefined ? emptyToNull(data.complaintId)?.slice(0, 40) ?? null : undefined;
+  return prisma.disputeLetter.update({
+    where: { id: letter.id },
+    data: {
+      ...(complaintId !== undefined ? { complaintId } : {}),
+      ...(data.followUpAt !== undefined ? { followUpAt: data.followUpAt } : {}),
+    },
+  });
+}
+
+/**
+ * Cartas de una ronda armadas solas: una por buró y método (con la plantilla
+ * de ese método). Con cfpb=true arma, además, una queja al CFPB por buró.
+ */
+export async function generateLettersByStrategy(
+  ctx: OrganizationContext,
+  input: { roundId: string; cfpb?: boolean },
+): Promise<{ letters: number; complaints: number }> {
+  const items = await prisma.disputeItem.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      roundId: input.roundId,
+      status: { in: ["SELECTED", "DRAFT"] },
+    },
+    select: { id: true, bureau: true, strategy: true },
+  });
+  if (items.length === 0) throw new DomainError("No hay disputas sin carta en esta ronda.");
+  const groups = new Map<string, { bureau: CreditBureau; strategy: DisputeStrategy; ids: string[] }>();
+  for (const item of items) {
+    const strategy: DisputeStrategy = isDisputeStrategy(item.strategy) ? item.strategy : "GENERAL";
+    const key = `${item.bureau}#${strategy}`;
+    const group = groups.get(key) ?? { bureau: item.bureau, strategy, ids: [] };
+    group.ids.push(item.id);
+    groups.set(key, group);
+  }
+  let letters = 0;
+  for (const group of groups.values()) {
+    const template = await templateForStrategy(ctx, group.strategy);
+    if (!template) continue;
+    await createLetterDraft(ctx, {
+      roundId: input.roundId,
+      bureau: group.bureau,
+      templateId: template.id,
+      disputeItemIds: group.ids,
+    });
+    letters += 1;
+  }
+  let complaints = 0;
+  if (input.cfpb) {
+    const cfpb = await templateForStrategy(ctx, "CFPB");
+    const byBureau = new Map<CreditBureau, string[]>();
+    for (const item of items) byBureau.set(item.bureau, [...(byBureau.get(item.bureau) ?? []), item.id]);
+    for (const [bureau, ids] of byBureau) {
+      if (!cfpb) break;
+      const preview = await previewLetter(ctx, { roundId: input.roundId, bureau, templateId: cfpb.id, disputeItemIds: ids });
+      await prisma.disputeLetter.create({
+        data: {
+          organizationId: ctx.organizationId,
+          roundId: input.roundId,
+          bureau,
+          templateId: cfpb.id,
+          recipient: "Consumer Financial Protection Bureau",
+          subjectSnapshot: preview.subject,
+          contentSnapshot: preview.content,
+          status: "READY_FOR_REVIEW",
+          channel: "CFPB",
+          strategy: "CFPB",
+        },
+      });
+      complaints += 1;
+    }
+  }
+  return { letters, complaints };
 }
 
 async function getLetterOrThrow(ctx: OrganizationContext, letterId: string) {

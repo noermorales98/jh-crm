@@ -1498,6 +1498,7 @@ export async function getCreditCaseDetail(
             disputeReason: true,
             status: true,
             outcome: true,
+            targetLabel: true,
             creditItem: {
               select: {
                 creditorName: true,
@@ -1628,9 +1629,9 @@ export async function getCreditCaseDetail(
           disputeSummary,
           disputeItems: activeRound.disputeItems.map((item) => ({
             bureau: labelFor(CREDIT_BUREAU_LABELS, item.bureau),
-            creditor: item.creditItem.creditorName,
-            accountMasked: item.creditItem.accountNumberMasked,
-            balance: item.creditItem.balance?.toString() ?? null,
+            creditor: item.creditItem?.creditorName ?? item.targetLabel ?? "Elemento",
+            accountMasked: item.creditItem?.accountNumberMasked ?? null,
+            balance: item.creditItem?.balance?.toString() ?? null,
             reason: item.disputeReason,
             status: item.status,
             statusLabel: labelFor(DISPUTE_ITEM_STATUS_LABELS, item.status),

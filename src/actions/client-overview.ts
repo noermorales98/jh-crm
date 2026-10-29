@@ -50,7 +50,7 @@ export async function peekRoundAction(
       items: summary.items.map((it) => ({
         id: it.id,
         bureau: it.bureau,
-        creditorName: it.creditItem.creditorName,
+        creditorName: it.creditItem?.creditorName ?? it.targetLabel ?? "Elemento",
         disputeReason: it.disputeReason,
         status: it.status,
         outcome: it.outcome,

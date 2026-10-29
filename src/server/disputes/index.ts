@@ -14,6 +14,18 @@ import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext } from "@/src/server/context";
+import {
+  STRATEGY_INFO,
+  type DisputeStrategy,
+} from "@/src/lib/disputes/strategies";
+
+/** Nombre de lo disputado: el acreedor, o el texto de la consulta/dato personal. */
+export function disputeTargetName(item: {
+  creditItem?: { creditorName: string } | null;
+  targetLabel?: string | null;
+}): string {
+  return item.creditItem?.creditorName ?? item.targetLabel ?? "Elemento disputado";
+}
 
 /**
  * Elementos disputados por ronda. Sincroniza CreditRound.disputedItemsCount
@@ -62,6 +74,7 @@ export interface AddDisputeItemData {
   bureau?: "EXPERIAN" | "EQUIFAX" | "TRANSUNION";
   notes?: string | null;
   status?: DisputeItemStatus;
+  strategy?: DisputeStrategy | null;
 }
 
 export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeItemData) {
@@ -110,6 +123,7 @@ export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeI
           status: data.status ?? "SELECTED",
           outcome: null,
           notes: emptyToNull(data.notes),
+          strategy: data.strategy ?? null,
         },
       });
     } else {
@@ -126,6 +140,7 @@ export async function addDisputeItem(ctx: OrganizationContext, data: AddDisputeI
           disputeDetails: emptyToNull(data.disputeDetails),
           status: data.status ?? "SELECTED",
           notes: emptyToNull(data.notes),
+          strategy: data.strategy ?? null,
         },
       });
     }
@@ -164,6 +179,7 @@ export async function addDisputeItemsBulk(
     scope?: DisputeScope;
     method?: DisputeMethod;
     disputeDetails?: string | null;
+    strategy?: DisputeStrategy | null;
   },
 ) {
   const created = [];
@@ -177,10 +193,82 @@ export async function addDisputeItemsBulk(
         scope: data.scope,
         method: data.method,
         disputeDetails: data.disputeDetails,
+        strategy: data.strategy,
       }),
     );
   }
   return created;
+}
+
+/**
+ * Disputa algo que no es una cuenta: una consulta dura del reporte o un dato
+ * personal (nombre, dirección, empleador). Va por buró, como las cuentas.
+ */
+export async function addNonAccountDisputeItem(
+  ctx: OrganizationContext,
+  data: {
+    roundId: string;
+    bureau: "EXPERIAN" | "EQUIFAX" | "TRANSUNION";
+    kind: "INQUIRY" | "PERSONAL_INFO";
+    inquiryId?: string | null;
+    label: string;
+    disputeReason: string;
+  },
+) {
+  const round = await getRoundOrThrow(ctx, data.roundId);
+  if (round.status === "CANCELLED" || round.status === "COMPLETED") {
+    throw new DomainError("No se pueden añadir elementos a una ronda cerrada.");
+  }
+  const label = data.label.trim().slice(0, 180);
+  if (!label) throw new DomainError("Indica qué se disputa.");
+  let inquiryId: string | null = null;
+  if (data.kind === "INQUIRY") {
+    const inquiry = await prisma.creditInquiry.findFirst({
+      where: { id: data.inquiryId ?? "", organizationId: ctx.organizationId, clientId: round.case.clientId },
+      select: { id: true, bureau: true },
+    });
+    if (!inquiry) throw new DomainError("Consulta no encontrada en el reporte del cliente.");
+    if (inquiry.bureau !== data.bureau) throw new DomainError("La consulta es de otro buró.");
+    const taken = await prisma.disputeItem.findFirst({
+      where: { roundId: round.id, inquiryId: inquiry.id, status: { not: "CANCELLED" } },
+      select: { id: true },
+    });
+    if (taken) throw new DomainError("Esta consulta ya está en la ronda.");
+    inquiryId = inquiry.id;
+  }
+  const strategy: DisputeStrategy = data.kind === "INQUIRY" ? "INQUIRY" : "PERSONAL_INFO";
+  return prisma.$transaction(async (tx) => {
+    const item = await tx.disputeItem.create({
+      data: {
+        organizationId: ctx.organizationId,
+        roundId: round.id,
+        targetKind: data.kind,
+        inquiryId,
+        targetLabel: label,
+        strategy,
+        bureau: data.bureau,
+        disputeReason: data.disputeReason.trim().slice(0, 200) || STRATEGY_INFO[strategy].label,
+        action: data.kind === "INQUIRY" ? "Eliminar consulta" : "Eliminar dato personal",
+        scope: DEFAULT_DISPUTE_SCOPE,
+        method: DEFAULT_DISPUTE_METHOD,
+        status: "SELECTED",
+      },
+    });
+    await syncDisputedItemsCount(tx, round.id);
+    await writeActivityLog(
+      toActivityContext(ctx),
+      {
+        type: "DISPUTE_ITEM_ADDED",
+        description: `Elemento disputado: ${label}`,
+        clientId: round.case.clientId,
+        caseId: round.caseId,
+        roundId: round.id,
+        metadata: { disputeItemId: item.id, kind: data.kind },
+      },
+      tx,
+    );
+    return item;
+  });
 }
 
 export interface UpdateDisputeItemData {
@@ -192,6 +280,7 @@ export interface UpdateDisputeItemData {
   status?: DisputeItemStatus;
   outcome?: DisputeOutcome | null;
   notes?: string | null;
+  strategy?: DisputeStrategy | null;
 }
 
 export async function updateDisputeItem(
@@ -230,15 +319,19 @@ export async function updateDisputeItem(
         ...(data.status !== undefined ? { status: data.status } : {}),
         ...(data.outcome !== undefined ? { outcome: data.outcome } : {}),
         ...(data.notes !== undefined ? { notes: emptyToNull(data.notes) } : {}),
+        ...(data.strategy !== undefined ? { strategy: data.strategy } : {}),
       },
     });
 
     const nextStatus = data.status ?? updated.status;
     const nextOutcome = data.outcome !== undefined ? data.outcome : updated.outcome;
 
-    if (nextStatus === "CANCELLED") {
+    const creditItemId = item.creditItemId;
+    if (!creditItemId) {
+      // Consultas e información personal no tienen ciclo de vida de cuenta.
+    } else if (nextStatus === "CANCELLED") {
       await tx.creditItem.update({
-        where: { id: item.creditItemId },
+        where: { id: creditItemId },
         data: { lifecycleStatus: "IDENTIFIED" },
       });
     } else if (
@@ -247,7 +340,7 @@ export async function updateDisputeItem(
       nextOutcome === "VERIFIED"
     ) {
       await tx.creditItem.update({
-        where: { id: item.creditItemId },
+        where: { id: creditItemId },
         data: { lifecycleStatus: "RESOLVED" },
       });
     } else if (
@@ -256,7 +349,7 @@ export async function updateDisputeItem(
       nextStatus === "RESPONDED"
     ) {
       await tx.creditItem.update({
-        where: { id: item.creditItemId },
+        where: { id: creditItemId },
         data: { lifecycleStatus: "DISPUTED" },
       });
     }
@@ -267,7 +360,7 @@ export async function updateDisputeItem(
       toActivityContext(ctx),
       {
         type: "DISPUTE_ITEM_UPDATED",
-        description: `Disputa actualizada: ${item.creditItem.creditorName}`,
+        description: `Disputa actualizada: ${disputeTargetName(item)}`,
         clientId: item.round.case.clientId,
         caseId: item.round.caseId,
         roundId: item.roundId,
@@ -314,13 +407,16 @@ export type RoundDisputeSummary = {
     disputeDetails: string | null;
     notes: string | null;
     bureau: string;
+    targetKind: "ACCOUNT" | "INQUIRY" | "PERSONAL_INFO";
+    targetLabel: string | null;
+    strategy: string | null;
     creditItem: {
       id: string;
       creditorName: string;
       accountNumberMasked: string | null;
       balance: Prisma.Decimal | null;
       isNegative: boolean;
-    };
+    } | null;
   }>;
 };
 

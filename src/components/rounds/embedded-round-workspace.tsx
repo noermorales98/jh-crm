@@ -37,6 +37,11 @@ import { CreateLetterButton } from "@/src/components/letters/create-letter-butto
 import { LetterActions } from "@/src/components/letters/letter-actions";
 import { GenerateProgressReportButton } from "@/src/components/letters/generate-progress-report-button";
 import { RoundActions } from "@/src/components/rounds/round-actions";
+import { AddInquiryPersonalButton } from "@/src/components/disputes/add-inquiry-personal-button";
+import { DisputeStrategySelect } from "@/src/components/disputes/dispute-strategy-select";
+import { GenerateStrategyLettersButton } from "@/src/components/letters/generate-strategy-letters-button";
+import { LetterFollowUp } from "@/src/components/letters/letter-follow-up";
+import { STRATEGY_INFO, isDisputeStrategy } from "@/src/lib/disputes/strategies";
 
 function civilDay(value: Date | string | null): string | null {
   if (value == null) return null;
@@ -97,6 +102,7 @@ export function EmbeddedRoundWorkspace({
   }
 
   const { round, summary, permissions } = data;
+  const withoutLetter = summary.items.filter((i) => i.status === "SELECTED" || i.status === "DRAFT");
   const { byOutcome } = summary;
   const legalDue = roundTiming({
     phase: round.status === "DRAFT" || round.status === "PREPARING" ? "DRAFT" : "SENT",
@@ -135,6 +141,12 @@ export function EmbeddedRoundWorkspace({
           />
         ) : null}
         {permissions.canManageLetters ? (
+          <GenerateStrategyLettersButton
+            roundId={round.id}
+            pending={withoutLetter.map((i) => ({ bureau: i.bureau, strategy: i.strategy }))}
+          />
+        ) : null}
+        {permissions.canManageLetters ? (
           <CreateLetterButton
             roundId={round.id}
             templates={data.templates}
@@ -151,6 +163,9 @@ export function EmbeddedRoundWorkspace({
             roundId={round.id}
             eligible={data.eligible}
           />
+        ) : null}
+        {permissions.canManageDisputes ? (
+          <AddInquiryPersonalButton roundId={round.id} inquiries={data.inquiries} />
         ) : null}
         {permissions.canManageRounds ? (
           <RoundActions
@@ -240,10 +255,11 @@ export function EmbeddedRoundWorkspace({
               <TR>
                 <TH>Acreedor</TH>
                 <TH>Buró</TH>
+                <TH>Método</TH>
                 <TH>Motivo</TH>
                 <TH>Acción</TH>
                 <TH>Alcance</TH>
-                <TH>Método</TH>
+                <TH>Vía</TH>
                 <TH>Estado</TH>
                 <TH>Resultado</TH>
                 {permissions.canManageDisputes ? <TH /> : null}
@@ -257,13 +273,25 @@ export function EmbeddedRoundWorkspace({
                       {item.creditItem.creditorName}
                     </div>
                     <div className="text-xs text-text-secondary">
-                      {item.creditItem.accountNumberMasked ?? "—"}
+                      {item.targetKind === "INQUIRY"
+                        ? "Consulta dura"
+                        : item.targetKind === "PERSONAL_INFO"
+                          ? "Información personal"
+                          : (item.creditItem.accountNumberMasked ?? "Sin número")}
                       {item.creditItem.balance != null
                         ? ` · ${formatMoney(item.creditItem.balance)}`
                         : ""}
                     </div>
                   </TD>
                   <TD>{CREDIT_BUREAU_LABELS[item.bureau] ?? item.bureau}</TD>
+                  <TD className="min-w-[8rem]">
+                    <DisputeStrategySelect
+                      disputeItemId={item.id}
+                      value={item.strategy}
+                      target={item.targetKind}
+                      editable={permissions.canManageDisputes && (item.status === "SELECTED" || item.status === "DRAFT")}
+                    />
+                  </TD>
                   <TD className="max-w-[14rem] text-sm text-text-secondary-strong">
                     {item.disputeReason}
                   </TD>
@@ -336,9 +364,15 @@ export function EmbeddedRoundWorkspace({
             <EmptyState
               icon={FileText}
               title="Sin cartas"
-              description="Genera una carta por buró a partir de los elementos seleccionados."
+              description="Genera una carta por buró y método a partir de los elementos seleccionados."
               action={
                 permissions.canManageLetters ? (
+                  withoutLetter.length > 0 ? (
+                    <GenerateStrategyLettersButton
+                      roundId={round.id}
+                      pending={withoutLetter.map((i) => ({ bureau: i.bureau, strategy: i.strategy }))}
+                    />
+                  ) : (
                   <CreateLetterButton
                     roundId={round.id}
                     templates={data.templates}
@@ -349,6 +383,7 @@ export function EmbeddedRoundWorkspace({
                       disputeReason: i.disputeReason,
                     }))}
                   />
+                  )
                 ) : null
               }
             />
@@ -360,6 +395,7 @@ export function EmbeddedRoundWorkspace({
                   <TH>Asunto</TH>
                   <TH>Estado</TH>
                   <TH>Ítems</TH>
+                  <TH>Seguimiento</TH>
                   <TH className="text-right">Acciones</TH>
                 </TR>
               </THead>
@@ -369,8 +405,15 @@ export function EmbeddedRoundWorkspace({
                     <TD>
                       {CREDIT_BUREAU_LABELS[letter.bureau] ?? letter.bureau}
                     </TD>
-                    <TD className="max-w-[16rem] truncate text-sm">
-                      {letter.subjectSnapshot}
+                    <TD className="max-w-[16rem] text-sm">
+                      <div className="truncate">{letter.subjectSnapshot}</div>
+                      <div className="text-xs text-text-secondary">
+                        {letter.channel === "CFPB"
+                          ? "Queja al CFPB"
+                          : isDisputeStrategy(letter.strategy)
+                            ? STRATEGY_INFO[letter.strategy].short
+                            : "Carta"}
+                      </div>
                     </TD>
                     <TD>
                       <Pill tone="slate">
@@ -378,6 +421,15 @@ export function EmbeddedRoundWorkspace({
                       </Pill>
                     </TD>
                     <TD className="tabular-nums">{letter.itemCount}</TD>
+                    <TD>
+                      <LetterFollowUp
+                        letterId={letter.id}
+                        channel={letter.channel}
+                        complaintId={letter.complaintId}
+                        followUpAt={letter.followUpAt}
+                        editable={permissions.canManageLetters}
+                      />
+                    </TD>
                     <TD className="text-right">
                       {permissions.canManageLetters ? (
                         <LetterActions

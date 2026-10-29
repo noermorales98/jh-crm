@@ -39,6 +39,8 @@ export type EmbeddedRoundDetail = {
       outcome: string | null;
       scope: string | null;
       method: string | null;
+      targetKind: "ACCOUNT" | "INQUIRY" | "PERSONAL_INFO";
+      strategy: string | null;
       creditItem: {
         creditorName: string;
         accountNumberMasked: string | null;
@@ -55,12 +57,18 @@ export type EmbeddedRoundDetail = {
     isNegative: boolean;
   }[];
   templates: { id: string; name: string; bureau: string }[];
+  /** Consultas duras del último reporte que aún no están en la ronda. */
+  inquiries: { id: string; bureau: string; creditorName: string; inquiryDate: Date | null }[];
   letters: {
     id: string;
     bureau: string;
     subjectSnapshot: string;
     status: string;
     itemCount: number;
+    channel: string;
+    strategy: string | null;
+    complaintId: string | null;
+    followUpAt: Date | null;
   }[];
   progressReports: {
     id: string;
@@ -95,6 +103,29 @@ export type EmbeddedLetterDetail = {
   canManage: boolean;
 };
 
+/** Consultas duras del reporte más reciente del cliente que no están ya en la ronda. */
+async function listOpenInquiries(ctx: OrganizationContext, roundId: string, clientId: string) {
+  const report = await prisma.creditReport.findFirst({
+    where: { organizationId: ctx.organizationId, clientId },
+    orderBy: [{ reportDate: "desc" }, { importedAt: "desc" }],
+    select: { id: true },
+  });
+  if (!report) return [];
+  const [rows, taken] = await Promise.all([
+    prisma.creditInquiry.findMany({
+      where: { organizationId: ctx.organizationId, reportId: report.id },
+      orderBy: [{ inquiryDate: "desc" }],
+      select: { id: true, bureau: true, creditorName: true, inquiryDate: true },
+    }),
+    prisma.disputeItem.findMany({
+      where: { roundId, inquiryId: { not: null }, status: { not: "CANCELLED" } },
+      select: { inquiryId: true },
+    }),
+  ]);
+  const used = new Set(taken.map((t) => t.inquiryId));
+  return rows.filter((row) => !used.has(row.id));
+}
+
 export async function getEmbeddedRoundDetail(
   ctx: OrganizationContext,
   roundId: string,
@@ -111,7 +142,7 @@ export async function getEmbeddedRoundDetail(
   const canManageLetters = can(ctx.role, "letters.manage");
   const canViewLetters = can(ctx.role, "letters.view");
 
-  const [members, eligible, templates, letters, progressReports] =
+  const [members, eligible, templates, letters, progressReports, inquiries] =
     await Promise.all([
       canManageRounds ? listMemberOptions(ctx) : Promise.resolve([]),
       canManageDisputes
@@ -126,6 +157,7 @@ export async function getEmbeddedRoundDetail(
       canViewLetters
         ? progressService.listProgressReportsForRound(ctx, roundId)
         : Promise.resolve([]),
+      canManageDisputes ? listOpenInquiries(ctx, roundId, round.case.client.id) : Promise.resolve([]),
     ]);
 
   return {
@@ -159,11 +191,13 @@ export async function getEmbeddedRoundDetail(
         outcome: item.outcome,
         scope: item.scope,
         method: item.method,
+        targetKind: item.targetKind,
+        strategy: item.strategy,
         creditItem: {
-          creditorName: item.creditItem.creditorName,
-          accountNumberMasked: item.creditItem.accountNumberMasked,
+          creditorName: item.creditItem?.creditorName ?? item.targetLabel ?? "Elemento",
+          accountNumberMasked: item.creditItem?.accountNumberMasked ?? null,
           balance:
-            item.creditItem.balance != null
+            item.creditItem?.balance != null
               ? item.creditItem.balance.toString()
               : null,
         },
@@ -188,7 +222,12 @@ export async function getEmbeddedRoundDetail(
       subjectSnapshot: letter.subjectSnapshot,
       status: letter.status,
       itemCount: letter._count.items,
+      channel: letter.channel,
+      strategy: letter.strategy,
+      complaintId: letter.complaintId,
+      followUpAt: letter.followUpAt,
     })),
+    inquiries,
     progressReports: progressReports.map((report) => ({
       id: report.id,
       reportDate: report.reportDate,

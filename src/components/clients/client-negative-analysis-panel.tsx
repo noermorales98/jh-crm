@@ -20,6 +20,8 @@ import { ANOMALY_NOT_INACCURACY, NEGATIVES_NOT_CERTIFIED } from "@/src/lib/credi
 import { CREDIT_BUREAU_LABELS, CREDIT_NEGATIVE_TYPE_LABELS } from "@/src/lib/labels";
 import { formatDate } from "@/src/lib/format";
 import { metricText, presentAmount } from "@/src/lib/credit/metrics-view";
+import { Select } from "@/src/components/ui";
+import { DISPUTE_STRATEGIES, STRATEGY_INFO, type DisputeStrategy } from "@/src/lib/disputes/strategies";
 
 const BUREAU_COLOR: Record<string, string> = {
   EQUIFAX: "light-dark(#c8364f, #f27088)",
@@ -43,7 +45,7 @@ function plural(count: number, word: string) {
 }
 
 
-type Pick = { itemIds: string[]; reasons: ReasonCode[] };
+type Pick = { itemIds: string[]; reasons: ReasonCode[]; strategy?: DisputeStrategy };
 type InterviewValue = { answer: ClientAnswer | null; words: string | null };
 type Filter = "all" | "strong" | "pending" | "picked";
 
@@ -141,6 +143,7 @@ export function ClientNegativeAnalysisPanel({
         [debt.key]: {
           itemIds: debt.rows.map((r) => r.itemId),
           reasons: current?.reasons ?? debt.reasons.map((r) => r.code),
+          strategy: current?.strategy ?? debt.suggestedStrategy,
         },
       };
     });
@@ -159,6 +162,7 @@ export function ClientNegativeAnalysisPanel({
         next[debt.key] = {
           itemIds: debt.rows.map((r) => r.itemId),
           reasons: prev[debt.key]?.reasons ?? debt.reasons.map((r) => r.code),
+          strategy: prev[debt.key]?.strategy ?? debt.suggestedStrategy,
         };
       }
       return next;
@@ -567,7 +571,28 @@ function DebtCard({
             <Interview clientId={clientId} debt={debt} value={interview} onSaved={onInterviewSaved} />
           </Section>
 
-          <Section step={3} title="Motivos para la carta">
+          <Section step={3} title="Método y motivos para la carta">
+            <div className="mb-2 max-w-xs">
+              <Select
+                value={pick?.strategy ?? debt.suggestedStrategy}
+                onChange={(e) => onChange({ strategy: e.target.value as DisputeStrategy })}
+                disabled={disabled}
+                pickerTitle="Método de disputa"
+                aria-label="Método de disputa"
+              >
+                {DISPUTE_STRATEGIES.filter((s) => STRATEGY_INFO[s].target === "ACCOUNT").map((s) => (
+                  <option key={s} value={s}>
+                    {STRATEGY_INFO[s].label}
+                    {s === debt.suggestedStrategy ? " (sugerido)" : ""}
+                  </option>
+                ))}
+              </Select>
+              {debt.previouslyVerified ? (
+                <p className="mt-1 text-[11.5px] text-text-secondary">
+                  Un buró ya la «verificó» en una ronda anterior: toca pedir el método de verificación.
+                </p>
+              ) : null}
+            </div>
             <div className="flex flex-wrap gap-1.5" aria-label="Motivos de disputa">
               {ALL_REASONS.map((code) => {
                 const on = reasons.includes(code);

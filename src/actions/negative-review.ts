@@ -12,6 +12,7 @@ import {
   type NegativeReview,
 } from "@/src/server/credit-reports/negative-review";
 import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
+import { DISPUTE_STRATEGIES } from "@/src/lib/disputes/strategies";
 
 const answerSchema = z.enum(["NOT_MINE", "PAID", "WRONG_DATA", "CORRECT", "UNKNOWN"]);
 const reasonSchema = z.enum(["INCONSISTENT", "DUPLICATE", "INCOMPLETE", "OBSOLETE", "VERIFY"]);
@@ -61,7 +62,13 @@ export async function createRoundFromNegativesAction(
         clientId: cuidSchema,
         reportId: cuidSchema,
         selections: z
-          .array(z.object({ itemIds: z.array(cuidSchema).min(1).max(10), reasons: z.array(reasonSchema).max(5) }))
+          .array(
+            z.object({
+              itemIds: z.array(cuidSchema).min(1).max(10),
+              reasons: z.array(reasonSchema).max(5),
+              strategy: z.enum(DISPUTE_STRATEGIES).optional(),
+            }),
+          )
           .min(1)
           .max(60),
       })

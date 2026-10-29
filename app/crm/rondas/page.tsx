@@ -31,6 +31,8 @@ import {
 import { formatDate } from "@/src/lib/format";
 import { ROUND_STATUS_LABELS } from "@/src/lib/labels";
 import { RoundActions } from "@/src/components/rounds/round-actions";
+import { DisputeEffectiveness, DisputeMethodsGuide } from "@/src/components/disputes/dispute-effectiveness";
+import { getDisputeEffectiveness } from "@/src/server/disputes/effectiveness";
 
 export const metadata: Metadata = {
   title: "Disputas",
@@ -50,11 +52,12 @@ export default async function RoundsPage({
   const cursor = firstParam(sp, "cursor");
   const canManage = can(ctx.role, "rounds.manage");
 
-  const [upcoming, list, members] = await Promise.all([
+  const [upcoming, list, members, effectiveness] = await Promise.all([
     // Próximas revisiones: rondas enviadas/en espera con fecha ≤ 30 días o vencida.
     roundService.listRounds(ctx, { upcomingDays: 30, limit: 10 }),
     roundService.listRounds(ctx, { status, cursor }),
     canManage ? listMemberOptions(ctx) : Promise.resolve([]),
+    getDisputeEffectiveness(ctx),
   ]);
 
   const now = new Date();
@@ -67,6 +70,9 @@ export default async function RoundsPage({
       />
 
       <div className="space-y-6">
+        <DisputeEffectiveness data={effectiveness} />
+        <DisputeMethodsGuide />
+
         <Card>
           <CardHeader
             title="Próximas revisiones"

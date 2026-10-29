@@ -211,6 +211,12 @@ enum DisputeItemStatus {
   CANCELLED
 }
 
+enum DisputeTargetKind {
+  ACCOUNT
+  INQUIRY
+  PERSONAL_INFO
+}
+
 enum DisputeOutcome {
   DELETED
   UPDATED
@@ -1876,7 +1882,15 @@ model DisputeItem {
   id              String            @id @default(cuid())
   organizationId  String
   roundId         String
-  creditItemId    String
+  /** Cuenta disputada (null en consultas e información personal). */
+  creditItemId    String?
+  /** Qué se disputa: una cuenta, una consulta dura o un dato personal. */
+  targetKind      DisputeTargetKind @default(ACCOUNT)
+  inquiryId       String?
+  /** Texto de lo disputado cuando no es una cuenta (p. ej. "Address: 12 Oak St"). */
+  targetLabel     String?
+  /** Método de disputa (src/lib/disputes/strategies.ts). Null = general. */
+  strategy        String?
   bureau          CreditBureau
   disputeReason   String
   /** Acción pedida al buró (p.ej. Disputar, Verificar, Eliminar). CR-006. */
@@ -1894,10 +1908,13 @@ model DisputeItem {
 
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   round        CreditRound  @relation(fields: [roundId], references: [id], onDelete: Cascade)
-  creditItem   CreditItem   @relation(fields: [creditItemId], references: [id], onDelete: Cascade)
+  creditItem   CreditItem?    @relation(fields: [creditItemId], references: [id], onDelete: Cascade)
+  inquiry      CreditInquiry? @relation(fields: [inquiryId], references: [id], onDelete: Cascade)
   letterLinks  DisputeLetterItem[]
 
   @@unique([roundId, creditItemId])
+  @@unique([roundId, inquiryId])
+  @@index([inquiryId])
   @@index([organizationId, roundId])
   @@index([creditItemId])
   @@index([roundId, status])
@@ -1963,6 +1980,8 @@ model DisputeLetterTemplate {
   content        String         @db.LongText
   version        Int            @default(1)
   active         Boolean        @default(true)
+  /** Método al que pertenece (ACCURACY_R1, INQUIRY…, o CFPB para la queja). */
+  strategy       String?
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 
@@ -1988,6 +2007,13 @@ model DisputeLetter {
   finalizedAt      DateTime?
   sentAt           DateTime?
   trackingNumber   String?
+  /** MAIL = carta al buró; CFPB = queja en consumerfinance.gov. */
+  channel          String              @default("MAIL")
+  strategy         String?
+  /** Complaint ID que da el CFPB al enviar la queja. */
+  complaintId      String?
+  /** Cuándo revisar la respuesta (envío + 30 días). */
+  followUpAt       DateTime?
   documentId       String?
   notes            String?             @db.Text
   createdAt        DateTime            @default(now())
@@ -2226,6 +2252,7 @@ model CreditInquiry {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   client       Client       @relation(fields: [organizationId, clientId], references: [organizationId, id], onDelete: Cascade)
   report       CreditReport @relation(fields: [organizationId, clientId, reportId], references: [organizationId, clientId, id], onDelete: Cascade)
+  disputeItems DisputeItem[]
 
   @@unique([organizationId, sourceIdempotencyKey], map: "CreditInquiry_org_idem_key")
   @@index([organizationId, clientId, reportId, bureau], map: "CreditInquiry_scope_idx")

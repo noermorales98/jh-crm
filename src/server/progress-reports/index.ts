@@ -106,7 +106,7 @@ export async function createClientProgressReport(
     for (const item of summary.items) {
       const outcome = item.outcome ?? "pendiente";
       resultLines.push(
-        `${item.creditItem.creditorName} (${CREDIT_BUREAU_LABELS[item.bureau]}): ${outcome}`,
+        `${item.creditItem?.creditorName ?? item.targetLabel ?? "Elemento"} (${CREDIT_BUREAU_LABELS[item.bureau]}): ${outcome}`,
       );
     }
   }

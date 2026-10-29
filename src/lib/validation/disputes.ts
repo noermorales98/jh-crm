@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DISPUTE_STRATEGIES } from "@/src/lib/disputes/strategies";
 import { cuidSchema } from "@/src/lib/validation/common";
 import { creditBureauSchema } from "@/src/lib/validation/credit-reports";
 
@@ -55,6 +56,7 @@ export const addDisputeItemsBulkSchema = z.object({
   scope: disputeScopeSchema.optional(),
   method: disputeMethodSchema.optional(),
   disputeDetails: z.string().trim().max(5000).optional().nullable().or(z.literal("")),
+  strategy: z.enum(DISPUTE_STRATEGIES).optional(),
 });
 
 export const updateDisputeItemSchema = z.object({

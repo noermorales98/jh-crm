@@ -270,14 +270,14 @@ async function main() {
 
     const disputeList = await disputes.getRoundDisputeSummary(ctx, round.id);
     const dA = disputeList.items.find(
-      (i) => i.creditItem.creditorName === "ABC Collect",
+      (i) => i.creditItem?.creditorName === "ABC Collect",
     )!;
     await disputes.updateDisputeItem(ctx, dA.id, {
       outcome: "DELETED",
       status: "COMPLETED",
     });
     const dB = disputeList.items.find(
-      (i) => i.creditItem.creditorName === "Bank Late",
+      (i) => i.creditItem?.creditorName === "Bank Late",
     )!;
     await disputes.updateDisputeItem(ctx, dB.id, {
       outcome: "UPDATED",

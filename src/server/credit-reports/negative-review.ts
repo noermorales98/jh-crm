@@ -12,7 +12,8 @@ import {
 import { getOrgPdfInfo, selectClientActionPlanReport } from "@/src/server/credit-reports/action-plan";
 import { cancelRound, createRound } from "@/src/server/rounds";
 import { addDisputeItem } from "@/src/server/disputes";
-import { createLetterDraft, ensureDefaultTemplates } from "@/src/server/letters";
+import { generateLettersByStrategy } from "@/src/server/letters";
+import { suggestAccountStrategy, type DisputeStrategy } from "@/src/lib/disputes/strategies";
 
 /** fieldKey de la entrevista del cliente sobre una cuenta (CreditDisputeAssertion). */
 const INTERVIEW_FIELD = "account";
@@ -28,6 +29,9 @@ export type NegativeReviewDebt = NegativeDebt & {
   interview: { answer: ClientAnswer | null; words: string | null };
   /** Ya está en una ronda abierta (no se vuelve a ofrecer). */
   inOpenRound: boolean;
+  /** Un buró ya la «verificó» en una ronda anterior (toca método R2). */
+  previouslyVerified: boolean;
+  suggestedStrategy: DisputeStrategy;
 };
 
 export type NegativeReview = {
@@ -88,7 +92,7 @@ export async function getNegativeReview(
     report.reportDate,
   );
   const itemIds = debts.flatMap((debt) => debt.rows.map((row) => row.itemId));
-  const [assertions, openDisputes, inquiries] = await Promise.all([
+  const [assertions, openDisputes, inquiries, verified] = await Promise.all([
     prisma.creditDisputeAssertion.findMany({
       where: { organizationId: ctx.organizationId, clientId, creditItemId: { in: itemIds }, fieldKey: INTERVIEW_FIELD },
       orderBy: { updatedAt: "desc" },
@@ -108,7 +112,22 @@ export async function getNegativeReview(
       orderBy: [{ inquiryDate: "desc" }],
       select: { id: true, bureau: true, creditorName: true, inquiryDate: true },
     }),
+    // Misma deuda verificada en una ronda anterior (cualquier reporte del caso).
+    prisma.disputeItem.findMany({
+      where: {
+        organizationId: ctx.organizationId,
+        outcome: "VERIFIED",
+        round: { caseId: report.case.id },
+      },
+      select: { creditItem: { select: { creditorName: true, accountNumberMasked: true } } },
+    }),
   ]);
+  const verifiedKeys = new Set(
+    verified
+      .map((v) => v.creditItem)
+      .filter((c): c is { creditorName: string; accountNumberMasked: string | null } => c != null)
+      .map((c) => `${c.creditorName.toLowerCase().replace(/[^a-z0-9]/g, "")}#${(c.accountNumberMasked ?? "").replace(/\D/g, "").slice(-4)}`),
+  );
   const disputed = new Set(openDisputes.map((d) => d.creditItemId));
   return {
     clientName: [report.client.firstName, report.client.lastName].filter(Boolean).join(" "),
@@ -123,10 +142,17 @@ export async function getNegativeReview(
       const answer = ANSWERS.includes(saved?.assertedValue as ClientAnswer)
         ? (saved!.assertedValue as ClientAnswer)
         : null;
+      const previouslyVerified = debt.rows.some((row) =>
+        verifiedKeys.has(
+          `${debt.creditorName.toLowerCase().replace(/[^a-z0-9]/g, "")}#${(row.accountNumberMasked ?? "").replace(/\D/g, "").slice(-4)}`,
+        ),
+      );
       return {
         ...debt,
         interview: { answer, words: saved?.reason ?? null },
         inOpenRound: debt.rows.some((row) => disputed.has(row.itemId)),
+        previouslyVerified,
+        suggestedStrategy: suggestAccountStrategy({ negativeType: debt.type, previouslyVerified }),
       };
     }),
   };
@@ -177,7 +203,7 @@ export async function createRoundFromNegativeReview(
   input: {
     clientId: string;
     reportId: string;
-    selections: { itemIds: string[]; reasons: ReasonCode[] }[];
+    selections: { itemIds: string[]; reasons: ReasonCode[]; strategy?: DisputeStrategy }[];
   },
 ): Promise<{ roundId: string; roundNumber: number; disputes: number; letters: number }> {
   const review = await getNegativeReview(ctx, input.clientId, input.reportId);
@@ -195,7 +221,9 @@ export async function createRoundFromNegativeReview(
         throw new DomainError(`El cliente confirmó que ${debt.creditorName} es correcta; no se disputa.`);
       }
       const rows = debt.rows.filter((row) => selection.itemIds.includes(row.itemId));
-      return rows.length > 0 ? { debt, rows, reasons: selection.reasons } : null;
+      return rows.length > 0
+        ? { debt, rows, reasons: selection.reasons, strategy: selection.strategy ?? debt.suggestedStrategy }
+        : null;
     })
     .filter((entry): entry is NonNullable<typeof entry> => entry != null);
   if (chosen.length === 0) throw new DomainError("Elige al menos una cuenta para disputar.");
@@ -207,37 +235,29 @@ export async function createRoundFromNegativeReview(
 
   // Si algo falla a medias, la ronda se cancela para no dejarla incompleta.
   try {
-    const byBureau = new Map<CreditBureau, string[]>();
     let disputes = 0;
-    for (const { debt, rows, reasons } of chosen) {
+    for (const { debt, rows, reasons, strategy } of chosen) {
       const text = disputeTextFor({
         reasons,
         answer: debt.interview.answer,
         clientWords: debt.interview.words,
       });
       for (const row of rows) {
-        const item = await addDisputeItem(ctx, {
+        await addDisputeItem(ctx, {
           roundId: round.id,
           creditItemId: row.itemId,
           bureau: row.bureau,
           disputeReason: text.reason,
           action: "Eliminar o corregir",
           disputeDetails: text.details,
+          strategy,
         });
-        byBureau.set(row.bureau, [...(byBureau.get(row.bureau) ?? []), item.id]);
         disputes += 1;
       }
     }
 
-    const templates = await ensureDefaultTemplates(ctx);
-    const template = templates.find((t) => t.active) ?? templates[0];
-    let letters = 0;
-    if (template) {
-      for (const [bureau, disputeItemIds] of byBureau) {
-        await createLetterDraft(ctx, { roundId: round.id, bureau, templateId: template.id, disputeItemIds });
-        letters += 1;
-      }
-    }
+    // Una carta por buró y método, con la plantilla de cada método.
+    const { letters } = await generateLettersByStrategy(ctx, { roundId: round.id });
     return { roundId: round.id, roundNumber: round.roundNumber, disputes, letters };
   } catch (error) {
     await cancelRound(ctx, round.id).catch(() => undefined);

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   useEffect,
-  useMemo,
   useRef,
   useState,
   useTransition,
@@ -78,13 +77,10 @@ import { CreditPdfPendingConfirmBanner } from "@/src/components/credit-reports/c
 import type { PendingConfirmCreditPdfJob } from "@/src/server/credit-import/jobs";
 import { ClientNegativeAnalysisPanel } from "@/src/components/clients/client-negative-analysis-panel";
 import { ClientScorePlanPanel } from "@/src/components/clients/client-score-plan-panel";
+import { ClientFundingPanel } from "@/src/components/clients/client-funding-panel";
 import { ClientAvancePanel } from "@/src/components/clients/client-avance-panel";
 import { ClientQuoteHubPanel } from "@/src/components/clients/client-quote-hub-panel";
 import { ClientContractHubPanel } from "@/src/components/clients/client-contract-hub-panel";
-import {
-  loadClientActionPlanHub,
-  type ClientActionPlanHubDto,
-} from "@/src/actions/credit-reports";
 import {
   CreditReportEmptyPanel,
   CreditReportListModal,
@@ -92,9 +88,6 @@ import {
   type CreditReportPdfDto,
 } from "@/src/components/clients/client-credit-report-entry";
 import { formatDate } from "@/src/lib/format";
-import { buildFundingPrepPanel } from "@/src/lib/credit/funding-prep";
-import { PROGRAM_NOT_VERSIONED } from "@/src/lib/credit/programs";
-import { CAPACITY_NOT_INFERRED } from "@/src/lib/credit/capacity";
 import {
   loadClientOpsPanelAction,
   type ClientOpsPanel,
@@ -358,11 +351,6 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
-  const [planHub, setPlanHub] = useState<ClientActionPlanHubDto | null>(null);
-  const [planHubError, setPlanHubError] = useState<string | null>(null);
-  const [planHubSettledKey, setPlanHubSettledKey] = useState<string | null>(
-    null,
-  );
   const [opsCache, setOpsCache] = useState<
     Partial<Record<ClientOpsPanel, ClientOpsPanelPayload>>
   >({});
@@ -430,62 +418,9 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
     return () => document.removeEventListener("pointerdown", onPointerDown);
   }, [moreOpen]);
 
-  // Prefetch cuando hay reporte (KPI Fondeo + Score/Fondeo modales).
-  const planHubKey =
-    props.reportsCount > 0 || panel === "score" || panel === "fondeo"
-      ? `${props.client.id}:${effectiveReportId ?? "none"}`
-      : null;
-  const planHubLoading =
-    planHubKey != null && planHubSettledKey !== planHubKey;
 
-  useEffect(() => {
-    if (planHubKey == null) return;
-    let cancelled = false;
-    void loadClientActionPlanHub({
-      clientId: props.client.id,
-      reportId: effectiveReportId,
-    }).then((res) => {
-      if (cancelled) return;
-      if (!res.ok) {
-        setPlanHub(null);
-        setPlanHubError(res.error);
-        setPlanHubSettledKey(planHubKey);
-        return;
-      }
-      setPlanHub(res.data);
-      setPlanHubError(null);
-      setPlanHubSettledKey(planHubKey);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [planHubKey, props.client.id, effectiveReportId]);
-
-  // Mientras carga o hay error, no pasar hub previo (evita resumen de otro reporte).
-  const fundingPrep = useMemo(
-    () =>
-      buildFundingPrepPanel({
-        loading: planHubLoading,
-        error: planHubError,
-        hub:
-          planHubLoading || planHubError || !planHub
-            ? null
-            : {
-                reportId: planHub.reportId,
-                qualified: planHub.qualified,
-                avgScore: planHub.avgScore,
-                avgUtilization: planHub.avgUtilization,
-                bureausApproved: planHub.bureausApproved,
-                negativeCount: planHub.negativeCount,
-                totalLimit: planHub.revolving.totalLimit,
-                totalUsed: planHub.revolving.totalUsed,
-                verdict: planHub.verdict,
-              },
-      }),
-    [planHub, planHubLoading, planHubError],
-  );
-  const fondeoKpiLabel = "Requiere programa";
-  const fondeoCapsuleSubtitle = "Requiere programa y datos verificados";
+  const fondeoKpiLabel = "Calcúlalo";
+  const fondeoCapsuleSubtitle = "Cuánto puede conseguir";
 
   function onEdit(formData: FormData) {
     setError(null);
@@ -1429,40 +1364,12 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
       <AgencyModal
         open={panel === "fondeo"}
         onClose={() => setPanel(null)}
-        title="Preparación para Fondeo"
+        title="Calculadora de fondeo"
         size="lg"
-        centerBody
       >
-        <div className="space-y-3">
-          {fundingPrep.kind === "loading" ? (
-            <p className="text-center text-[13px] text-text-secondary">
-              {fundingPrep.message}
-            </p>
-          ) : null}
-          {fundingPrep.kind === "error" ? (
-            <p className="text-center text-sm text-danger">
-              {fundingPrep.message}
-            </p>
-          ) : null}
-          {fundingPrep.kind === "ready" ? (
-            <div className="rounded-surface bg-nav-hover/40 px-3 py-3 text-center text-[13px]">
-              <p className="font-semibold text-ink">{fundingPrep.title}</p>
-              <p className="mt-1 text-text-secondary">{fundingPrep.summary}</p>
-              <p className="mt-3 text-[13px] text-ink">{fundingPrep.disclaimer}</p>
-              <p className="mt-2 text-[12px] text-text-secondary">
-                {fundingPrep.verdict}
-              </p>
-              <p className="mt-2 text-[12px] text-text-secondary">{PROGRAM_NOT_VERSIONED}</p>
-              <p className="mt-2 text-[12px] text-text-secondary">{CAPACITY_NOT_INFERRED}</p>
-              <Link
-                href={creditAnalysisHref(fundingPrep.reportId)}
-                className="mt-2 inline-flex text-[12px] font-medium text-action-primary"
-              >
-                Ver plan de acción completo →
-              </Link>
-            </div>
-          ) : null}
-        </div>
+        {panel === "fondeo" ? (
+          <ClientFundingPanel clientId={props.client.id} reportId={effectiveReportId} />
+        ) : null}
       </AgencyModal>
 
       <AgencyModal

@@ -196,12 +196,13 @@ function main() {
 
   const estimate = readFileSync("src/lib/credit/funding-estimate.ts", "utf8");
   const prep = readFileSync("src/lib/credit/funding-prep.ts", "utf8");
-  const panel = readFileSync("src/components/clients/agency-client-detail.tsx", "utf8");
+  // Fondeo muestra un rango estimado de mercado, nunca una aprobación (decisión del 28 oct 2026).
+  const panel = readFileSync("src/components/clients/client-funding-panel.tsx", "utf8");
   check("el estimador sigue sin monto", estimate.includes('status: "UNAVAILABLE"') && estimate.includes("amount: null"));
   check("el título del panel no cambió", prep.includes('FUNDING_PREP_TITLE = "Requiere programa"'));
   check(
-    "el panel dice que no hay programa y no llama elegible al resultado",
-    panel.includes("PROGRAM_NOT_VERSIONED") && !panel.includes("Elegible"),
+    "el panel dice que es estimado y no llama elegible al resultado",
+    panel.includes("FUNDING_DISCLAIMER") && !panel.includes("Elegible"),
   );
 
   console.log("\nOK credit-programs\n");

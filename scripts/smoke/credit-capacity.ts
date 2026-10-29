@@ -159,12 +159,13 @@ function main() {
   );
 
   const source = readFileSync("src/lib/credit/capacity.ts", "utf8");
-  const panel = readFileSync("src/components/clients/agency-client-detail.tsx", "utf8");
+  // El panel de Fondeo usa el ingreso que DECLARA el cliente (decisión del 28 oct 2026).
+  const panel = readFileSync("src/components/clients/client-funding-panel.tsx", "utf8");
   const prep = readFileSync("src/lib/credit/funding-prep.ts", "utf8");
   check("no hay un 43% ni un 1.25 universales", !source.includes("4300") && !source.includes("1.25"));
   check(
-    "el panel no infiere el ingreso ni muestra un DTI",
-    panel.includes("CAPACITY_NOT_INFERRED") && !panel.includes("dtiBps"),
+    "el panel pide el ingreso declarado y no lo infiere del score",
+    panel.includes("Lo declara el cliente") && !panel.includes("dtiBps"),
   );
   check("el título de preparación no cambió", prep.includes('FUNDING_PREP_TITLE = "Requiere programa"'));
 

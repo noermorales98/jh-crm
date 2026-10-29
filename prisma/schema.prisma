@@ -643,6 +643,8 @@ model Client {
   preferredContactMethod String?
   preferredContactTime String?
   attribution    Json?
+  /** Datos de fondeo que declara el cliente (ingreso, ventas, negocio). */
+  fundingProfile Json?
   status         ClientStatus @default(LEAD)
   assignedToId   String?
   archivedAt     DateTime?

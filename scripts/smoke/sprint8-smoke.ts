@@ -6,6 +6,7 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { contactFormSchema } from "../../src/lib/validation/contact";
+import { isAnonymousPath } from "../../src/server/auth/public-paths";
 
 let passed = 0;
 let failed = 0;
@@ -96,16 +97,21 @@ async function main() {
     omitSms.success && omitSms.data.smsConsent === false,
   );
 
-  console.log("\n[3] Auth whitelist (auth.config.ts menciona rutas legales)");
+  // La lista de rutas públicas vive en src/server/auth/public-paths.ts
+  // (auth.config.ts la usa vía isAnonymousPath). Se prueba el comportamiento,
+  // no el texto del archivo.
+  console.log("\n[3] Auth whitelist (rutas legales sin sesión)");
   const authConfigPath = join(root, "auth.config.ts");
   check("auth.config.ts existe", existsSync(authConfigPath));
   if (existsSync(authConfigPath)) {
     const { readFileSync } = await import("node:fs");
     const src = readFileSync(authConfigPath, "utf8");
-    for (const slug of LEGAL_SLUGS) {
-      check(`auth permite /${slug}`, src.includes(`"/${slug}"`));
-    }
+    check("auth.config.ts usa isAnonymousPath", src.includes("isAnonymousPath(pathname)"));
   }
+  for (const slug of LEGAL_SLUGS) {
+    check(`auth permite /${slug}`, isAnonymousPath(`/${slug}`));
+  }
+  check("una ruta del CRM sigue pidiendo sesión", !isAnonymousPath("/crm/clientes"));
 
   console.log(`\nResultado: ${passed} ok, ${failed} fallos`);
   if (failed > 0) process.exitCode = 1;

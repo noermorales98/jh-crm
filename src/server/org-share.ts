@@ -1,7 +1,7 @@
 import { prisma } from "@/src/lib/db";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 
-function appBaseUrl(): string {
+export function appBaseUrl(): string {
   const configured = process.env.NEXT_PUBLIC_APP_URL?.trim();
   const looksLocal =
     !configured ||

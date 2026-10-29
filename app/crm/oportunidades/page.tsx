@@ -9,6 +9,8 @@ import { PageHeader, Tabs } from "@/src/components/ui";
 import { OpportunityKanban } from "@/src/components/opportunities/opportunity-kanban";
 import { CreateLeadButton } from "@/src/components/opportunities/create-lead-button";
 import { CreateOpportunityButton } from "@/src/components/opportunities/create-opportunity-button";
+import { CaptureLinkButton } from "@/src/components/opportunities/capture-link-button";
+import { getCaptureOverview } from "@/src/server/marketing/capture";
 import { VENTAS_TABS } from "@/src/lib/nav/section-tabs";
 
 export const metadata: Metadata = {
@@ -28,11 +30,12 @@ export default async function LeadsPage() {
     canManage && can(ctx.role, "clients.create");
   const canEditLead = canManage && can(ctx.role, "clients.edit");
 
-  const [columns, clientsResult, members, verticalServices] = await Promise.all([
+  const [columns, clientsResult, members, verticalServices, capture] = await Promise.all([
     opportunities.listByStage(ctx),
     clientService.listClients(ctx, { limit: 100 }),
     listMemberOptions(ctx),
     listVerticalServiceOptions(ctx.organizationId),
+    getCaptureOverview(ctx),
   ]);
 
   const clientOptions = clientsResult.items
@@ -50,6 +53,7 @@ export default async function LeadsPage() {
         actions={
           canManage ? (
             <div className="flex flex-wrap items-center gap-2">
+              <CaptureLinkButton overview={capture} />
               <CreateLeadButton
                 members={members}
                 canCreate={canCreateLead}

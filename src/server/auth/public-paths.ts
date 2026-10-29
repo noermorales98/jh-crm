@@ -28,6 +28,7 @@ export function isAnonymousPath(pathname: string): boolean {
 
   if (
     pathname === "/" ||
+    pathname === "/empieza" ||
     pathname === "/login" ||
     pathname.startsWith("/login/")
   ) {

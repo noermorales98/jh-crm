@@ -385,7 +385,7 @@ export function ClientFundingPanel({ clientId, reportId }: { clientId: string; r
         distinto.
       </p>
 
-      <div className="sticky bottom-0 -mx-1 flex justify-end rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
+      <div className="sticky bottom-0 flex justify-end rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
         <button
           type="button"
           onClick={() => void copySummary()}

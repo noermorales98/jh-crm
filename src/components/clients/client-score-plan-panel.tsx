@@ -251,9 +251,10 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
         />
         <div className="relative h-4 text-[10.5px] tabular-nums text-text-secondary" aria-hidden>
           {[TARGET_MIN, 10, 30, targetMax].map((mark) => (
+            // Las etiquetas de los extremos se alinean hacia dentro para no salirse.
             <span
               key={mark}
-              className="absolute -translate-x-1/2"
+              className={`absolute ${mark === TARGET_MIN ? "" : mark === targetMax ? "-translate-x-full" : "-translate-x-1/2"}`}
               style={{ left: `${((mark - TARGET_MIN) / (targetMax - TARGET_MIN)) * 100}%` }}
             >
               {mark === 10 ? "10% ideal" : `${mark}%`}
@@ -431,7 +432,7 @@ export function ClientScorePlanPanel({ clientId, reportId }: { clientId: string;
         VantageScore) pesa la utilización a su manera. Es aparte de la reparación de cuentas negativas.
       </p>
 
-      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-end gap-2 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
+      <div className="sticky bottom-0 flex flex-wrap items-center justify-end gap-2 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
         <button
           type="button"
           onClick={() => void copyPlan()}

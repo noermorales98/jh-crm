@@ -107,7 +107,7 @@ export function AgencyModal({
           </button>
         </div>
         <div
-          className={`min-h-0 flex-1 overflow-y-auto ${
+          className={`min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-contain ${
             centerBody ? "mx-auto w-full max-w-xl" : ""
           }`}
         >

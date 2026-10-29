@@ -353,7 +353,7 @@ export function ClientNegativeAnalysisPanel({
       </p>
 
       {/* Barra de acción */}
-      <div className="sticky bottom-0 -mx-1 flex flex-wrap items-center justify-between gap-3 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
+      <div className="sticky bottom-0 flex flex-wrap items-center justify-between gap-3 rounded-surface bg-surface-elevated px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,0.06)]">
         <div className="min-w-0 text-[13px]">
           {createError ? (
             <p className="text-danger-ink" role="alert">
@@ -762,8 +762,8 @@ function FieldComparison({ debt }: { debt: NegativeReviewDebt }) {
         ) : null}
       </button>
       {open ? (
-        <div className="mt-1.5 overflow-x-auto rounded-control bg-surface-panel">
-          <table className="w-full text-left text-[11.5px]">
+        <div className="mt-1.5 overflow-hidden rounded-control bg-surface-panel">
+          <table className="w-full table-fixed text-left text-[11.5px] [&_td]:break-words [&_th]:break-words">
             <thead className="bg-surface-app text-text-secondary">
               <tr>
                 <th className="px-2 py-1.5 font-medium">Campo</th>

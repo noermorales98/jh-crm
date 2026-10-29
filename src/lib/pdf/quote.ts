@@ -8,6 +8,7 @@ import {
 import { formatMoney } from "../format/money";
 import { formatForPdf } from "../format/dates";
 import type { PdfOrganizationInfo } from "./base";
+import { contactFooterLines } from "@/src/lib/brand/contact-links";
 
 export interface QuotePdfItem {
   description: string;
@@ -160,6 +161,28 @@ export function generateQuotePdf(data: QuotePdfData): Buffer {
     y += 4;
     doc.setTextColor(0);
     doc.text(termLines, MARGIN, y);
+    y += termLines.length * 4 + 2;
+  }
+
+  // Contacto para responder la cotización (WhatsApp y agenda, si están configurados).
+  const contactLines = contactFooterLines(data.organization);
+  if (contactLines.length > 0) {
+    y = ensureSpace(doc, y, 8 + contactLines.length * 4);
+    y += 4;
+    doc.setFontSize(8);
+    doc.setTextColor(90);
+    doc.text("¿DUDAS? ESCRÍBENOS", MARGIN, y);
+    y += 4;
+    doc.setTextColor(0);
+    for (const line of contactLines) {
+      const [label, ...rest] = line.split(": ");
+      const url = rest.join(": ");
+      doc.text(`${label}: `, MARGIN, y);
+      doc.setTextColor(10, 91, 215);
+      doc.textWithLink(url, MARGIN + doc.getTextWidth(`${label}: `), y, { url });
+      doc.setTextColor(0);
+      y += 4;
+    }
   }
 
   return toBuffer(doc);

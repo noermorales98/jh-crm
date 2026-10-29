@@ -14,6 +14,9 @@ export interface PdfOrganizationInfo {
   addressLine?: string | null;
   /** Pre-fetched logo (see fetchLogoForPdf). */
   logo?: PdfLogo | null;
+  /** Solo para documentos al cliente (cotizaciones), no cartas a burós. */
+  whatsappNumber?: string | null;
+  bookingUrl?: string | null;
 }
 
 const MARGIN = 20;

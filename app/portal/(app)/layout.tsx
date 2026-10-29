@@ -7,6 +7,8 @@ import { isPortalEnabled } from "@/src/server/portal";
 import { AppIcon } from "@/src/components/icons/app-icon";
 import { Button } from "@/src/components/ui";
 import { PortalNav } from "@/src/components/portal/portal-nav";
+import { PortalContactBar } from "@/src/components/portal/portal-contact-bar";
+import { getBrandContact } from "@/src/server/config/brand-contact";
 
 export const metadata: Metadata = {
   title: {
@@ -25,6 +27,7 @@ export default async function PortalAppLayout({
   }
 
   const portal = await requirePortalSession();
+  const contact = portal.organizationId ? await getBrandContact(portal.organizationId) : null;
 
   return (
     <div className="min-h-screen bg-surface-app">
@@ -51,6 +54,9 @@ export default async function PortalAppLayout({
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6 pb-[calc(5.25rem+env(safe-area-inset-bottom))]">
+        {contact ? (
+          <PortalContactBar whatsappNumber={contact.whatsappNumber} bookingUrl={contact.bookingUrl} />
+        ) : null}
         {children}
       </main>
       <PortalNav />

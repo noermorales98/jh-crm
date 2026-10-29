@@ -498,6 +498,14 @@ model OrganizationSettings {
   clientCounter  Int      @default(0)
   caseCounter    Int      @default(0)
   defaultTerms   String?  @db.Text
+  /** WhatsApp del negocio (solo dígitos con código de país) para el botón a clientes. */
+  whatsappNumber String?
+  /** Link de agenda (Calendly, cal.com…) para "Agendar llamada". */
+  bookingUrl     String?
+  /** Quien firma los contratos por la agencia. */
+  representativeName String?
+  /** Firma del representante (PNG en data URL) que se estampa al enviar contratos. */
+  representativeSignature String? @db.LongText
   callmebotEnabled Boolean @default(false)
   smtpHost                 String?
   smtpPort                 Int?

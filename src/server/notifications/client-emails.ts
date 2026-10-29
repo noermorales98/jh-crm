@@ -3,6 +3,7 @@
  * Toggles en OrganizationSettings; dedupe vía Notification al OWNER.
  */
 import { prisma } from "@/src/lib/db";
+import { contactFooterLines } from "@/src/lib/brand/contact-links";
 import { createNotification } from "@/src/server/notifications";
 import { isSmtpConfigured, sendSmtpMail } from "@/src/server/notifications/smtp";
 
@@ -20,8 +21,12 @@ function clientGreeting(firstName: string | null | undefined, legalName: string)
   return `Hola ${name},\n\nTe escribimos de ${legalName}.\n\n`;
 }
 
-function clientFooter(legalName: string, phone: string | null | undefined) {
-  return `\n\n${legalName}${phone ? `\n${phone}` : ""}`;
+function clientFooter(
+  legalName: string,
+  settings: { phone: string | null; whatsappNumber: string | null; bookingUrl: string | null },
+) {
+  const lines = [legalName, settings.phone, ...contactFooterLines(settings)].filter(Boolean);
+  return `\n\n${lines.join("\n")}`;
 }
 
 async function firstOwnerUserId(organizationId: string): Promise<string | null> {
@@ -104,7 +109,7 @@ export async function notifyClientQuoteSent(
     `Te enviamos la cotización ${quote.folio}` +
     (quote.total != null ? ` por ${quote.total.toString()} ${quote.currency}.` : ".") +
     `\n\nSi tienes dudas, responde a este correo o llámanos.` +
-    clientFooter(legalName, settings.phone);
+    clientFooter(legalName, settings);
 
   return claimAndSend({
     organizationId,
@@ -156,7 +161,7 @@ export async function sendClientEmailsForOrg(
     const text =
       clientGreeting(args.firstName, legalName) +
       args.cuerpo +
-      clientFooter(legalName, settings.phone);
+      clientFooter(legalName, settings);
     bump(
       await claimAndSend({
         organizationId,

@@ -6,11 +6,14 @@ import { getSettingsFormValues } from "@/src/server/config";
 import {
   Card,
   CardBody,
+  CardHeader,
   EmptyState,
   PageHeader,
   Tabs,
 } from "@/src/components/ui";
 import { SettingsForm } from "@/src/components/config/settings-form";
+import { BrandContactForm } from "@/src/components/config/brand-contact-form";
+import { getBrandContact } from "@/src/server/config/brand-contact";
 import {
   MARCA_SETTINGS_DESCRIPTION,
   MARCA_SETTINGS_TITLE,
@@ -42,7 +45,10 @@ export default async function SettingsPage() {
     );
   }
 
-  const settings = await getSettingsFormValues(ctx);
+  const [settings, brandContact] = await Promise.all([
+    getSettingsFormValues(ctx),
+    getBrandContact(ctx.organizationId),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl">
@@ -56,6 +62,16 @@ export default async function SettingsPage() {
       <Card>
         <CardBody>
           <SettingsForm initialValues={settings} section="company" />
+        </CardBody>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader
+          title="Contacto y firma para clientes"
+          description="WhatsApp, link de agenda y la firma que va en tus contratos."
+        />
+        <CardBody>
+          <BrandContactForm initial={brandContact} />
         </CardBody>
       </Card>
     </div>

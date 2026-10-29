@@ -1,5 +1,6 @@
 import type { ContractStatus, Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
+import { agencySignatureHtml, withAgencySignature } from "@/src/lib/brand/contact-links";
 import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import { writeAuditLog } from "@/src/server/audit";
@@ -299,9 +300,30 @@ export async function markSent(ctx: OrganizationContext, contractId: string) {
     throw new DomainError(formatContractGateIssues(readiness.issues));
   }
 
+  // Firma del representante (Configuración) con la fecha de envío.
+  const settings = await prisma.organizationSettings.findUnique({
+    where: { organizationId: ctx.organizationId },
+    select: { legalName: true, representativeName: true, representativeSignature: true, timezone: true },
+  });
+  const signature = settings?.representativeSignature ?? null;
+  const contentSnapshot = signature
+    ? withAgencySignature(
+        contract.contentSnapshot,
+        agencySignatureHtml({
+          signature,
+          representativeName: settings?.representativeName ?? null,
+          legalName: settings?.legalName ?? "J&H Multiservices LLC",
+          dateLabel: new Intl.DateTimeFormat("es-MX", {
+            dateStyle: "long",
+            timeZone: settings?.timezone ?? "America/Chicago",
+          }).format(new Date()),
+        }),
+      )
+    : contract.contentSnapshot;
+
   return prisma.clientContract.update({
     where: { id: contract.id },
-    data: { status: "SENT" },
+    data: { status: "SENT", contentSnapshot },
   });
 }
 

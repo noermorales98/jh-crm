@@ -55,6 +55,8 @@ export async function loadPdfOrganization(
       website: settings.website,
       addressLine: addressLineFrom(settings),
       logo,
+      whatsappNumber: settings.whatsappNumber,
+      bookingUrl: settings.bookingUrl,
     },
     timezone: settings.timezone,
   };

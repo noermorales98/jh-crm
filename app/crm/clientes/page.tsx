@@ -15,6 +15,8 @@ import { ClientsActionBar } from "@/src/components/clients/clients-action-bar";
 import { getOrganizationShareUrl } from "@/src/server/org-share";
 import type { FondifyBucket } from "@/src/lib/fondify/status";
 import { getClientCreditSegments } from "@/src/server/credit-segments";
+import { UsStateFilter } from "@/src/components/clients/us-state-filter";
+import { normalizeStateCode, stateName } from "@/src/lib/us-states";
 
 export const metadata: Metadata = {
   title: "Clientes",
@@ -42,15 +44,17 @@ export default async function ClientsPage({
   const q = firstParam(sp, "q");
   const fondifyStatus = parseFondifyStatus(firstParam(sp, "status"));
   const cursor = firstParam(sp, "cursor");
+  const usState = normalizeStateCode(firstParam(sp, "state")) ?? undefined;
 
   const [result, counts, shareUrl] = await Promise.all([
     clientService.listClients(ctx, {
       q,
       fondifyStatus,
+      usState,
       cursor,
       limit: 40,
     }),
-    clientService.countClientsByFondifyBucket(ctx, q),
+    clientService.countClientsByFondifyBucket(ctx, q, usState),
     getOrganizationShareUrl(ctx),
   ]);
 
@@ -83,11 +87,14 @@ export default async function ClientsPage({
       <div className="space-y-3">
         <div className="w-full max-w-md">
           <SearchInput
-            placeholder="Buscar por nombre o correo…"
+            placeholder="Buscar por nombre, apellido, correo o teléfono…"
             defaultValue={q ?? ""}
           />
         </div>
-        <FilterPills active={active} counts={counts} q={q} />
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <FilterPills active={active} counts={counts} q={q} usState={usState} />
+          <UsStateFilter value={usState ?? null} />
+        </div>
       </div>
 
       {result.items.length === 0 ? (
@@ -95,12 +102,14 @@ export default async function ClientsPage({
           <EmptyState
             icon={Users}
             title={
-              q || fondifyStatus
-                ? "Ningún cliente coincide con el filtro."
+              q || fondifyStatus || usState
+                ? usState && !q && !fondifyStatus
+                  ? `No hay clientes en ${stateName(usState)}.`
+                  : "Ningún cliente coincide con el filtro."
                 : "Sin clientes"
             }
             description={
-              q || fondifyStatus
+              q || fondifyStatus || usState
                 ? "Prueba otro filtro o limpia la búsqueda."
                 : "Agrega el primer cliente para empezar."
             }
@@ -114,6 +123,9 @@ export default async function ClientsPage({
               id={client.id}
               name={clientFullName(client)}
               email={client.email}
+              phone={client.phone}
+              city={client.city}
+              state={client.state}
               status={client.status}
               roundNumber={client.roundNumber}
               nextActionAt={client.nextAction?.at ?? null}
@@ -131,6 +143,7 @@ export default async function ClientsPage({
         params={{
           q,
           status: fondifyStatus,
+          state: usState,
         }}
         cursor={cursor}
         nextCursor={result.nextCursor}

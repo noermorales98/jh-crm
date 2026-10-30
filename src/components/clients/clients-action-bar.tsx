@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { Link2, Plus, Upload } from "lucide-react";
 import { Button } from "@/src/components/ui";
 import { AgencyModal } from "@/src/components/agency/agency-modal";
+import { UsStateSelect } from "@/src/components/clients/us-state-select";
 import {
   commitClientImport,
   createClient,
@@ -261,12 +262,7 @@ export function ClientsActionBar({
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-[13px]">
               <span className="mb-1 block font-medium text-ink">Estado</span>
-              <input
-                name="state"
-                maxLength={2}
-                placeholder="TX"
-                className={`${fieldClass} uppercase`}
-              />
+              <UsStateSelect />
             </label>
             <label className="block text-[13px]">
               <span className="mb-1 block font-medium text-ink">C.P.</span>

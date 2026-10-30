@@ -101,6 +101,8 @@ import type {
 import { creditAnalysisHref } from "@/src/lib/routes/case-routes";
 import { CREDIT_SEGMENTS, CREDIT_SEGMENT_SHORT, type CreditSegment } from "@/src/lib/credit/segments";
 import { SalesPitch } from "@/src/components/clients/sales-pitch";
+import { UsStateSelect } from "@/src/components/clients/us-state-select";
+import { ClientDataPanel } from "@/src/components/clients/client-data-panel";
 
 export type AgencyClientDetailProps = {
   client: {
@@ -737,6 +739,11 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
         </div>
       </div>
 
+      <ClientDataPanel
+        client={props.client}
+        onEdit={props.canEdit ? () => setPanel("edit") : undefined}
+      />
+
       {showRepairBanner ? (
         <div className="rounded-surface bg-warning-soft px-4 py-3 text-[13px] text-warning-ink">
           <strong>Gran oportunidad de reparación.</strong> Este cliente tiene{" "}
@@ -987,12 +994,7 @@ export function AgencyClientDetail(props: AgencyClientDetailProps) {
           <div className="grid grid-cols-2 gap-3">
             <label className="block text-[13px]">
               <span className="mb-1 block font-medium">Estado</span>
-              <input
-                name="state"
-                defaultValue={props.client.state ?? ""}
-                maxLength={2}
-                className="w-full rounded-control bg-surface-app px-3 py-2.5 text-sm uppercase"
-              />
+              <UsStateSelect defaultValue={props.client.state} />
             </label>
             <label className="block text-[13px]">
               <span className="mb-1 block font-medium">C.P.</span>

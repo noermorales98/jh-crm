@@ -8,6 +8,7 @@ import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { resolveAssigneeForOrg } from "@/src/server/users";
+import { stateName } from "@/src/lib/us-states";
 import {
   clientStatusesForFondifyBucket,
   LIST_DEFAULT_STATUSES,
@@ -41,11 +42,19 @@ export interface ClientListFilters {
   /** Filtro Fondify: repair | struct | ready (mapea a ClientStatus[]). */
   fondifyStatus?: "repair" | "struct" | "ready";
   assignedToId?: string;
+  /** Estado donde vive (código de 2 letras, TX). */
+  usState?: string;
   cursor?: string;
   limit?: number;
 }
 
 const ACTIVE_SERVICE_STATUSES = ["OPEN", "ON_HOLD"] as const;
+
+/** «TX» también encuentra clientes viejos guardados como «Texas». */
+function usStateVariants(code: string): string[] {
+  const name = stateName(code);
+  return name && name !== code ? [code, name] : [code];
+}
 const ACTIVE_CASE_STATES = ["OPEN", "PAUSED"] as const;
 
 const CLIENT_LIST_SELECT = {
@@ -420,6 +429,7 @@ export async function listClients(ctx: OrganizationContext, filters: ClientListF
     organizationId: ctx.organizationId,
     ...statusFilter,
     ...(filters.assignedToId ? { assignedToId: filters.assignedToId } : {}),
+    ...(filters.usState ? { state: { in: usStateVariants(filters.usState) } } : {}),
     ...(filters.q
       ? {
           OR: [
@@ -453,6 +463,7 @@ export async function listClients(ctx: OrganizationContext, filters: ClientListF
 export async function countClientsByFondifyBucket(
   ctx: OrganizationContext,
   q?: string,
+  usState?: string,
 ): Promise<Record<FondifyBucket | "all", number>> {
   const qFilter = q
     ? {
@@ -466,7 +477,11 @@ export async function countClientsByFondifyBucket(
       }
     : {};
 
-  const base = { organizationId: ctx.organizationId, ...qFilter };
+  const base = {
+    organizationId: ctx.organizationId,
+    ...qFilter,
+    ...(usState ? { state: { in: usStateVariants(usState) } } : {}),
+  };
 
   const [all, repair, struct, ready] = await Promise.all([
     prisma.client.count({

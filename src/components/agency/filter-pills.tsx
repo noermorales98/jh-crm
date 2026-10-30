@@ -10,10 +10,13 @@ export function FilterPills({
   active,
   counts,
   q,
+  usState,
 }: {
   active: FondifyBucket | "all";
   counts: Record<FondifyBucket | "all", number>;
   q?: string;
+  /** Estado donde vive (TX): se conserva al cambiar de etapa. */
+  usState?: string;
 }) {
   const items: Array<{ key: FondifyBucket | "all"; label: string }> = [
     { key: "all", label: "Todos" },
@@ -25,20 +28,20 @@ export function FilterPills({
   return (
     <div className="space-y-1.5">
       <p className="text-[11px] font-medium uppercase tracking-wide text-text-secondary">
-        Estado del cliente
+        Etapa del cliente
       </p>
       <div
         className="flex flex-wrap gap-1.5"
         role="group"
-        aria-label="Estado del cliente"
+        aria-label="Etapa del cliente"
       >
       {items.map((item) => {
-        const href =
-          item.key === "all"
-            ? q
-              ? `/crm/clientes?q=${encodeURIComponent(q)}`
-              : "/crm/clientes"
-            : `/crm/clientes?status=${item.key}${q ? `&q=${encodeURIComponent(q)}` : ""}`;
+        const params = new URLSearchParams();
+        if (item.key !== "all") params.set("status", item.key);
+        if (q) params.set("q", q);
+        if (usState) params.set("state", usState);
+        const query = params.toString();
+        const href = query ? `/crm/clientes?${query}` : "/crm/clientes";
         const isActive = active === item.key;
         return (
           <Link

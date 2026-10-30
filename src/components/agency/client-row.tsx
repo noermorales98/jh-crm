@@ -8,6 +8,7 @@ import {
 } from "@/src/lib/fondify/status";
 import { Capsule, FondifyStatusCapsule } from "@/src/components/agency/capsule";
 import { CREDIT_SEGMENTS, CREDIT_SEGMENT_SHORT, type CreditSegment } from "@/src/lib/credit/segments";
+import { cityStateLabel } from "@/src/lib/us-states";
 
 export { FondifyStatusCapsule as FondifyStatusPill };
 
@@ -15,6 +16,9 @@ export function ClientRowCard({
   id,
   name,
   email,
+  phone = null,
+  city = null,
+  state = null,
   status,
   roundNumber,
   nextActionAt,
@@ -26,6 +30,10 @@ export function ClientRowCard({
   id: string;
   name: string;
   email: string | null;
+  phone?: string | null;
+  city?: string | null;
+  /** Estado donde vive (código de 2 letras). */
+  state?: string | null;
   status: ClientStatus;
   roundNumber: number | null;
   nextActionAt: Date | null;
@@ -37,6 +45,8 @@ export function ClientRowCard({
 }) {
   const days = nextActionAt ? daysUntil(nextActionAt) : null;
   const soon = days != null && isReviewSoon(days);
+  const place = cityStateLabel(city, state);
+  const contact = [email ?? "Sin correo", phone].filter(Boolean).join(" · ");
 
   return (
     <Link
@@ -62,7 +72,9 @@ export function ClientRowCard({
           {stale ? <Capsule tone="warning">Toca actualizar</Capsule> : null}
         </div>
         <p className="mt-1 truncate text-[13px] text-text-secondary">
-          {email ?? "Sin correo"}
+          {place ? <span className="font-medium text-ink">{place}</span> : <span>Sin estado</span>}
+          {" · "}
+          {contact}
           {days != null ? (
             <>
               {" · "}

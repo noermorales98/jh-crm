@@ -8,8 +8,8 @@ import { Prisma, PrismaClient } from "@prisma/client";
 import type { OrganizationContext } from "../../src/server/auth/guards";
 
 const databaseUrl = process.env.DATABASE_URL ?? "";
-if (!/^mysql:\/\/[^@]*@(127\.0\.0\.1|localhost)[:/]/.test(databaseUrl)) {
-  throw new Error("contract-gates-db solo corre contra una base local desechable.");
+if (!/^mysql:\/\/[^@]*@(127\.0\.0\.1|localhost)(:\d+)?\/jh_gates(\?|$)/.test(databaseUrl)) {
+  throw new Error("contract-gates-db solo corre contra la base local desechable jh_gates.");
 }
 
 const prisma = new PrismaClient();

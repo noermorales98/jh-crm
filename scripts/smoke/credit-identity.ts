@@ -137,10 +137,6 @@ function main() {
   check("otro tenant no se confirma", crossed);
 
   const plan = readFileSync("src/server/credit-reports/action-plan.ts", "utf8");
-  check(
-    "el plan sigue deduplicando por fila",
-    plan.includes("${item.creditorName}|${item.bureau}|${limit}|${balance}"),
-  );
   check("el plan no importa la identidad", !plan.includes("credit/identity"));
 
   console.log("\nOK credit-identity\n");

@@ -14,7 +14,7 @@ import * as rounds from "../src/server/rounds";
 import * as creditReports from "../src/server/credit-reports";
 import * as disputes from "../src/server/disputes";
 import * as comparisons from "../src/server/comparisons";
-import { ALLOWED_SEND_OPERATION } from "./smoke/_allowed-send-operation";
+import { signContractForRound } from "./smoke/_signed-contract";
 
 const prisma = new PrismaClient();
 const DEMO_EMAIL = "demo.credito@jh-multiservices.local";
@@ -297,10 +297,11 @@ async function main() {
     status: "WAITING",
   });
 
+  await signContractForRound(ctx, round.id);
+
   await rounds.markRoundSent(ctx, round.id, {
     expectedReviewAt: new Date("2026-03-15"),
     createReviewTask: true,
-    operation: ALLOWED_SEND_OPERATION,
   });
   await rounds.markRoundReviewed(ctx, round.id, { outcome: "COMPLETED" });
 

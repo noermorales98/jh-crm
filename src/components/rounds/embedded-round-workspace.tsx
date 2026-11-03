@@ -19,7 +19,6 @@ import {
   TR,
 } from "@/src/components/ui";
 import { formatDate, formatMoney } from "@/src/lib/format";
-import { decideOperation, OPERATION_REVIEW_LABEL } from "@/src/lib/credit/operations";
 import { DUE_UNDETERMINED_LABEL, roundTiming } from "@/src/lib/credit/rounds";
 import {
   CREDIT_BUREAU_LABELS,
@@ -101,7 +100,7 @@ export function EmbeddedRoundWorkspace({
     );
   }
 
-  const { round, summary, permissions } = data;
+  const { round, summary, permissions, sendGate } = data;
   const withoutLetter = summary.items.filter((i) => i.status === "SELECTED" || i.status === "DRAFT");
   const { byOutcome } = summary;
   const legalDue = roundTiming({
@@ -114,20 +113,6 @@ export function EmbeddedRoundWorkspace({
     policyDurationDays: null,
     receptionRequired: true,
   });
-  const sendDecision = decideOperation({
-    action: "SEND_DISPUTE",
-    serviceType: "CREDIT_REPAIR",
-    asOf: civilDay(round.startedAt) ?? round.startedAt.toString().slice(0, 10),
-    policy: null,
-    contract: null,
-    authorization: null,
-  });
-  const sendBlockedReason =
-    sendDecision.status === "ALLOWED"
-      ? null
-      : sendDecision.status === "BLOCKED"
-        ? `Envío bloqueado: ${sendDecision.reasons.join(", ") || sendDecision.status}.`
-        : `${OPERATION_REVIEW_LABEL}: no se puede marcar enviada (${sendDecision.reasons.join(", ") || "faltan requisitos"}).`;
 
   return (
     <div className="space-y-4">
@@ -172,8 +157,8 @@ export function EmbeddedRoundWorkspace({
             roundId={round.id}
             status={round.status}
             members={data.members}
-            sendAllowed={sendDecision.status === "ALLOWED"}
-            sendBlockedReason={sendBlockedReason}
+            sendAllowed={sendGate.allowed}
+            sendBlockedReason={sendGate.reason}
           />
         ) : null}
         <button
@@ -208,10 +193,8 @@ export function EmbeddedRoundWorkspace({
             </dd>
           </div>
           <div className="flex items-baseline justify-between gap-4">
-            <dt className="text-text-secondary">Decisión de envío</dt>
-            <dd className="text-ink">
-              {sendDecision.status === "REVIEW" ? OPERATION_REVIEW_LABEL : sendDecision.status}
-            </dd>
+            <dt className="text-text-secondary">Contrato firmado</dt>
+            <dd className="text-ink">{sendGate.allowed ? "Sí" : "Falta"}</dd>
           </div>
         </dl>
         <div className="grid gap-3 px-1 pb-4 sm:grid-cols-2 lg:grid-cols-4">

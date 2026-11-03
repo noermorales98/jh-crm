@@ -1,17 +1,11 @@
 import type { Prisma, RoundStatus } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
-import {
-  decideOperation,
-  OPERATION_REVIEW_LABEL,
-  type OperationAuthorization,
-  type OperationContract,
-  type OperationPolicy,
-} from "@/src/lib/credit/operations";
 import { DomainError } from "@/src/server/errors";
 import { writeActivityLog } from "@/src/server/activity";
 import { writeAuditLog } from "@/src/server/audit";
 import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
+import { assertSignedContract } from "@/src/server/contracts/signed-gate";
 import { resolveAssigneeForOrg } from "@/src/server/users";
 
 /**
@@ -31,17 +25,6 @@ export interface RoundUpdateData {
   lettersCount?: number;
 }
 
-export interface MarkRoundSentOperation {
-  /** Tipo de servicio evaluado (default CREDIT_REPAIR). */
-  serviceType?: string;
-  /** Corte YYYY-MM-DD (default: hoy UTC). */
-  asOf?: string;
-  policy: OperationPolicy | null;
-  contract: OperationContract;
-  authorization: OperationAuthorization;
-  evidenceDocumentIds?: readonly string[];
-}
-
 export interface MarkRoundSentData {
   /** Fecha acordada de revisión (obligatoria al enviar). */
   expectedReviewAt: Date;
@@ -51,11 +34,6 @@ export interface MarkRoundSentData {
   assignedToId?: string;
   /** Recordatorio de la tarea (default: expectedReviewAt). */
   reminderAt?: Date;
-  /**
-   * Contexto de decideOperation. Sin política/contrato/autorización revisados
-   * el envío queda en revisión y no se marca SENT (fail-closed).
-   */
-  operation?: MarkRoundSentOperation;
 }
 
 export type RoundReviewOutcome = "COMPLETED" | "REVIEWING";
@@ -205,27 +183,7 @@ export async function markRoundSent(
     throw new DomainError("Debes indicar la fecha esperada de revisión.");
   }
 
-  const op = data.operation;
-  const sendDecision = decideOperation({
-    action: "SEND_DISPUTE",
-    serviceType: op?.serviceType?.trim() || "CREDIT_REPAIR",
-    asOf: op?.asOf?.trim() || new Date().toISOString().slice(0, 10),
-    policy: op?.policy ?? null,
-    contract: op?.contract ?? null,
-    authorization: op?.authorization ?? null,
-    evidenceDocumentIds: op?.evidenceDocumentIds,
-  });
-  if (sendDecision.status !== "ALLOWED") {
-    const reasons =
-      sendDecision.reasons.length > 0
-        ? sendDecision.reasons.join(", ")
-        : sendDecision.status;
-    throw new DomainError(
-      sendDecision.status === "BLOCKED"
-        ? `Envío bloqueado: ${reasons}.`
-        : `${OPERATION_REVIEW_LABEL}: no se puede marcar enviada (${reasons}).`,
-    );
-  }
+  await assertSignedContract(ctx.organizationId, round.case.clientId, round.caseId);
 
   const reviewAssignee = data.createReviewTask
     ? (await resolveAssigneeForOrg(

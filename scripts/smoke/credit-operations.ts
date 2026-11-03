@@ -12,7 +12,6 @@ import {
   simulateCharge,
   type OperationPolicy,
 } from "../../src/lib/credit/operations";
-import { assertChargeAllowed } from "../../src/server/payments/assert-charge";
 import { DomainError } from "../../src/server/errors";
 
 function check(label: string, ok: boolean, detail?: unknown) {
@@ -147,7 +146,6 @@ function main() {
   const workspace = readFileSync("src/components/rounds/embedded-round-workspace.tsx", "utf8");
   const roundsServer = readFileSync("src/server/rounds/index.ts", "utf8");
   const actionsUi = readFileSync("src/components/rounds/round-actions.tsx", "utf8");
-  const assertCharge = readFileSync("src/server/payments/assert-charge.ts", "utf8");
   const paymentsIndex = readFileSync("src/server/payments/index.ts", "utf8");
   const stripePay = readFileSync("src/server/payments/stripe.ts", "utf8");
   check(
@@ -155,18 +153,15 @@ function main() {
     !source.includes("3 días") && !source.includes("5 días") && !source.includes("cancellationDays") && !source.includes("score"),
   );
   check(
-    "markRoundSent exige decideOperation ALLOWED (fail-closed)",
-    roundsServer.includes("decideOperation") &&
-      roundsServer.includes('action: "SEND_DISPUTE"') &&
-      roundsServer.includes('sendDecision.status !== "ALLOWED"') &&
-      roundsServer.includes("OPERATION_REVIEW_LABEL"),
+    "markRoundSent exige contrato firmado",
+    roundsServer.includes("assertSignedContract") && !roundsServer.includes("decideOperation"),
   );
   check(
-    "cobros de crédito exigen CHARGE_SERVICE fail-closed",
-    assertCharge.includes('action: "CHARGE_SERVICE"') &&
-      assertCharge.includes("assertChargeAllowed") &&
-      paymentsIndex.includes("assertChargeAllowed") &&
-      stripePay.includes("assertChargeAllowed"),
+    "lo ya cobrado siempre se registra; la compuerta va antes del enlace de pago",
+    !paymentsIndex.includes("assertChargeAllowed") &&
+      !stripePay.includes("assertChargeAllowed") &&
+      stripePay.indexOf("assertSignedContract(ctx.organizationId, quote.clientId") <
+        stripePay.indexOf("requireStripeClient", stripePay.indexOf("export async function startQuoteCheckout")),
   );
   check(
     "onRoundSent deja rastro si falla tras SENT",
@@ -174,43 +169,27 @@ function main() {
       roundsServer.includes("onRoundSent_failed"),
   );
 
-  let chargeBlocked = false;
-  try {
-    assertChargeAllowed();
-  } catch (error) {
-    chargeBlocked =
-      error instanceof DomainError &&
-      (error.message.includes("Revisión") ||
-        error.message.includes("NO_POLICY") ||
-        error.message.includes("no se puede cobrar"));
-  }
-  check("cobro sin política falla (fail-closed)", chargeBlocked);
   check(
-    "la UI no ofrece enviar sin ALLOWED",
+    "la UI no ofrece enviar sin contrato firmado",
     actionsUi.includes("sendAllowed") && actionsUi.includes("sendBlockedReason"),
   );
   check(
-    "la ronda muestra revisión y conserva el plazo sin política",
-    panel.includes("Decisión de envío") &&
-      panel.includes("decideOperation") &&
-      panel.includes("OPERATION_REVIEW_LABEL") &&
-      panel.includes("policy: null") &&
+    "la ronda muestra el contrato y conserva el plazo sin política",
+    panel.includes("Contrato firmado") &&
+      panel.includes("getSignedContractGate") &&
       panel.includes("deadlinePolicyId: null") &&
       panel.includes("RoundActions") &&
-      panel.includes("sendAllowed={sendDecision.status === \"ALLOWED\"}"),
+      panel.includes("sendAllowed={sendGate.allowed}"),
   );
   check(
-    "la ronda visible repite el plazo y la decisión",
+    "la ronda visible repite el plazo y el contrato",
     workspace.includes("Plazo legal") &&
-      workspace.includes("Decisión de envío") &&
-      workspace.includes("decideOperation") &&
+      workspace.includes("Contrato firmado") &&
       workspace.includes("roundTiming") &&
-      workspace.includes("OPERATION_REVIEW_LABEL") &&
       workspace.includes("DUE_UNDETERMINED_LABEL") &&
-      workspace.includes("policy: null") &&
       workspace.includes("deadlinePolicyId: null") &&
       workspace.includes("RoundActions") &&
-      workspace.includes("sendAllowed={sendDecision.status === \"ALLOWED\"}") &&
+      workspace.includes("sendAllowed={sendGate.allowed}") &&
       !workspace.includes("30 días"),
   );
 

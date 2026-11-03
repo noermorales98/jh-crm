@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Skills de agentes de terceros: no son código de la app.
+    ".agents/**",
   ]),
   {
     // JH-001 baseline: React Compiler plugin rules flood pre-existing UI.

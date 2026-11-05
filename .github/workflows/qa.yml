@@ -7,6 +7,9 @@ on:
   push:
     branches: [main, "cursor/**"]
 
+permissions:
+  contents: read
+
 concurrency:
   group: qa-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -70,6 +73,7 @@ jobs:
   db-smokes:
     name: db smokes (MySQL desechable)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     services:
       mysql:
         image: mysql:8.4

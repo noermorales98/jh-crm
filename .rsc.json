@@ -18,21 +18,26 @@
     "design",
     "fable-operator",
     "ftd",
+    "github-actions",
     "harness",
     "idea-refinement",
     "implement",
     "init",
+    "mysql",
     "nextjs",
     "orient",
     "parallel",
     "plan",
+    "prisma-orm",
     "react",
     "review",
     "sdd-init",
+    "secure-coding",
     "ship",
     "simplify-code",
     "source-grounded-development",
     "specify",
+    "stripe",
     "suggest",
     "tasks",
     "tidy",
@@ -1278,6 +1283,11 @@
       "02-DOCS/wiki/harness/installation-plan.md": "d5ff4aadba76813ac499f28f5761fab8a9a37d4642517c4995400ea1818e84b1",
       "02-DOCS/wiki/harness/user-profile.md": "678c8beae4df357c01a56d9e4a69cba6d297d278a9d1eca6efcd4e913e881f87",
       "AGENTS.md": "a62cf490c02799a320d39c0717e0edba23e8c790a1fe43368cbdd6ed574a686c"
+    },
+    "maintenanceDrift": {
+      "action": "add stripe,prisma-orm,mysql,github-actions,secure-coding",
+      "recordedAt": "2026-11-05T23:57:34.514Z",
+      "requiresReassessment": true
     }
   }
 }

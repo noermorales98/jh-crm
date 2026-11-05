@@ -78,7 +78,8 @@ se cambió el permiso imposible por una condición que sí se puede cumplir: un 
 ## How it proves it
 - Una prueba nueva contra una base de datos de prueba: sin contrato la ronda se rechaza, con
   contrato se envía, y los pagos se registran siempre. Falló antes del arreglo y pasa después.
-- Las comprobaciones automáticas del proyecto pasan, en local y en el CI de GitHub del PR #39.
+- Las comprobaciones automáticas del proyecto (lint, tipos y build) pasan, en local y en el CI de
+  GitHub del PR #39. El CI **no** ejecuta la prueba de contratos, porque necesita una base de datos.
 - La comprobación en pantalla está descrita en el PR #39.
 - **Sin comprobar todavía:** un pago real de Stripe en modo prueba de punta a punta, y las demás
   pruebas con base de datos que se ajustaron. Constan en el PR.
@@ -122,3 +123,6 @@ se cambió el permiso imposible por una condición que sí se puede cumplir: un 
 ## Revisions
 - 2026-11-05 — primera versión, escrita después del código para el PR #39.
 - 2026-11-05 — aprobada por la dueña, sin cambios.
+- 2026-11-05 — revisión de tres revisores (lógica, seguridad, pruebas): sin fallos graves. Se
+  corrige la frase sobre el CI. Los huecos de pruebas quedan en
+  [progress](../progress/rondas-y-pagos-contrato-firmado.md); la dueña eligió unir y apuntarlos.

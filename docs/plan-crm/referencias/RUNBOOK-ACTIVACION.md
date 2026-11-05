@@ -15,7 +15,7 @@ El 22 de octubre de 2026 la migración ya no bloquea la compuerta. `activationGa
 
 - El evento de telemetría solo trae tipo, duración, versión, conteo, calidad e id. No trae nombre, SSN, saldo ni PDF.
 - No hay un p95 prometido. Una muestra vacía no inventa presupuesto.
-- El cobro sin política revisada queda en `REVIEW` y no mueve dinero.
+- Enlaces de pago de un caso y envío de rondas exigen un contrato firmado (`src/server/contracts/signed-gate.ts`). El dinero ya cobrado por Stripe y los pagos manuales siempre se registran.
 
 ## Recuperación
 
@@ -30,7 +30,6 @@ El 22 de octubre de 2026 la migración ya no bloquea la compuerta. `activationGa
 - La compuerta de esta base lleva `migrationApplied: true`. `ready` sigue en false por `POLICY` y `PROGRAM`.
 - No hay una política de plazos validada. El plazo legal sigue pendiente de determinar.
 - No hay un programa de un prestamista revisado. Un `PASS` interno no es una aprobación y no tiene monto.
-- El cobro no se enciende solo. Sin política revisada queda en `REVIEW` y no mueve dinero.
 
 ## Comprobación
 

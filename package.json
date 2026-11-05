@@ -86,6 +86,7 @@
     "smoke:credit-report-selection": "tsx scripts/smoke/credit-report-selection.ts",
     "smoke:credit-portal": "tsx scripts/smoke/credit-portal.ts",
     "smoke:credit-operations": "tsx scripts/smoke/credit-operations.ts",
+    "smoke:contract-gates-db": "tsx scripts/smoke/contract-gates-db.ts",
     "smoke:credit-corpus": "tsx scripts/smoke/credit-corpus.ts",
     "smoke:credit-telemetry": "tsx scripts/smoke/credit-telemetry.ts",
     "smoke:credit-journey": "tsx scripts/smoke/credit-journey.ts",

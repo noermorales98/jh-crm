@@ -12,7 +12,7 @@ import * as paymentPlans from "../../src/server/payment-plans";
 import * as consultations from "../../src/server/consultations";
 import * as automations from "../../src/server/automations";
 import { DEFAULT_TIMEZONE } from "../../src/lib/format/dates";
-import { ALLOWED_SEND_OPERATION } from "./_allowed-send-operation";
+import { signContractForRound } from "./_signed-contract";
 
 const prisma = new PrismaClient();
 const MARK = "S5-SMOKE";
@@ -176,10 +176,10 @@ async function main() {
 
     const reviewAt = new Date();
     reviewAt.setUTCDate(reviewAt.getUTCDate() + 30);
+    await signContractForRound(ctx, round.id);
     const sent = await rounds.markRoundSent(ctx, round.id, {
       expectedReviewAt: reviewAt,
       createReviewTask: false,
-      operation: ALLOWED_SEND_OPERATION,
     });
     check("round SENT", sent.round.status === "SENT");
     check("expectedReviewAt set", Boolean(sent.round.expectedReviewAt));

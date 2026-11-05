@@ -4,13 +4,13 @@ import { requireOrganization } from "@/src/server/auth/guards";
 import { can } from "@/src/server/auth/permissions";
 import * as roundService from "@/src/server/rounds";
 import * as documentService from "@/src/server/documents";
+import { getSignedContractGate } from "@/src/server/contracts/signed-gate";
 import { listMemberOptions, clientFullName } from "@/src/server/page-helpers";
 import { DomainError } from "@/src/server/errors";
 import { isStorageConfigured } from "@/src/lib/storage/s3";
 import { Alert, Card, CardBody, CardHeader, StatusPill } from "@/src/components/ui";
 import { formatDate } from "@/src/lib/format";
 import { DUE_UNDETERMINED_LABEL, roundTiming } from "@/src/lib/credit/rounds";
-import { decideOperation, OPERATION_REVIEW_LABEL } from "@/src/lib/credit/operations";
 import { RoundActions } from "@/src/components/rounds/round-actions";
 import { UploadDocumentButton } from "@/src/components/clients/quick-add-document-button";
 import { DocumentTable } from "@/src/components/documents/document-table";
@@ -43,20 +43,11 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
     policyDurationDays: null,
     receptionRequired: true,
   });
-  const sendDecision = decideOperation({
-    action: "SEND_DISPUTE",
-    serviceType: "CREDIT_REPAIR",
-    asOf: round.startedAt.toISOString().slice(0, 10),
-    policy: null,
-    contract: null,
-    authorization: null,
-  });
-  const sendBlockedReason =
-    sendDecision.status === "ALLOWED"
-      ? null
-      : sendDecision.status === "BLOCKED"
-        ? `Envío bloqueado: ${sendDecision.reasons.join(", ") || sendDecision.status}.`
-        : `${OPERATION_REVIEW_LABEL}: no se puede marcar enviada (${sendDecision.reasons.join(", ") || "faltan requisitos"}).`;
+  const sendGate = await getSignedContractGate(
+    ctx.organizationId,
+    round.case.client.id,
+    round.case.id,
+  );
 
   const documents = await documentService.listDocuments(ctx, {
     clientId: round.case.client.id,
@@ -128,10 +119,8 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
               </dd>
             </div>
             <div className="flex items-baseline justify-between gap-4">
-              <dt className="text-[12px] text-text-secondary">Decisión de envío</dt>
-              <dd className="text-[13px] text-ink">
-                {sendDecision.status === "REVIEW" ? OPERATION_REVIEW_LABEL : sendDecision.status}
-              </dd>
+              <dt className="text-[12px] text-text-secondary">Contrato firmado</dt>
+              <dd className="text-[13px] text-ink">{sendGate.allowed ? "Sí" : "Falta"}</dd>
             </div>
             <div className="flex items-baseline justify-between gap-4">
               <dt className="text-[12px] text-text-secondary">Cartas</dt>
@@ -193,8 +182,8 @@ export async function RoundDetailPanel({ roundId }: { roundId: string }) {
           roundId={round.id}
           status={round.status}
           members={members}
-          sendAllowed={sendDecision.status === "ALLOWED"}
-          sendBlockedReason={sendBlockedReason}
+          sendAllowed={sendGate.allowed}
+          sendBlockedReason={sendGate.reason}
         />
       ) : null}
     </div>

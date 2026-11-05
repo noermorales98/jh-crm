@@ -34,3 +34,7 @@
 - Identidades en proposal JSON siguen vacías hasta identity v2; cualquier `identityDecisionIds` no vacío falla.
 - Compensación de confirm no usa una sola `$transaction` con `createCreditReport` (helpers actuales); borra reporte huérfano si falla el post-reporte.
 - Activación (`POLICY`/`PROGRAM`) no marcada HECHO.
+
+## Corrección del 2 de noviembre de 2026
+
+Los pasos de `decideOperation` en `markRoundSent` y de `assertChargeAllowed` dejaban el CRM sin operar: la política nunca podía guardarse, así que ninguna ronda se enviaba y el webhook rechazaba pagos ya cobrados por Stripe. Se reemplazaron por `src/server/contracts/signed-gate.ts`. Comprobación: `smoke:contract-gates-db` contra una base local desechable.

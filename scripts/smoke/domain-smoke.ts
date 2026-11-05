@@ -23,7 +23,7 @@ import * as quotes from "../../src/server/quotes";
 import * as payments from "../../src/server/payments";
 import * as receipts from "../../src/server/receipts";
 import * as dashboard from "../../src/server/dashboard";
-import { ALLOWED_SEND_OPERATION } from "./_allowed-send-operation";
+import { signContractForRound } from "./_signed-contract";
 
 const prisma = new PrismaClient();
 const MARK = "SMOKE";
@@ -117,10 +117,10 @@ async function main() {
   check("rondas numeradas 1 y 2", round1.roundNumber === 1 && round2.roundNumber === 2);
 
   const expectedReview = new Date(Date.now() + 30 * 86400_000);
+  await signContractForRound(ctx, round1.id);
   const sent = await rounds.markRoundSent(ctx, round1.id, {
     expectedReviewAt: expectedReview,
     createReviewTask: true,
-    operation: ALLOWED_SEND_OPERATION,
   });
   check("ronda enviada: status SENT + sentAt", sent.round.status === "SENT" && Boolean(sent.round.sentAt));
   check("tarea CREDIT_UPDATE creada con dueAt=expectedReviewAt",

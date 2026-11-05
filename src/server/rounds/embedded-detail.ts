@@ -7,10 +7,15 @@ import * as progressService from "@/src/server/progress-reports";
 import { listMemberOptions } from "@/src/server/page-helpers";
 import { prisma } from "@/src/lib/db";
 import { CREDIT_BUREAU_LABELS } from "@/src/lib/labels";
+import {
+  getSignedContractGate,
+  type SignedContractGate,
+} from "@/src/server/contracts/signed-gate";
 
 export type EmbeddedRoundDetail = {
   caseId: string;
   clientId: string;
+  sendGate: SignedContractGate;
   round: {
     id: string;
     roundNumber: number;
@@ -142,8 +147,9 @@ export async function getEmbeddedRoundDetail(
   const canManageLetters = can(ctx.role, "letters.manage");
   const canViewLetters = can(ctx.role, "letters.view");
 
-  const [members, eligible, templates, letters, progressReports, inquiries] =
+  const [sendGate, members, eligible, templates, letters, progressReports, inquiries] =
     await Promise.all([
+      getSignedContractGate(ctx.organizationId, round.case.client.id, round.caseId),
       canManageRounds ? listMemberOptions(ctx) : Promise.resolve([]),
       canManageDisputes
         ? disputeService.listEligibleCreditItems(ctx, roundId)
@@ -163,6 +169,7 @@ export async function getEmbeddedRoundDetail(
   return {
     caseId: round.caseId,
     clientId: round.case.client.id,
+    sendGate,
     round: {
       id: round.id,
       roundNumber: round.roundNumber,

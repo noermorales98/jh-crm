@@ -7,12 +7,13 @@ timestamp: 2026-11-05T22:30:00Z
 topic: sdd
 slug: pruebas-bd-en-ci
 branch: ci/pruebas-bd-en-ci
-status: draft
+status: approved
+approved_by: Noeli, 2026-11-05 ("Sí, apruebo ambas")
 ---
 
 # Spec — Pruebas con base de datos en el CI
 
-> Slug: `pruebas-bd-en-ci` · Status: draft · Created: 2026-11-05
+> Slug: `pruebas-bd-en-ci` · Status: approved · Created: 2026-11-05
 > Inherits: [constitution](../constitution.md) v1.0.0 — principios 5, 6, 7 y 13.
 > Cierra los dos huecos importantes de [progress/rondas-y-pagos-contrato-firmado](../progress/rondas-y-pagos-contrato-firmado.md).
 
@@ -108,3 +109,4 @@ Abrir un PR o subir a main. No tiene que hacer nada más: GitHub ejecuta la prue
 
 ## Revisions
 - 2026-11-05 — primera versión.
+- 2026-11-05 — aprobada por la dueña, junto con la rama `ci/pruebas-bd-en-ci`.

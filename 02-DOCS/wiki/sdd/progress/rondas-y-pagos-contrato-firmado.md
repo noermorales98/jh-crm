@@ -39,3 +39,13 @@ The owner chose to merge and record the gaps (2026-11-05, "Unir y apuntar huecos
   the spec wording; confirm the intent.
 - **manual · after deploy** — Replay in Stripe the webhooks that failed since 2026-10-23.
 - **manual · after deploy** — A real Stripe test-mode payment end to end.
+
+## Follow-up (2026-11-05, spec `pruebas-bd-en-ci`, branch `ci/pruebas-bd-en-ci`)
+
+- **closed** — "another case's contract" is now tested for rounds and for the payment link; the
+  check fails when the case filter is removed from `signed-gate.ts` (4 failures) and passes with it.
+- **closed** — `smoke:contract-gates-db` runs in GitHub CI (`db-smokes` job, throwaway MySQL 8.4).
+- **closed** — the sent round's review date and review task, the unchanged rejected round, and the
+  stored manual payment are now asserted.
+- **still open** — `checkoutAllowed` / `looseError` only show the error is not about the contract
+  (no Stripe keys in CI); the two business-rule questions remain.

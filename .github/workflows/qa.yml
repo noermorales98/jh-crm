@@ -64,3 +64,48 @@ jobs:
         run: npm run smoke:credit-pdf-pending-confirm
       - name: Build QA (no migrate)
         run: npm run build:qa
+
+  # Smokes que necesitan una base real: MySQL desechable del propio runner.
+  # Job aparte para no tocar la regla TEST-007 del job qa (build sin migrate).
+  db-smokes:
+    name: db smokes (MySQL desechable)
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: qa-ci-root-not-a-secret
+          MYSQL_DATABASE: jh_gates
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -pqa-ci-root-not-a-secret"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      QA_SANDBOX: "1"
+      CI: "true"
+      DATABASE_URL: "mysql://root:qa-ci-root-not-a-secret@127.0.0.1:3306/jh_gates"
+      # prisma.config.ts da prioridad a .env.local; esto fija la base de las migraciones.
+      MIGRATE_DATABASE_URL: "mysql://root:qa-ci-root-not-a-secret@127.0.0.1:3306/jh_gates"
+      AUTH_SECRET: "qa-ci-auth-secret-not-for-production-use-32b"
+      AUTH_URL: "http://localhost:3000"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      FEATURE_CLIENT_PORTAL: "false"
+      FEATURE_PUBLIC_INTAKE: "false"
+      FEATURE_CONSULTATION_PAYMENTS: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - name: Install
+        run: npm ci
+      - name: Prisma generate
+        run: npx prisma generate
+      - name: Migrate throwaway DB
+        run: npx prisma migrate deploy
+      - name: Contract gates smoke (rondas y cobros)
+        run: npm run smoke:contract-gates-db

@@ -135,6 +135,12 @@ async function main() {
     rounds.markRoundSent(ctx, round.id, { expectedReviewAt }),
   );
   check("sin contrato, el servidor rechaza con ese motivo", /contrato/i.test(noContract ?? ""), noContract);
+  const untouched = await prisma.creditRound.findUnique({ where: { id: round.id } });
+  check(
+    "una ronda rechazada no cambia",
+    untouched?.status === round.status && untouched?.expectedReviewAt === null,
+    untouched,
+  );
 
   await makeContract(ctx, client.id, creditCase.id, "DRAFT");
   await makeContract(ctx, client.id, creditCase.id, "SENT");
@@ -151,6 +157,23 @@ async function main() {
     rounds.markRoundSent(ctx, round.id, { expectedReviewAt }),
   );
   check("el contrato de otro cliente no alcanza", /contrato/i.test(foreign ?? ""), foreign);
+
+  const siblingCase = await createCreditCase(ctx, { clientId: client.id, summary: "Caso A2" });
+  await makeContract(ctx, client.id, siblingCase.id, "SIGNED");
+  const sibling = await errorMessage(() =>
+    rounds.markRoundSent(ctx, round.id, { expectedReviewAt }),
+  );
+  check(
+    "el contrato de otro caso del mismo cliente no alcanza",
+    /contrato/i.test(sibling ?? ""),
+    sibling,
+  );
+  const stillUntouched = await prisma.creditRound.findUnique({ where: { id: round.id } });
+  check(
+    "con el contrato de otro caso, la ronda no cambia",
+    stillUntouched?.status === round.status,
+    stillUntouched?.status,
+  );
 
   const otherOrgClient = await makeClient(otherOrg, "C");
   await prisma.clientContract.create({
@@ -174,6 +197,13 @@ async function main() {
   check("con contrato firmado, la ronda se envía", sentError === null, sentError);
   const sentRound = await prisma.creditRound.findUnique({ where: { id: round.id } });
   check("la ronda queda en SENT", sentRound?.status === "SENT", sentRound?.status);
+  check(
+    "la ronda guarda su fecha de revisión",
+    sentRound?.expectedReviewAt?.getTime() === expectedReviewAt.getTime(),
+    sentRound?.expectedReviewAt,
+  );
+  const reviewTasks = await prisma.task.count({ where: { roundId: round.id } });
+  check("la ronda enviada crea su tarea de revisión", reviewTasks === 1, reviewTasks);
 
   const generalClient = await makeClient(ctx, "D");
   const generalCase = await createCreditCase(ctx, { clientId: generalClient.id, summary: "Caso D" });
@@ -208,6 +238,7 @@ async function main() {
   });
   check("el reintento no duplica el pago", stripePayments === 1, stripePayments);
 
+  const paymentsBefore = await prisma.payment.count({ where: { caseId: payerCase.id } });
   const manualError = await errorMessage(() =>
     payments.registerPayment(ctx, {
       clientId: payer.id,
@@ -217,12 +248,26 @@ async function main() {
     }),
   );
   check("un pago manual ligado a un caso se registra", manualError === null, manualError);
+  const paymentsAfter = await prisma.payment.count({ where: { caseId: payerCase.id } });
+  check("el pago manual queda guardado", paymentsAfter === paymentsBefore + 1, {
+    paymentsBefore,
+    paymentsAfter,
+  });
 
   const checkoutBlocked = await errorMessage(() => stripe.startQuoteCheckout(ctx, quote.id));
   check(
     "sin contrato no se genera un enlace de pago del caso",
     /contrato/i.test(checkoutBlocked ?? ""),
     checkoutBlocked,
+  );
+
+  const payerOtherCase = await createCreditCase(ctx, { clientId: payer.id, summary: "Caso E2" });
+  await makeContract(ctx, payer.id, payerOtherCase.id, "SIGNED");
+  const checkoutSibling = await errorMessage(() => stripe.startQuoteCheckout(ctx, quote.id));
+  check(
+    "el contrato de otro caso no habilita el enlace de pago",
+    /contrato/i.test(checkoutSibling ?? ""),
+    checkoutSibling,
   );
 
   const looseQuote = await makeQuote(ctx, payer.id, null, 9003);

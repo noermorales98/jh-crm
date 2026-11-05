@@ -7,12 +7,13 @@ timestamp: 2026-11-05T21:00:00Z
 topic: sdd
 slug: rondas-y-pagos-contrato-firmado
 branch: fix/rondas-y-pagos-contrato-firmado
-status: draft
+status: approved
+approved_by: Noeli, 2026-11-05 ("Sí, la apruebo")
 ---
 
 # Spec — Desbloquear rondas y registrar siempre los pagos
 
-> Slug: `rondas-y-pagos-contrato-firmado` · Status: draft · Created: 2026-11-05
+> Slug: `rondas-y-pagos-contrato-firmado` · Status: approved · Created: 2026-11-05
 > Inherits: [constitution](../constitution.md) (todavía en borrador: no hereda principios ratificados)
 > Ficha escrita **después** del código, para el PR #39. Describe lo que la rama ya hace.
 
@@ -120,3 +121,4 @@ se cambió el permiso imposible por una condición que sí se puede cumplir: un 
 
 ## Revisions
 - 2026-11-05 — primera versión, escrita después del código para el PR #39.
+- 2026-11-05 — aprobada por la dueña, sin cambios.

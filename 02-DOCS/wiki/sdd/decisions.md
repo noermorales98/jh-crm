@@ -14,3 +14,9 @@ Append-only. Newest at the bottom.
   authorship marks (vs allowed). Existing rules in docs/02, 06, 07 and .cursor/rules ratified.
   Delicate paths enforced locally by `.rsc/sello-config.json` (not in git). Accessibility floor
   left out for now.
+- 2026-11-05 — Business rules BR-043..BR-046 added to `docs/02-BUSINESS_RULES.md`. Quote with no
+  case needs no contract (vs always require one). Deleted-case contracts only documented, not coded
+  (vs voiding them), because cases are only deleted with the whole organization.
+- 2026-11-05 — `main` protected for PRs: `lint + typecheck + build:qa` and
+  `db smokes (MySQL desechable)` must be green to merge (vs no protection). Admins can still push
+  directly, as principle 12 allows.

@@ -148,6 +148,22 @@ a nivel `ServiceCase` (P1 si hoy el balance vive en Quote).
 ### BR-042
 Zelle, Cash, Bank Transfer y otros métodos pueden registrarse manualmente en MVP.
 
+## Contratos y cobro
+
+Decididas por la dueña el 2026-11-05. Ficha: `02-DOCS/wiki/sdd/specs/rondas-y-pagos-contrato-firmado.md`.
+
+### BR-043
+Enviar una ronda y generar el enlace de pago de una cotización ligada a un caso exigen un contrato `SIGNED` del cliente para ese caso, o uno sin caso asignado. El contrato de otro caso no vale.
+
+### BR-044
+Una cotización sin caso no exige contrato para generar su enlace de pago. Sin caso no hay un servicio de reparación en marcha.
+
+### BR-045
+Lo ya cobrado siempre se registra, por Stripe o manual, tenga o no contrato. El contrato se exige antes de cobrar, no después.
+
+### BR-046
+Un caso solo se borra al vaciar la organización entera, y sus contratos se borran con él. Si algún día se permite borrar un caso suelto, antes hay que decidir qué pasa con sus contratos: hoy pasarían a "sin caso" y valdrían para los demás casos del cliente (BR-043).
+
 ## Documentos
 
 ### BR-050

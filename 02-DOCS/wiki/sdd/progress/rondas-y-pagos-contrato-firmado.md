@@ -49,3 +49,10 @@ The owner chose to merge and record the gaps (2026-11-05, "Unir y apuntar huecos
   stored manual payment are now asserted.
 - **still open** — `checkoutAllowed` / `looseError` only show the error is not about the contract
   (no Stripe keys in CI); the two business-rule questions remain.
+
+## Business rules (2026-11-05)
+
+- **closed** — quote with no case: no contract needed for its payment link. Owner's choice
+  ("Dejarlo así"). Written as BR-044 in `docs/02-BUSINESS_RULES.md`.
+- **closed** — deleted case: cases are only deleted with the whole organization, so a contract never
+  becomes "no case" in practice. Owner's choice ("Solo apuntarlo"). Written as BR-046.

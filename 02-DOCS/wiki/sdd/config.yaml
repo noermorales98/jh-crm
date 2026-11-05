@@ -1,0 +1,66 @@
+version: 1
+project:
+  root: .
+  stacks: [nextjs, react, node, prisma, mysql, stripe]
+  package_managers: [npm]
+  monorepo: false
+  signals:
+    - manifest:package.json
+    - lockfile:package-lock.json
+    - ci:.github/workflows/qa.yml
+    - "orm:prisma/schema.prisma (provider mysql)"
+    - "payments:stripe"
+sdd:
+  artifact_store: 02-DOCS/wiki/sdd
+  execution_mode: interactive
+  registry_path: .rsc/skill-registry.json
+  review_budget:
+    line_budget: 400
+    file_budget: 12
+  delivery_strategy:
+    default: ask-on-risk
+testing:
+  # No unit-test framework: behaviour is proven by tsx smoke scripts in scripts/smoke/
+  # (constitution v1.0.0, principles 5 and 6). Each change needs a smoke that fails without it.
+  strict_tdd: true
+  runners: [tsx-smoke]
+  db_smokes:
+    # Need a throwaway MySQL named jh_gates. Migrate with MIGRATE_DATABASE_URL, because
+    # prisma.config.ts gives .env.local priority over DATABASE_URL.
+    migrate: "MIGRATE_DATABASE_URL=mysql://root@127.0.0.1:3399/jh_gates npx prisma migrate deploy"
+    run: "DATABASE_URL=mysql://root@127.0.0.1:3399/jh_gates npm run smoke:contract-gates-db"
+    ci_job: "db smokes (MySQL desechable)"
+  commands:
+    apply: [npm ci, npx prisma generate]
+    verify: ["npm run lint", "npm run typecheck", "npm run ci:qa"]
+phase_rules:
+  proposal: optional-on-ambiguity
+  specify: requires intent or proposal
+  plan: requires spec
+  tasks: requires plan and spec
+  analyze: requires spec plan tasks
+  implement: requires analyze pass, strict_tdd when testing.strict_tdd is true
+  verify: requires spec tasks evidence
+  archive: requires verify record and review/ship outcome
+models:
+  enabled: false              # opt-in master switch; false = honor session model, announce nothing
+  provider: anthropic         # which provider the tiers below resolve to
+  tiers:
+    heavy: claude-opus-4-8
+    balanced: claude-sonnet-4-6
+    light: claude-haiku-4-5-20251001
+  phases:
+    constitution: heavy
+    specify: balanced
+    clarify: balanced
+    plan: heavy
+    tasks: balanced
+    analyze: heavy
+    implement: balanced
+    verify: balanced
+    review: heavy
+    ship: light
+    debug: heavy
+    worktrees: light
+    sdd-init: light
+  overrides: {}               # per-phase tier overrides set by the user

@@ -10,3 +10,4 @@
 | sdd/specs | [rondas-y-pagos-contrato-firmado](sdd/specs/rondas-y-pagos-contrato-firmado.md) | Unblock rounds and always record payments (PR #39) |
 | sdd/progress | [rondas-y-pagos-contrato-firmado](sdd/progress/rondas-y-pagos-contrato-firmado.md) | Review result and open test gaps for PR #39 |
 | sdd/specs | [pruebas-bd-en-ci](sdd/specs/pruebas-bd-en-ci.md) | Run the contract DB smoke in GitHub CI |
+| sdd | [config](sdd/config.yaml) | SDD runtime config: commands, strict TDD, DB smokes |

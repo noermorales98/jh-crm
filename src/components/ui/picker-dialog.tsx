@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 /**
@@ -21,6 +21,7 @@ export function PickerDialog({
 }) {
   const [mounted, setMounted] = useState(false);
   const [host, setHost] = useState<HTMLElement | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
 
   // Stable close for the Escape effect without stale onClose.
   const handleEscapeClose = useEffectEvent(() => {
@@ -37,9 +38,10 @@ export function PickerDialog({
       return;
     }
 
-    const parentDialog = document.querySelector<HTMLElement>(
-      "dialog[open]:not([data-jh-picker])",
-    );
+    // Con modales apilados, solo el dialog que contiene el campo queda visible.
+    const parentDialog =
+      anchorRef.current?.closest<HTMLElement>("dialog[open]") ??
+      document.querySelector<HTMLElement>("dialog[open]:not([data-jh-picker])");
     setHost(parentDialog ?? document.body);
 
     const previousOverflow = document.body.style.overflow;
@@ -63,9 +65,10 @@ export function PickerDialog({
     };
   }, [open]);
 
-  if (!mounted || !open || !host) return null;
+  const anchor = <span ref={anchorRef} hidden />;
+  if (!mounted || !open || !host) return anchor;
 
-  return createPortal(
+  const overlay = createPortal(
     <div
       data-jh-picker=""
       role="dialog"
@@ -88,5 +91,12 @@ export function PickerDialog({
       </div>
     </div>,
     host,
+  );
+
+  return (
+    <>
+      {anchor}
+      {overlay}
+    </>
   );
 }

@@ -8,7 +8,6 @@ import type { OrganizationContext } from "@/src/server/auth/guards";
 import { toActivityContext, toAuditContext } from "@/src/server/context";
 import { syncInstallmentOnPaymentReceived } from "@/src/server/payment-plans";
 import { ensureTaskForPayment } from "@/src/server/automations";
-import { assertChargeAllowed } from "@/src/server/payments/assert-charge";
 
 async function syncPaymentWorkQueue(ctx: OrganizationContext, paymentId: string) {
   try {
@@ -226,11 +225,6 @@ export async function registerPayment(ctx: OrganizationContext, data: RegisterPa
     if (quote.status === "CANCELLED" || quote.status === "REJECTED") {
       throw new DomainError("No se puede registrar un pago para una cotización cancelada o rechazada.");
     }
-  }
-
-  // Cobros anclados a caso de crédito / cotización de reparación: fail-closed.
-  if (linkedCaseId || quote?.caseId) {
-    assertChargeAllowed();
   }
 
   const status = data.status ?? "RECEIVED";

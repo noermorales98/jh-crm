@@ -12,7 +12,7 @@ import {
 import { getDashboardSummary } from "../../src/server/dashboard";
 import { createRound, markRoundSent } from "../../src/server/rounds";
 import type { OrganizationContext } from "../../src/server/auth/guards";
-import { ALLOWED_SEND_OPERATION } from "./_allowed-send-operation";
+import { signContractForRound } from "./_signed-contract";
 
 const MARK = `sc003-${Date.now()}`;
 
@@ -111,10 +111,10 @@ async function main() {
     const round = await createRound(ctx, { caseId: created.id });
     roundId = round.id;
     const expectedReviewAt = new Date(Date.now() + 4 * 60 * 60 * 1000);
+    await signContractForRound(ctx, round.id);
     await markRoundSent(ctx, round.id, {
       expectedReviewAt,
       createReviewTask: false,
-      operation: ALLOWED_SEND_OPERATION,
     });
     const afterRound = await prisma.serviceCase.findUniqueOrThrow({
       where: { id: created.serviceCaseId },

@@ -45,7 +45,7 @@ import {
   JH_SERVICE_CONTRACT_HTML,
   JH_SERVICE_CONTRACT_VERSION,
 } from "../../src/lib/contracts/sanitize";
-import { ALLOWED_SEND_OPERATION } from "./_allowed-send-operation";
+import { signContractForRound } from "./_signed-contract";
 
 const prisma = new PrismaClient();
 const RUN_ID = `m${Date.now().toString(36)}`;
@@ -452,10 +452,10 @@ async function main() {
     );
 
     // Mark round SENT without external postal — domain only
+    await signContractForRound(ctx, round.id);
     const sent = await rounds.markRoundSent(ctx, round.id, {
       expectedReviewAt: new Date(Date.now() + 30 * 86400_000),
       createReviewTask: true,
-      operation: ALLOWED_SEND_OPERATION,
     });
     created.reviewTaskId = sent.reviewTask?.id ?? null;
     record(

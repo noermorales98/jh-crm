@@ -5,13 +5,13 @@ description: The non-negotiable principles every rsc-sdd phase obeys.
 tags: [sdd, constitution]
 timestamp: 2026-11-05T22:00:00Z
 topic: sdd
-status: proposed
 version: v1.0.0
+ratified_by: Noeli, 2026-11-05 ("Sí, la ratifico")
 ---
 
 # jh-crm — Constitution
 
-> Version: v1.0.0 · Ratified: _pendiente_ · Last amended: 2026-11-05
+> Version: v1.0.0 · Ratified: 2026-11-05 · Last amended: 2026-11-05
 > Las normas de la casa. Si un cambio rompe una, está mal aunque funcione.
 > El detalle vive en `docs/` y en el código; aquí se ratifica la norma y se enlaza.
 > Objetivo del producto: JH CRM convierte un reporte de crédito de tres burós en decisiones
@@ -93,4 +93,4 @@ version: v1.0.0
 
 | Date | Version | Change | Why |
 |------|---------|--------|-----|
-| 2026-11-05 | v1.0.0 | Propuesta inicial. Pendiente de ratificar. | Instalación de rsc; decisiones de la dueña sobre commits, áreas delicadas, pruebas con BD y autoría. |
+| 2026-11-05 | v1.0.0 | Ratificada la constitución inicial. | Instalación de rsc; decisiones de la dueña sobre commits, áreas delicadas, pruebas con BD y autoría. |

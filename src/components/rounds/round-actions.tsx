@@ -36,7 +36,7 @@ export function RoundActions({
   roundId: string;
   status: string;
   members: { id: string; name: string }[];
-  /** Solo true cuando decideOperation en servidor devolvería ALLOWED. */
+  /** Solo true cuando el cliente tiene contrato firmado para este caso. */
   sendAllowed?: boolean;
   sendBlockedReason?: string | null;
 }) {

@@ -54,10 +54,11 @@ type Db = Prisma.TransactionClient | typeof prisma;
 
 // ── Registro dinámico (RFC 7591) ───────────────────────────────────────────
 
-export async function registerClient(input: {
+/** Valida un registro sin tocar la BD. Devuelve el código de error, o null si es válido. */
+export function previewRegistration(input: {
   client_name?: unknown;
   redirect_uris?: unknown;
-}): Promise<{ client_id: string; client_name: string; redirect_uris: string[] }> {
+}): "invalid_redirect_uri" | "invalid_client_metadata" | null {
   const uris = input.redirect_uris;
   if (
     !Array.isArray(uris) ||
@@ -65,14 +66,22 @@ export async function registerClient(input: {
     uris.length > MAX_REDIRECT_URIS ||
     !uris.every((u) => typeof u === "string" && isAllowedRedirectUri(u))
   ) {
-    throw new OAuthError("invalid_redirect_uri");
+    return "invalid_redirect_uri";
   }
   const rawName = input.client_name ?? "Claude";
-  if (typeof rawName !== "string") throw new OAuthError("invalid_client_metadata");
-  const name = rawName.trim() || "Claude";
-  if (name.length > MAX_CLIENT_NAME_LENGTH) throw new OAuthError("invalid_client_metadata");
+  if (typeof rawName !== "string") return "invalid_client_metadata";
+  if (rawName.trim().length > MAX_CLIENT_NAME_LENGTH) return "invalid_client_metadata";
+  return null;
+}
 
-  const redirectUris = [...new Set(uris as string[])];
+export async function registerClient(input: {
+  client_name?: unknown;
+  redirect_uris?: unknown;
+}): Promise<{ client_id: string; client_name: string; redirect_uris: string[] }> {
+  const problem = previewRegistration(input);
+  if (problem) throw new OAuthError(problem);
+  const name = (input.client_name as string | undefined)?.trim() || "Claude";
+  const redirectUris = [...new Set(input.redirect_uris as string[])];
   const client = await prisma.mcpClient.create({
     data: { clientName: name, redirectUris },
   });

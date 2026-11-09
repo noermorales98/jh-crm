@@ -20,6 +20,7 @@ process.env.FEATURE_MCP_CONNECTOR = "true";
 const prisma = new PrismaClient();
 const MARK = `mcphttp${Date.now()}`;
 const REDIRECT = "https://claude.ai/api/mcp/auth_callback";
+const GLOBAL_BUCKET = "mcp-register:global";
 const createdOrgs: string[] = [];
 const createdUsers: string[] = [];
 const createdClients: string[] = [];
@@ -53,6 +54,29 @@ function formPost(path: string, fields: Record<string, string>) {
   });
 }
 
+function chunkedRequest(path: string, parts: string[], clientIp = ip()) {
+  const enc = new TextEncoder();
+  let i = 0;
+  const stream = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (i < parts.length) controller.enqueue(enc.encode(parts[i++]));
+      else controller.close();
+    },
+  });
+  return new Request(`${APP}${path}`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": clientIp },
+    body: stream,
+    duplex: "half",
+  } as RequestInit);
+}
+
+/** JSON de registro válido relleno hasta `bytes` exactos. */
+function registerBodyOfSize(bytes: number): string {
+  const base = JSON.stringify({ client_name: "x", redirect_uris: [REDIRECT], pad: "" });
+  return base.replace('"pad":""', `"pad":"${"a".repeat(bytes - base.length)}"`);
+}
+
 async function json(res: Response): Promise<Record<string, unknown>> {
   try {
     return (await res.json()) as Record<string, unknown>;
@@ -76,7 +100,7 @@ async function makeStaff(): Promise<OrganizationContext> {
 }
 
 async function resetGlobalRegisterBucket() {
-  await prisma.rateLimitBucket.deleteMany({ where: { bucketKey: "mcp-register:global" } });
+  await prisma.rateLimitBucket.deleteMany({ where: { bucketKey: GLOBAL_BUCKET } });
 }
 
 async function run() {
@@ -94,6 +118,9 @@ async function run() {
   const pre = http.corsPreflightResponse();
   check("preflight OPTIONS → 204 con métodos", pre.status === 204 &&
     (pre.headers.get("access-control-allow-methods") ?? "").includes("POST"));
+  const allowHeaders = (pre.headers.get("access-control-allow-headers") ?? "").toLowerCase();
+  check("preflight permite Authorization y Mcp-Protocol-Version",
+    allowHeaders.includes("authorization") && allowHeaders.includes("mcp-protocol-version"), allowHeaders);
   check("issuer = dirección del CRM sin barra final", as.issuer === APP, as.issuer);
   check("authorization_endpoint", as.authorization_endpoint === `${APP}/oauth/authorize`, as.authorization_endpoint);
   check("token_endpoint", as.token_endpoint === `${APP}/api/oauth/token`, as.token_endpoint);
@@ -160,6 +187,42 @@ async function run() {
   );
   check("cuerpo por trozos de 1 MB → 413", chunked.status === 413, chunked.status);
   check("…sin leerlo entero (corta pronto)", pulled < 16, pulled);
+  const exact = registerBodyOfSize(16 * 1024);
+  const atLimit = await http.handleRegister(jsonPost("/api/oauth/register", exact));
+  const atLimitBody = await json(atLimit);
+  if (typeof atLimitBody.client_id === "string") createdClients.push(atLimitBody.client_id);
+  check("cuerpo de exactamente 16 KB → se acepta (201)", atLimit.status === 201, atLimit.status);
+  const over = await http.handleRegister(jsonPost("/api/oauth/register", registerBodyOfSize(16 * 1024 + 1)));
+  check("cuerpo de 16 KB + 1 byte → 413", over.status === 413, over.status);
+  const five = registerBodyOfSize(5 * 1024);
+  const twoChunks = await http.handleRegister(
+    chunkedRequest("/api/oauth/register", [five.slice(0, 2500), five.slice(2500)]),
+  );
+  const twoBody = await json(twoChunks);
+  if (typeof twoBody.client_id === "string") createdClients.push(twoBody.client_id);
+  check("cuerpo válido en 2 trozos → 201 (se lee entero)", twoChunks.status === 201, twoChunks.status);
+  const multibyte = JSON.stringify({ client_name: "Claude ñandú", redirect_uris: [REDIRECT] });
+  const cut = multibyte.indexOf("ñ") + 1; // parte el carácter de 2 bytes entre trozos
+  const enc = new TextEncoder().encode(multibyte);
+  const splitAt = new TextEncoder().encode(multibyte.slice(0, cut - 1)).length + 1;
+  const mbStream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(enc.slice(0, splitAt));
+      controller.enqueue(enc.slice(splitAt));
+      controller.close();
+    },
+  });
+  const mb = await http.handleRegister(
+    new Request(`${APP}/api/oauth/register`, {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": ip() },
+      body: mbStream,
+      duplex: "half",
+    } as RequestInit),
+  );
+  const mbBody = await json(mb);
+  if (typeof mbBody.client_id === "string") createdClients.push(mbBody.client_id);
+  check("carácter de 2 bytes partido entre trozos → nombre intacto", mbBody.client_name === "Claude ñandú", mbBody.client_name);
   const sameIp = ip();
   let last = 0;
   for (let i = 0; i < 11; i += 1) {
@@ -239,8 +302,17 @@ async function run() {
   check("refresh con cuerpo JSON → 200 con llaves nuevas",
     refreshed.status === 200 && typeof ref.refresh_token === "string" && ref.refresh_token !== tok.refresh_token);
 
+  const bigToken = await http.handleToken(
+    new Request(`${APP}/api/oauth/token`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "x-forwarded-for": ip() },
+      body: `grant_type=refresh_token&client_id=x&pad=${"a".repeat(17 * 1024)}`,
+    }),
+  );
+  check("token con cuerpo de más de 16 KB → 413", bigToken.status === 413, bigToken.status);
   const tokenIp = ip();
   let tokenLast = 0;
+  let tokenEarly429 = false;
   for (let i = 0; i < 61; i += 1) {
     const r = await http.handleToken(
       new Request(`${APP}/api/oauth/token`, {
@@ -250,7 +322,9 @@ async function run() {
       }),
     );
     tokenLast = r.status;
+    if (i < 60 && r.status === 429) tokenEarly429 = true;
   }
+  check("las primeras 60 peticiones de token no se limitan", !tokenEarly429);
   check("petición 61 de token en un minuto desde la misma IP → 429", tokenLast === 429, tokenLast);
 
   console.log("\n[mcp-http] revocación\n");
@@ -267,6 +341,33 @@ async function run() {
     afterRevoke.status === 400 && (await json(afterRevoke)).error === "invalid_grant");
   const revUnknown = await http.handleRevoke(formPost("/api/oauth/revoke", { token: "desconocido" }));
   check("revocar token desconocido → 200", revUnknown.status === 200);
+  check("revocar responde sin caché y con CORS",
+    revUnknown.headers.get("cache-control") === "no-store" &&
+      revUnknown.headers.get("access-control-allow-origin") === "*");
+  const revBig = await http.handleRevoke(
+    new Request(`${APP}/api/oauth/revoke`, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded", "x-forwarded-for": ip() },
+      body: `token=${"a".repeat(17 * 1024)}`,
+    }),
+  );
+  check("revocar con cuerpo de más de 16 KB → 200 (RFC 7009)", revBig.status === 200, revBig.status);
+  const revIp = ip();
+  let revLast = 0;
+  let revEarly429 = false;
+  for (let i = 0; i < 61; i += 1) {
+    const r = await http.handleRevoke(
+      new Request(`${APP}/api/oauth/revoke`, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded", "x-forwarded-for": revIp },
+        body: "token=x",
+      }),
+    );
+    revLast = r.status;
+    if (i < 60 && r.status === 429) revEarly429 = true;
+  }
+  check("las primeras 60 revocaciones no se limitan", !revEarly429);
+  check("revocación 61 en un minuto desde la misma IP → 429", revLast === 429, revLast);
 
   console.log("\n[mcp-http] petición de autorización (pantalla de consentimiento)\n");
   const authz = await import("../../src/server/mcp/oauth/authorize");
@@ -281,6 +382,20 @@ async function run() {
   };
   const parsed = authz.parseAuthorizeParams(good);
   check("petición válida → se acepta", parsed.ok && parsed.value.state === "st-1");
+  check("petición válida → campos en su sitio",
+    parsed.ok && parsed.value.req.client_id === clientId && parsed.value.req.redirect_uri === REDIRECT &&
+      parsed.value.req.code_challenge === challenge && parsed.value.req.code_challenge_method === "S256");
+  for (const key of ["redirect_uri", "code_challenge", "code_challenge_method", "response_type"] as const) {
+    check(`sin ${key} → rechazada`, !authz.parseAuthorizeParams({ ...good, [key]: undefined }).ok);
+  }
+  check("state repetido → rechazada", !authz.parseAuthorizeParams({ ...good, state: ["a", "b"] }).ok);
+  check("resource repetido → rechazada",
+    !authz.parseAuthorizeParams({ ...good, resource: [`${APP}/api/mcp`, "https://evil.com"] }).ok);
+  check("resource /api/mcpX → rechazada", !authz.parseAuthorizeParams({ ...good, resource: `${APP}/api/mcpX` }).ok);
+  check("resource /api/mcp/otro → rechazada",
+    !authz.parseAuthorizeParams({ ...good, resource: `${APP}/api/mcp/otro` }).ok);
+  check("resource = raíz del CRM → rechazada", !authz.parseAuthorizeParams({ ...good, resource: APP }).ok);
+  check("state de 512 exactos → se acepta", authz.parseAuthorizeParams({ ...good, state: "s".repeat(512) }).ok);
   check("sin response_type=code → rechazada", !authz.parseAuthorizeParams({ ...good, response_type: "token" }).ok);
   check("resource de otro servidor → rechazada",
     !authz.parseAuthorizeParams({ ...good, resource: "https://evil.com/api/mcp" }).ok);
@@ -298,6 +413,12 @@ async function run() {
     denied.searchParams.get("error") === "access_denied" && !denied.searchParams.has("state") &&
       !denied.searchParams.has("code"));
   const injected = new URL(authz.buildAuthorizationRedirect(REDIRECT, { code: "c" }, "a&code=evil"));
+  const withQuery = new URL(
+    authz.buildAuthorizationRedirect(`${REDIRECT}?keep=1&code=viejo`, { code: "nuevo" }, ""),
+  );
+  check("vuelta conserva la query propia y deja un solo code",
+    withQuery.searchParams.get("keep") === "1" && withQuery.searchParams.getAll("code").join() === "nuevo");
+  check("state vacío se devuelve igual", withQuery.searchParams.has("state") && withQuery.searchParams.get("state") === "");
   check("state con '&' no inyecta parámetros",
     injected.searchParams.getAll("code").length === 1 && injected.searchParams.get("state") === "a&code=evil");
 
@@ -319,6 +440,16 @@ async function run() {
   const prRoute = await import("../../app/api/oauth/protected-resource/route");
   check("app/api/oauth/protected-resource sirve los metadatos del recurso",
     (await json(prRoute.GET())).resource === `${APP}/api/mcp`);
+  for (const [name, mod] of [
+    ["token", tokenRoute],
+    ["register", registerRoute],
+    ["revoke", revokeRoute],
+    ["authorization-server", asRoute],
+    ["protected-resource", prRoute],
+  ] as const) {
+    const options = (mod as { OPTIONS?: () => Response }).OPTIONS;
+    check(`app/api/oauth/${name} responde al preflight OPTIONS`, typeof options === "function" && options().status === 204);
+  }
   const nextConfig = (await import("../../next.config")).default;
   const rewrites = (await nextConfig.rewrites?.()) as unknown as Array<{ source: string; destination: string }>;
   const dest = (source: string) => rewrites.find((r) => r.source === source)?.destination;
@@ -331,6 +462,11 @@ async function run() {
 
   console.log("\n[mcp-http] tope global de registros\n");
   await resetGlobalRegisterBucket();
+  for (const junk of ["{", JSON.stringify({ redirect_uris: ["https://evil.com/cb"] }), registerBodyOfSize(17 * 1024)]) {
+    await http.handleRegister(jsonPost("/api/oauth/register", junk));
+  }
+  check("peticiones basura no gastan el tope global",
+    (await prisma.rateLimitBucket.count({ where: { bucketKey: http.REGISTER_GLOBAL_BUCKET } })) === 0);
   let created = 0;
   let firstRefusal = 0;
   for (let i = 0; i < http.REGISTER_GLOBAL_LIMIT_PER_HOUR + 1; i += 1) {
@@ -345,6 +481,10 @@ async function run() {
   check(`con IPs distintas, solo ${http.REGISTER_GLOBAL_LIMIT_PER_HOUR} registros por hora`,
     created === http.REGISTER_GLOBAL_LIMIT_PER_HOUR, created);
   check("el siguiente → 429", firstRefusal === 429, firstRefusal);
+  const bucket = await prisma.rateLimitBucket.findFirst({ where: { bucketKey: http.REGISTER_GLOBAL_BUCKET } });
+  check("la ventana del tope global es de una hora",
+    http.REGISTER_GLOBAL_WINDOW_SECONDS === 3600 && !!bucket && bucket.windowStart.getTime() % 3_600_000 === 0,
+    bucket?.windowStart);
 
   console.log("\n[mcp-http] flag apagado\n");
   process.env.FEATURE_MCP_CONNECTOR = "false";

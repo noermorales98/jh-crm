@@ -4,6 +4,7 @@ import { assertRateLimit } from "@/src/server/security/rate-limit";
 import {
   OAuthError,
   exchangeCode,
+  previewRegistration,
   isMcpConnectorFeatureOn,
   refresh,
   registerClient,
@@ -19,6 +20,8 @@ export const MAX_REGISTER_BODY_BYTES = 16 * 1024;
 const REGISTER_LIMIT_PER_HOUR = 10;
 /** Tope global de registros por hora: acota la tabla aunque se falsee la IP de origen. */
 export const REGISTER_GLOBAL_LIMIT_PER_HOUR = 100;
+export const REGISTER_GLOBAL_WINDOW_SECONDS = 3600;
+export const REGISTER_GLOBAL_BUCKET = "mcp-register:global";
 const TOKEN_LIMIT_PER_MINUTE = 60;
 
 /** Dirección pública del CRM, sin barra final. Única fuente de URLs absolutas. */
@@ -160,9 +163,7 @@ async function limit(key: string, max: number, windowSeconds: number): Promise<R
 
 export async function handleRegister(request: Request): Promise<Response> {
   if (!isMcpConnectorFeatureOn()) return notFound();
-  const limited =
-    (await limit(`mcp-register:${clientIpFromRequest(request)}`, REGISTER_LIMIT_PER_HOUR, 3600)) ??
-    (await limit("mcp-register:global", REGISTER_GLOBAL_LIMIT_PER_HOUR, 3600));
+  const limited = await limit(`mcp-register:${clientIpFromRequest(request)}`, REGISTER_LIMIT_PER_HOUR, 3600);
   if (limited) return limited;
 
   let text: string;
@@ -180,6 +181,12 @@ export async function handleRegister(request: Request): Promise<Response> {
   }
   if (!body || typeof body !== "object") return oauthError("invalid_client_metadata");
   const input = body as { client_name?: unknown; redirect_uris?: unknown };
+
+  // El tope global solo lo gastan registros que se van a crear: la basura no bloquea a Claude.
+  const preview = previewRegistration(input);
+  if (preview) return oauthError(preview);
+  const globalLimited = await limit(REGISTER_GLOBAL_BUCKET, REGISTER_GLOBAL_LIMIT_PER_HOUR, REGISTER_GLOBAL_WINDOW_SECONDS);
+  if (globalLimited) return globalLimited;
 
   try {
     const client = await registerClient({ client_name: input.client_name, redirect_uris: input.redirect_uris });

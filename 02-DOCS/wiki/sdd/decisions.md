@@ -27,3 +27,10 @@ Append-only. Newest at the bottom.
   switch). Connections never expire for the user; short-lived internal token with silent refresh
   and revocation (vs 7/30/90 days) — risk of a lost device accepted. Delivered in three batches,
   one PR each (vs all at once, vs read-only first).
+- 2026-11-09 — Plan `conector-mcp-claude` (batch 1). Own OAuth 2.1 server inside the CRM, reusing the
+  Auth.js session, MFA and sessionVersion (vs an external identity provider, which would add a new
+  stack piece and duplicate login/roles). Generic read tools (list/get/search) plus one write tool
+  per app action (vs one tool per entity and operation, 80+ tools after three batches). "Delete"
+  maps to the app's archive/cancel actions. Access token 1 h, non-expiring refresh token rotated on
+  every use with reuse detection. Connector behind FEATURE_MCP_CONNECTOR and a per-organization
+  switch, off by default (constitution rule 18).

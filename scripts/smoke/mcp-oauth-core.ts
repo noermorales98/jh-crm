@@ -47,6 +47,17 @@ check("verifier de 129 con su propio challenge → rechazado", !verifyPkce("a".r
 const plusVerifier = `${"a".repeat(42)}+`;
 check("verifier con '+' y su propio challenge → rechazado", !verifyPkce(plusVerifier, s256(plusVerifier), "S256"));
 check("challenge con relleno '=' → rechazado", !verifyPkce(verifier, `${challenge}=`, "S256"));
+for (const ch of ["~", ".", "-", "_"]) {
+  const v = `${"a".repeat(42)}${ch}`;
+  check(`verifier con '${ch}' (unreserved) → válido`, verifyPkce(v, s256(v), "S256"));
+}
+const slashVerifier = `${"a".repeat(42)}/`;
+check("verifier con '/' y su propio challenge → rechazado", !verifyPkce(slashVerifier, s256(slashVerifier), "S256"));
+check("método 's256' en minúsculas → rechazado", !verifyPkce(verifier, challenge, "s256"));
+check(
+  "challenge que solo difiere al final → rechazado",
+  !verifyPkce(verifier, `${challenge.slice(0, -3)}${challenge.endsWith("AAA") ? "BBB" : "AAA"}`, "S256"),
+);
 
 console.log("\n[mcp-oauth-core] redirect_uri\n");
 const allowed = [
@@ -84,6 +95,11 @@ const rejected = [
   "https://www.claude.ai/cb",
   "http://localhost:0/x",
   "https://claude.ai./cb",
+  "https://u@claude.ai/cb",
+  "https://:pw@claude.ai/cb",
+  "https://localhost/cb",
+  "https://127.0.0.1/cb",
+  "http://[::1]:6274/cb",
 ];
 for (const uri of rejected) check(`rechazada: ${JSON.stringify(uri).slice(0, 60)}`, !isAllowedRedirectUri(uri));
 const base = "https://claude.ai/";
@@ -100,6 +116,7 @@ const h = hashToken(a);
 check("hash es SHA-256 en hex (64)", /^[0-9a-f]{64}$/.test(h), h);
 check("hash distinto del token", h !== a);
 check("hash determinista", hashToken(a) === h);
+check("hash distingue mayúsculas", hashToken("ABC") !== hashToken("abc"));
 check(
   "hash de un valor conocido",
   hashToken("abc") === "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",

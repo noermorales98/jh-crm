@@ -6,6 +6,7 @@ tags: [sdd, spec, mcp, ai, auth, oauth]
 timestamp: 2026-11-09T00:00:00Z
 topic: sdd
 slug: conector-mcp-claude
+branch: feat/conector-mcp-claude
 status: approved
 approved_by: Noeli, 2026-11-09 ("Sí, la apruebo")
 ---
@@ -93,6 +94,16 @@ como solución final y no se construye.
 ## How it proves it
 Pruebas en `scripts/smoke/` que fallan sin el cambio y pasan con él.
 
+## Behaviour
+- Main path: la persona pega la dirección en Claude → entra con su usuario del CRM y autoriza →
+  pide algo a Claude → Claude llama a una herramienta → el CRM comprueba conexión, permiso y datos →
+  hace el cambio con las reglas de la app → responde con datos limpios y un enlace.
+- Edge cases: conector apagado en la organización; usuario desactivado o con rol cambiado; id de
+  otra organización; borrado de algo que la app solo archiva o cancela; muchas llamadas seguidas.
+- Error paths: sin conexión o revocada → "No autorizado"; sin permiso → "Sin permiso"; registro
+  ajeno o inexistente → "No encontrado"; regla de negocio rota → su mensaje en español; demasiadas
+  llamadas → "Demasiadas peticiones". Ningún error devuelve datos ni trazas.
+
 ## Acceptance criteria
 - [ ] AC-1: Sin conexión autorizada, cualquier llamada al conector responde "no autorizado" y no
       devuelve datos.
@@ -143,3 +154,13 @@ Pruebas en `scripts/smoke/` que fallan sin el cambio y pasan con él.
   consultas del asistente interno y añade las que falten, siempre filtrando por organización.
 - Los datos que devuelve el conector pasan por la misma limpieza que el asistente interno
   (`sanitizeForAI`).
+
+## Points to clarify
+- **suposición tomada** — producción es `https://www.jh-multiservices.com`. *Base:* dominios en el
+  repo y proyecto de Vercel. *Riesgo:* si no, la prueba con claude.ai se hace en otra dirección; el
+  código no cambia porque usa `NEXT_PUBLIC_APP_URL`.
+- **suposición tomada** — claude.ai acepta un servidor OAuth propio con registro dinámico y PKCE.
+  *Base:* especificación de autorización de MCP. *Riesgo:* si cambia, se ajusta el servidor OAuth.
+- **decisión diferida** — secciones de las tandas 2 y 3 (incluido AC-7). Llegan en PR propios.
+- **decisión diferida** — cómo probar con claude.ai en un preview protegido de Vercel. Se decide
+  antes de T029.

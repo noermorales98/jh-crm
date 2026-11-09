@@ -14,3 +14,16 @@ Append-only. Newest at the bottom.
   authorship marks (vs allowed). Existing rules in docs/02, 06, 07 and .cursor/rules ratified.
   Delicate paths enforced locally by `.rsc/sello-config.json` (not in git). Accessibility floor
   left out for now.
+- 2026-11-05 — Business rules BR-043..BR-046 added to `docs/02-BUSINESS_RULES.md`. Quote with no
+  case needs no contract (vs always require one). Deleted-case contracts only documented, not coded
+  (vs voiding them), because cases are only deleted with the whole organization.
+- 2026-11-05 — `main` protected for PRs: `lint + typecheck + build:qa` and
+  `db smokes (MySQL desechable)` must be green to merge (vs no protection). Admins can still push
+  directly, as principle 12 allows.
+- 2026-11-09 — Spec `conector-mcp-claude` approved and clarified by the owner. Remote MCP with OAuth
+  for claude.ai and the apps (vs personal token for Desktop/Code only, vs both in phases). Delete
+  exactly as the app allows, soft delete where rule 17 applies (vs archive only, vs no delete).
+  All roles may connect, bounded by their permissions (vs no VIEWER, vs OWNER/ADMIN, vs per-user
+  switch). Connections never expire for the user; short-lived internal token with silent refresh
+  and revocation (vs 7/30/90 days) — risk of a lost device accepted. Delivered in three batches,
+  one PR each (vs all at once, vs read-only first).

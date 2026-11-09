@@ -6,12 +6,13 @@ tags: [sdd, spec, mcp, ai, auth, oauth]
 timestamp: 2026-11-09T00:00:00Z
 topic: sdd
 slug: conector-mcp-claude
-status: draft
+status: approved
+approved_by: Noeli, 2026-11-09 ("Sí, la apruebo")
 ---
 
 # Spec — Conector MCP de JH CRM para Claude
 
-> Slug: `conector-mcp-claude` · Status: **draft** · Created: 2026-11-09
+> Slug: `conector-mcp-claude` · Status: **approved** · Created: 2026-11-09
 > Inherits: [constitution](../constitution.md) v1.0.0
 > Área delicada (regla 13): toca el inicio de sesión. Va en un PR con tres revisores y tu sí.
 
@@ -83,7 +84,8 @@ como solución final; queda como posible paso intermedio en el plan.
   promete), 13 (área delicada), 16 (datos sensibles fuera de prompts), 17 (borrado lógico).
 - `docs/02-BUSINESS_RULES.md` y `docs/07-SECURITY.md`.
 - Cada acción usa la misma validación y los mismos permisos que su acción en la app.
-- El acceso caduca y se puede revocar. Nunca se guarda un secreto en claro.
+- La conexión no caduca para la persona, pero la llave interna se renueva sola y cada conexión se
+  puede revocar. Nunca se guarda un secreto en claro.
 - Límite de peticiones por persona para que un error de Claude no sature el CRM.
 
 ## How it proves it
@@ -107,10 +109,27 @@ Pruebas en `scripts/smoke/` que fallan sin el cambio y pasan con él.
 - [ ] AC-11: La página de Configuración muestra la dirección, el botón de copiar y las instrucciones,
       en español, en móvil y escritorio, con estados de carga, vacío y error.
 - [ ] AC-12: Superar el límite de peticiones responde "demasiadas peticiones" sin tocar datos.
+- [ ] AC-13: Cualquier rol (OWNER, ADMIN, SPECIALIST, STAFF, VIEWER) puede conectar Claude.
+- [ ] AC-14: Una conexión que no se revoca sigue funcionando sin volver a entrar, aunque pasen meses;
+      una llave interna robada deja de servir sola en poco tiempo.
 
-## Open questions (para `clarify`)
-- ¿Qué roles pueden conectar Claude? ¿Todos, o el administrador elige?
-- ¿Cuánto dura una conexión antes de pedir volver a entrar?
-- ¿Por qué secciones empezamos? Propuesta: clientes, casos, tareas, notas, oportunidades y
-  cotizaciones primero; luego el resto.
-- ¿Dónde está desplegado el CRM (dirección pública)? El conector necesita una dirección HTTPS pública.
+## Clarifications (2026-11-09, Noeli)
+- **Roles:** todos pueden conectar Claude. Cada uno queda limitado a los permisos de su rol. Un
+  administrador puede apagar el conector para toda la organización (AC-10, AC-13).
+- **Duración:** la conexión nunca caduca para la persona. Por seguridad, la llave interna es de vida
+  corta y se renueva sola. Riesgo aceptado: un dispositivo perdido mantiene el acceso hasta que se
+  revoca en "Conexiones activas" (AC-9, AC-14).
+- **Alcance por tandas** (cada tanda es un PR propio, con lectura, creación, edición y borrado):
+  1. Conexión (OAuth + página de Configuración + revocar) y clientes, casos, tareas, notas,
+     oportunidades y cotizaciones.
+  2. Rondas, disputas, cartas, reportes de crédito y consultas.
+  3. Pagos, recibos, contratos, planes de pago, catálogo, mails y el resto de secciones.
+  AC-5 se cumple al cerrar la tanda 3; cada tanda lo cumple para sus secciones.
+- **Dirección:** el CRM está en Vercel con el dominio `jh-multiservices.com`. El conector vivirá en
+  `https://www.jh-multiservices.com/api/mcp` (supuesto: confirmar en el plan que ese es el dominio de
+  producción del CRM).
+
+## Assumptions
+- Claude usa los mismos servicios de `src/server/` que la app, no consultas propias a la base.
+- Los datos que devuelve el conector pasan por la misma limpieza que el asistente interno
+  (`sanitizeForAI`).

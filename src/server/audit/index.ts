@@ -1,6 +1,7 @@
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { safeMetadata } from "@/src/lib/security/redaction";
+import { withRequestOrigin } from "@/src/server/request-origin";
 
 /**
  * AuditLog — eventos de seguridad (descargas, consulta de SSN, cambios
@@ -37,7 +38,7 @@ export async function writeAuditLog(
       ipAddress: ctx.ipAddress ?? null,
       userAgent: ctx.userAgent ?? null,
       // Nunca persistir PII en metadata.
-      metadata: safeMetadata(event.metadata) as Prisma.InputJsonValue | undefined,
+      metadata: safeMetadata(withRequestOrigin(event.metadata)) as Prisma.InputJsonValue | undefined,
     },
   });
 }

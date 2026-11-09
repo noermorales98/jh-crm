@@ -301,7 +301,7 @@ sobre las rutas previstas; `implement` lo recalcula sobre el diff real.
 
 | ID | [P] | Task | Done-check | Depends-on | Trace | Risk |
 | --- | --- | --- | --- | --- | --- | --- |
-| T001 |  | Add connector models, `mcpEnabled` and additive migration | `npx prisma migrate deploy` en `jh_gates` aplica limpio dos veces; la migración solo tiene `CREATE TABLE`/`ADD COLUMN`; `npm run typecheck` verde | — | AC1, AC9, AC10 | 2 |
+| T001 |  | Add connector models, `mcpEnabled` and additive migration | `npx prisma migrate deploy` en `jh_gates` aplica limpio dos veces; la migración solo tiene sentencias aditivas (`CREATE TABLE`, `ADD COLUMN`, `ADD CONSTRAINT` de claves nuevas); `npm run typecheck` verde | — | AC1, AC9, AC10 | 2 |
 | T002 | [P] | Write failing smoke for request origin in activity and audit | `npx tsx scripts/smoke/mcp-request-origin.ts` falla: no existe `requestOrigin` | — | AC8 | 1 |
 | T003 |  | Implement request origin and stamp `via`/`connectionId` in activity and audit | T002 verde; smokes existentes de actividad/auditoría siguen verdes | T002 | AC8 | 1 |
 | T004 | [P] | Write failing unit smoke for OAuth core (PKCE, redirect allowlist, token hashing) | `npx tsx scripts/smoke/mcp-oauth-core.ts` falla: módulos no existen | — | AC1, AC14 | 2 |

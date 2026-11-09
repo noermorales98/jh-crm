@@ -24,11 +24,19 @@ export function currentRequestOrigin(): RequestOrigin {
   return origin ? { ...origin } : {};
 }
 
-/** Añade `via` y `connectionId` a la metadata cuando hay origen; si no, la deja igual. */
+/**
+ * Sella el origen en la metadata. Dentro del conector, `via` y `connectionId` salen
+ * siempre del origen (la metadata del llamador no los puede pisar). Fuera, se quitan,
+ * para que nadie pueda hacerse pasar por Claude. El resto de la metadata no cambia.
+ */
 export function withRequestOrigin(
   metadata: Record<string, unknown> | undefined,
 ): Record<string, unknown> | undefined {
   const origin = storage.getStore();
-  if (!origin) return metadata;
-  return { ...metadata, via: origin.via, connectionId: origin.connectionId };
+  if (origin) return { ...metadata, via: origin.via, connectionId: origin.connectionId };
+  if (!metadata || !("via" in metadata || "connectionId" in metadata)) return metadata;
+  const rest = { ...metadata };
+  delete rest.via;
+  delete rest.connectionId;
+  return rest;
 }

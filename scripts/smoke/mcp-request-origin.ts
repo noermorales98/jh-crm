@@ -1,8 +1,9 @@
 /**
  * Origen de la petición (conector MCP, AC-8): lo que hace Claude queda en actividad y
- * auditoría con `via: "claude"` y la conexión; lo que hace la app no cambia.
+ * auditoría con `via: "claude"` y la conexión; lo que hace la app no cambia y no puede
+ * hacerse pasar por Claude.
  *
- *   DATABASE_URL=mysql://root@127.0.0.1:3399/jh_gates npm run smoke:mcp-request-origin
+ *   DATABASE_URL=mysql://root@127.0.0.1:3399/jh_gates npx tsx scripts/smoke/mcp-request-origin.ts
  */
 import { PrismaClient } from "@prisma/client";
 import type { OrganizationContext } from "../../src/server/auth/guards";
@@ -40,15 +41,13 @@ async function makeOrg(): Promise<OrganizationContext> {
   return { userId: user.id, organizationId: org.id, role: "OWNER" };
 }
 
-async function main() {
-  console.log("\n[mcp-request-origin] origen Claude en actividad y auditoría\n");
+async function run(ctx: OrganizationContext) {
   const { runWithRequestOrigin, currentRequestOrigin } = await import(
     "../../src/server/request-origin"
   );
   const { writeActivityLog } = await import("../../src/server/activity");
   const { writeAuditLog } = await import("../../src/server/audit");
 
-  const ctx = await makeOrg();
   const client = await prisma.client.create({
     data: {
       organizationId: ctx.organizationId,
@@ -73,27 +72,53 @@ async function main() {
     entityId: client.id,
   });
   check("sin origen: actividad sin `via`", !("via" in meta(plainActivity.metadata)), plainActivity.metadata);
+  check("sin origen: actividad conserva su metadata", meta(plainActivity.metadata).foo === 1);
   check("sin origen: auditoría sin metadata nueva", plainAudit.metadata === null, plainAudit.metadata);
   check("sin origen: current() vacío", Object.keys(currentRequestOrigin()).length === 0);
 
+  // Fuera del conector nadie puede hacerse pasar por Claude.
+  const forged = await writeAuditLog(actx, {
+    action: "test.forged",
+    entityType: "Client",
+    entityId: client.id,
+    metadata: { via: "claude", connectionId: "fake", foo: 3 },
+  });
+  check("sin origen: `via` falso se quita", !("via" in meta(forged.metadata)), forged.metadata);
+  check(
+    "sin origen: `connectionId` falso se quita",
+    !("connectionId" in meta(forged.metadata)),
+    forged.metadata,
+  );
+  check("sin origen: el resto de la metadata se conserva", meta(forged.metadata).foo === 3);
+
   // Dentro del conector.
   const connectionId = `conn-${MARK}`;
-  const [act, aud, inner] = await runWithRequestOrigin({ via: "claude", connectionId }, async () => {
-    const a = await writeActivityLog(actx, {
-      type: "NOTE",
-      description: "con origen",
-      clientId: client.id,
-      metadata: { foo: 2 },
-    });
-    const b = await writeAuditLog(actx, {
-      action: "test.claude",
-      entityType: "Client",
-      entityId: client.id,
-    });
-    // El origen sobrevive a un salto asíncrono.
-    await new Promise((resolve) => setTimeout(resolve, 5));
-    return [a, b, currentRequestOrigin()] as const;
-  });
+  const [act, aud, overridden, inner] = await runWithRequestOrigin(
+    { via: "claude", connectionId },
+    async () => {
+      const a = await writeActivityLog(actx, {
+        type: "NOTE",
+        description: "con origen",
+        clientId: client.id,
+        metadata: { foo: 2 },
+      });
+      const b = await writeAuditLog(actx, {
+        action: "test.claude",
+        entityType: "Client",
+        entityId: client.id,
+      });
+      // La metadata del llamador no puede pisar el origen.
+      const c = await writeActivityLog(actx, {
+        type: "NOTE",
+        description: "intento de pisar el origen",
+        clientId: client.id,
+        metadata: { via: "app", connectionId: "otra" },
+      });
+      // El origen sobrevive a un salto asíncrono.
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      return [a, b, c, currentRequestOrigin()] as const;
+    },
+  );
   check("con origen: actividad lleva via=claude", meta(act.metadata).via === "claude", act.metadata);
   check(
     "con origen: actividad lleva connectionId",
@@ -107,12 +132,30 @@ async function main() {
     meta(aud.metadata).connectionId === connectionId,
     aud.metadata,
   );
+  check(
+    "con origen: la metadata del llamador no pisa via",
+    meta(overridden.metadata).via === "claude",
+    overridden.metadata,
+  );
+  check(
+    "con origen: la metadata del llamador no pisa connectionId",
+    meta(overridden.metadata).connectionId === connectionId,
+    overridden.metadata,
+  );
   check("con origen: current() tras await", inner.via === "claude" && inner.connectionId === connectionId);
   check("tras salir: current() vuelve a vacío", Object.keys(currentRequestOrigin()).length === 0);
+}
 
-  // Limpieza: solo lo creado por esta prueba.
-  await prisma.organization.delete({ where: { id: ctx.organizationId } });
-  await prisma.user.delete({ where: { id: ctx.userId } });
+async function main() {
+  console.log("\n[mcp-request-origin] origen Claude en actividad y auditoría\n");
+  const ctx = await makeOrg();
+  try {
+    await run(ctx);
+  } finally {
+    // Limpieza: solo lo creado por esta prueba (la org arrastra cliente y registros).
+    await prisma.organization.delete({ where: { id: ctx.organizationId } });
+    await prisma.user.delete({ where: { id: ctx.userId } });
+  }
 }
 
 main()

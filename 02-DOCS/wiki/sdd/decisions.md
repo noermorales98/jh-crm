@@ -37,3 +37,9 @@ Append-only. Newest at the bottom.
 - 2026-11-09 — Batch 1 of `conector-mcp-claude` ships as a single PR (vs two PRs: connection+read,
   then write), by the owner's choice. Over the review budget; mitigated by per-task review and a
   closing review read in blocks.
+- 2026-11-09 — Fixes after `analyze` of `conector-mcp-claude`, applied at the owner's request. The MCP
+  dispatcher writes one `mcp.tool.<name>` audit entry per write call (vs adding audit to five
+  services). OAuth/MCP HTTP wiring gets an automated smoke via route handlers (vs curl only); the two
+  screens keep screenshots, their logic is smoke-tested. Read queries for opportunities, service
+  cases and detail by id are added. All absolute URLs come from NEXT_PUBLIC_APP_URL. Accepted: an
+  admin turns the connector on once; a role or email change disconnects Claude.

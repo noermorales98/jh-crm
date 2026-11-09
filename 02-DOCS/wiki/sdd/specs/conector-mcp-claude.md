@@ -35,10 +35,11 @@ que tiene la persona en el CRM.
 ## The cheapest alternative
 Un token personal que cada persona pega en Claude Desktop o Claude Code. Es más rápido de construir,
 pero no funciona en la web de claude.ai ni en el móvil, que es donde trabaja el equipo. Se descarta
-como solución final; queda como posible paso intermedio en el plan.
+como solución final y no se construye.
 
 ## Goals
-- Una persona del equipo conecta Claude (web, escritorio o móvil) al CRM en uno o dos pasos.
+- Una persona del equipo conecta Claude (web, escritorio o móvil) al CRM en uno o dos pasos, una vez
+  que un administrador ha encendido el conector para la organización (se hace una sola vez).
 - Claude puede **leer, crear, editar y borrar** en todas las secciones del CRM.
 - Claude solo puede hacer lo que esa persona puede hacer en la app: mismo rol, mismos permisos, misma
   organización.
@@ -60,7 +61,8 @@ como solución final; queda como posible paso intermedio en el plan.
 ## Users & context
 - **Equipo de la agencia** (OWNER, ADMIN, SPECIALIST, STAFF, VIEWER): usa Claude para consultar y
   actualizar clientes, casos, tareas, cotizaciones, rondas, cartas y más.
-- **Dueña / administrador:** decide quién puede conectar Claude y revisa qué hizo.
+- **Dueña / administrador:** enciende o apaga el conector para la organización, revoca conexiones y
+  revisa qué hizo Claude. Cualquier rol puede conectar Claude mientras esté encendido.
 
 ## What the user can do
 - Desde Configuración, ver la dirección del conector con un botón de copiar y dos pasos de
@@ -107,7 +109,8 @@ Pruebas en `scripts/smoke/` que fallan sin el cambio y pasan con él.
 - [ ] AC-9: Al revocar una conexión, la siguiente llamada de Claude responde "no autorizado".
 - [ ] AC-10: Si un administrador desactiva el conector, ninguna conexión de la organización funciona.
 - [ ] AC-11: La página de Configuración muestra la dirección, el botón de copiar y las instrucciones,
-      en español, en móvil y escritorio, con estados de carga, vacío y error.
+      en español, en móvil y escritorio, con estados de carga, vacío y error. Con el conector apagado,
+      explica que un administrador debe encenderlo (y al administrador le muestra el interruptor).
 - [ ] AC-12: Superar el límite de peticiones responde "demasiadas peticiones" sin tocar datos.
 - [ ] AC-13: Cualquier rol (OWNER, ADMIN, SPECIALIST, STAFF, VIEWER) puede conectar Claude.
 - [ ] AC-14: Una conexión que no se revoca sigue funcionando sin volver a entrar, aunque pasen meses;
@@ -126,10 +129,17 @@ Pruebas en `scripts/smoke/` que fallan sin el cambio y pasan con él.
   3. Pagos, recibos, contratos, planes de pago, catálogo, mails y el resto de secciones.
   AC-5 se cumple al cerrar la tanda 3; cada tanda lo cumple para sus secciones.
 - **Dirección:** el CRM está en Vercel con el dominio `jh-multiservices.com`. El conector vivirá en
-  `https://www.jh-multiservices.com/api/mcp` (supuesto: confirmar en el plan que ese es el dominio de
-  producción del CRM).
+  `<dirección pública del CRM>/api/mcp`, tomada de la configuración del CRM (supuesto: producción es
+  `https://www.jh-multiservices.com`; se confirma antes de la prueba con claude.ai).
+
+## Clarifications (2026-11-09, tras `analyze`)
+- **Paso previo del administrador:** el conector viene apagado; un administrador lo enciende una vez.
+  Hasta entonces la página lo explica (AC-11). Aceptado por la dueña al pedir las correcciones.
+- **Cambio de rol o de correo:** cierra las sesiones de esa persona y también corta su conexión con
+  Claude; tiene que volver a conectar. Aceptado como efecto de seguridad.
 
 ## Assumptions
-- Claude usa los mismos servicios de `src/server/` que la app, no consultas propias a la base.
+- Claude escribe con los mismos servicios de `src/server/` que la app. Para leer, reutiliza las
+  consultas del asistente interno y añade las que falten, siempre filtrando por organización.
 - Los datos que devuelve el conector pasan por la misma limpieza que el asistente interno
   (`sanitizeForAI`).

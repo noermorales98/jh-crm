@@ -441,6 +441,8 @@ async function run() {
   check("Permitir con datos válidos → vuelve a Claude con code",
     okApprove.kind === "redirect" && new URL(okApprove.url).searchParams.has("code") &&
       okApprove.url.startsWith(REDIRECT));
+  check("Permitir devuelve el state a Claude",
+    okApprove.kind === "redirect" && new URL(okApprove.url).searchParams.get("state") === "st-2");
   const forgedApprove = await consent.decideApprove(staff, { ...base2, redirect_uri: "https://claude.com/api/mcp/auth_callback" });
   check("Permitir con redirect_uri no registrada → vuelve a la pantalla (no redirige)", forgedApprove.kind === "back");
   const evilApprove = await consent.decideApprove(staff, { ...base2, redirect_uri: "https://evil.test/cb" });
@@ -452,6 +454,8 @@ async function run() {
   check("Permitir con el conector apagado → vuelve a Claude con access_denied",
     offApprove.kind === "redirect" && new URL(offApprove.url).searchParams.get("error") === "access_denied" &&
       offApprove.url.startsWith(REDIRECT));
+  check("…también con el state",
+    offApprove.kind === "redirect" && new URL(offApprove.url).searchParams.get("state") === "st-2");
   const offForged = await consent.decideApprove(staff, { ...base2, redirect_uri: "https://evil.test/cb" });
   check("…pero nunca a una redirect_uri no registrada", offForged.kind === "back");
   await prisma.organizationSettings.update({ where: { organizationId: staff.organizationId }, data: { mcpEnabled: true } });

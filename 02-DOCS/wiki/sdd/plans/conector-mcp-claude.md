@@ -169,7 +169,8 @@ Tool = { name, title, description, inputSchema, permission: PermissionAction,
   - archivar_cliente, cancelar_tarea, cancelar_cotizacion y marcar_perdida son `destructive`
   - listar/ver/buscar solo exponen secciones cuyo permiso *.view tiene el rol
 
-requestOrigin.run({ via, connectionId }, fn); requestOrigin.current() -> { via?, connectionId? }
+runWithRequestOrigin({ via, connectionId }, fn); currentRequestOrigin() -> { via?, connectionId? }
+  (src/server/request-origin.ts; withRequestOrigin(metadata) sella o quita via/connectionId)
   - writeAuditLog y el escritor de actividad añaden metadata.via y metadata.connectionId si existen
 
 connections.listMine(ctx) / connections.listOrg(ctx: settings.manage) / connections.revoke(ctx, id)
@@ -335,7 +336,7 @@ sobre las rutas previstas; `implement` lo recalcula sobre el diff real.
 | T030 |  | All done-checks pass and verify green | cada fila marcada con evidencia; `npm run lint`, `npm run typecheck`, `npm run ci:qa` exit 0 | all | all ACs | — |
 
 **T003 — Interfaces**
-- Produces: `requestOrigin.run(origin: { via: "claude"; connectionId: string }, fn: () => Promise<T>) -> Promise<T>`; `requestOrigin.current() -> { via?: "claude"; connectionId?: string }` (AsyncLocalStorage).
+- Produces (`src/server/request-origin.ts`): `runWithRequestOrigin(origin: { via: "claude"; connectionId: string }, fn: () => Promise<T>) -> Promise<T>`; `currentRequestOrigin() -> { via?: "claude"; connectionId?: string }`; `withRequestOrigin(metadata)` (AsyncLocalStorage). Fuera del conector, `via`/`connectionId` de la metadata se quitan.
 - Produces: `ActivityLog.metadata` y `AuditLog.metadata` incluyen `via` y `connectionId` cuando hay origen; sin origen, idénticos a hoy.
 
 **T005 — Interfaces**
@@ -348,7 +349,7 @@ sobre las rutas previstas; `implement` lo recalcula sobre el diff real.
 **T011 — Interfaces**
 - Consumes: T003, T007.
 - Also produces: tras una herramienta `write`/`destructive` correcta, `writeAuditLog({ action: "mcp.tool.<nombre>", entityType, entityId, metadata: { via: "claude", connectionId } })` con los datos de `tool.audit(input, result)`, y `revalidatePath` para cada ruta de `tool.revalidate(result)`. Logs: solo `{ tool, outcome, ms }`.
-- Produces: `authenticate(bearer: string | null, now?) -> McpContext` o lanza `UnauthorizedError`; `McpContext = OrganizationContext & { connectionId: string }`; `callTool(ctx: McpContext, name: string, args: unknown) -> unknown` con orden rate limit → `can` → zod → servicio (dentro de `requestOrigin.run`) → `sanitizeForAI`. Errores: `UnauthorizedError`, `ForbiddenError`, `NotFoundError`, `RateLimitError`, validación zod, regla de negocio.
+- Produces: `authenticate(bearer: string | null, now?) -> McpContext` o lanza `UnauthorizedError`; `McpContext = OrganizationContext & { connectionId: string }`; `callTool(ctx: McpContext, name: string, args: unknown) -> unknown` con orden rate limit → `can` → zod → servicio (dentro de `runWithRequestOrigin`) → `sanitizeForAI`. Errores: `UnauthorizedError`, `ForbiddenError`, `NotFoundError`, `RateLimitError`, validación zod, regla de negocio.
 
 **T015 — Interfaces**
 - Consumes: T032 `src/server/mcp/queries.ts` → `listOpportunities(ctx, { estado?, texto?, limite? })`, `listServiceCases(ctx, {...})`, `getTaskDetail(ctx, id)`, `getQuoteDetail(ctx, id)`, `getOpportunityDetail(ctx, id)`; cada una devuelve `null` si el id no es de la org.

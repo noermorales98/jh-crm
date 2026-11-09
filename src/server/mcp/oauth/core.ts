@@ -25,20 +25,26 @@ const CLAUDE_HOSTS = new Set(["claude.ai", "claude.com"]);
 /** Callbacks locales de Claude Desktop/Code (RFC 8252 §7.3: loopback por http y con puerto). */
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1"]);
 
+/**
+ * Solo acepta la URI en su forma canónica: lo que se valida es exactamente lo que se
+ * guarda y a lo que se redirige. Así no cuelan tabuladores, saltos de línea, barras
+ * invertidas, mayúsculas en el host, `:443` ni fragmentos (aunque estén vacíos).
+ */
 export function isAllowedRedirectUri(uri: string): boolean {
-  if (!uri || uri.length > MAX_REDIRECT_URI_LENGTH) return false;
+  if (!uri || uri.length > MAX_REDIRECT_URI_LENGTH || uri.includes("#")) return false;
   let url: URL;
   try {
     url = new URL(uri);
   } catch {
     return false;
   }
-  if (url.username || url.password || url.hash) return false;
+  if (url.href !== uri) return false;
+  if (url.username || url.password) return false;
   if (url.protocol === "https:") {
     return CLAUDE_HOSTS.has(url.hostname) && url.port === "";
   }
   if (url.protocol === "http:") {
-    return LOOPBACK_HOSTS.has(url.hostname) && url.port !== "";
+    return LOOPBACK_HOSTS.has(url.hostname) && url.port !== "" && url.port !== "0";
   }
   return false;
 }

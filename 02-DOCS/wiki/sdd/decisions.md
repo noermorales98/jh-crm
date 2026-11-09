@@ -34,3 +34,6 @@ Append-only. Newest at the bottom.
   maps to the app's archive/cancel actions. Access token 1 h, non-expiring refresh token rotated on
   every use with reuse detection. Connector behind FEATURE_MCP_CONNECTOR and a per-organization
   switch, off by default (constitution rule 18).
+- 2026-11-09 — Batch 1 of `conector-mcp-claude` ships as a single PR (vs two PRs: connection+read,
+  then write), by the owner's choice. Over the review budget; mitigated by per-task review and a
+  closing review read in blocks.

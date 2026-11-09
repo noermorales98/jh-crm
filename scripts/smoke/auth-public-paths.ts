@@ -26,9 +26,18 @@ const mustBePublic: string[] = [
   "/login",
   "/privacy",
   "/portal/login",
+  "/.well-known/oauth-authorization-server",
+  "/.well-known/oauth-protected-resource",
+  "/.well-known/oauth-protected-resource/api/mcp",
+  "/api/oauth/register",
+  "/api/oauth/token",
+  "/api/oauth/revoke",
 ];
 
 const mustNotBePublic: string[] = [
+  "/oauth/authorize",
+  "/api/oauth/connections",
+  "/.well-known/other",
   "/api/ai/chat",
   "/api/files/upload-url",
   "/api/crm/search",

@@ -58,6 +58,21 @@ export function isAnonymousPath(pathname: string): boolean {
     return true;
   }
 
+  // Conector MCP de Claude: descubrimiento y OAuth (responden 404 con el flag apagado).
+  // /oauth/authorize NO es anónimo: exige la sesión del CRM (y su MFA).
+  if (
+    pathname === "/.well-known/oauth-authorization-server" ||
+    pathname === "/.well-known/oauth-protected-resource" ||
+    pathname.startsWith("/.well-known/oauth-protected-resource/") ||
+    pathname === "/api/oauth/register" ||
+    pathname === "/api/oauth/token" ||
+    pathname === "/api/oauth/revoke" ||
+    pathname === "/api/oauth/authorization-server" ||
+    pathname === "/api/oauth/protected-resource"
+  ) {
+    return true;
+  }
+
   // Avance compartido: la página valida HMAC/caducidad.
   if (pathname.startsWith("/a/")) {
     return true;

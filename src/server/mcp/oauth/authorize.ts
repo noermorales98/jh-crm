@@ -22,11 +22,22 @@ function single(params: Params, key: string): string | null {
   return typeof value === "string" ? value : null;
 }
 
+/** Campos OAuth que viajan en la pantalla de consentimiento (nada más). */
+export const AUTHORIZE_FIELDS = [
+  "response_type",
+  "client_id",
+  "redirect_uri",
+  "code_challenge",
+  "code_challenge_method",
+  "state",
+  "resource",
+] as const;
+
 export const MAX_STATE_LENGTH = 512;
 
 export function parseAuthorizeParams(params: Params): ParseResult {
   // Un parámetro repetido es ambiguo: se rechaza (RFC 6749 §3.1).
-  for (const key of ["response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method", "state", "resource"]) {
+  for (const key of AUTHORIZE_FIELDS) {
     if (Array.isArray(params[key])) return { ok: false };
   }
   if (single(params, "response_type") !== "code") return { ok: false };
@@ -44,6 +55,24 @@ export function parseAuthorizeParams(params: Params): ParseResult {
     ok: true,
     value: { req: { client_id, redirect_uri, code_challenge, code_challenge_method }, state },
   };
+}
+
+/** Solo los campos OAuth, para los campos ocultos del formulario. */
+export function authorizeHiddenFields(params: Params): Array<{ key: string; value: string }> {
+  return AUTHORIZE_FIELDS.flatMap((key) => {
+    const value = single(params, key);
+    return value === null ? [] : [{ key, value }];
+  });
+}
+
+/**
+ * A dónde volverá la persona tras aceptar. El nombre del cliente lo elige quien se
+ * registra; el destino no se puede falsear, así que se muestra junto al nombre.
+ */
+export function redirectDestinationLabel(redirectUri: string): string {
+  const url = new URL(redirectUri);
+  if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return "este ordenador (Claude Desktop o Claude Code)";
+  return url.hostname;
 }
 
 /** Vuelta a Claude con `code` o `error`, más `state` e `iss` (RFC 9207). */

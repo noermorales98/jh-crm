@@ -419,8 +419,50 @@ async function run() {
   check("vuelta conserva la query propia y deja un solo code",
     withQuery.searchParams.get("keep") === "1" && withQuery.searchParams.getAll("code").join() === "nuevo");
   check("state vacío se devuelve igual", withQuery.searchParams.has("state") && withQuery.searchParams.get("state") === "");
+  const hiddenFields = authz.authorizeHiddenFields({ ...good, $ACTION_KEY: "x", otro: "y" });
+  check("campos ocultos: solo los 7 de OAuth",
+    hiddenFields.every((f) => (authz.AUTHORIZE_FIELDS as readonly string[]).includes(f.key)) &&
+      hiddenFields.length === 7, hiddenFields.map((f) => f.key));
+  check("destino visible: claude.ai", authz.redirectDestinationLabel(REDIRECT) === "claude.ai");
+  check("destino visible: este ordenador para loopback",
+    authz.redirectDestinationLabel("http://127.0.0.1:6274/cb").startsWith("este ordenador"));
   check("state con '&' no inyecta parámetros",
     injected.searchParams.getAll("code").length === 1 && injected.searchParams.get("state") === "a&code=evil");
+
+  console.log("\n[mcp-http] botones de la pantalla de consentimiento\n");
+  const consent = await import("../../src/server/mcp/oauth/consent");
+  const v2 = crypto.randomBytes(32).toString("base64url");
+  const ch2 = crypto.createHash("sha256").update(v2).digest("base64url");
+  const base2 = {
+    response_type: "code", client_id: clientId, redirect_uri: REDIRECT,
+    code_challenge: ch2, code_challenge_method: "S256", state: "st-2",
+  };
+  const okApprove = await consent.decideApprove(staff, base2);
+  check("Permitir con datos válidos → vuelve a Claude con code",
+    okApprove.kind === "redirect" && new URL(okApprove.url).searchParams.has("code") &&
+      okApprove.url.startsWith(REDIRECT));
+  const forgedApprove = await consent.decideApprove(staff, { ...base2, redirect_uri: "https://claude.com/api/mcp/auth_callback" });
+  check("Permitir con redirect_uri no registrada → vuelve a la pantalla (no redirige)", forgedApprove.kind === "back");
+  const evilApprove = await consent.decideApprove(staff, { ...base2, redirect_uri: "https://evil.test/cb" });
+  check("Permitir con redirect_uri ajena → vuelve a la pantalla", evilApprove.kind === "back");
+  const unknownClient = await consent.decideApprove(staff, { ...base2, client_id: "desconocido" });
+  check("Permitir con cliente desconocido → vuelve a la pantalla", unknownClient.kind === "back");
+  await prisma.organizationSettings.update({ where: { organizationId: staff.organizationId }, data: { mcpEnabled: false } });
+  const offApprove = await consent.decideApprove(staff, base2);
+  check("Permitir con el conector apagado → vuelve a Claude con access_denied",
+    offApprove.kind === "redirect" && new URL(offApprove.url).searchParams.get("error") === "access_denied" &&
+      offApprove.url.startsWith(REDIRECT));
+  const offForged = await consent.decideApprove(staff, { ...base2, redirect_uri: "https://evil.test/cb" });
+  check("…pero nunca a una redirect_uri no registrada", offForged.kind === "back");
+  await prisma.organizationSettings.update({ where: { organizationId: staff.organizationId }, data: { mcpEnabled: true } });
+  const deny = await consent.decideDeny(base2);
+  check("Cancelar → vuelve a Claude con access_denied y state",
+    deny.kind === "redirect" && new URL(deny.url).searchParams.get("error") === "access_denied" &&
+      new URL(deny.url).searchParams.get("state") === "st-2" && deny.url.startsWith(REDIRECT));
+  const denyForged = await consent.decideDeny({ ...base2, redirect_uri: "https://evil.test/cb" });
+  check("Cancelar con redirect_uri no registrada → vuelve a la pantalla", denyForged.kind === "back");
+  check("Cancelar con petición mal formada → vuelve a la pantalla",
+    (await consent.decideDeny({ ...base2, response_type: "token" })).kind === "back");
 
   console.log("\n[mcp-http] rutas de Next y redirecciones\n");
   const tokenRoute = await import("../../app/api/oauth/token/route");
@@ -453,6 +495,11 @@ async function run() {
   const nextConfig = (await import("../../next.config")).default;
   const rewrites = (await nextConfig.rewrites?.()) as unknown as Array<{ source: string; destination: string }>;
   const dest = (source: string) => rewrites.find((r) => r.source === source)?.destination;
+  const headerRules = (await nextConfig.headers?.()) ?? [];
+  const consentHeaders = headerRules.find((r) => r.source === "/oauth/authorize")?.headers ?? [];
+  const hval = (k: string) => consentHeaders.find((h) => h.key === k)?.value;
+  check("consentimiento no incrustable (CSP frame-ancestors 'none' + X-Frame-Options DENY)",
+    hval("Content-Security-Policy") === "frame-ancestors 'none'" && hval("X-Frame-Options") === "DENY");
   check("/.well-known/oauth-authorization-server → /api/oauth/authorization-server",
     dest("/.well-known/oauth-authorization-server") === "/api/oauth/authorization-server");
   check("/.well-known/oauth-protected-resource → /api/oauth/protected-resource",

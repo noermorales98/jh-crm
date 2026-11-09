@@ -41,6 +41,10 @@ expect("https://evil.com/crm/clientes", DASH);
 expect(`https://evil.com${authorize}`, DASH);
 expect("javascript:alert(1)", DASH);
 expect("/\\evil.com", DASH);
+expect("/credit", DASH);
+expect("/portal/crm", DASH);
+expect("/crm/../portal", DASH);
+expect("http://[", DASH);
 
 if (failed > 0) {
   console.error(`\n✗ ${failed} comprobación(es) fallaron\n`);

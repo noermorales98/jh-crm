@@ -7,8 +7,16 @@ import { AppIcon } from "@/src/components/icons/app-icon";
 import { Alert } from "@/src/components/ui/alert";
 import { buttonClasses } from "@/src/components/ui/button";
 import { approveMcpAuthorization, denyMcpAuthorization } from "@/src/actions/mcp-oauth";
-import { requireOrganization, type OrganizationContext } from "@/src/server/auth/guards";
-import { parseAuthorizeParams } from "@/src/server/mcp/oauth/authorize";
+import {
+  ForbiddenError,
+  requireOrganization,
+  type OrganizationContext,
+} from "@/src/server/auth/guards";
+import {
+  authorizeHiddenFields,
+  parseAuthorizeParams,
+  redirectDestinationLabel,
+} from "@/src/server/mcp/oauth/authorize";
 import {
   OAuthError,
   isMcpConnectorFeatureOn,
@@ -70,7 +78,9 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
   let ctx: OrganizationContext;
   try {
     ctx = await requireOrganization();
-  } catch {
+  } catch (error) {
+    // Sin sesión, requireSession redirige al login: esa redirección no se traga.
+    if (!(error instanceof ForbiddenError)) throw error;
     return (
       <Problem title="Esta cuenta no puede conectar Claude">
         Solo el equipo de la agencia puede conectar Claude. Entra con tu usuario del CRM.
@@ -127,9 +137,8 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
     );
   }
 
-  const hidden = Object.entries(params).flatMap(([key, value]) =>
-    typeof value === "string" ? [{ key, value }] : [],
-  );
+  const hidden = authorizeHiddenFields(params);
+  const destination = redirectDestinationLabel(parsed.value.req.redirect_uri);
   const role = ROLE_LABELS[ctx.role] ?? ctx.role;
 
   return (
@@ -147,6 +156,10 @@ export default async function AuthorizePage({ searchParams }: { searchParams: Se
         <div className="flex justify-between gap-4">
           <dt className="text-text-secondary">Rol</dt>
           <dd className="text-ink">{role}</dd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <dt className="shrink-0 text-text-secondary">Volverá a</dt>
+          <dd className="text-right text-ink">{destination}</dd>
         </div>
       </dl>
 

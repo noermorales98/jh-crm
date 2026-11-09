@@ -61,6 +61,19 @@ branch: feat/conector-mcp-claude
 - risk: tier 2 (auth) — 3 refuters
 - controls: tests ✅ typecheck ✅ lint ✅ traceability ✅ (AC9, AC10, AC13, AC14)
 
+## T004 + T005 — 2026-11-09 (cierre)
+- status: complete
+- review ronda 2: correctness pass · security pass · tests pass (8 nits) → nits añadidos como casos de prueba (d22ff79)
+- panel registrado en d22ff79
+
+## T006 + T007 — 2026-11-09 (cierre)
+- status: complete
+- review ronda 1: correctness 2 should-fix (refresh con org apagada quemaba la llave y luego cortaba la conexión — fallo real reproducido; canje simultáneo no revocaba) + 2 nits · security 1 should-fix (registro sin límite) + 2 nits · tests 3 should-fix (huecos: canje sin chequeo de uso, refresh con access token, concurrencia)
+- fix (e578c16): marca de uso se deshace si la conexión no es utilizable ahora; carrera en canje revoca; relectura de la conexión dentro de la transacción; guardas de tipo; `revokeToken` con updateMany; límite de registro y purga asignados a T008/T026; estado "cortada" a T024
+- red→green ronda 2: 5 comprobaciones nuevas fallan con el servicio anterior y pasan con el arreglo
+- review ronda 2: correctness pass (2 preguntas → T024, T008) · security pass · tests pass (2 nits → añadidos en eb0a464)
+- estabilidad: `mcp-oauth-db.ts` verde 5 de 5 ejecuciones (incluye casos de peticiones simultáneas)
+
 ## Decision queue
 - **blocking** · T001 · tier 2 · Unir la migración del conector requiere tu sí (regla 13). Opciones: aprobar en el PR / pedir cambios. Recomendación: aprobar; 3 revisores sin bloqueos. Evidencia: entrada T001.
 - **blocking** · T005, T007 · tier 2 · El núcleo y el servicio OAuth tocan el inicio de sesión: necesitan tu sí en el PR (regla 13).

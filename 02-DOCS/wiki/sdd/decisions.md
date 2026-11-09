@@ -43,3 +43,9 @@ Append-only. Newest at the bottom.
   screens keep screenshots, their logic is smoke-tested. Read queries for opportunities, service
   cases and detail by id are added. All absolute URLs come from NEXT_PUBLIC_APP_URL. Accepted: an
   admin turns the connector on once; a role or email change disconnects Claude.
+- 2026-11-09 — T007 review round 1 (`conector-mcp-claude`). A refresh or code exchange refused because
+  the connection is not usable now (org off, user or session changed) rolls back its "used" mark
+  instead of burning it, so re-enabling the connector restores the same connection (AC-14); a
+  concurrent double use of a code revokes the connection, like the refresh race. Registration
+  flooding is handled at the HTTP edge (T008: per-IP limit) and by purging orphan clients and
+  token-less connections (T026), not in the service.

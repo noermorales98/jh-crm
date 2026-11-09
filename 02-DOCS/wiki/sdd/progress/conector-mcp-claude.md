@@ -97,3 +97,9 @@ branch: feat/conector-mcp-claude
 - **blocking** · T001 · tier 2 · Unir la migración del conector requiere tu sí (regla 13). Opciones: aprobar en el PR / pedir cambios. Recomendación: aprobar; 3 revisores sin bloqueos. Evidencia: entrada T001.
 - **blocking** · T005, T007 · tier 2 · El núcleo y el servicio OAuth tocan el inicio de sesión: necesitan tu sí en el PR (regla 13).
 - **blocking** · T008, T009 · tier 2 · Direcciones públicas OAuth, login y pantalla de consentimiento: necesitan tu sí en el PR (regla 13).
+
+## Pausa — 2026-11-09 (límite de uso)
+- T009: ronda 2 → security pass · correctness pass · tests 1 should-fix (state en Permitir) → añadido y verde; falta registrar el panel (`rsc review ledger panel conector-mcp-claude/T009`)
+- T010: en curso, sin commit. `scripts/smoke/mcp-endpoint.ts` escrita y en rojo (stubs en `src/server/mcp/dispatch.ts` y `src/server/mcp/tools/types.ts`). Siguiente: implementar `authenticate` y `callTool` (T011).
+- `@modelcontextprotocol/sdk@1.32.2` instalado (package.json y lock modificados, sin commit) para T012.
+- Servidor dev en 3999 y MySQL desechable en 3399 pueden seguir encendidos; `.claude/launch.json` sin commit (solo local).

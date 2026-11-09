@@ -339,6 +339,87 @@ async function run() {
   check("revocar un access lo caduca", !!k4access?.expiresAt && k4access.expiresAt.getTime() <= t0.getTime());
   check("revocar un token desconocido responde sin error",
     (await outcome(() => svc.revokeToken("desconocido", t0))) === "ok");
+
+  console.log("\n[mcp-oauth-db] apagar y volver a encender no quema llaves\n");
+  // Canje con la org apagada: falla, pero el código sigue sirviendo al reactivar.
+  const e1 = pkcePair();
+  const ce = await svc.approve(staff, req(e1.challenge), t0);
+  const exchangeArgs = { code: ce.code, code_verifier: e1.verifier, client_id: clientId, redirect_uri: REDIRECT };
+  await prisma.organizationSettings.update({ where: { organizationId: org.id }, data: { mcpEnabled: false } });
+  check("canje con la org apagada → invalid_grant (AC-10)",
+    (await outcome(() => svc.exchangeCode(exchangeArgs, t0))) === "invalid_grant");
+  await prisma.organizationSettings.update({ where: { organizationId: org.id }, data: { mcpEnabled: true } });
+  check("al reactivar, el mismo código funciona", (await outcome(() => svc.exchangeCode(exchangeArgs, t0))) === "ok");
+
+  // Refresh con la org apagada: falla, pero al reactivar el mismo refresh sirve y la conexión vive.
+  const k5 = await connect(staff);
+  await prisma.organizationSettings.update({ where: { organizationId: org.id }, data: { mcpEnabled: false } });
+  check("refresh con la org apagada → invalid_grant",
+    (await outcome(() => svc.refresh({ refresh_token: k5.refresh_token, client_id: clientId }, t0))) === "invalid_grant");
+  await prisma.organizationSettings.update({ where: { organizationId: org.id }, data: { mcpEnabled: true } });
+  check("al reactivar, el mismo refresh funciona (AC-14)",
+    (await outcome(() => svc.refresh({ refresh_token: k5.refresh_token, client_id: clientId }, t0))) === "ok");
+  const k5conn = await prisma.mcpConnection.findUnique({ where: { id: k5.connectionId } });
+  check("…y la conexión sigue viva", k5conn?.revokedAt === null);
+
+  // Canje con usuario desactivado o sessionVersion cambiada → invalid_grant.
+  const e2 = pkcePair();
+  const user2 = await member(org.id, "STAFF", "exch-inactive");
+  const c2 = await svc.approve(user2, req(e2.challenge), t0);
+  await prisma.user.update({ where: { id: user2.userId }, data: { isActive: false } });
+  check("canje con usuario desactivado → invalid_grant",
+    (await outcome(() => svc.exchangeCode(
+      { code: c2.code, code_verifier: e2.verifier, client_id: clientId, redirect_uri: REDIRECT }, t0))) === "invalid_grant");
+  const e3 = pkcePair();
+  const user3 = await member(org.id, "STAFF", "exch-sv");
+  const c3b = await svc.approve(user3, req(e3.challenge), t0);
+  await prisma.user.update({ where: { id: user3.userId }, data: { sessionVersion: { increment: 1 } } });
+  check("canje tras cambio de sessionVersion → invalid_grant",
+    (await outcome(() => svc.exchangeCode(
+      { code: c3b.code, code_verifier: e3.verifier, client_id: clientId, redirect_uri: REDIRECT }, t0))) === "invalid_grant");
+
+  console.log("\n[mcp-oauth-db] tipos de llave y entradas raras\n");
+  const k6 = await connect(staff);
+  check("refresh con un access token → invalid_grant",
+    (await outcome(() => svc.refresh({ refresh_token: k6.access_token, client_id: clientId }, t0))) === "invalid_grant");
+  const e4 = pkcePair();
+  const c4 = await svc.approve(staff, req(e4.challenge), t0);
+  check("code_verifier que no es texto → invalid_grant",
+    (await outcome(() => svc.exchangeCode(
+      { code: c4.code, code_verifier: [e4.verifier] as unknown as string, client_id: clientId, redirect_uri: REDIRECT },
+      t0))) === "invalid_grant");
+  check("authorize con campos que no son texto → invalid_request",
+    (await outcome(() => svc.approve(staff,
+      { ...req(e4.challenge), code_challenge: [e4.challenge] as unknown as string }, t0))) === "invalid_request");
+  check("registro con nombre que no es texto → invalid_client_metadata",
+    (await outcome(() => svc.registerClient({ client_name: 42, redirect_uris: [REDIRECT] }))) === "invalid_client_metadata");
+
+  console.log("\n[mcp-oauth-db] frontera de caducidad del código\n");
+  const e5 = pkcePair();
+  const c5 = await svc.approve(staff, req(e5.challenge), t0);
+  const args5 = { code: c5.code, code_verifier: e5.verifier, client_id: clientId, redirect_uri: REDIRECT };
+  check("código justo a los 600 s → invalid_grant",
+    (await outcome(() => svc.exchangeCode(args5, new Date(t0.getTime() + 600 * 1000)))) === "invalid_grant");
+  check("código a los 599 s → ok",
+    (await outcome(() => svc.exchangeCode(args5, new Date(t0.getTime() + 599 * 1000)))) === "ok");
+
+  console.log("\n[mcp-oauth-db] peticiones simultáneas\n");
+  const e6 = pkcePair();
+  const c6 = await svc.approve(staff, req(e6.challenge), t0);
+  const args6 = { code: c6.code, code_verifier: e6.verifier, client_id: clientId, redirect_uri: REDIRECT };
+  const both = await Promise.all([outcome(() => svc.exchangeCode(args6, t0)), outcome(() => svc.exchangeCode(args6, t0))]);
+  check("dos canjes a la vez → solo uno gana", both.filter((r) => r === "ok").length === 1, both);
+  const c6conn = await prisma.mcpConnection.findUnique({ where: { id: c6.connectionId } });
+  check("dos canjes a la vez → la conexión queda revocada", c6conn?.revokedAt instanceof Date);
+
+  const k7 = await connect(staff);
+  const bothR = await Promise.all([
+    outcome(() => svc.refresh({ refresh_token: k7.refresh_token, client_id: clientId }, t0)),
+    outcome(() => svc.refresh({ refresh_token: k7.refresh_token, client_id: clientId }, t0)),
+  ]);
+  check("dos refresh a la vez → solo uno gana", bothR.filter((r) => r === "ok").length === 1, bothR);
+  const k7conn = await prisma.mcpConnection.findUnique({ where: { id: k7.connectionId } });
+  check("dos refresh a la vez → la conexión queda revocada", k7conn?.revokedAt instanceof Date);
 }
 
 async function main() {

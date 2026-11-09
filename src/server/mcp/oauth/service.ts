@@ -81,6 +81,14 @@ export async function registerClient(input: {
 
 /** Cliente y redirect_uri ya validados para la pantalla de consentimiento. */
 export async function validateAuthorizeRequest(req: AuthorizeRequest) {
+  if (
+    typeof req.client_id !== "string" ||
+    typeof req.redirect_uri !== "string" ||
+    typeof req.code_challenge !== "string" ||
+    typeof req.code_challenge_method !== "string"
+  ) {
+    throw new OAuthError("invalid_request");
+  }
   const client = await prisma.mcpClient.findUnique({ where: { id: req.client_id } });
   if (!client) throw new OAuthError("unauthorized_client");
   const registered = Array.isArray(client.redirectUris) ? (client.redirectUris as unknown[]) : [];
@@ -185,6 +193,20 @@ async function issueTokens(db: Db, connectionId: string, now: Date): Promise<OAu
   };
 }
 
+/** Lanzado dentro de una transacción para deshacer la marca de uso sin castigar al cliente. */
+class RollbackUnusable extends Error {}
+
+/** Relee la conexión dentro de la transacción: una revocación reciente no se pierde. */
+async function usableConnection(tx: Prisma.TransactionClient, connectionId: string) {
+  const conn = await tx.mcpConnection.findUnique({ where: { id: connectionId } });
+  if (!conn || !(await isConnectionUsable(tx, conn))) throw new RollbackUnusable();
+  return conn;
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
 async function revokeConnection(connectionId: string, now: Date) {
   await prisma.mcpConnection.updateMany({
     where: { id: connectionId, revokedAt: null },
@@ -196,7 +218,14 @@ export async function exchangeCode(
   input: { code: string; code_verifier: string; client_id: string; redirect_uri: string },
   now: Date = new Date(),
 ): Promise<OAuthTokens> {
-  if (typeof input.code !== "string" || !input.code) throw new OAuthError("invalid_grant");
+  if (
+    !isString(input.code) ||
+    !isString(input.code_verifier) ||
+    !isString(input.client_id) ||
+    !isString(input.redirect_uri)
+  ) {
+    throw new OAuthError("invalid_grant");
+  }
   const row = await prisma.mcpAuthCode.findUnique({
     where: { codeHash: hashToken(input.code) },
     include: { connection: true },
@@ -212,28 +241,43 @@ export async function exchangeCode(
     row.expiresAt.getTime() <= now.getTime() ||
     row.connection.clientId !== input.client_id ||
     row.redirectUri !== input.redirect_uri ||
-    !verifyPkce(input.code_verifier ?? "", row.codeChallenge, "S256")
+    !verifyPkce(input.code_verifier, row.codeChallenge, "S256")
   ) {
     throw new OAuthError("invalid_grant");
   }
 
-  return prisma.$transaction(async (tx) => {
-    // Marca de uso condicional: si dos peticiones llegan a la vez, solo una gana.
-    const claimed = await tx.mcpAuthCode.updateMany({
-      where: { id: row.id, usedAt: null },
-      data: { usedAt: now },
+  let outcome: OAuthTokens | "race" | "unusable";
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      // Marca de uso condicional: si dos peticiones llegan a la vez, solo una gana.
+      const claimed = await tx.mcpAuthCode.updateMany({
+        where: { id: row.id, usedAt: null },
+        data: { usedAt: now },
+      });
+      if (claimed.count !== 1) return "race" as const;
+      await usableConnection(tx, row.connectionId);
+      return issueTokens(tx, row.connectionId, now);
     });
-    if (claimed.count !== 1) throw new OAuthError("invalid_grant");
-    if (!(await isConnectionUsable(tx, row.connection))) throw new OAuthError("invalid_grant");
-    return issueTokens(tx, row.connectionId, now);
-  });
+  } catch (error) {
+    // Conexión no utilizable (org apagada, usuario o sesión cambiados): la marca se
+    // deshace con la transacción y el código no se quema.
+    if (error instanceof RollbackUnusable) outcome = "unusable";
+    else throw error;
+  }
+  if (outcome === "race") {
+    // Dos usos simultáneos del mismo código: igual que el reuso, se corta la conexión.
+    await revokeConnection(row.connectionId, now);
+    throw new OAuthError("invalid_grant");
+  }
+  if (outcome === "unusable") throw new OAuthError("invalid_grant");
+  return outcome;
 }
 
 export async function refresh(
   input: { refresh_token: string; client_id: string },
   now: Date = new Date(),
 ): Promise<OAuthTokens> {
-  if (typeof input.refresh_token !== "string" || !input.refresh_token) {
+  if (!isString(input.refresh_token) || !isString(input.client_id)) {
     throw new OAuthError("invalid_grant");
   }
   const row = await prisma.mcpToken.findUnique({
@@ -249,32 +293,41 @@ export async function refresh(
   }
   if (row.connection.clientId !== input.client_id) throw new OAuthError("invalid_grant");
 
-  const tokens = await prisma.$transaction(async (tx) => {
-    const claimed = await tx.mcpToken.updateMany({
-      where: { id: row.id, usedAt: null },
-      data: { usedAt: now },
+  let outcome: OAuthTokens | "race" | "unusable";
+  try {
+    outcome = await prisma.$transaction(async (tx) => {
+      const claimed = await tx.mcpToken.updateMany({
+        where: { id: row.id, usedAt: null },
+        data: { usedAt: now },
+      });
+      if (claimed.count !== 1) return "race" as const;
+      await usableConnection(tx, row.connectionId);
+      return issueTokens(tx, row.connectionId, now);
     });
-    if (claimed.count !== 1) return null;
-    if (!(await isConnectionUsable(tx, row.connection))) return "unusable" as const;
-    return issueTokens(tx, row.connectionId, now);
-  });
-  if (tokens === null) {
+  } catch (error) {
+    // Conexión no utilizable ahora (p. ej. org apagada): se deshace la marca, así que
+    // el mismo refresh vuelve a servir cuando se reactive (AC-14).
+    if (error instanceof RollbackUnusable) outcome = "unusable";
+    else throw error;
+  }
+  if (outcome === "race") {
     // Otra petición rotó este refresh a la vez: se trata como reuso.
     await revokeConnection(row.connectionId, now);
     throw new OAuthError("invalid_grant");
   }
-  if (tokens === "unusable") throw new OAuthError("invalid_grant");
-  return tokens;
+  if (outcome === "unusable") throw new OAuthError("invalid_grant");
+  return outcome;
 }
 
 /** RFC 7009: responde siempre igual; un refresh corta la conexión, un access caduca. */
 export async function revokeToken(token: string, now: Date = new Date()): Promise<void> {
-  if (typeof token !== "string" || !token) return;
+  if (!isString(token)) return;
   const row = await prisma.mcpToken.findUnique({ where: { tokenHash: hashToken(token) } });
   if (!row) return;
   if (row.kind === "REFRESH") {
     await revokeConnection(row.connectionId, now);
   } else {
-    await prisma.mcpToken.update({ where: { id: row.id }, data: { expiresAt: now } });
+    // updateMany: si la purga ya borró la fila, no falla (RFC 7009 pide respuesta uniforme).
+    await prisma.mcpToken.updateMany({ where: { id: row.id }, data: { expiresAt: now } });
   }
 }

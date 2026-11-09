@@ -74,6 +74,26 @@ branch: feat/conector-mcp-claude
 - review ronda 2: correctness pass (2 preguntas → T024, T008) · security pass · tests pass (2 nits → añadidos en eb0a464)
 - estabilidad: `mcp-oauth-db.ts` verde 5 de 5 ejecuciones (incluye casos de peticiones simultáneas)
 
+## T031 (OAuth) + T008 — 2026-11-09
+- status: complete
+- commits: dc9c339, df8c477, 6872145 (base a06c13b)
+- red: stub 501 → 28 fallos; green: `mcp-http.ts` OK (95+ comprobaciones); `smoke:auth-paths` OK
+- e2e en servidor dev (3999, BD desechable): `/.well-known/*` → 200; registro ajeno → 400; `/oauth/authorize` sin sesión → login con vuelta
+- risk: tier 2 (auth) — 3 refuters × 3 rondas
+- ronda 1: security 2 should-fix (límite por IP falseable vía X-Forwarded-For; cuerpo por trozos leído entero) · tests 3 should-fix (revocación sin efecto comprobado; flag apagado sin probar en 3 rutas; rewrites y route.ts sin prueba) · correctness pass
+- ronda 2: correctness 1 should-fix (el tope global se gastaba con basura) · tests 5 should-fix (casos sin fijar) · security pass
+- ronda 3 (6872145): pass × 3; 3 nits de pruebas aceptados (Content-Length exacto, ventana global literal, cabeceras CORS por ruta)
+- decisiones: tope global de 100 registros/hora solo para registros válidos; lectura del cuerpo con corte a 16 KB; rewrites para `/.well-known`
+- aceptado: cookies de Auth.js en respuestas OAuth anónimas (inofensivo); en despliegues que no sean Vercel la IP es falseable (el tope global acota igual)
+
+## T009 — 2026-11-09
+- status: in review (ronda 2)
+- commits: 148fa73, 5d63bfc
+- e2e: login → consentimiento → Permitir → vuelta con code/state/iss → canje → llaves (captura escritorio y móvil)
+- ronda 1: security 1 should-fix (clickjacking) + 1 pregunta (nombre del cliente falseable) · tests 2 should-fix (reglas de redirección de Permitir/Cancelar sin prueba) · correctness pass (3 nits)
+- fix: CSP `frame-ancestors 'none'` + `X-Frame-Options: DENY`; fila «Volverá a» con el destino real; solo 7 campos ocultos; decisiones de los botones en `consent.ts` con pruebas contra BD (redirect_uri falsa → vuelve a la pantalla)
+
 ## Decision queue
 - **blocking** · T001 · tier 2 · Unir la migración del conector requiere tu sí (regla 13). Opciones: aprobar en el PR / pedir cambios. Recomendación: aprobar; 3 revisores sin bloqueos. Evidencia: entrada T001.
 - **blocking** · T005, T007 · tier 2 · El núcleo y el servicio OAuth tocan el inicio de sesión: necesitan tu sí en el PR (regla 13).
+- **blocking** · T008, T009 · tier 2 · Direcciones públicas OAuth, login y pantalla de consentimiento: necesitan tu sí en el PR (regla 13).

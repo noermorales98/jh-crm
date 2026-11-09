@@ -361,6 +361,16 @@ async function run() {
     (await outcome(() => svc.refresh({ refresh_token: k5.refresh_token, client_id: clientId }, t0))) === "ok");
   const k5conn = await prisma.mcpConnection.findUnique({ where: { id: k5.connectionId } });
   check("…y la conexión sigue viva", k5conn?.revokedAt === null);
+  // Tras un intento deshecho, la detección de robo sigue activa: el refresh viejo ya rotó.
+  check("tras rotar, reusar el refresh anterior → invalid_grant",
+    (await outcome(() => svc.refresh({ refresh_token: k5.refresh_token, client_id: clientId }, t0))) === "invalid_grant");
+  const k5after = await prisma.mcpConnection.findUnique({ where: { id: k5.connectionId } });
+  check("…y corta la conexión", k5after?.revokedAt instanceof Date);
+  // Una segunda revocación no cambia la hora de la primera.
+  const firstRevokedAt = k5after?.revokedAt?.getTime();
+  await outcome(() => svc.refresh({ refresh_token: k5.refresh_token, client_id: clientId }, new Date(t0.getTime() + HOUR)));
+  const k5later = await prisma.mcpConnection.findUnique({ where: { id: k5.connectionId } });
+  check("revocar otra vez conserva la hora original", k5later?.revokedAt?.getTime() === firstRevokedAt);
 
   // Canje con usuario desactivado o sessionVersion cambiada → invalid_grant.
   const e2 = pkcePair();
@@ -391,6 +401,9 @@ async function run() {
   check("authorize con campos que no son texto → invalid_request",
     (await outcome(() => svc.approve(staff,
       { ...req(e4.challenge), code_challenge: [e4.challenge] as unknown as string }, t0))) === "invalid_request");
+  check("authorize con client_id que no es texto → invalid_request",
+    (await outcome(() => svc.approve(staff,
+      { ...req(e4.challenge), client_id: { contains: "c" } as unknown as string }, t0))) === "invalid_request");
   check("registro con nombre que no es texto → invalid_client_metadata",
     (await outcome(() => svc.registerClient({ client_name: 42, redirect_uris: [REDIRECT] }))) === "invalid_client_metadata");
 

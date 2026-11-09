@@ -17,6 +17,8 @@ import {
 
 export const MAX_REGISTER_BODY_BYTES = 16 * 1024;
 const REGISTER_LIMIT_PER_HOUR = 10;
+/** Tope global de registros por hora: acota la tabla aunque se falsee la IP de origen. */
+export const REGISTER_GLOBAL_LIMIT_PER_HOUR = 100;
 const TOKEN_LIMIT_PER_MINUTE = 60;
 
 /** Dirección pública del CRM, sin barra final. Única fuente de URLs absolutas. */
@@ -98,12 +100,25 @@ export function protectedResourceMetadataResponse(): Response {
 
 class BodyTooLarge extends Error {}
 
+/** Lee el cuerpo contando bytes y corta en cuanto supera el máximo (también si llega por trozos). */
 async function readBody(request: Request, maxBytes: number): Promise<string> {
   const declared = Number(request.headers.get("content-length") ?? "0");
   if (declared > maxBytes) throw new BodyTooLarge();
-  const text = await request.text();
-  if (Buffer.byteLength(text, "utf8") > maxBytes) throw new BodyTooLarge();
-  return text;
+  if (!request.body) return "";
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => undefined);
+      throw new BodyTooLarge();
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
 }
 
 /** Formulario (lo estándar) o JSON; solo campos de texto. */
@@ -145,7 +160,9 @@ async function limit(key: string, max: number, windowSeconds: number): Promise<R
 
 export async function handleRegister(request: Request): Promise<Response> {
   if (!isMcpConnectorFeatureOn()) return notFound();
-  const limited = await limit(`mcp-register:${clientIpFromRequest(request)}`, REGISTER_LIMIT_PER_HOUR, 3600);
+  const limited =
+    (await limit(`mcp-register:${clientIpFromRequest(request)}`, REGISTER_LIMIT_PER_HOUR, 3600)) ??
+    (await limit("mcp-register:global", REGISTER_GLOBAL_LIMIT_PER_HOUR, 3600));
   if (limited) return limited;
 
   let text: string;

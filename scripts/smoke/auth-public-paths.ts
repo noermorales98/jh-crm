@@ -32,12 +32,16 @@ const mustBePublic: string[] = [
   "/api/oauth/register",
   "/api/oauth/token",
   "/api/oauth/revoke",
+  "/api/oauth/authorization-server",
+  "/api/oauth/protected-resource",
 ];
 
 const mustNotBePublic: string[] = [
   "/oauth/authorize",
   "/api/oauth/connections",
   "/.well-known/other",
+  "/.well-known/oauth-protected-resourceX",
+  "/api/mcp",
   "/api/ai/chat",
   "/api/files/upload-url",
   "/api/crm/search",

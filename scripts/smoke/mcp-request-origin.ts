@@ -5,6 +5,7 @@
  *
  *   DATABASE_URL=mysql://root@127.0.0.1:3399/jh_gates npx tsx scripts/smoke/mcp-request-origin.ts
  */
+import { readFileSync } from "node:fs";
 import { PrismaClient } from "@prisma/client";
 import type { OrganizationContext } from "../../src/server/auth/guards";
 
@@ -148,6 +149,11 @@ async function run(ctx: OrganizationContext) {
 
 async function main() {
   console.log("\n[mcp-request-origin] origen Claude en actividad y auditoría\n");
+  // Componentes de cliente importan de forma transitiva este módulo (vía auditoría y
+  // actividad): un import estático de un módulo de Node rompe el bundle del navegador.
+  const source = readFileSync(new URL("../../src/server/request-origin.ts", import.meta.url), "utf8");
+  check("request-origin no importa módulos de Node de forma estática (rompe el build del navegador)",
+    !/^\s*import[^;]*from\s+["']node:/m.test(source) && !/require\(["']node:/.test(source));
   const ctx = await makeOrg();
   try {
     await run(ctx);

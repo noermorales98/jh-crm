@@ -18,7 +18,7 @@ function check(label: string, cond: boolean, detail?: unknown) {
 }
 
 /** Secciones de la tanda 1 que `listar` y `ver` deben cubrir. */
-export const BATCH1_SECTIONS = ["clientes", "casos", "casos_servicio", "tareas", "oportunidades", "cotizaciones"];
+export const BATCH1_SECTIONS = ["clientes", "casos", "casos_servicio", "tareas", "oportunidades", "cotizaciones", "rondas", "cartas", "reportes_credito", "consultas"];
 
 console.log("\n[mcp-tool-registry] registro\n");
 const tools = allTools();
@@ -96,6 +96,29 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   marcar_cotizacion_aceptada: ["quotes.manage", "write"],
   marcar_cotizacion_rechazada: ["quotes.manage", "write"],
   cancelar_cotizacion: ["quotes.manage", "destructive"],
+  // Tanda 2
+  crear_ronda: ["rounds.manage", "write"],
+  editar_ronda: ["rounds.manage", "write"],
+  marcar_ronda_enviada: ["rounds.manage", "write"],
+  marcar_ronda_revisada: ["rounds.manage", "write"],
+  cancelar_ronda: ["rounds.manage", "destructive"],
+  agregar_disputa: ["disputes.manage", "write"],
+  agregar_disputas_lote: ["disputes.manage", "write"],
+  agregar_disputa_consulta_o_personal: ["disputes.manage", "write"],
+  editar_disputa: ["disputes.manage", "write"],
+  cancelar_disputa: ["disputes.manage", "destructive"],
+  crear_borrador_carta: ["letters.manage", "write"],
+  editar_borrador_carta: ["letters.manage", "write"],
+  finalizar_carta: ["letters.manage", "write"],
+  marcar_carta_enviada: ["letters.manage", "write"],
+  generar_cartas_por_estrategia: ["letters.manage", "write"],
+  actualizar_seguimiento_carta: ["letters.manage", "write"],
+  crear_reporte_credito: ["creditReports.manage", "write"],
+  editar_reporte_credito: ["creditReports.manage", "write"],
+  agregar_partida_credito: ["creditItems.manage", "write"],
+  editar_partida_credito: ["creditItems.manage", "write"],
+  solicitar_consulta: ["consultations.manage", "write"],
+  cambiar_estado_consulta: ["consultations.manage", "write"],
 };
 for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {
   const tool = tools.find((t) => t.name === name);
@@ -111,6 +134,8 @@ check("solo las herramientas que contactan al cliente tienen efectos fuera del C
   tools.filter((t) => t.openWorld).map((t) => t.name).join() === "marcar_cotizacion_enviada",
   tools.filter((t) => t.openWorld).map((t) => t.name));
 const unexpected = tools.filter((t) => t.kind !== "read" && !(t.name in EXPECTED_WRITE_TOOLS)).map((t) => t.name);
+check("ninguna herramienta borra partidas de crédito de verdad (solo borrado lógico)",
+  !tools.some((t) => /(borrar|eliminar)_partida/.test(t.name)), names);
 check("no hay herramientas de escritura fuera de la lista", unexpected.length === 0, unexpected);
 
 console.log("\n[mcp-tool-registry] limpieza de números largos (AC-6)\n");

@@ -1,8 +1,16 @@
-import type { OpportunityStage, Prisma, ServiceCaseStatus } from "@prisma/client";
+import type {
+  ConsultationStatus,
+  CreditReportType,
+  DisputeLetterStatus,
+  OpportunityStage,
+  Prisma,
+  RoundStatus,
+  ServiceCaseStatus,
+} from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { formatMoney } from "@/src/lib/format";
 import { fullName, jsonSafe } from "@/src/lib/ai/serialize";
-import { caseHref } from "@/src/lib/routes/case-routes";
+import { caseHref, creditAnalysisHref } from "@/src/lib/routes/case-routes";
 import { ForbiddenError, type OrganizationContext } from "@/src/server/auth/guards";
 import { can, type PermissionAction } from "@/src/server/auth/permissions";
 import { DomainError } from "@/src/server/errors";
@@ -287,4 +295,369 @@ export async function getQuoteBrief(ctx: OrganizationContext, id: string) {
     client: clientInfo(row.client),
     href: `/crm/cotizaciones/${row.id}`,
   });
+}
+
+// ── Rondas de disputa (con sus ítems) ──────────────────────────────────────
+
+const ROUND_STATUSES: RoundStatus[] = [
+  "DRAFT",
+  "PREPARING",
+  "SENT",
+  "WAITING_UPDATE",
+  "REVIEWING",
+  "COMPLETED",
+  "CANCELLED",
+];
+const LETTER_STATUSES: DisputeLetterStatus[] = ["DRAFT", "READY_FOR_REVIEW", "FINAL", "SENT", "CANCELLED"];
+const REPORT_TYPES: CreditReportType[] = ["INITIAL", "UPDATE", "MANUAL"];
+const CONSULTATION_STATUSES: ConsultationStatus[] = [
+  "REQUESTED",
+  "PAYMENT_PENDING",
+  "PAID",
+  "SCHEDULED",
+  "COMPLETED",
+  "CANCELLED",
+];
+
+/** Nunca sale un número de cuenta completo: solo «****1234». */
+function maskAccount(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, "");
+  return digits.length >= 4 ? `****${digits.slice(-4)}` : "****";
+}
+
+const CASE_REF_SELECT = {
+  serviceCaseId: true,
+  client: { select: CLIENT_SELECT },
+} satisfies Prisma.CreditCaseSelect;
+
+type CaseRef = { serviceCaseId: string; client: ClientRow };
+function roundHref(ref: CaseRef, roundId: string) {
+  return caseHref(ref.client.id, ref.serviceCaseId, `/rondas/${roundId}`);
+}
+
+const ROUND_SELECT = {
+  id: true,
+  roundNumber: true,
+  status: true,
+  startedAt: true,
+  sentAt: true,
+  expectedReviewAt: true,
+  reviewedAt: true,
+  lettersCount: true,
+  disputedItemsCount: true,
+  case: { select: CASE_REF_SELECT },
+} satisfies Prisma.CreditRoundSelect;
+
+type RoundRow = Prisma.CreditRoundGetPayload<{ select: typeof ROUND_SELECT }>;
+function roundInfo(row: RoundRow) {
+  return {
+    id: row.id,
+    roundNumber: row.roundNumber,
+    status: row.status,
+    startedAt: row.startedAt,
+    sentAt: row.sentAt,
+    expectedReviewAt: row.expectedReviewAt,
+    reviewedAt: row.reviewedAt,
+    lettersCount: row.lettersCount,
+    disputedItemsCount: row.disputedItemsCount,
+    client: clientInfo(row.case.client),
+    href: roundHref(row.case, row.id),
+  };
+}
+
+export async function listRounds(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "rounds.view");
+  const status = pickEnum(filters.estado, ROUND_STATUSES, "Estado");
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.creditRound.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(status ? { status } : {}),
+      ...(search ? { case: { client: search } } : {}),
+    },
+    select: ROUND_SELECT,
+    orderBy: { updatedAt: "desc" },
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(roundInfo) });
+}
+
+export async function getRoundDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "rounds.view");
+  const row = await prisma.creditRound.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: { ...ROUND_SELECT, notes: true },
+  });
+  if (!row) return null;
+  const canSeeDisputes = can(ctx.role, "disputes.view");
+  const items = canSeeDisputes
+    ? await prisma.disputeItem.findMany({
+        where: { roundId: id, organizationId: ctx.organizationId },
+        select: {
+          id: true,
+          targetKind: true,
+          targetLabel: true,
+          strategy: true,
+          bureau: true,
+          disputeReason: true,
+          action: true,
+          scope: true,
+          method: true,
+          status: true,
+          outcome: true,
+          creditItem: { select: { creditorName: true, accountNumberMasked: true } },
+          inquiry: { select: { creditorName: true } },
+        },
+        orderBy: { createdAt: "asc" },
+        take: 100,
+      })
+    : [];
+  return jsonSafe({
+    ...roundInfo(row),
+    notes: row.notes,
+    disputeItems: items.map((i) => ({
+      id: i.id,
+      kind: i.targetKind,
+      target: i.creditItem?.creditorName ?? i.inquiry?.creditorName ?? i.targetLabel,
+      account: maskAccount(i.creditItem?.accountNumberMasked),
+      bureau: i.bureau,
+      reason: i.disputeReason,
+      action: i.action,
+      strategy: i.strategy,
+      scope: i.scope,
+      method: i.method,
+      status: i.status,
+      outcome: i.outcome,
+    })),
+  });
+}
+
+// ── Cartas de disputa ──────────────────────────────────────────────────────
+
+const LETTER_SELECT = {
+  id: true,
+  bureau: true,
+  recipient: true,
+  subjectSnapshot: true,
+  status: true,
+  channel: true,
+  strategy: true,
+  generatedAt: true,
+  finalizedAt: true,
+  sentAt: true,
+  trackingNumber: true,
+  followUpAt: true,
+  round: { select: { id: true, roundNumber: true, case: { select: CASE_REF_SELECT } } },
+} satisfies Prisma.DisputeLetterSelect;
+
+type LetterRow = Prisma.DisputeLetterGetPayload<{ select: typeof LETTER_SELECT }>;
+function letterInfo(row: LetterRow) {
+  return {
+    id: row.id,
+    bureau: row.bureau,
+    recipient: row.recipient,
+    subject: row.subjectSnapshot,
+    status: row.status,
+    channel: row.channel,
+    strategy: row.strategy,
+    generatedAt: row.generatedAt,
+    finalizedAt: row.finalizedAt,
+    sentAt: row.sentAt,
+    trackingNumber: row.trackingNumber,
+    followUpAt: row.followUpAt,
+    round: { id: row.round.id, roundNumber: row.round.roundNumber },
+    client: clientInfo(row.round.case.client),
+    href: roundHref(row.round.case, row.round.id),
+  };
+}
+
+export async function listLetters(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "letters.view");
+  const status = pickEnum(filters.estado, LETTER_STATUSES, "Estado");
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.disputeLetter.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(status ? { status } : {}),
+      ...(search ? { round: { case: { client: search } } } : {}),
+    },
+    select: LETTER_SELECT,
+    orderBy: { generatedAt: "desc" },
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(letterInfo) });
+}
+
+const LETTER_PREVIEW_CHARS = 1500;
+
+export async function getLetterDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "letters.view");
+  const row = await prisma.disputeLetter.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: { ...LETTER_SELECT, contentSnapshot: true, notes: true, items: { select: { disputeItemId: true } } },
+  });
+  if (!row) return null;
+  return jsonSafe({
+    ...letterInfo(row),
+    disputeItemIds: row.items.map((i) => i.disputeItemId),
+    contentPreview: row.contentSnapshot.slice(0, LETTER_PREVIEW_CHARS),
+    contentTruncated: row.contentSnapshot.length > LETTER_PREVIEW_CHARS,
+    notes: row.notes,
+  });
+}
+
+// ── Reportes de crédito ────────────────────────────────────────────────────
+
+const REPORT_SELECT = {
+  id: true,
+  type: true,
+  provider: true,
+  reportDate: true,
+  importedAt: true,
+  client: { select: CLIENT_SELECT },
+  snapshots: {
+    select: { bureau: true, score: true, totalAccounts: true, negativeAccounts: true, collections: true, inquiries: true },
+  },
+  _count: { select: { items: true } },
+} satisfies Prisma.CreditReportSelect;
+
+type ReportRow = Prisma.CreditReportGetPayload<{ select: typeof REPORT_SELECT }>;
+function reportInfo(row: ReportRow) {
+  return {
+    id: row.id,
+    type: row.type,
+    provider: row.provider,
+    reportDate: row.reportDate,
+    importedAt: row.importedAt,
+    itemCount: row._count.items,
+    scores: row.snapshots.map((s) => ({
+      bureau: s.bureau,
+      score: s.score,
+      totalAccounts: s.totalAccounts,
+      negativeAccounts: s.negativeAccounts,
+      collections: s.collections,
+      inquiries: s.inquiries,
+    })),
+    client: clientInfo(row.client),
+    href: creditAnalysisHref(row.id),
+  };
+}
+
+export async function listCreditReports(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "creditReports.view");
+  const type = pickEnum(filters.estado, REPORT_TYPES, "Tipo");
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.creditReport.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(type ? { type } : {}),
+      ...(search ? { client: search } : {}),
+    },
+    select: REPORT_SELECT,
+    orderBy: { reportDate: "desc" },
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(reportInfo) });
+}
+
+export async function getCreditReportDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "creditReports.view");
+  const row = await prisma.creditReport.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: { ...REPORT_SELECT, notes: true },
+  });
+  if (!row) return null;
+  const [report, items] = await Promise.all([
+    Promise.resolve(reportInfo(row)),
+    prisma.creditItem.findMany({
+      where: { reportId: id, organizationId: ctx.organizationId },
+      select: {
+        id: true,
+        creditorName: true,
+        accountNumberMasked: true,
+        accountType: true,
+        bureau: true,
+        balance: true,
+        accountStatus: true,
+        paymentStatus: true,
+        negativeType: true,
+        isNegative: true,
+        lifecycleStatus: true,
+      },
+      orderBy: [{ isNegative: "desc" }, { creditorName: "asc" }],
+      take: 100,
+    }),
+  ]);
+  return jsonSafe({
+    ...report,
+    notes: row.notes,
+    items: items.map((i) => ({
+      id: i.id,
+      creditor: i.creditorName,
+      account: maskAccount(i.accountNumberMasked),
+      accountType: i.accountType,
+      bureau: i.bureau,
+      balance: i.balance ? formatMoney(i.balance, "USD") : null,
+      accountStatus: i.accountStatus,
+      paymentStatus: i.paymentStatus,
+      negativeType: i.negativeType,
+      isNegative: i.isNegative,
+      lifecycleStatus: i.lifecycleStatus,
+    })),
+  });
+}
+
+// ── Consultas ──────────────────────────────────────────────────────────────
+
+const CONSULTATION_SELECT = {
+  id: true,
+  status: true,
+  amount: true,
+  currency: true,
+  scheduledAt: true,
+  requestedAt: true,
+  completedAt: true,
+  client: { select: CLIENT_SELECT },
+} satisfies Prisma.ConsultationSelect;
+
+type ConsultationRow = Prisma.ConsultationGetPayload<{ select: typeof CONSULTATION_SELECT }>;
+function consultationInfo(row: ConsultationRow) {
+  return {
+    id: row.id,
+    status: row.status,
+    amount: formatMoney(row.amount, row.currency),
+    scheduledAt: row.scheduledAt,
+    requestedAt: row.requestedAt,
+    completedAt: row.completedAt,
+    client: clientInfo(row.client),
+    href: "/crm/consultas",
+  };
+}
+
+export async function listConsultationsMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "consultations.view");
+  const status = pickEnum(filters.estado, CONSULTATION_STATUSES, "Estado");
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.consultation.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(status ? { status } : {}),
+      ...(search ? { client: search } : {}),
+    },
+    select: CONSULTATION_SELECT,
+    orderBy: { requestedAt: "desc" },
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(consultationInfo), href: "/crm/consultas" });
+}
+
+export async function getConsultationDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "consultations.view");
+  const row = await prisma.consultation.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: { ...CONSULTATION_SELECT, notes: true },
+  });
+  if (!row) return null;
+  return jsonSafe({ ...consultationInfo(row), notes: row.notes });
 }

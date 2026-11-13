@@ -6,7 +6,7 @@
  */
 import { can } from "../../src/server/auth/permissions";
 import { allTools } from "../../src/server/mcp/tools";
-import { maskLongNumbers } from "../../src/server/mcp/redact";
+import { maskLongNumbers, maskSensitiveText, redactForClaude, isSensitiveNumberQuery } from "../../src/server/mcp/redact";
 
 let failed = 0;
 function check(label: string, cond: boolean, detail?: unknown) {
@@ -112,6 +112,25 @@ check("12 dígitos → enmascarado", maskLongNumbers("000123456789") === "****67
 check("teléfono de 10 dígitos intacto", maskLongNumbers("tel 5551234567") === "tel 5551234567");
 check("11 dígitos intacto", maskLongNumbers("15551234567") === "15551234567");
 check("importe con decimales intacto", maskLongNumbers("$1,250.00") === "$1,250.00");
+for (const raw of ["4111.2222.3333.4444", "4111/2222/3333/4444", "4111\n2222\n3333\n4444",
+  "4111  2222  3333  4444", "acct4111222233334444", "cuenta_4111222233334444", "4111-2222-3333-4444-"]) {
+  const out = maskSensitiveText(raw);
+  check(`cuenta ${JSON.stringify(raw)} → sin los 12 primeros dígitos`, !/4111[\s._/-]*2222/.test(out) && out.includes("4444"), out);
+}
+for (const raw of ["SSN 123 45 6789", "123.45.6789", "ssn_123456789.pdf", "123-45-6789", "ITIN 912 70 1234"]) {
+  check(`SSN/ITIN ${JSON.stringify(raw)} → tapado`, !/\d{3}[\s._-]*\d{2}[\s._-]*\d{4}/.test(maskSensitiveText(raw)), maskSensitiveText(raw));
+}
+const structured = redactForClaude({ phone: "+52 55 1234 5678", clientCode: "SC-20261112-0001", caseNumber: "202611120001",
+  id: "123456789012", href: "/crm/clientes/123456789012", note: "tel +52 55 1234 5678" });
+check("campos estructurados intactos (teléfono, códigos, id, enlace)",
+  structured.phone === "+52 55 1234 5678" && structured.clientCode === "SC-20261112-0001" &&
+    structured.caseNumber === "202611120001" && structured.id === "123456789012" && structured.href === "/crm/clientes/123456789012",
+  structured);
+check("…pero en texto libre se tapa", structured.note !== "tel +52 55 1234 5678", structured.note);
+check("buscar por 9 dígitos se rechaza", isSensitiveNumberQuery("123-45-6789"));
+check("buscar por 16 dígitos se rechaza", isSensitiveNumberQuery("4111 2222 3333 4444"));
+check("buscar por teléfono de 10 dígitos se permite", !isSensitiveNumberQuery("(555) 123-4567"));
+check("buscar por código corto se permite", !isSensitiveNumberQuery("COT-0042"));
 
 if (failed > 0) {
   console.error(`\n✗ ${failed} comprobación(es) fallaron\n`);

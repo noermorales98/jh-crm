@@ -10,6 +10,7 @@ import {
   listOpportunities,
   listServiceCases,
 } from "@/src/server/mcp/queries";
+import { isSensitiveNumberQuery } from "@/src/server/mcp/redact";
 import { defineTool, type McpContext, type Tool } from "./types";
 
 /**
@@ -39,7 +40,7 @@ function unwrap<T>(result: T): T {
   if (result && typeof result === "object" && "error" in result) {
     const message = String((result as { error: unknown }).error ?? "");
     if (/permiso/i.test(message)) throw new ForbiddenError("Sin permiso para esta acción.");
-    if (/no encontrad|no existe/i.test(message)) throw new NotFoundError();
+    if (/no encontrad/i.test(message)) throw new NotFoundError();
     throw new DomainError(message);
   }
   return result;
@@ -60,17 +61,44 @@ async function orNotFound<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/** Recorta `items` al límite pedido (las consultas del asistente traen hasta 50). */
+function limitItems<T>(result: T, limite?: number): T {
+  const max = Math.min(Math.max(limite ?? 20, 1), 50);
+  if (result && typeof result === "object" && Array.isArray((result as { items?: unknown }).items)) {
+    const items = (result as { items: unknown[] }).items;
+    return { ...result, items: items.slice(0, max) };
+  }
+  return result;
+}
+
+/**
+ * En el conector, los nombres de documentos muy sensibles nunca salen, aunque el rol
+ * pueda verlos en la app (spec: nada sensible en claro, aunque el rol lo vea).
+ */
+function hideSensitiveDocumentNames<T>(result: T): T {
+  const docs = (result as { documents?: unknown })?.documents;
+  if (!Array.isArray(docs)) return result;
+  return {
+    ...result,
+    documents: docs.map((doc) =>
+      (doc as { sensitivity?: string }).sensitivity === "HIGHLY_SENSITIVE"
+        ? { ...(doc as object), name: "[documento sensible]" }
+        : doc,
+    ),
+  };
+}
+
 async function listSection(ctx: McpContext, input: { seccion: ReadSection; estado?: string; texto?: string; limite?: number }) {
   const filters = { status: input.estado, q: input.texto };
   switch (input.seccion) {
     case "clientes":
-      return unwrap(await listCrm(ctx, "clients", filters));
+      return limitItems(unwrap(await listCrm(ctx, "clients", filters)), input.limite);
     case "casos":
-      return unwrap(await listCrm(ctx, "cases", filters));
+      return limitItems(unwrap(await listCrm(ctx, "cases", filters)), input.limite);
     case "tareas":
-      return unwrap(await listCrm(ctx, "tasks", filters));
+      return limitItems(unwrap(await listCrm(ctx, "tasks", filters)), input.limite);
     case "cotizaciones":
-      return unwrap(await listCrm(ctx, "quotes", filters));
+      return limitItems(unwrap(await listCrm(ctx, "quotes", filters)), input.limite);
     case "casos_servicio":
       return listServiceCases(ctx, input);
     case "oportunidades":
@@ -81,9 +109,9 @@ async function listSection(ctx: McpContext, input: { seccion: ReadSection; estad
 async function viewSection(ctx: McpContext, input: { seccion: ReadSection; id: string }) {
   switch (input.seccion) {
     case "clientes":
-      return orNotFound(() => getClientBrief(ctx, input.id));
+      return hideSensitiveDocumentNames(await orNotFound(() => getClientBrief(ctx, input.id)));
     case "casos":
-      return orNotFound(() => getCaseBrief(ctx, input.id));
+      return hideSensitiveDocumentNames(await orNotFound(() => getCaseBrief(ctx, input.id)));
     case "tareas":
       return found(await getTaskBrief(ctx, input.id));
     case "cotizaciones":
@@ -134,6 +162,13 @@ export const readTools: Tool[] = [
     }),
     permission: "dashboard.view",
     kind: "read",
-    run: async (ctx, input) => unwrap(await searchCrm(ctx, input.texto)),
+    run: async (ctx, input) => {
+      if (isSensitiveNumberQuery(input.texto)) {
+        throw new DomainError(
+          "No se puede buscar por números largos (podrían ser SSN o cuentas). Busca por nombre, código o teléfono.",
+        );
+      }
+      return unwrap(await searchCrm(ctx, input.texto));
+    },
   }),
 ];

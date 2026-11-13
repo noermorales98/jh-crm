@@ -16,6 +16,7 @@ const prisma = new PrismaClient();
 const MARK = `mcpread${Date.now()}`;
 const SSN = "123-45-6789";
 const ACCOUNT = "4111222233334444";
+const DOC_CATEGORY = "SSN_DOCUMENT";
 const createdOrgs: string[] = [];
 const createdUsers: string[] = [];
 let failed = 0;
@@ -112,6 +113,18 @@ async function seedOrg(suffix: string) {
       notes: `cuenta ${ACCOUNT}`,
     } as never,
   });
+  await prisma.document.create({
+    data: {
+      organizationId: org.id,
+      clientId: client.id,
+      category: DOC_CATEGORY,
+      sensitivity: "HIGHLY_SENSITIVE",
+      originalName: "tarjeta SSN de Ana.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 10,
+      storageKey: `smoke/${MARK}/${suffix}/ssn.pdf`,
+    } as never,
+  });
   const opportunity = await prisma.opportunity.create({
     data: { organizationId: org.id, clientId: client.id, source: "smoke", estimatedValue: 500 } as never,
   });
@@ -163,7 +176,23 @@ async function run() {
       (await errorName(() => callTool(vctx, "listar", { seccion }, opts))) === "ok");
   }
 
+  console.log("\n[mcp-read-tools] documentos sensibles y límite\n");
+  const ownerView = JSON.stringify(await callTool(a.ownerCtx, "ver", { seccion: "clientes", id: a.client.id }, opts));
+  check("ver clientes: el nombre de un documento muy sensible no sale ni al propietario",
+    !ownerView.includes("tarjeta SSN de Ana") && ownerView.includes("[documento sensible]"), ownerView.slice(0, 400));
+  for (let i = 0; i < 3; i += 1) {
+    await prisma.client.create({
+      data: { organizationId: a.org.id, clientCode: `L${i}-${MARK}`.slice(0, 20), firstName: `Extra${i}`, lastName: "Lim", status: "ACTIVE" },
+    });
+  }
+  const limited = (await callTool(a.ownerCtx, "listar", { seccion: "clientes", limite: 2 }, opts)) as { items?: unknown[] };
+  check("listar respeta el límite pedido", Array.isArray(limited.items) && limited.items.length === 2, limited.items?.length);
+
   console.log("\n[mcp-read-tools] buscar\n");
+  check("buscar por un número de 9 dígitos → rechazado (DomainError)",
+    (await errorName(() => callTool(a.ownerCtx, "buscar", { texto: SSN }, opts))) === "DomainError");
+  check("buscar por un número de cuenta → rechazado",
+    (await errorName(() => callTool(a.ownerCtx, "buscar", { texto: ACCOUNT }, opts))) === "DomainError");
   const found = JSON.stringify(await callTool(a.ownerCtx, "buscar", { texto: "AnaA" }, opts));
   check("buscar encuentra al cliente propio", found.includes(a.client.id), found.slice(0, 300));
   check("buscar no devuelve otra organización", !found.includes(b.client.id));

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { emailSchema, usPhoneSchema, usStateSchema, postalCodeSchema } from "./common";
+import { cuidSchema, emailSchema, usPhoneSchema, usStateSchema, postalCodeSchema } from "./common";
 
 const CLIENT_EDITABLE_STATUSES = [
   "LEAD",
@@ -27,6 +27,9 @@ export const clientUpdateSchema = clientCreateSchema.partial().extend({
   status: z.enum(CLIENT_EDITABLE_STATUSES).optional(),
   assignedToId: z.string().trim().optional().or(z.literal("")),
 });
+
+/** Asignar o quitar el responsable de un cliente (null = sin responsable). */
+export const clientAssignSchema = z.object({ assignedToId: cuidSchema.nullable() });
 
 /** Datos sensibles: solo SPECIALIST/ADMIN/OWNER (ver permissions.ts). */
 export const sensitiveProfileSchema = z.object({

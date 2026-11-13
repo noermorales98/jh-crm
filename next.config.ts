@@ -72,6 +72,35 @@ const nextConfig: NextConfig = {
       },
     ]);
   },
+  // La pantalla de consentimiento de Claude no se puede incrustar en otra web (clickjacking).
+  async headers() {
+    return [
+      {
+        source: "/oauth/authorize",
+        headers: [
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Frame-Options", value: "DENY" },
+        ],
+      },
+    ];
+  },
+  // Descubrimiento OAuth del conector MCP de Claude (RFC 8414 / RFC 9728).
+  async rewrites() {
+    return [
+      {
+        source: "/.well-known/oauth-authorization-server",
+        destination: "/api/oauth/authorization-server",
+      },
+      {
+        source: "/.well-known/oauth-protected-resource",
+        destination: "/api/oauth/protected-resource",
+      },
+      {
+        source: "/.well-known/oauth-protected-resource/:path*",
+        destination: "/api/oauth/protected-resource",
+      },
+    ];
+  },
   serverExternalPackages: ["imapflow", "mailparser"],
 };
 

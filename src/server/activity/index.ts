@@ -1,6 +1,7 @@
 import type { ActivityType, Prisma } from "@prisma/client";
 import { prisma } from "@/src/lib/db";
 import { safeMetadata } from "@/src/lib/security/redaction";
+import { withRequestOrigin } from "@/src/server/request-origin";
 
 /**
  * ActivityLog — eventos de negocio (cliente creado, ronda enviada, pago
@@ -38,7 +39,7 @@ export async function writeActivityLog(
       caseId: event.caseId ?? null,
       serviceCaseId: event.serviceCaseId ?? null,
       roundId: event.roundId ?? null,
-      metadata: safeMetadata(event.metadata) as Prisma.InputJsonValue | undefined,
+      metadata: safeMetadata(withRequestOrigin(event.metadata)) as Prisma.InputJsonValue | undefined,
     },
   });
 }

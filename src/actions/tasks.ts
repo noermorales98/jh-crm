@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { requirePermission } from "@/src/server/auth/guards";
 import {
   actionFail,
@@ -9,11 +8,12 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
+import { cuidSchema, resolveOrgDateInput } from "@/src/lib/validation/common";
 import {
-  cuidSchema,
-  orgDateInputSchema,
-  resolveOrgDateInput,
-} from "@/src/lib/validation/common";
+  createTaskSchema,
+  reassignSchema,
+  updateTaskSchema,
+} from "@/src/lib/validation/tasks-actions";
 import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import * as taskService from "@/src/server/tasks";
 
@@ -21,33 +21,6 @@ function revalidateTasks() {
   revalidatePath("/crm/tareas");
   revalidatePath("/crm/dashboard");
 }
-
-const taskTypeEnum = z.enum([
-  "FOLLOW_UP",
-  "REQUEST_DOCUMENT",
-  "REQUEST_PAYMENT",
-  "CREDIT_UPDATE",
-  "PREPARE_ROUND",
-  "CALL",
-  "MESSAGE",
-  "REVIEW_RESULT",
-  "OTHER",
-]);
-const taskPriorityEnum = z.enum(["LOW", "NORMAL", "HIGH", "URGENT"]);
-const taskStatusEnum = z.enum(["PENDING", "IN_PROGRESS", "COMPLETED", "CANCELLED"]);
-
-const createTaskSchema = z.object({
-  title: z.string().trim().min(1, "El título es obligatorio.").max(200),
-  description: z.string().trim().max(5000).nullish(),
-  type: taskTypeEnum.optional(),
-  priority: taskPriorityEnum.optional(),
-  dueAt: orgDateInputSchema,
-  reminderAt: orgDateInputSchema,
-  assignedToId: cuidSchema.optional(),
-  clientId: cuidSchema.nullish(),
-  caseId: cuidSchema.nullish(),
-  roundId: cuidSchema.nullish(),
-});
 
 export async function createTask(input: unknown): Promise<ActionResult<{ id: string }>> {
   try {
@@ -75,16 +48,6 @@ export async function createTask(input: unknown): Promise<ActionResult<{ id: str
     return actionFail(error);
   }
 }
-
-const updateTaskSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional(),
-  description: z.string().trim().max(5000).nullish(),
-  type: taskTypeEnum.optional(),
-  priority: taskPriorityEnum.optional(),
-  dueAt: orgDateInputSchema,
-  reminderAt: orgDateInputSchema,
-  status: taskStatusEnum.optional(),
-});
 
 export async function updateTask(
   taskId: string,
@@ -139,8 +102,6 @@ export async function cancelTask(taskId: string): Promise<ActionResult<{ id: str
     return actionFail(error);
   }
 }
-
-const reassignSchema = z.object({ assignedToId: cuidSchema });
 
 export async function reassignTask(
   taskId: string,

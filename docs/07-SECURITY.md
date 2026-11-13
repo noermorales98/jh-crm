@@ -103,6 +103,21 @@ Antes de enviar datos a OpenRouter:
 - enviar solo contexto necesario;
 - registrar qué función IA fue utilizada.
 
+## Conector MCP de Claude
+
+- OAuth 2.1 propio (`src/server/mcp/oauth/`): PKCE `S256` obligatorio, `redirect_uri` solo
+  `https://claude.ai|claude.com` o loopback con puerto, en forma canónica. Códigos de 10 min y un uso;
+  access token de 1 h; refresh sin caducidad, rotado en cada uso, y su reuso revoca la conexión.
+- Solo se guardan hashes SHA-256 de códigos y tokens. Nada de tokens, códigos ni argumentos en logs.
+- Cada petición vuelve a comprobar: conexión no revocada, `FEATURE_MCP_CONNECTOR`, `mcpEnabled` de la
+  organización, usuario activo y miembro, misma `sessionVersion`. El rol se lee en cada llamada.
+- Las herramientas usan los mismos servicios, esquemas y permisos que las actions; toda salida pasa por
+  `redactForClaude` (sanitizeForAI + series largas de dígitos y SSN en cualquier formato).
+- Límites: registro dinámico 10/h por IP y 100/h global (solo registros válidos); token 60/min por IP;
+  herramientas 120/min por conexión; llaves inventadas 60/min por IP.
+- La pantalla de consentimiento no se puede incrustar (`frame-ancestors 'none'`, `X-Frame-Options: DENY`).
+- Guía de uso: `02-DOCS/wiki/guias/conectar-claude.md`.
+
 ## Producción
 
 Nunca permitir a agentes de IA:

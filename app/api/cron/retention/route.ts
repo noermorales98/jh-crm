@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import { safeEqual } from "@/src/lib/security/tokens";
 import { purgeDueDocuments } from "@/src/server/retention";
+import { purgeMcpArtifacts } from "@/src/server/mcp/purge";
 
 /**
- * GET /api/cron/retention — purga documentos vencidos (S3 hard delete).
+ * GET /api/cron/retention — purga documentos vencidos (S3 hard delete) y limpia los
+ * datos técnicos caducados del conector de Claude (llaves, códigos, registros huérfanos).
  *
  * Protección: Authorization: Bearer <CRON_SECRET> (comparación timing-safe).
  * Idempotente: documentos con hardDeletedAt no se vuelven a procesar.
@@ -19,7 +21,15 @@ export async function GET(request: Request) {
 
   try {
     const result = await purgeDueDocuments();
-    return NextResponse.json({ ok: true, data: result });
+    // La limpieza del conector va aparte: si falla, no tumba la purga de documentos.
+    let mcp: Awaited<ReturnType<typeof purgeMcpArtifacts>> | { error: string };
+    try {
+      mcp = await purgeMcpArtifacts();
+    } catch {
+      console.error("[cron/retention] limpieza del conector MCP falló");
+      mcp = { error: "Limpieza del conector fallida." };
+    }
+    return NextResponse.json({ ok: true, data: { ...result, mcp } });
   } catch (error) {
     console.error("[cron/retention]", error);
     return NextResponse.json(

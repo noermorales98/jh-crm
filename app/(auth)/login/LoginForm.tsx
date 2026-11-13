@@ -5,25 +5,7 @@ import { play } from "cuelume";
 import { signIn } from "next-auth/react";
 import { Loader2 } from "lucide-react";
 import { Alert, Button, Field, Input } from "@/src/components/ui";
-
-function safeRedirectPath(raw: string | null): string {
-  if (!raw) return "/crm/dashboard";
-  try {
-    if (raw.startsWith("/") && !raw.startsWith("//")) {
-      return raw.startsWith("/crm") ? raw : "/crm/dashboard";
-    }
-    const url = new URL(raw);
-    if (
-      url.origin === window.location.origin &&
-      url.pathname.startsWith("/crm")
-    ) {
-      return `${url.pathname}${url.search}`;
-    }
-  } catch {
-    // URL inválida: caer al dashboard.
-  }
-  return "/crm/dashboard";
-}
+import { safeLoginRedirect } from "@/src/lib/routes/login-redirect";
 
 type Step = "credentials" | "mfa";
 
@@ -38,8 +20,9 @@ export function LoginForm() {
     creds: { email: string; password: string },
     mfaCode?: string,
   ) {
-    const callbackUrl = safeRedirectPath(
+    const callbackUrl = safeLoginRedirect(
       new URLSearchParams(window.location.search).get("callbackUrl"),
+      window.location.origin,
     );
 
     try {

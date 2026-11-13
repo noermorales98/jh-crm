@@ -65,6 +65,8 @@ jobs:
         run: npm run smoke:credit-pdf-chunk-merge && npm run smoke:credit-review
       - name: Credit PDF pending-confirm UI smoke
         run: npm run smoke:credit-pdf-pending-confirm
+      - name: Conector MCP de Claude (sin base de datos)
+        run: npm run smoke:auth-paths && npm run smoke:login-redirect && npm run smoke:mcp-oauth-core && npm run smoke:mcp-tool-registry
       - name: Build QA (no migrate)
         run: npm run build:qa
 
@@ -113,3 +115,5 @@ jobs:
         run: npx prisma migrate deploy
       - name: Contract gates smoke (rondas y cobros)
         run: npm run smoke:contract-gates-db
+      - name: Conector MCP de Claude (OAuth, endpoint, lectura y escritura)
+        run: npm run smoke:mcp-db

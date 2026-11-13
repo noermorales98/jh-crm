@@ -407,6 +407,8 @@ model User {
   notesAuthored      Note[]               @relation("NoteAuthor")
   serviceCaseStageChanges ServiceCaseStageHistory[] @relation("StageHistoryActor")
   creditPdfImportJobs CreditPdfImportJob[] @relation("CreditPdfImportCreator")
+  mcpConnections      McpConnection[]      @relation("McpConnectionUser")
+  mcpRevokedConnections McpConnection[]    @relation("McpConnectionRevoker")
 }
 
 model Organization {
@@ -416,6 +418,7 @@ model Organization {
   updatedAt DateTime @updatedAt
 
   settings           OrganizationSettings?
+  mcpConnections     McpConnection[]
   members            OrganizationMember[]
   stages             WorkflowStage[]
   clients            Client[]
@@ -555,6 +558,8 @@ model OrganizationSettings {
   documentSoftDeleteRetentionDays Int?
   /** Retención máxima desde createdAt (null = sin límite). */
   documentMaxRetentionDays        Int?
+  /** Conector MCP para Claude: lo enciende un admin (por defecto apagado). */
+  mcpEnabled                      Boolean  @default(false)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -2292,4 +2297,85 @@ model CreditDisputeAssertion {
 
   @@index([organizationId, clientId, creditItemId], map: "CreditDisputeAssertion_scope_idx")
   @@index([evidenceDocumentId], map: "CreditDisputeAssertion_document_idx")
+}
+
+// ── Conector MCP para Claude (OAuth 2.1 propio) ─────────────────────────────
+// Tokens y códigos se guardan solo como hash SHA-256 (nunca en claro).
+
+/**
+ * Cliente OAuth registrado dinámicamente (Claude web, escritorio o Code).
+ */
+model McpClient {
+  id           String   @id @default(cuid())
+  clientName   String   @db.VarChar(200)
+  redirectUris Json
+  createdAt    DateTime @default(now())
+
+  connections McpConnection[]
+}
+
+/**
+ * Conexión activa de una persona con Claude: lo que se ve y se revoca en Configuración.
+ */
+model McpConnection {
+  id              String    @id @default(cuid())
+  organizationId  String
+  userId          String
+  clientId        String
+  sessionVersion  Int
+  createdAt       DateTime  @default(now())
+  lastUsedAt      DateTime?
+  revokedAt       DateTime?
+  revokedByUserId String?
+
+  organization Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User          @relation("McpConnectionUser", fields: [userId], references: [id], onDelete: Cascade)
+  revokedBy    User?         @relation("McpConnectionRevoker", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  client       McpClient     @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  authCodes    McpAuthCode[]
+  tokens       McpToken[]
+
+  @@index([organizationId, revokedAt])
+  @@index([userId, revokedAt])
+}
+
+/**
+ * Código de autorización OAuth: un solo uso, 10 minutos.
+ */
+model McpAuthCode {
+  id            String    @id @default(cuid())
+  codeHash      String    @unique @db.Char(64)
+  connectionId  String
+  codeChallenge String    @db.VarChar(128)
+  redirectUri   String    @db.Text
+  expiresAt     DateTime
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+
+  connection McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+enum McpTokenKind {
+  ACCESS
+  REFRESH
+}
+
+/**
+ * Token de acceso (1 h) o de refresco (sin caducidad, rotado en cada uso).
+ */
+model McpToken {
+  id           String       @id @default(cuid())
+  tokenHash    String       @unique @db.Char(64)
+  connectionId String
+  kind         McpTokenKind
+  expiresAt    DateTime?
+  usedAt       DateTime?
+  createdAt    DateTime     @default(now())
+
+  connection McpConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+
+  @@index([connectionId, kind])
+  @@index([expiresAt])
 }

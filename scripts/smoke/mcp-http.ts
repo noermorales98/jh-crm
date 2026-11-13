@@ -555,6 +555,12 @@ async function run() {
     }),
     defineTool({
       name: "borrar_prueba", title: "Borrar (prueba)", description: "Borrado de prueba.",
+      inputSchema: z.object({ id: z.string() }), permission: "clients.edit", kind: "destructive",
+      run: async () => ({ ok: true }),
+      audit: (input) => ({ entityType: "Prueba", entityId: input.id }), revalidate: () => [],
+    }),
+    defineTool({
+      name: "admin_prueba", title: "Admin (prueba)", description: "Solo administradores.",
       inputSchema: z.object({ id: z.string() }), permission: "users.manage", kind: "destructive",
       run: async () => ({ ok: true }),
       audit: (input) => ({ entityType: "Prueba", entityId: input.id }), revalidate: () => [],
@@ -589,6 +595,7 @@ async function run() {
   const mcpPre = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, { method: "OPTIONS" }));
   check("/api/mcp preflight → 204 con Authorization permitido",
     mcpPre.status === 204 && (mcpPre.headers.get("access-control-allow-headers") ?? "").includes("Authorization"));
+  check("/api/mcp preflight anuncia solo POST y OPTIONS", mcpPre.headers.get("access-control-allow-methods") === "POST, OPTIONS");
 
   const v3 = crypto.randomBytes(32).toString("base64url");
   const ch3 = crypto.createHash("sha256").update(v3).digest("base64url");
@@ -602,7 +609,8 @@ async function run() {
   const list = await json(await endpoint.handleMcpRequest(
     mcpPost({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }, t3.access_token), { tools: fakeTools }));
   const listed = ((list.result as { tools?: Array<{ name: string; annotations?: Record<string, unknown>; inputSchema?: unknown }> })?.tools) ?? [];
-  check("tools/list devuelve las herramientas", listed.map((t) => t.name).sort().join() === "borrar_prueba,crear_prueba,leer_prueba", listed);
+  check("tools/list devuelve las herramientas del rol (STAFF no ve admin_prueba)",
+    listed.map((t) => t.name).sort().join() === "borrar_prueba,crear_prueba,leer_prueba", listed);
   const escritura = listed.find((t) => t.name === "crear_prueba") as { annotations?: Record<string, unknown> } | undefined;
   check("escritura: ni solo lectura ni destructiva",
     escritura?.annotations?.readOnlyHint === false && escritura?.annotations?.destructiveHint === false, escritura);
@@ -611,6 +619,22 @@ async function run() {
       t.annotations?.openWorldHint === false), listed);
   const lectura = listed.find((t) => t.name === "leer_prueba");
   const borrado = listed.find((t) => t.name === "borrar_prueba");
+  const viewerUser = await prisma.user.create({ data: { email: `${MARK}-v@example.test`, passwordHash: "x", name: "V" } });
+  createdUsers.push(viewerUser.id);
+  await prisma.organizationMember.create({ data: { userId: viewerUser.id, organizationId: staff.organizationId, role: "VIEWER" } });
+  const vVerifier = crypto.randomBytes(32).toString("base64url");
+  const vChallenge = crypto.createHash("sha256").update(vVerifier).digest("base64url");
+  const vCode = await svc.approve({ userId: viewerUser.id, organizationId: staff.organizationId, role: "VIEWER" },
+    { client_id: clientId, redirect_uri: REDIRECT, code_challenge: vChallenge, code_challenge_method: "S256" });
+  const vTok = await svc.exchangeCode({ code: vCode.code, code_verifier: vVerifier, client_id: clientId, redirect_uri: REDIRECT });
+  const vList = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 21, method: "tools/list", params: {} }, vTok.access_token), { tools: fakeTools }));
+  const vNames = ((vList.result as { tools?: Array<{ name: string }> })?.tools ?? []).map((t) => t.name);
+  check("VIEWER solo ve las herramientas que puede usar", vNames.join() === "leer_prueba", vNames);
+  const vCall = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 22, method: "tools/call", params: { name: "crear_prueba", arguments: { id: "x" } } }, vTok.access_token),
+    { tools: fakeTools }));
+  check("…y si la llama igualmente → Sin permiso", JSON.stringify(vCall.result).includes("Sin permiso"), vCall);
   check("lectura marcada readOnlyHint", lectura?.annotations?.readOnlyHint === true && lectura?.annotations?.destructiveHint === false);
   check("borrado marcado destructiveHint (Claude pide confirmación)", borrado?.annotations?.destructiveHint === true);
   check("borrado no marcado como solo lectura", borrado?.annotations?.readOnlyHint === false);
@@ -623,7 +647,7 @@ async function run() {
   check("tools/call devuelve el resultado", callText.includes("x1") && !(call.result as { isError?: boolean })?.isError, call);
   check("tools/call sin SSN (AC-6)", !callText.includes("123-45-6789"));
   const toolDenied = await json(await endpoint.handleMcpRequest(
-    mcpPost({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "borrar_prueba", arguments: { id: "x" } } }, t3.access_token),
+    mcpPost({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "admin_prueba", arguments: { id: "x" } } }, t3.access_token),
     { tools: fakeTools }));
   check("tools/call sin permiso → error en español, sin trazas",
     (toolDenied.result as { isError?: boolean })?.isError === true &&
@@ -701,6 +725,28 @@ async function run() {
   }
   check(`las primeras ${endpoint.AUTH_FAILURES_PER_MINUTE} llaves falsas → 401`, !failEarly);
   check("la siguiente llave falsa desde la misma IP → 429", failLast === 429, failLast);
+  const otherIp = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, {
+    method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": ip(), authorization: "Bearer falsa" },
+    body: "{}",
+  }));
+  check("otra IP no comparte ese límite → 401", otherIp.status === 401, otherIp.status);
+  const noBearerSameIp = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, {
+    method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": failIp }, body: "{}",
+  }));
+  check("sin llave desde la IP limitada → 401 con la pista OAuth (descubrimiento)",
+    noBearerSameIp.status === 401 && !!noBearerSameIp.headers.get("www-authenticate"), noBearerSameIp.status);
+  const expiredSameIp = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, {
+    method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": failIp, authorization: `Bearer ${tok.refresh_token}` },
+    body: "{}",
+  }));
+  check("llave emitida pero no válida desde la IP limitada → 401 (no 429)", expiredSameIp.status === 401, expiredSameIp.status);
+  const limited429 = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, {
+    method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": failIp, authorization: "Bearer falsa" },
+    body: "{}",
+  }));
+  check("el 429 pide esperar un minuto y lleva CORS",
+    limited429.status === 429 && limited429.headers.get("retry-after") === "60" &&
+      limited429.headers.get("access-control-allow-origin") === "*");
   check("toolErrorMessage: errores internos sin detalle",
     endpoint.toolErrorMessage(new Error("prisma secreto")).startsWith("Error interno") &&
       !endpoint.toolErrorMessage(new Error("prisma secreto")).includes("prisma"));

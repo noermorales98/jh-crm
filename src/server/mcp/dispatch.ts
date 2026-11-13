@@ -22,6 +22,14 @@ import type { McpContext, Tool } from "./tools/types";
 export const TOOL_CALLS_PER_MINUTE = 120;
 const LAST_USED_RESOLUTION_MS = 60 * 1000;
 
+/** Llave presentada que el CRM nunca emitió (ni caducada ni revocada: inventada). */
+export class UnknownTokenError extends UnauthorizedError {
+  constructor() {
+    super();
+    this.name = "UnknownTokenError";
+  }
+}
+
 export interface CallToolOptions {
   tools: Tool[];
   now?: Date;
@@ -34,7 +42,8 @@ export async function authenticate(bearer: string | null, now: Date = new Date()
     where: { tokenHash: hashToken(bearer) },
     include: { connection: true },
   });
-  if (!row || row.kind !== "ACCESS" || !row.expiresAt || row.expiresAt.getTime() <= now.getTime()) {
+  if (!row) throw new UnknownTokenError();
+  if (row.kind !== "ACCESS" || !row.expiresAt || row.expiresAt.getTime() <= now.getTime()) {
     throw new UnauthorizedError();
   }
   // Conexión no revocada, conector encendido, usuario activo y miembro, misma sesión.

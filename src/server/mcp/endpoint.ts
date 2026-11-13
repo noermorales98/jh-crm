@@ -7,7 +7,8 @@ import { ForbiddenError, UnauthorizedError } from "@/src/server/auth/guards";
 import { DomainError, NotFoundError, RateLimitError } from "@/src/server/errors";
 import { clientIpFromRequest } from "@/src/server/http";
 import { assertRateLimit } from "@/src/server/security/rate-limit";
-import { authenticate, callTool } from "./dispatch";
+import { can } from "@/src/server/auth/permissions";
+import { UnknownTokenError, authenticate, callTool } from "./dispatch";
 import { appBaseUrl, protectedResourceMetadataUrl } from "./oauth/http";
 import { isMcpConnectorFeatureOn } from "./oauth/service";
 import { allTools } from "./tools";
@@ -30,7 +31,7 @@ export const MCP_SERVER_INSTRUCTIONS = [
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, DELETE, OPTIONS",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type, Authorization, Mcp-Protocol-Version, Mcp-Session-Id",
   "Access-Control-Expose-Headers": "WWW-Authenticate, Mcp-Session-Id",
 };
@@ -103,8 +104,9 @@ function buildServer(ctx: McpContext, tools: Tool[]): Server {
     { name: "jh-crm", title: "J&H CRM", version: "1.0.0" },
     { capabilities: { tools: {} }, instructions: MCP_SERVER_INSTRUCTIONS },
   );
+  // Solo se anuncian las herramientas que el rol puede usar (callTool vuelve a comprobarlo).
   server.setRequestHandler(ListToolsRequestSchema, async () => ({
-    tools: tools.map((tool) => ({
+    tools: tools.filter((tool) => can(ctx.role, tool.permission)).map((tool) => ({
       name: tool.name,
       title: tool.title,
       description: tool.description,
@@ -147,7 +149,10 @@ export async function handleMcpRequest(request: Request, options: McpRequestOpti
     ctx = await authenticate(bearerFrom(request));
   } catch (error) {
     if (!(error instanceof UnauthorizedError)) throw error;
-    // Llaves falsas en ráfaga: se limitan por IP (solo cuentan los fallos).
+    // Solo se limitan las llaves inventadas, por IP. Sin llave (descubrimiento) o con una
+    // llave caducada o revocada siempre hay 401: Claude la necesita para renovarla, y en
+    // claude.ai muchas personas comparten la IP de salida de Anthropic.
+    if (!(error instanceof UnknownTokenError)) return unauthorized();
     try {
       await assertRateLimit({ key: `mcp-auth-fail:${clientIpFromRequest(request)}`, limit: AUTH_FAILURES_PER_MINUTE, windowSeconds: 60 });
     } catch (limitError) {

@@ -96,7 +96,11 @@ async function run() {
   const t0 = new Date();
   const k = await connect(staff, t0);
   check("sin llave → UnauthorizedError", (await errorName(() => authenticate(null, t0))) === "UnauthorizedError");
-  check("llave inventada → UnauthorizedError", (await errorName(() => authenticate("basura", t0))) === "UnauthorizedError");
+  check("llave inventada → UnknownTokenError (un tipo de no autorizado)",
+    (await errorName(() => authenticate("basura", t0))) === "UnknownTokenError");
+  const { UnknownTokenError } = await import("../../src/server/mcp/dispatch");
+  const { UnauthorizedError } = await import("../../src/server/auth/guards");
+  check("UnknownTokenError es un UnauthorizedError", new UnknownTokenError() instanceof UnauthorizedError);
   check("refresh usado como llave de acceso → UnauthorizedError",
     (await errorName(() => authenticate(k.refresh_token, t0))) === "UnauthorizedError");
   const ctx = await authenticate(k.access_token, t0);

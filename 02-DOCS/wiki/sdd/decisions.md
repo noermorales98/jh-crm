@@ -49,3 +49,11 @@ Append-only. Newest at the bottom.
   concurrent double use of a code revokes the connection, like the refresh race. Registration
   flooding is handled at the HTTP edge (T008: per-IP limit) and by purging orphan clients and
   token-less connections (T026), not in the service.
+- 2026-11-12 — `conector-mcp-claude` implement. MCP tools registered on the SDK's low-level Server
+  with our own JSON schema; the dispatcher is the only validator (vs SDK + dispatcher double
+  validation, which broke dates and transforms). Only forged bearer tokens are rate-limited per IP;
+  expired or revoked ones always get 401 so Claude can refresh (claude.ai shares Anthropic's egress
+  IPs). Connector-only redaction masks 11+ digit runs and SSN-like numbers in any format, except in an
+  exact list of structured keys; `buscar` refuses 9 or ≥13-digit queries (residual risk accepted for
+  10–12). Write tools run in parallel per section by six developer agents, each mirroring its action;
+  `editar_lead` merges with current values; destructive tool descriptions never promise undo.

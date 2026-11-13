@@ -142,7 +142,7 @@ oauth.deny(req) -> redirect(redirect_uri?error=access_denied&state)
 oauth.token({ grant_type: "authorization_code", code, code_verifier, client_id, redirect_uri })
     -> { access_token, refresh_token, token_type: "Bearer", expires_in: 3600 } | invalid_grant
   - código de un solo uso; segundo uso → invalid_grant y revoca lo emitido con él
-  - SHA256(code_verifier) == code_challenge
+  - BASE64URL(SHA256(code_verifier)) == code_challenge (sin relleno, RFC 7636 §4.6), comparación en tiempo constante
 oauth.token({ grant_type: "refresh_token", refresh_token, client_id }) -> tokens nuevos | invalid_grant
   - rota: el refresh anterior queda usado; reutilizarlo → revoca la conexión entera
 oauth.revoke(token) -> 200 siempre (RFC 7009)

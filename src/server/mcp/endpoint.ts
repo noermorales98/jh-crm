@@ -154,7 +154,7 @@ export async function handleMcpRequest(request: Request, options: McpRequestOpti
     // claude.ai muchas personas comparten la IP de salida de Anthropic.
     if (!(error instanceof UnknownTokenError)) return unauthorized();
     try {
-      await assertRateLimit({ key: `mcp-auth-fail:${clientIpFromRequest(request)}`, limit: AUTH_FAILURES_PER_MINUTE, windowSeconds: 60 });
+      await assertRateLimit({ key: `mcp-auth-fail:ip:${clientIpFromRequest(request)}`, limit: AUTH_FAILURES_PER_MINUTE, windowSeconds: 60 });
     } catch (limitError) {
       if (limitError instanceof RateLimitError) {
         return withCors(new Response(JSON.stringify({ error: "rate_limited" }), {

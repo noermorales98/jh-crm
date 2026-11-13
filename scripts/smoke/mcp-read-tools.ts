@@ -176,6 +176,12 @@ async function run() {
       (await errorName(() => callTool(vctx, "listar", { seccion }, opts))) === "ok");
   }
 
+  console.log("\n[mcp-read-tools] casos de servicio archivados\n");
+  const archived = await prisma.serviceCase.update({ where: { id: a.serviceCase.id }, data: { archivedAt: new Date() } });
+  check("ver casos_servicio archivado → NotFoundError (como en la app)",
+    (await errorName(() => callTool(a.ownerCtx, "ver", { seccion: "casos_servicio", id: archived.id }, opts))) === "NotFoundError");
+  await prisma.serviceCase.update({ where: { id: a.serviceCase.id }, data: { archivedAt: null } });
+
   console.log("\n[mcp-read-tools] documentos sensibles y límite\n");
   const ownerView = JSON.stringify(await callTool(a.ownerCtx, "ver", { seccion: "clientes", id: a.client.id }, opts));
   check("ver clientes: el nombre de un documento muy sensible no sale ni al propietario",

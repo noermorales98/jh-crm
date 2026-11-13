@@ -49,7 +49,8 @@ async function main() {
     const tok = (suffix: string, data: Record<string, unknown>) =>
       prisma.mcpToken.create({ data: { tokenHash: h(`${MARK}${suffix}`), connectionId: conn.id, ...data } as never });
     const accessExpiredOld = await tok("a1", { kind: "ACCESS", expiresAt: old });
-    const accessExpiredDays = await tok("a4", { kind: "ACCESS", expiresAt: new Date(now.getTime() - 2 * DAY) });
+    const accessExpiredDays = await tok("a4", { kind: "ACCESS", expiresAt: new Date(now.getTime() - 29 * DAY) });
+    const accessExpired31 = await tok("a5", { kind: "ACCESS", expiresAt: new Date(now.getTime() - 31 * DAY) });
     const accessValid = await tok("a2", { kind: "ACCESS", expiresAt: new Date(now.getTime() + 3600 * 1000) });
     const accessJustExpired = await tok("a3", { kind: "ACCESS", expiresAt: new Date(now.getTime() - 3600 * 1000) });
     const refreshLive = await tok("r1", { kind: "REFRESH", expiresAt: null });
@@ -72,8 +73,9 @@ async function main() {
       client: async (id: string) => !!(await prisma.mcpClient.findUnique({ where: { id } })),
     };
     check("borra llaves de acceso caducadas hace más de 30 días", !(await exists.token(accessExpiredOld.id)));
-    check("conserva llaves caducadas hace días (siguen dando 401 para renovar, no 'inventadas')",
+    check("conserva llaves caducadas hace 29 días (siguen dando 401 para renovar, no 'inventadas')",
       await exists.token(accessExpiredDays.id));
+    check("borra llaves caducadas hace 31 días (el corte es a los 30)", !(await exists.token(accessExpired31.id)));
     check("conserva llaves de acceso vigentes", await exists.token(accessValid.id));
     check("conserva llaves de acceso caducadas hace poco", await exists.token(accessJustExpired.id));
     check("conserva el refresh vigente (no caduca, AC-14)", await exists.token(refreshLive.id));

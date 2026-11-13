@@ -69,9 +69,9 @@ export default async function ClaudeSettingsPage() {
             <CardBody>
               <ol className="mb-5 list-decimal space-y-2 pl-5 text-sm text-text-secondary">
                 <li>
-                  En Claude, abre{" "}
-                  <span className="font-medium text-ink">Ajustes → Conectores → Añadir conector personalizado</span> y
-                  pega esta dirección:
+                  En Claude, ve a <span className="font-medium text-ink">Conectores</span> (en Ajustes o Personalizar),
+                  elige <span className="font-medium text-ink">añadir un conector personalizado</span> y pega esta
+                  dirección. Si usas Claude con un plan de equipo, pide a quien lo administra que lo añada una vez.
                 </li>
                 <li>
                   Pulsa <span className="font-medium text-ink">Conectar</span>, entra con tu usuario del CRM y pulsa{" "}
@@ -80,8 +80,9 @@ export default async function ClaudeSettingsPage() {
               </ol>
               {settings.connectorUrl ? <CopyConnectorUrl url={settings.connectorUrl} /> : null}
               <p className="mt-4 text-xs text-text-secondary">
-                Claude podrá hacer lo mismo que tu rol en el CRM. Nunca verá SSN/ITIN ni números de cuenta completos, y
-                todo lo que haga queda en la auditoría.
+                Claude nunca podrá hacer más de lo que permite tu rol, y solo en las secciones que ofrece el conector
+                (hoy: clientes, casos, tareas, notas, oportunidades y cotizaciones). Nunca verá SSN/ITIN ni números de
+                cuenta completos, y cada cambio que haga queda en la auditoría.
               </p>
             </CardBody>
           </Card>
@@ -93,6 +94,7 @@ export default async function ClaudeSettingsPage() {
                 items={mine.map((r) => toView(r, tz))}
                 showUser={false}
                 emptyText="Todavía no has conectado Claude."
+                connectorEnabled={settings.enabled}
               />
             </CardBody>
           </Card>
@@ -106,12 +108,16 @@ export default async function ClaudeSettingsPage() {
                 </CardBody>
               </Card>
               <Card>
-                <CardHeader title="Conexiones del equipo" description="Puedes cortar el acceso de cualquier persona." />
+                <CardHeader
+                  title="Conexiones del equipo"
+                  description="Las de las demás personas. Puedes cortar el acceso de cualquiera."
+                />
                 <CardBody>
                   <ConnectionList
-                    items={org.map((r) => toView(r, tz))}
+                    items={org.filter((r) => r.userId !== ctx.userId).map((r) => toView(r, tz))}
                     showUser
-                    emptyText="Nadie del equipo ha conectado Claude todavía."
+                    emptyText="Nadie más del equipo ha conectado Claude todavía."
+                    connectorEnabled={settings.enabled}
                   />
                 </CardBody>
               </Card>

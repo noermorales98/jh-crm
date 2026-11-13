@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Check, Copy } from "lucide-react";
 import { Alert, Button, ConfirmDialog, Pill } from "@/src/components/ui";
 import { revokeMcpConnectionAction, setMcpEnabledAction } from "@/src/actions/mcp-connections";
@@ -17,12 +17,17 @@ export interface ConnectionView {
 export function CopyConnectorUrl({ url }: { url: string }) {
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (timer.current) clearTimeout(timer.current);
+  }, []);
   async function copy() {
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
       setFailed(false);
-      setTimeout(() => setCopied(false), 2000);
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(() => setCopied(false), 2000);
     } catch {
       setFailed(true);
     }
@@ -31,13 +36,18 @@ export function CopyConnectorUrl({ url }: { url: string }) {
     <div className="space-y-2">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <code className="min-w-0 flex-1 break-all rounded-control bg-surface-panel px-3 py-2 text-sm text-ink">{url}</code>
-        <Button variant="secondary" onClick={copy} className="shrink-0">
+        <Button variant="secondary" onClick={copy} className="shrink-0" aria-label="Copiar la dirección del conector">
           {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
           {copied ? "Copiada" : "Copiar"}
         </Button>
       </div>
+      <p role="status" aria-live="polite" className="sr-only">
+        {copied ? "Dirección copiada." : ""}
+      </p>
       {failed ? (
-        <p className="text-sm text-danger">No se pudo copiar. Selecciona la dirección y cópiala a mano.</p>
+        <p role="alert" className="text-sm text-danger">
+          No se pudo copiar. Selecciona la dirección y cópiala a mano.
+        </p>
       ) : null}
     </div>
   );
@@ -61,9 +71,27 @@ export function ConnectorSwitch({ enabled }: { enabled: boolean }) {
             ? "Encendido: el equipo puede conectar Claude con su usuario."
             : "Apagado: nadie de la organización puede usar Claude con el CRM."}
         </p>
-        <Button variant={enabled ? "secondary" : "primary"} onClick={toggle} disabled={pending} className="shrink-0">
-          {pending ? "Guardando…" : enabled ? "Apagar conector" : "Encender conector"}
-        </Button>
+        {enabled ? (
+          <ConfirmDialog
+            title="Apagar el conector de Claude"
+            message="Nadie de la organización podrá usar Claude con el CRM hasta que lo vuelvas a encender. Las conexiones no se borran: vuelven a funcionar al encenderlo."
+            confirmLabel="Apagar"
+            danger
+            onConfirm={async () => {
+              const r = await setMcpEnabledAction(false);
+              return r.ok ? undefined : r.error;
+            }}
+            trigger={
+              <Button variant="secondary" disabled={pending} className="shrink-0">
+                Apagar conector
+              </Button>
+            }
+          />
+        ) : (
+          <Button variant="primary" onClick={toggle} disabled={pending} className="shrink-0">
+            {pending ? "Guardando…" : "Encender conector"}
+          </Button>
+        )}
       </div>
       {error ? <Alert tone="error">{error}</Alert> : null}
     </div>
@@ -74,10 +102,12 @@ export function ConnectionList({
   items,
   showUser,
   emptyText,
+  connectorEnabled,
 }: {
   items: ConnectionView[];
   showUser: boolean;
   emptyText: string;
+  connectorEnabled: boolean;
 }) {
   if (items.length === 0) {
     return (
@@ -102,8 +132,9 @@ export function ConnectionList({
             </p>
             {c.status === "cortada" ? (
               <p className="text-xs text-text-secondary">
-                Se cortó por un cambio de rol, de correo o porque el conector está apagado. Vuelve a conectar desde
-                Claude.
+                {connectorEnabled
+                  ? "Se cortó por un cambio de rol o de correo, o porque la cuenta se desactivó. Vuelve a conectar desde Claude."
+                  : "El conector está apagado. Volverá a funcionar sola cuando un administrador lo encienda."}
               </p>
             ) : null}
           </div>
@@ -117,7 +148,12 @@ export function ConnectionList({
               return r.ok ? undefined : r.error;
             }}
             trigger={
-              <Button variant="danger" size="sm" className="shrink-0">
+              <Button
+                variant="danger"
+                size="sm"
+                className="shrink-0"
+                aria-label={showUser ? `Cortar acceso de ${c.clientName} para ${c.userLabel}` : `Cortar acceso de ${c.clientName}`}
+              >
                 Cortar acceso
               </Button>
             }

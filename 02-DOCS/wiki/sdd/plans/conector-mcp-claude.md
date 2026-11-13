@@ -379,3 +379,44 @@ sobre las rutas previstas; `implement` lo recalcula sobre el diff real.
 - Esquemas que hoy viven dentro de un archivo `"use server"` se mueven a `src/lib/validation/` sin cambiar su comportamiento, para que la action y la herramienta usen el mismo.
 - `callTool(ctx, name, args, { tools })`: el registro se pasa explícito (lo hace el endpoint con `allTools()`).
 - Toda salida hacia Claude pasa por `redactForClaude` (sanitizeForAI + series de 12+ dígitos enmascaradas).
+
+## Tanda 2 — rondas, disputas, cartas, reportes de crédito y consultas (2026-11-13)
+
+Same architecture as batch 1: each tool mirrors its action in `src/actions/*.ts` (same permission,
+same zod schema, same service call, same revalidate paths), the dispatcher adds audit, origin,
+rate limit and redaction. One tool file and one DB smoke per section. PR of its own (spec: one PR per
+batch).
+
+**Read.** `listar` and `ver` gain sections `rondas`, `cartas`, `reportes_credito` and `consultas`.
+Dispute items are shown inside `ver rondas` (they belong to a round). Every query filters by
+organization and checks `*.view`; ids from another organization → "No encontrado".
+
+**Write tools.**
+
+| Section | Tools (kind) | Permission |
+|---|---|---|
+| Rondas | `crear_ronda`, `editar_ronda`, `marcar_ronda_enviada`, `marcar_ronda_revisada` (write); `cancelar_ronda` (destructive) | `rounds.manage` |
+| Disputas | `agregar_disputa`, `agregar_disputas_lote`, `agregar_disputa_consulta_o_personal`, `editar_disputa` (write, includes strategy); `cancelar_disputa` (destructive) | `disputes.manage` |
+| Cartas | `crear_borrador_carta`, `editar_borrador_carta`, `finalizar_carta`, `marcar_carta_enviada`, `generar_cartas_por_estrategia`, `actualizar_seguimiento_carta` (write) | `letters.manage` |
+| Reportes | `crear_reporte_credito`, `editar_reporte_credito`, `agregar_partida_credito`, `editar_partida_credito` (write) | `creditReports.manage` / `creditItems.manage` |
+| Consultas | `solicitar_consulta`, `cambiar_estado_consulta` (write) | `consultations.manage` |
+
+**Left out on purpose.**
+- `deleteCreditItem`: the app deletes the row for real. The constitution only allows soft deletes and
+  the spec excludes deletes the app does not do softly, so Claude does not get it; it can edit the
+  item instead. Logged in `decisions.md`.
+- Letter templates (Configuración), progress-report PDF and consultation checkout / WhatsApp link:
+  configuration or payments, they go with batch 3.
+- `marcar_carta_enviada` and `marcar_ronda_enviada` only record that the person mailed it; they send
+  nothing, so they are not open-world.
+
+| ID | P | Title | Done-check | Deps | AC | Tier |
+|---|---|---|---|---|---|---|
+| T2-01 |  | Read sections rondas, cartas, reportes_credito, consultas | `scripts/smoke/mcp-read-tools-2.ts` green: list and view per section, other org → NotFound, VIEWER reads, no SSN/account | — | AC3, AC5, AC6 | 1 |
+| T2-02 | [P] | Round write tools | `scripts/smoke/mcp-write-rounds.ts` green: VIEWER → sin permiso; AuditLog `mcp.tool.*` via claude; cancel is soft | T2-01 | AC4, AC5, AC7, AC8 | 1 |
+| T2-03 | [P] | Dispute write tools | `scripts/smoke/mcp-write-disputes.ts` green, same checks | T2-01 | AC4, AC5, AC8 | 1 |
+| T2-04 | [P] | Letter write tools | `scripts/smoke/mcp-write-letters.ts` green, same checks | T2-01 | AC4, AC5, AC8 | 1 |
+| T2-05 | [P] | Credit report write tools | `scripts/smoke/mcp-write-credit-reports.ts` green, same checks; no delete tool exists | T2-01 | AC4, AC5, AC8 | 1 |
+| T2-06 | [P] | Consultation write tools | `scripts/smoke/mcp-write-consultations.ts` green, same checks | T2-01 | AC4, AC5, AC8 | 1 |
+| T2-07 |  | Register tools, wire smokes into `smoke:mcp-db`, registry smoke | `mcp-tool-registry` green (cancel tools destructive, none open-world); `smoke:mcp-db` green; typecheck, eslint | T2-02..06 | AC5 | 1 |
+| T2-08 |  | Closing: verify + review panel, PR | verify record; panel; PR open | T2-07 | all | 1 |

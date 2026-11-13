@@ -62,3 +62,11 @@ Append-only. Newest at the bottom.
   Tools with effects outside the CRM (sending a quote by email or WhatsApp) are destructive and
   announced as open-world, so Claude asks before using them. Expired access tokens are kept 30 days
   so a stale token gets 401 (refresh) instead of being counted as forged.
+- 2026-11-13 — `conector-mcp-claude` ship. Landed as option 2 (PR #42), merged into main by the
+  owner's explicit instruction in conversation ("tú mismo haz los merges a main"), after both
+  required CI checks passed. Batch 1 is in production code but switched off: production answers 404
+  on the connector routes until `FEATURE_MCP_CONNECTOR=true` is set in Vercel. T029 (real claude.ai
+  run) is still open. `rsc/knowledge` was not merged: it only mirrors docs already in #42.
+- 2026-11-13 — `conector-mcp-claude` batch 2 plan. Claude gets no tool to delete credit items: the
+  app deletes them for real, and the constitution only allows soft deletes. Editing the item covers
+  corrections. Letter templates, progress-report PDFs and consultation checkout move to batch 3.

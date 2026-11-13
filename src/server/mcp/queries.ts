@@ -336,6 +336,9 @@ function roundHref(ref: CaseRef, roundId: string) {
   return caseHref(ref.client.id, ref.serviceCaseId, `/rondas/${roundId}`);
 }
 
+/** Máximo de ítems por detalle; se pide uno más para saber si se cortó. */
+const ITEM_CAP = 100;
+
 const ROUND_SELECT = {
   id: true,
   roundNumber: true,
@@ -410,13 +413,17 @@ export async function getRoundDetail(ctx: OrganizationContext, id: string) {
           inquiry: { select: { creditorName: true } },
         },
         orderBy: { createdAt: "asc" },
-        take: 100,
+        take: ITEM_CAP + 1,
       })
     : [];
+  const itemsTruncated = items.length > ITEM_CAP;
   return jsonSafe({
     ...roundInfo(row),
     notes: row.notes,
-    disputeItems: items.map((i) => ({
+    // Sin `disputes.view` la lista va vacía por permiso, no porque la ronda no tenga disputas.
+    disputeItemsHidden: !canSeeDisputes,
+    itemsTruncated,
+    disputeItems: items.slice(0, ITEM_CAP).map((i) => ({
       id: i.id,
       kind: i.targetKind,
       target: i.creditItem?.creditorName ?? i.inquiry?.creditorName ?? i.targetLabel,
@@ -489,20 +496,16 @@ export async function listLetters(ctx: OrganizationContext, filters: ListFilters
   return jsonSafe({ items: rows.map(letterInfo) });
 }
 
-const LETTER_PREVIEW_CHARS = 1500;
-
 export async function getLetterDetail(ctx: OrganizationContext, id: string) {
   requireView(ctx, "letters.view");
   const row = await prisma.disputeLetter.findFirst({
     where: { id, organizationId: ctx.organizationId },
-    select: { ...LETTER_SELECT, contentSnapshot: true, notes: true, items: { select: { disputeItemId: true } } },
+    select: { ...LETTER_SELECT, notes: true, items: { select: { disputeItemId: true } } },
   });
   if (!row) return null;
   return jsonSafe({
     ...letterInfo(row),
     disputeItemIds: row.items.map((i) => i.disputeItemId),
-    contentPreview: row.contentSnapshot.slice(0, LETTER_PREVIEW_CHARS),
-    contentTruncated: row.contentSnapshot.length > LETTER_PREVIEW_CHARS,
     notes: row.notes,
   });
 }
@@ -586,13 +589,14 @@ export async function getCreditReportDetail(ctx: OrganizationContext, id: string
         lifecycleStatus: true,
       },
       orderBy: [{ isNegative: "desc" }, { creditorName: "asc" }],
-      take: 100,
+      take: ITEM_CAP + 1,
     }),
   ]);
   return jsonSafe({
     ...report,
     notes: row.notes,
-    items: items.map((i) => ({
+    itemsTruncated: items.length > ITEM_CAP,
+    items: items.slice(0, ITEM_CAP).map((i) => ({
       id: i.id,
       creditor: i.creditorName,
       account: maskAccount(i.accountNumberMasked),

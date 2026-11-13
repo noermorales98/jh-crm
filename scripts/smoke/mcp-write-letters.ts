@@ -169,6 +169,10 @@ async function main() {
     const au5 = await auditOf("generar_cartas_por_estrategia", rc.round.id);
     check("auditoría sobre la ronda", !!au5 && au5.entityType === "CreditRound" && meta(au5.metadata).via === "claude", au5);
     check("refresca", caseLayout(calls), calls);
+    const rd = await seedRound(a, 2);
+    const genDefault = await call(a.staff, "generar_cartas_por_estrategia", { roundId: rd.round.id });
+    const defaultRows = await prisma.disputeLetter.findMany({ where: { roundId: rd.round.id } });
+    check("sin `cfpb` el valor por omisión es el de la action (false): cartas y cero quejas", Number(genDefault.letters) >= 1 && Number(genDefault.complaints) === 0 && defaultRows.length === Number(genDefault.letters), { genDefault, n: defaultRows.length });
     check("sin disputas pendientes -> error y no crea más", (await errorName(() => call(a.staff, "generar_cartas_por_estrategia", { roundId: rc.round.id }))) !== "ok");
 
     console.log("actualizar_seguimiento_carta");
@@ -176,7 +180,7 @@ async function main() {
     calls.length = 0;
     await call(a.staff, "actualizar_seguimiento_carta", { letterId, complaintId: `CFPB-${MARK}`.slice(0, 40), followUpAt: "2026-12-15" });
     const u = await letterOf(letterId);
-    check("STAFF guarda seguimiento", u?.complaintId === `CFPB-${MARK}`.slice(0, 40) && !!u.followUpAt?.toISOString().startsWith("2026-12-15"), u);
+    check("STAFF guarda seguimiento", u?.complaintId === `CFPB-${MARK}`.slice(0, 40) && u.followUpAt?.toISOString() === "2026-12-15T12:00:00.000Z", u);
     const au6 = await auditOf("actualizar_seguimiento_carta", letterId);
     check("auditoría", !!au6 && meta(au6.metadata).via === "claude", au6);
     check("refresca", caseLayout(calls), calls);

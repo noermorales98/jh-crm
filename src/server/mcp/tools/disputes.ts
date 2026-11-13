@@ -7,6 +7,7 @@ import {
 } from "@/src/lib/validation/disputes";
 import { DISPUTE_STRATEGIES, PERSONAL_INFO_KINDS, personalInfoLabel } from "@/src/lib/disputes/strategies";
 import { CASE_ROUTE_PATTERN, caseHref } from "@/src/lib/routes/case-routes";
+import { prisma } from "@/src/lib/db";
 import { DomainError, NotFoundError } from "@/src/server/errors";
 import * as disputeService from "@/src/server/disputes";
 import { defineTool, type RevalidateTarget, type Tool } from "./types";
@@ -25,6 +26,71 @@ async function orNotFound<T>(fn: () => Promise<T>): Promise<T> {
     if (error instanceof DomainError && /no encontrad/i.test(error.message)) throw new NotFoundError();
     throw error;
   }
+}
+
+type DisputeCtx = Parameters<typeof disputeService.getRoundDetail>[0];
+
+async function openRoundOrThrow(ctx: DisputeCtx, roundId: string) {
+  const round = await prisma.creditRound.findFirst({
+    where: { id: roundId, organizationId: ctx.organizationId },
+    select: { id: true, status: true, caseId: true, case: { select: { clientId: true } } },
+  });
+  if (!round) throw new NotFoundError();
+  if (round.status === "CANCELLED" || round.status === "COMPLETED") {
+    throw new DomainError("No se pueden añadir elementos a una ronda cerrada.");
+  }
+  return round;
+}
+
+/**
+ * `addDisputeItemsBulk` agrega de una en una, cada una en su propia transacción: si la
+ * tercera falla, las dos primeras ya quedaron. Por eso se valida TODO antes de escribir:
+ * ronda abierta de la organización, cuentas del mismo caso, elegibles, sin repetir y que
+ * aún no estén en la ronda. Un id ajeno falla aquí, sin haber agregado nada.
+ */
+async function validateBulk(ctx: DisputeCtx, data: { roundId: string; creditItemIds: string[] }) {
+  const round = await openRoundOrThrow(ctx, data.roundId);
+  const ids = [...new Set(data.creditItemIds)];
+  if (ids.length !== data.creditItemIds.length) throw new DomainError("Hay cuentas repetidas en la lista.");
+  const items = await prisma.creditItem.findMany({
+    where: { id: { in: ids }, organizationId: ctx.organizationId, caseId: round.caseId },
+    select: { id: true, disputeEligible: true },
+  });
+  if (items.length !== ids.length) throw new NotFoundError();
+  if (items.some((i) => !i.disputeEligible)) throw new DomainError("Este elemento no es elegible para disputa.");
+  const taken = await prisma.disputeItem.findFirst({
+    where: { roundId: round.id, creditItemId: { in: ids }, status: { not: "CANCELLED" } },
+    select: { id: true },
+  });
+  if (taken) throw new DomainError("Este elemento ya está en la ronda.");
+}
+
+/**
+ * Igual para consultas y datos personales: se escriben una por una, así que se valida la
+ * ronda y cada consulta (de la organización y del cliente de la ronda, mismo buró, sin repetir
+ * ni estar ya en la ronda) antes de agregar la primera.
+ */
+async function validateNonAccount(
+  ctx: DisputeCtx,
+  data: { roundId: string; inquiries: Array<{ inquiryId: string; bureau: string; label: string }> },
+) {
+  const round = await openRoundOrThrow(ctx, data.roundId);
+  if (data.inquiries.some((i) => !i.label.trim())) throw new DomainError("Indica qué se disputa.");
+  const ids = [...new Set(data.inquiries.map((i) => i.inquiryId))];
+  if (ids.length !== data.inquiries.length) throw new DomainError("Hay consultas repetidas en la lista.");
+  if (ids.length === 0) return;
+  const found = await prisma.creditInquiry.findMany({
+    where: { id: { in: ids }, organizationId: ctx.organizationId, clientId: round.case.clientId },
+    select: { id: true, bureau: true },
+  });
+  if (found.length !== ids.length) throw new NotFoundError();
+  const bureauOf = new Map(found.map((i) => [i.id, i.bureau]));
+  if (data.inquiries.some((i) => bureauOf.get(i.inquiryId) !== i.bureau)) throw new DomainError("La consulta es de otro buró.");
+  const taken = await prisma.disputeItem.findFirst({
+    where: { roundId: round.id, inquiryId: { in: ids }, status: { not: "CANCELLED" } },
+    select: { id: true },
+  });
+  if (taken) throw new DomainError("Esta consulta ya está en la ronda.");
 }
 
 /** Igual que `revalidateDisputes` de la action de disputas. */
@@ -99,7 +165,7 @@ const agregarDisputasLote = defineTool({
   name: "agregar_disputas_lote",
   title: "Agregar varias disputas a una ronda",
   description:
-    "Agrega varias cuentas (hasta 100) a una ronda abierta con el mismo motivo y acción, y opcionalmente el mismo método. Úsala cuando la persona pida disputar un grupo de cuentas con el mismo argumento; si alguna falla, las anteriores ya quedan agregadas.",
+    "Agrega varias cuentas (hasta 100) a una ronda abierta con el mismo motivo y acción, y opcionalmente el mismo método. Úsala cuando la persona pida disputar un grupo de cuentas con el mismo argumento; antes de agregar nada se comprueba que todas las cuentas sean válidas, así que si alguna no lo es no se agrega ninguna.",
   kind: "write",
   permission: "disputes.manage",
   inputSchema: z.object({
@@ -113,6 +179,7 @@ const agregarDisputasLote = defineTool({
     strategy: bulk.strategy.describe(strategyDesc),
   }),
   async run(ctx, data) {
+    await validateBulk(ctx, data);
     const items = await orNotFound(() => disputeService.addDisputeItemsBulk(ctx, data));
     return { count: items.length, roundId: data.roundId, href: await roundHref(ctx, data.roundId) };
   },
@@ -153,6 +220,7 @@ const agregarDisputaConsultaOPersonal = defineTool({
       .describe("Datos personales a corregir (hasta 30)."),
   }),
   async run(ctx, data) {
+    await validateNonAccount(ctx, data);
     let added = 0;
     for (const inquiry of data.inquiries) {
       await orNotFound(() =>

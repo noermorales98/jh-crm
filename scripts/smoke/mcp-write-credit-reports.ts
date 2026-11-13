@@ -104,6 +104,14 @@ async function main() {
     check("refresca", refreshed(calls), calls);
     check("entrada inválida -> ZodError", (await errorName(() => call(a.staff, "editar_reporte_credito", { reportId, type: "NOPE" }))) === "ZodError");
     check("reporte ajeno -> no encontrado y sin cambios", isNotFound(await errorText(() => call(a.staff, "editar_reporte_credito", { reportId: reportB.id, notes: "hack" }))) && (await prisma.creditReport.findUnique({ where: { id: reportB.id } }))!.notes === null);
+    const editTool = creditReportsTools.find((t) => t.name === "editar_reporte_credito")!;
+    check("editar_reporte_credito no acepta `snapshots` (reemplazarlos borraría los anteriores)", !("snapshots" in (editTool.inputSchema as unknown as { shape: Record<string, unknown> }).shape));
+    const withSnap = await call(a.staff, "crear_reporte_credito", { caseId: caseA.id, reportDate: "2026-02-02", snapshots: [{ bureau: "EXPERIAN", score: 600 }] });
+    const snapId = String(withSnap.id);
+    await call(a.staff, "editar_reporte_credito", { reportId: snapId, notes: "con resumen", snapshots: [{ bureau: "EQUIFAX", score: 750 }] });
+    const snaps = await prisma.creditBureauSnapshot.findMany({ where: { reportId: snapId } });
+    check("editar con `snapshots` no borra ni reemplaza los resúmenes existentes", snaps.length === 1 && snaps[0].bureau === "EXPERIAN" && snaps[0].score === 600, snaps);
+    check("editar sigue cambiando el resto de campos", (await prisma.creditReport.findUnique({ where: { id: snapId } }))?.notes === "con resumen");
 
     console.log("agregar_partida_credito");
     const nItems = () => prisma.creditItem.count({ where: { organizationId: a.org.id } });
@@ -116,6 +124,10 @@ async function main() {
     const item = await prisma.creditItem.findUnique({ where: { id: String(added.id) } });
     check("STAFF agrega la partida", !!item && item.reportId === reportId && item.caseId === caseA.id && item.creditorName === "Banco Sintético" && item.bureau === "EQUIFAX", item);
     check("el resultado no trae el número de cuenta", !JSON.stringify(added).includes(LONG) && !JSON.stringify(added).includes("4111"), added);
+    check("el resultado no trae la clave accountNumberMasked", !("accountNumberMasked" in added), Object.keys(added));
+    const SHORT = "1234567890";
+    const addedShort = await call(a.staff, "agregar_partida_credito", { reportId, creditorName: "Banco Corto", bureau: "EXPERIAN", accountNumberMasked: SHORT });
+    check("una cuenta de 10 dígitos tampoco aparece en el resultado ni como clave", !JSON.stringify(addedShort).includes(SHORT) && !JSON.stringify(addedShort).includes("7890") && !("accountNumberMasked" in addedShort), addedShort);
     check("el resultado trae acreedor y href /crm/", added.creditorName === "Banco Sintético" && String(added.href).includes("/crm/"), added);
     const au3 = await auditOf("agregar_partida_credito", String(added.id));
     check("auditoría con via claude", !!au3 && au3.entityType === "CreditItem" && meta(au3.metadata).via === "claude", au3);
@@ -131,7 +143,7 @@ async function main() {
     const edited = await call(a.staff, "editar_partida_credito", { itemId, creditorName: "Banco Nuevo", lifecycleStatus: "SELECTED", accountNumberMasked: LONG });
     const item2 = await prisma.creditItem.findUnique({ where: { id: itemId } });
     check("STAFF edita", item2?.creditorName === "Banco Nuevo" && item2.lifecycleStatus === "SELECTED", item2);
-    check("el resultado no trae el número de cuenta", !JSON.stringify(edited).includes("4111"), edited);
+    check("el resultado no trae el número de cuenta", !JSON.stringify(edited).includes("4111") && !("accountNumberMasked" in edited), edited);
     const au4 = await auditOf("editar_partida_credito", itemId);
     check("auditoría con via claude", !!au4 && au4.entityType === "CreditItem" && meta(au4.metadata).via === "claude", au4);
     check("refresca", refreshed(calls), calls);

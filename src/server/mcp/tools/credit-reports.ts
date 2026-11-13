@@ -16,7 +16,8 @@ import { defineTool, type RevalidateTarget, type Tool } from "./types";
  * Escritura de reportes de crédito y sus partidas (tanda 2). Cada herramienta replica su
  * action de `src/actions/credit-reports.ts`: mismo permiso, mismo esquema, mismo servicio y
  * las mismas rutas refrescadas. No hay herramienta de borrado: `deleteCreditItem` borra de
- * verdad y el proyecto solo permite borrados lógicos (ver decisions.md).
+ * verdad y el proyecto solo permite borrados lógicos (ver decisions.md). Por la misma razón,
+ * `editar_reporte_credito` no acepta `snapshots`: el servicio los reemplaza con `deleteMany`.
  */
 
 /** Los servicios lanzan DomainError("… no encontrado") con ids ajenos: es "no existe". */
@@ -166,7 +167,7 @@ const editarReporte = defineTool({
   name: "editar_reporte_credito",
   title: "Editar reporte de crédito",
   description:
-    "Cambia el tipo, fecha, proveedor, notas, documento o resúmenes por buró de un reporte de crédito. Si se envían resúmenes, reemplazan a los anteriores. Úsala cuando la persona quiera corregir un reporte ya registrado.",
+    "Cambia el tipo, fecha, proveedor, notas o documento de un reporte de crédito. No toca los resúmenes por buró ni las partidas. Úsala cuando la persona quiera corregir un reporte ya registrado.",
   kind: "write",
   permission: "creditReports.manage",
   inputSchema: z.object({
@@ -177,7 +178,6 @@ const editarReporte = defineTool({
     externalReportId: updateShape.externalReportId.describe("Nuevo identificador externo; vacío o null lo quita."),
     documentId: updateShape.documentId.describe("Nuevo documento ligado al reporte; null lo quita."),
     notes: updateShape.notes.describe("Nuevas notas; vacío o null las borra."),
-    snapshots: snapshots.optional().describe("Resúmenes por buró nuevos (máximo 3); reemplazan a todos los anteriores."),
   }),
   run: (ctx, { reportId, ...data }) =>
     orNotFound(async () => reportResult(await creditReportService.updateCreditReport(ctx, reportId, data))),

@@ -47,7 +47,14 @@ async function main() {
       prisma.consultation.create({ data: { organizationId, clientId, amount: 1, status: "REQUESTED", ...extra } });
 
     check("metadatos: dos herramientas con permiso consultations.manage",
-      consultationsTools.length === 2 && consultationsTools.every((t) => t.permission === "consultations.manage" && t.kind === "write"));
+      consultationsTools.length === 2 && consultationsTools.every((t) => t.permission === "consultations.manage"));
+    const solicitar = consultationsTools.find((t) => t.name === "solicitar_consulta")!;
+    const cambiar = consultationsTools.find((t) => t.name === "cambiar_estado_consulta")!;
+    check("solicitar_consulta es destructive y de mundo abierto (avisa por correo y WhatsApp externo)", solicitar.kind === "destructive" && solicitar.openWorld === true, { kind: solicitar.kind, openWorld: solicitar.openWorld });
+    check("solicitar_consulta avisa de correo, WhatsApp, servicio externo y confirmación",
+      /correo/i.test(solicitar.description) && /whatsapp/i.test(solicitar.description) && /externo/i.test(solicitar.description) && /confirm/i.test(solicitar.description), solicitar.description);
+    check("solicitar_consulta no promete deshacer", !/deshac|revert|reabr|recuper|restaur/i.test(solicitar.description), solicitar.description);
+    check("cambiar_estado_consulta es destructive y no abre mundo", cambiar.kind === "destructive" && !cambiar.openWorld, { kind: cambiar.kind, openWorld: cambiar.openWorld });
 
     console.log("solicitar_consulta");
     const before = await count();
@@ -65,7 +72,7 @@ async function main() {
     check("monto por defecto 1", (await prisma.consultation.findUnique({ where: { id: String(dflt.id) } }))?.amount.toString() === "1");
     check("entrada inválida -> ZodError", (await errorName(() => call(a.staff, "solicitar_consulta", { clientId: "" }))) === "ZodError");
     const n1 = await count();
-    check("cliente de otra organización: no se crea", (await errorText(() => call(a.staff, "solicitar_consulta", { clientId: b.client.id }))) === "DomainError: Cliente no encontrado." && (await count()) === n1);
+    check("cliente de otra organización: NotFoundError y no se crea", (await errorText(() => call(a.staff, "solicitar_consulta", { clientId: b.client.id }))) === "NotFoundError: No encontrado." && (await count()) === n1);
 
     console.log("cambiar_estado_consulta");
     const c1 = await mk(a.org.id, a.client.id);
@@ -87,7 +94,14 @@ async function main() {
     await call(a.staff, "cambiar_estado_consulta", { consultaId: c2.id, status: "CANCELLED" });
     check("STAFF cancela (la consulta sigue existiendo)", (await prisma.consultation.findUnique({ where: { id: c2.id } }))?.status === "CANCELLED");
     check("entrada inválida -> ZodError", (await errorName(() => call(a.staff, "cambiar_estado_consulta", { consultaId: c2.id, status: "NOPE" }))) === "ZodError");
-    check("consulta ajena -> no encontrada y sin cambios", (await errorText(() => call(a.staff, "cambiar_estado_consulta", { consultaId: foreign.id, status: "SCHEDULED" }))) === "DomainError: Consulta no encontrada." && (await prisma.consultation.findUnique({ where: { id: foreign.id } }))!.status === "REQUESTED");
+    const c3 = await mk(a.org.id, a.client.id);
+    for (const blocked of ["PAID", "PAYMENT_PENDING"]) {
+      check(`estado ${blocked} no se acepta (los cobros van aparte) -> ZodError y sin cambios`,
+        (await errorName(() => call(a.staff, "cambiar_estado_consulta", { consultaId: c3.id, status: blocked }))) === "ZodError" &&
+          (await prisma.consultation.findUnique({ where: { id: c3.id } }))?.status === "REQUESTED");
+    }
+    check("la descripción no ofrece PAID ni PAYMENT_PENDING", !/PAID|PAYMENT_PENDING/.test(cambiar.description), cambiar.description);
+    check("consulta ajena -> NotFoundError y sin cambios", (await errorText(() => call(a.staff, "cambiar_estado_consulta", { consultaId: foreign.id, status: "SCHEDULED" }))) === "NotFoundError: No encontrado." && (await prisma.consultation.findUnique({ where: { id: foreign.id } }))!.status === "REQUESTED");
   } finally {
     await a.cleanup();
     await b.cleanup();

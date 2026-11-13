@@ -4,6 +4,7 @@
  *   DATABASE_URL=mysql://root@127.0.0.1:3399/jh_gates npx tsx scripts/smoke/mcp-write-disputes.ts
  */
 import { PrismaClient } from "@prisma/client";
+import { personalInfoLabel } from "../../src/lib/disputes/strategies";
 import { assertDisposableDb, errorName, meta, seedMcpOrg } from "./_lib/mcp-seed";
 
 assertDisposableDb();
@@ -105,9 +106,10 @@ async function main() {
     const args1 = { roundId: ca.round.id, creditItemId: ca.items[0].id, disputeReason: "No reconozco esta cuenta", action: "Eliminar" };
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "agregar_disputa", args1))).includes("Sin permiso") && (await disputeCount()) === n0);
     calls.length = 0;
-    const d1 = await call(a.staff, "agregar_disputa", { ...args1, scope: "IN_SCOPE", method: "ONLINE" });
+    const d1 = await call(a.staff, "agregar_disputa", { ...args1, scope: "IN_SCOPE", method: "ONLINE", bureau: "EQUIFAX", notes: `Nota ${MARK}` });
     const row1 = await prisma.disputeItem.findUnique({ where: { id: String(d1.id) } });
     check("STAFF agrega la disputa", !!row1 && row1.roundId === ca.round.id && row1.creditItemId === ca.items[0].id && row1.scope === "IN_SCOPE" && row1.method === "ONLINE" && row1.status === "SELECTED", row1);
+    check("agregar_disputa guarda el buró pedido (no el de la cuenta, EXPERIAN) y la nota", row1?.bureau === "EQUIFAX" && row1.notes === `Nota ${MARK}`, row1);
     check("resultado con id, estado y href", d1.status === "SELECTED" && d1.roundId === ca.round.id && hrefOk(d1), d1);
     const au1 = await auditOf("agregar_disputa", String(d1.id));
     check("auditoría via claude", !!au1 && au1.entityType === "DisputeItem" && meta(au1.metadata).via === "claude", au1);
@@ -132,6 +134,25 @@ async function main() {
     const n2 = await disputeCount();
     check("ronda ajena -> No encontrado y sin cambios", (await errorText(() => call(a.staff, "agregar_disputas_lote", { ...bulkArgs, roundId: cb.round.id, creditItemIds: [cb.items[0].id] }))).endsWith("No encontrado.") && (await disputeCount()) === n2);
 
+    console.log("agregar_disputas_lote: todo o nada");
+    const goodA = ca.items[3].id;
+    const goodB = ca.items[4].id;
+    const n2b = await disputeCount();
+    const mixed = await errorText(() => call(a.staff, "agregar_disputas_lote", { ...bulkArgs, creditItemIds: [goodA, goodB, cb.items[0].id] }));
+    check("2 cuentas válidas + 1 ajena -> No encontrado y cero disputas agregadas", mixed.endsWith("No encontrado.") && (await disputeCount()) === n2b, { mixed, n: await disputeCount(), n2b });
+    check("ninguna de las válidas quedó en la ronda", (await prisma.disputeItem.count({ where: { roundId: ca.round.id, creditItemId: { in: [goodA, goodB] } } })) === 0);
+    const dup = await errorText(() => call(a.staff, "agregar_disputas_lote", { ...bulkArgs, creditItemIds: [goodA, ca.items[1].id] }));
+    check("1 válida + 1 ya incluida en la ronda -> error y cero disputas agregadas", dup !== "ok" && (await disputeCount()) === n2b, { dup });
+    const dupIds = await errorText(() => call(a.staff, "agregar_disputas_lote", { ...bulkArgs, creditItemIds: [goodA, goodA] }));
+    check("el mismo id repetido -> error y cero disputas agregadas", dupIds !== "ok" && (await disputeCount()) === n2b, { dupIds });
+    await prisma.creditItem.update({ where: { id: goodB }, data: { disputeEligible: false } });
+    const inelig = await errorText(() => call(a.staff, "agregar_disputas_lote", { ...bulkArgs, creditItemIds: [goodA, goodB] }));
+    check("1 válida + 1 no elegible -> error y cero disputas agregadas", inelig !== "ok" && (await disputeCount()) === n2b, { inelig });
+    await prisma.creditItem.update({ where: { id: goodB }, data: { disputeEligible: true } });
+    const closedRound = await prisma.creditRound.create({ data: { organizationId: a.org.id, caseId: ca.creditCase.id, roundNumber: 2, status: "CANCELLED" } });
+    const closed = await errorText(() => call(a.staff, "agregar_disputas_lote", { ...bulkArgs, roundId: closedRound.id, creditItemIds: [goodA] }));
+    check("ronda cerrada -> error y cero disputas agregadas", closed !== "ok" && (await disputeCount()) === n2b, { closed });
+
     console.log("agregar_disputa_consulta_o_personal");
     const npArgs = {
       roundId: ca.round.id,
@@ -151,6 +172,35 @@ async function main() {
     const n3 = await disputeCount();
     check("consulta de otra organización -> falla sin cambios", (await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", { roundId: ca.round.id, inquiries: [{ inquiryId: cb.inquiry.id, bureau: "EQUIFAX", label: "x" }] }))) !== "ok" && (await disputeCount()) === n3);
     check("ronda ajena -> No encontrado", (await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", { ...npArgs, roundId: cb.round.id }))).endsWith("No encontrado."));
+    const inqRow = npRows.find((r) => r.targetKind === "INQUIRY");
+    const perRow = npRows.find((r) => r.targetKind === "PERSONAL_INFO");
+    check("la consulta queda con su buró (EQUIFAX) y su etiqueta", inqRow?.bureau === "EQUIFAX" && inqRow.targetLabel === `Consulta ${MARK}`, inqRow);
+    check("el dato personal queda con su buró (EXPERIAN), tipo y etiqueta de ADDRESS", perRow?.bureau === "EXPERIAN" && perRow.targetKind === "PERSONAL_INFO" && perRow.targetLabel === personalInfoLabel("ADDRESS", "123 Calle Ficticia"), perRow);
+    const inq2 = await prisma.creditInquiry.create({ data: { organizationId: a.org.id, clientId: a.client.id, reportId: ca.report.id, bureau: "EQUIFAX", creditorName: `Consulta 2 ${MARK}`, inquiryType: "HARD" } });
+    const n4 = await disputeCount();
+    const npMixed = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", {
+      roundId: ca.round.id,
+      inquiries: [{ inquiryId: inq2.id, bureau: "EQUIFAX", label: "valida" }, { inquiryId: cb.inquiry.id, bureau: "EQUIFAX", label: "ajena" }],
+      personal: [{ bureau: "EXPERIAN", kind: "NAME", value: "Nombre Falso" }],
+    }));
+    check("consulta válida + consulta ajena -> No encontrado y cero agregadas", npMixed.endsWith("No encontrado.") && (await disputeCount()) === n4, { npMixed });
+    const npBureau = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", {
+      roundId: ca.round.id,
+      inquiries: [{ inquiryId: inq2.id, bureau: "EQUIFAX", label: "valida" }, { inquiryId: ca.inquiry.id, bureau: "EXPERIAN", label: "buró cambiado" }],
+    }));
+    check("consulta válida + consulta con buró distinto -> error y cero agregadas", npBureau !== "ok" && (await disputeCount()) === n4, { npBureau });
+    const npTaken = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", {
+      roundId: ca.round.id,
+      inquiries: [{ inquiryId: inq2.id, bureau: "EQUIFAX", label: "valida" }, { inquiryId: ca.inquiry.id, bureau: "EQUIFAX", label: "ya incluida" }],
+    }));
+    check("consulta válida + consulta ya en la ronda -> error y cero agregadas", npTaken !== "ok" && (await disputeCount()) === n4, { npTaken });
+    const npRepeat = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", {
+      roundId: ca.round.id,
+      inquiries: [{ inquiryId: inq2.id, bureau: "EQUIFAX", label: "una" }, { inquiryId: inq2.id, bureau: "EQUIFAX", label: "otra vez" }],
+    }));
+    check("la misma consulta repetida -> error y cero agregadas", npRepeat !== "ok" && (await disputeCount()) === n4, { npRepeat });
+    const npClosed = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", { roundId: closedRound.id, personal: [{ bureau: "EXPERIAN", kind: "NAME", value: "Nombre Falso" }] }));
+    check("ronda cerrada -> error y cero agregadas", npClosed !== "ok" && (await disputeCount()) === n4, { npClosed });
 
     console.log("editar_disputa");
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "editar_disputa", { disputeItemId: String(d1.id), notes: "x" }))).includes("Sin permiso"));

@@ -117,8 +117,8 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   editar_reporte_credito: ["creditReports.manage", "write"],
   agregar_partida_credito: ["creditItems.manage", "write"],
   editar_partida_credito: ["creditItems.manage", "write"],
-  solicitar_consulta: ["consultations.manage", "write"],
-  cambiar_estado_consulta: ["consultations.manage", "write"],
+  solicitar_consulta: ["consultations.manage", "destructive"],
+  cambiar_estado_consulta: ["consultations.manage", "destructive"],
 };
 for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {
   const tool = tools.find((t) => t.name === name);
@@ -130,8 +130,10 @@ for (const tool of tools.filter((t) => t.kind === "destructive")) {
 }
 const sendQuote = tools.find((t) => t.name === "marcar_cotizacion_enviada");
 check("marcar_cotizacion_enviada se anuncia con efectos fuera del CRM (manda un mensaje real)", sendQuote?.openWorld === true);
-check("solo las herramientas que contactan al cliente tienen efectos fuera del CRM",
-  tools.filter((t) => t.openWorld).map((t) => t.name).join() === "marcar_cotizacion_enviada",
+const requestConsultation = tools.find((t) => t.name === "solicitar_consulta");
+check("solicitar_consulta se anuncia con efectos fuera del CRM (correo y WhatsApp por un servicio externo)", requestConsultation?.openWorld === true);
+check("solo marcar_cotizacion_enviada y solicitar_consulta tienen efectos fuera del CRM",
+  tools.filter((t) => t.openWorld).map((t) => t.name).sort().join() === "marcar_cotizacion_enviada,solicitar_consulta",
   tools.filter((t) => t.openWorld).map((t) => t.name));
 const unexpected = tools.filter((t) => t.kind !== "read" && !(t.name in EXPECTED_WRITE_TOOLS)).map((t) => t.name);
 check("ninguna herramienta borra partidas de crédito de verdad (solo borrado lógico)",

@@ -137,6 +137,13 @@ branch: feat/conector-mcp-claude
 - T029: prueba real con claude.ai — necesita un despliegue con URL pública (preview de Vercel) y tu cuenta de Claude.
 - T030: cierre (verify + revisión de cierre de toda la rama + PR) — necesita tu sí (regla 13).
 
+## Verificación (T030, parte 1) — 2026-11-12
+- T025 ronda 3 (2d69f46): solo textos, sin cambio de comportamiento; no se pidió otra revisión.
+- `ci:qa` local: el paso `npm run lint` falla solo por `.rsc/backups/` (copias locales de rsc fuera de git; el CI no las tiene). `eslint app src scripts` sale 0.
+- **Fallo real encontrado al compilar**: `request-origin.ts` importaba `node:async_hooks` de forma estática y componentes de cliente existentes lo arrastran (task-table → page-helpers → users → audit; credit/access → guards → portal → activity). El bundle del navegador no compilaba desde T003; ninguna prueba lo veía porque no compilan cliente.
+- fix (ff28120): carga en tiempo de ejecución con `process.getBuiltinModule` (Node ≥ 22.3); no-op en el navegador. Guardia nueva en `mcp-request-origin.ts`.
+- resultado: resto de `ci:qa` exit 0 (incluye `build:qa` ✓ con `/api/mcp`, `/api/oauth/*`, `/oauth/authorize`, `/crm/configuracion/claude`); `smoke:mcp-db` exit 0; `smoke:contract-gates-db` OK.
+
 ## Decision queue
 - **blocking** · T001 · tier 2 · Unir la migración del conector requiere tu sí (regla 13). Opciones: aprobar en el PR / pedir cambios. Recomendación: aprobar; 3 revisores sin bloqueos. Evidencia: entrada T001.
 - **blocking** · T005, T007 · tier 2 · El núcleo y el servicio OAuth tocan el inicio de sesión: necesitan tu sí en el PR (regla 13).

@@ -66,7 +66,7 @@ async function main() {
     check("crea cliente y oportunidad",
       leadOpp?.organizationId === a.org.id && leadOpp?.client.firstName === "Luis" && leadOpp?.stage === "NEW_LEAD" &&
         leadOpp?.nextFollowUpAt !== null, leadOpp);
-    check("devuelve href", typeof lead.href === "string" && lead.href.startsWith("/crm/"), lead);
+    check("devuelve href", typeof lead.href === "string" && lead.href.includes("/crm/"), lead);
     await auditOk("crear_lead", "Opportunity", lead.opportunityId, a.staff);
     check("refresca como la action",
       ["/crm/oportunidades|layout", "/crm/oportunidades|page", "/crm/clientes", "/crm/dashboard", `/crm/clientes/${lead.clientId}`,

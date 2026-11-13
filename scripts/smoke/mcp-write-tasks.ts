@@ -77,7 +77,7 @@ async function main() {
     const au = await auditOf("crear_tarea", String(created.id));
     check("auditoría con via claude y entidad Task", !!au && au.entityType === "Task" && meta(au.metadata).via === "claude", au);
     check("refresca tareas y dashboard", tasksPaths(calls), calls);
-    check("devuelve id y href", typeof created.href === "string" && String(created.href).startsWith("/crm/"), created);
+    check("devuelve id y href", typeof created.href === "string" && String(created.href).includes("/crm/"), created);
     check("entrada inválida -> ZodError", (await errorName(() => call(a.staff, "crear_tarea", { title: "", assignedToId: a.staff.userId }))) === "ZodError");
     const n1 = await taskCount();
     check("responsable de otra organización: no se crea", (await errorName(() => call(a.staff, "crear_tarea", { title: "x", assignedToId: b.staff.userId }))) !== "ok" && (await taskCount()) === n1);

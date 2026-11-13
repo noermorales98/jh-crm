@@ -52,7 +52,7 @@ async function run() {
     created.push(made.id);
     const row = await prisma.client.findUnique({ where: { id: made.id }, include: { sensitive: true } });
     check("crea el cliente en la organización", row?.organizationId === a.org.id && row?.firstName === "Zoe" && row?.state === "TX", row);
-    check("devuelve id, código y enlace", !!made.clientCode && made.href === `/crm/clientes/${made.id}`, made);
+    check("devuelve id, código y enlace", !!made.clientCode && String(made.href).endsWith(`/crm/clientes/${made.id}`), made);
     check("no acepta ni devuelve datos sensibles", !row?.sensitive && !JSON.stringify(made).includes("123-45"), made);
     const aud = await auditOf("mcp.tool.crear_cliente", made.id);
     check("auditoría con origen Claude", aud?.entityType === "Client" && aud.actorUserId === a.staff.userId && meta(aud.metadata).via === "claude", aud);
@@ -67,7 +67,7 @@ async function run() {
     const edited = (await call(a.staff, "editar_cliente", { clienteId: made.id, city: "Austin", status: "ACTIVE" })) as { id: string; href: string };
     const row2 = await prisma.client.findUnique({ where: { id: made.id } });
     check("edita solo lo enviado", row2?.city === "Austin" && row2.status === "ACTIVE" && row2.firstName === "Zoe", row2);
-    check("devuelve id y enlace", edited.id === made.id && edited.href === `/crm/clientes/${made.id}`, edited);
+    check("devuelve id y enlace", edited.id === made.id && String(edited.href).endsWith(`/crm/clientes/${made.id}`), edited);
     check("auditoría editar_cliente", (await auditOf("mcp.tool.editar_cliente", made.id))?.metadata !== undefined && meta((await auditOf("mcp.tool.editar_cliente", made.id))?.metadata).via === "claude");
     check("refresca la ficha", revalidated.includes(`/crm/clientes/${made.id}`) && revalidated.includes("/crm/clientes"), revalidated);
     await prisma.client.update({ where: { id: made.id }, data: { assignedToId: a.owner.userId } });

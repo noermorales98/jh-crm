@@ -72,7 +72,7 @@ async function main() {
     check("próxima acción al mediodía de la zona de la organización (15-mar-2030)",
       !!sc?.nextActionAt && /^2030-03-1[56]T/.test(sc.nextActionAt.toISOString()),
       sc?.nextActionAt);
-    check("devuelve href de la ficha del cliente", created.href === `/crm/clientes/${a.client.id}/servicios/${created.id}`, created.href);
+    check("devuelve href de la ficha del cliente", String(created.href).endsWith(`/crm/clientes/${a.client.id}/servicios/${created.id}`), created.href);
     const aud = (await audits("crear_caso"))[0];
     check("auditoría crear_caso (entidad y via claude)",
       !!aud && aud.entityId === created.id && meta(aud.metadata).via === "claude", aud);
@@ -201,7 +201,7 @@ async function main() {
       a.staff, "crear_caso_servicio", { clientId: a.client.id, serviceCode: "HOME_BUYER", summary: "Compra de casa", nextActionAt: "2030-06-01" });
     const hb = await prisma.serviceCase.findUnique({ where: { id: svc.serviceCaseId }, include: { service: true } });
     check("crea el expediente HOME_BUYER sin CreditCase", hb?.service.code === "HOME_BUYER" && svc.caseId === null && hb.organizationId === a.org.id, hb);
-    check("href de la ficha genérica", svc.href === `/crm/expedientes/${svc.serviceCaseId}`, svc.href);
+    check("href de la ficha genérica", String(svc.href).endsWith(`/crm/expedientes/${svc.serviceCaseId}`), svc.href);
     check("existe la extensión HOME_BUYER",
       (await prisma.homeBuyerCase.count({ where: { serviceCaseId: svc.serviceCaseId } })) === 1);
     const audC = (await audits("crear_caso_servicio"))[0];

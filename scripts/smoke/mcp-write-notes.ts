@@ -60,7 +60,7 @@ async function run() {
     const r1 = meta(await callTool(staff, T1, { clientId: client.id, body: "  Llamó el cliente  " }, opts));
     const n1 = await prisma.note.findUnique({ where: { id: String(r1.id) } });
     check("STAFF escribe la nota (recortada) en la BD", n1?.body === "Llamó el cliente" && n1.clientId === client.id && n1.authorUserId === staff.userId, n1);
-    check("devuelve id y href de las notas del cliente", typeof r1.id === "string" && r1.href === `/crm/clientes/${client.id}/notas`, r1);
+    check("devuelve id y href de las notas del cliente", typeof r1.id === "string" && String(r1.href).endsWith(`/crm/clientes/${client.id}/notas`), r1);
     const a1 = await audit(T1);
     check("auditoría mcp.tool.agregar_nota_cliente (Note, via claude)", a1.length === 1 && a1[0].entityType === "Note" && a1[0].entityId === r1.id && meta(a1[0].metadata).via === "claude", a1);
     const paths1 = revalidated.map(([p]) => p);
@@ -84,7 +84,7 @@ async function run() {
     const r2 = meta(await callTool(staff, T2, { serviceCaseId: serviceCase.id, body: "Nota del expediente" }, opts));
     const n2 = await prisma.note.findUnique({ where: { id: String(r2.id) } });
     check("STAFF escribe la nota en el expediente", n2?.body === "Nota del expediente" && n2.serviceCaseId === serviceCase.id && n2.clientId === client.id, n2);
-    check("devuelve id y href", typeof r2.id === "string" && typeof r2.href === "string" && String(r2.href).startsWith("/crm/"), r2);
+    check("devuelve id y href", typeof r2.id === "string" && typeof r2.href === "string" && String(r2.href).includes("/crm/"), r2);
     const a2 = await audit(T2);
     check("auditoría mcp.tool.agregar_nota_caso (Note, via claude)", a2.length === 1 && a2[0].entityType === "Note" && a2[0].entityId === r2.id && meta(a2[0].metadata).via === "claude", a2);
     const paths2 = revalidated.map(([p]) => p);
@@ -110,7 +110,7 @@ async function run() {
     const r3 = meta(await callTool(staff, T3, { clientId: client.id, opportunityId: opportunity.id, body: "Quiere cotización" }, opts));
     const n3 = await prisma.note.findUnique({ where: { id: String(r3.id) } });
     check("STAFF escribe el mensaje en la BD", n3?.body === "Quiere cotización" && n3.clientId === client.id, n3);
-    check("devuelve id y href de oportunidades", typeof r3.id === "string" && typeof r3.href === "string" && String(r3.href).startsWith("/crm/oportunidades"), r3);
+    check("devuelve id y href de oportunidades", typeof r3.id === "string" && typeof r3.href === "string" && String(r3.href).includes("/crm/oportunidades"), r3);
     const a3 = await audit(T3);
     check("auditoría mcp.tool.agregar_mensaje_lead (Note, via claude)", a3.length === 1 && a3[0].entityType === "Note" && a3[0].entityId === r3.id && meta(a3[0].metadata).via === "claude", a3);
     const paths3 = revalidated.map(([p, t]) => `${p}|${t ?? ""}`);

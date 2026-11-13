@@ -113,3 +113,5 @@ jobs:
         run: npx prisma migrate deploy
       - name: Contract gates smoke (rondas y cobros)
         run: npm run smoke:contract-gates-db
+      - name: Conector MCP de Claude (OAuth, endpoint, lectura y escritura)
+        run: npm run smoke:mcp-db

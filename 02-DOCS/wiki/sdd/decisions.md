@@ -57,3 +57,8 @@ Append-only. Newest at the bottom.
   exact list of structured keys; `buscar` refuses 9 or ≥13-digit queries (residual risk accepted for
   10–12). Write tools run in parallel per section by six developer agents, each mirroring its action;
   `editar_lead` merges with current values; destructive tool descriptions never promise undo.
+- 2026-11-13 — `conector-mcp-claude` closing review. Tool calls are rate-limited per person
+  (organization + user), as the spec says, so web, desktop and mobile connections share one budget.
+  Tools with effects outside the CRM (sending a quote by email or WhatsApp) are destructive and
+  announced as open-world, so Claude asks before using them. Expired access tokens are kept 30 days
+  so a stale token gets 401 (refresh) instead of being counted as forged.

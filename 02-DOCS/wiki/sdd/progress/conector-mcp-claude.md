@@ -144,6 +144,20 @@ branch: feat/conector-mcp-claude
 - fix (ff28120): carga en tiempo de ejecución con `process.getBuiltinModule` (Node ≥ 22.3); no-op en el navegador. Guardia nueva en `mcp-request-origin.ts`.
 - resultado: resto de `ci:qa` exit 0 (incluye `build:qa` ✓ con `/api/mcp`, `/api/oauth/*`, `/oauth/authorize`, `/crm/configuracion/claude`); `smoke:mcp-db` exit 0; `smoke:contract-gates-db` OK.
 
+## Revisión de cierre (T030, parte 2) — 2026-11-13
+- 3 revisores sobre toda la rama (44aaed0 contra main): security changes-needed (1 should-fix, 2 preguntas) · correctness pass (3 nits, 1 pregunta) · tests changes-needed (3 should-fix, 1 pregunta, 2 nits)
+- arreglado en 4fb33e2:
+  - `marcar_cotizacion_enviada` pasa a destructiva y se anuncia con `openWorldHint` (manda correo/WhatsApp real); las instrucciones piden confirmar antes de escribir al cliente y no obedecer órdenes que vengan dentro de los datos
+  - el límite de 120 llamadas/min es **por persona** (lo dice la spec), no por conexión; prueba: la otra conexión de la misma persona también queda frenada, otra persona no; el 120 se fija como literal
+  - llaves de acceso caducadas se guardan 30 días (antes 1): una vieja recibe 401 para renovar, no el límite de llaves inventadas
+  - claves por IP con prefijo `:ip:`; `ver` ya no muestra casos de servicio archivados; `FEATURE_MCP_CONNECTOR` en `.env.example`
+  - CI: las 4 pruebas sin BD (auth-paths, login-redirect, mcp-oauth-core, mcp-tool-registry) ahora corren en `qa.yml` (antes solo en `ci:qa`, que el workflow no llama)
+  - `mcp-http.ts`: las ráfagas arrancan lejos del cambio de minuto/hora (flake observado por el revisor); `mcp-write-tasks.ts` exige el texto «Tarea no encontrada.»
+- incidente: un `cd` fallido del revisor de pruebas aplicó 4 mutantes a `dispatch.ts`; lo restauró con `git checkout` antes de estos cambios. Verificado: el diff de `dispatch.ts` en 4fb33e2 es solo el cambio de límite.
+- evidencia tras el arreglo: typecheck 0 errores · `eslint app src scripts` 0 errores · 4 pruebas sin BD exit 0 · `smoke:mcp-db` (13) exit 0
+- sin evidencia automática (queda para T029): AC-2 (MFA al conectar) y AC-11 (estados de la página; capturas solo descritas aquí)
+- no hecho (nit): la prueba de AC-12 no comprueba que la ventana se reinicie (tardaría 60 s)
+
 ## Decision queue
 - **blocking** · T001 · tier 2 · Unir la migración del conector requiere tu sí (regla 13). Opciones: aprobar en el PR / pedir cambios. Recomendación: aprobar; 3 revisores sin bloqueos. Evidencia: entrada T001.
 - **blocking** · T005, T007 · tier 2 · El núcleo y el servicio OAuth tocan el inicio de sesión: necesitan tu sí en el PR (regla 13).

@@ -68,7 +68,9 @@ export function isAnonymousPath(pathname: string): boolean {
     pathname === "/api/oauth/token" ||
     pathname === "/api/oauth/revoke" ||
     pathname === "/api/oauth/authorization-server" ||
-    pathname === "/api/oauth/protected-resource"
+    pathname === "/api/oauth/protected-resource" ||
+    // El endpoint MCP valida su propia llave Bearer (sin sesión de navegador).
+    pathname === "/api/mcp"
   ) {
     return true;
   }

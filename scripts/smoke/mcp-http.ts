@@ -537,6 +537,90 @@ async function run() {
     http.REGISTER_GLOBAL_WINDOW_SECONDS === 3600 && !!bucket && bucket.windowStart.getTime() % 3_600_000 === 0,
     bucket?.windowStart);
 
+  console.log("\n[mcp-http] endpoint MCP /api/mcp\n");
+  const endpoint = await import("../../src/server/mcp/endpoint");
+  const { defineTool } = await import("../../src/server/mcp/tools/types");
+  const { z } = await import("zod");
+  const fakeTools = [
+    defineTool({
+      name: "leer_prueba", title: "Leer (prueba)", description: "Lectura de prueba.",
+      inputSchema: z.object({ id: z.string() }), permission: "clients.view", kind: "read",
+      run: async (_c, input) => ({ id: input.id, ssn: "123-45-6789" }),
+    }),
+    defineTool({
+      name: "borrar_prueba", title: "Borrar (prueba)", description: "Borrado de prueba.",
+      inputSchema: z.object({ id: z.string() }), permission: "users.manage", kind: "destructive",
+      run: async () => ({ ok: true }),
+      audit: (input) => ({ entityType: "Prueba", entityId: input.id }), revalidate: () => [],
+    }),
+  ] as never[];
+  function mcpPost(body: unknown, token?: string) {
+    return new Request(`${APP}/api/mcp`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2025-06-18",
+        ...(token ? { authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  }
+  const initBody = {
+    jsonrpc: "2.0", id: 1, method: "initialize",
+    params: { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "smoke", version: "1" } },
+  };
+  const noAuth = await endpoint.handleMcpRequest(mcpPost(initBody), { tools: fakeTools });
+  check("/api/mcp sin llave → 401", noAuth.status === 401, noAuth.status);
+  check("401 con WWW-Authenticate que apunta a los metadatos del recurso",
+    (noAuth.headers.get("www-authenticate") ?? "") ===
+      `Bearer resource_metadata="${APP}/.well-known/oauth-protected-resource/api/mcp"`,
+    noAuth.headers.get("www-authenticate"));
+  check("401 expone WWW-Authenticate por CORS",
+    (noAuth.headers.get("access-control-expose-headers") ?? "").includes("WWW-Authenticate"));
+  const badAuth = await endpoint.handleMcpRequest(mcpPost(initBody, "basura"), { tools: fakeTools });
+  check("/api/mcp con llave inventada → 401", badAuth.status === 401);
+  const mcpPre = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, { method: "OPTIONS" }));
+  check("/api/mcp preflight → 204 con Authorization permitido",
+    mcpPre.status === 204 && (mcpPre.headers.get("access-control-allow-headers") ?? "").includes("Authorization"));
+
+  const v3 = crypto.randomBytes(32).toString("base64url");
+  const ch3 = crypto.createHash("sha256").update(v3).digest("base64url");
+  const c3 = await svc.approve(staff, { client_id: clientId, redirect_uri: REDIRECT, code_challenge: ch3, code_challenge_method: "S256" });
+  const t3 = await svc.exchangeCode({ code: c3.code, code_verifier: v3, client_id: clientId, redirect_uri: REDIRECT });
+  const init = await endpoint.handleMcpRequest(mcpPost(initBody, t3.access_token), { tools: fakeTools });
+  const initJson = await json(init);
+  const serverInfo = (initJson.result as { serverInfo?: { name?: string }; instructions?: string } | undefined);
+  check("initialize con llave → 200 y servidor jh-crm", init.status === 200 && serverInfo?.serverInfo?.name === "jh-crm", initJson);
+  check("initialize trae las instrucciones en español", (serverInfo?.instructions ?? "").includes("pide confirmación"));
+  const list = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }, t3.access_token), { tools: fakeTools }));
+  const listed = ((list.result as { tools?: Array<{ name: string; annotations?: Record<string, unknown>; inputSchema?: unknown }> })?.tools) ?? [];
+  check("tools/list devuelve las herramientas", listed.map((t) => t.name).sort().join() === "borrar_prueba,leer_prueba", listed);
+  const lectura = listed.find((t) => t.name === "leer_prueba");
+  const borrado = listed.find((t) => t.name === "borrar_prueba");
+  check("lectura marcada readOnlyHint", lectura?.annotations?.readOnlyHint === true && lectura?.annotations?.destructiveHint === false);
+  check("borrado marcado destructiveHint (Claude pide confirmación)", borrado?.annotations?.destructiveHint === true);
+  check("tools/list publica el esquema de entrada",
+    JSON.stringify(lectura?.inputSchema ?? {}).includes("\"id\""), lectura?.inputSchema);
+  const call = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "leer_prueba", arguments: { id: "x1" } } }, t3.access_token),
+    { tools: fakeTools }));
+  const callText = JSON.stringify(call.result ?? {});
+  check("tools/call devuelve el resultado", callText.includes("x1") && !(call.result as { isError?: boolean })?.isError, call);
+  check("tools/call sin SSN (AC-6)", !callText.includes("123-45-6789"));
+  const toolDenied = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "borrar_prueba", arguments: { id: "x" } } }, t3.access_token),
+    { tools: fakeTools }));
+  check("tools/call sin permiso → error en español, sin trazas",
+    (toolDenied.result as { isError?: boolean })?.isError === true &&
+      JSON.stringify(toolDenied.result).includes("Sin permiso") && !JSON.stringify(toolDenied.result).includes(" at "), toolDenied);
+  check("el endpoint de la ruta delega en handleMcpRequest",
+    (await (await import("../../app/api/mcp/route")).POST(mcpPost(initBody))).status === 401);
+  check("toolErrorMessage: errores internos sin detalle",
+    endpoint.toolErrorMessage(new Error("prisma secreto")).startsWith("Error interno") &&
+      !endpoint.toolErrorMessage(new Error("prisma secreto")).includes("prisma"));
+
   console.log("\n[mcp-http] flag apagado\n");
   process.env.FEATURE_MCP_CONNECTOR = "false";
   check("metadatos con flag apagado → 404", http.authorizationServerMetadataResponse().status === 404);
@@ -548,6 +632,8 @@ async function run() {
   check("revocar con flag apagado → 404",
     (await http.handleRevoke(formPost("/api/oauth/revoke", { token: "x" }))).status === 404);
   check("preflight con flag apagado → 404", http.corsPreflightResponse().status === 404);
+  check("/api/mcp con flag apagado → 404",
+    (await (await import("../../src/server/mcp/endpoint")).handleMcpRequest(new Request(`${APP}/api/mcp`, { method: "POST" }))).status === 404);
   process.env.FEATURE_MCP_CONNECTOR = "true";
 }
 

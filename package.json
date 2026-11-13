@@ -118,6 +118,7 @@
     "@blobatar/react": "^2.7.0",
     "@hugeicons/core-free-icons": "^4.3.0",
     "@hugeicons/react": "^1.1.10",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "@prisma/client": "^6.19.3",
     "@tiptap/extension-placeholder": "^3.31.3",

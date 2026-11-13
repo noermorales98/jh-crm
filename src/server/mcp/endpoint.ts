@@ -2,7 +2,6 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { ZodError, z } from "zod";
-import { sanitizeTextForAI } from "@/src/lib/ai/sanitize";
 import { ForbiddenError, UnauthorizedError } from "@/src/server/auth/guards";
 import { DomainError, NotFoundError, RateLimitError } from "@/src/server/errors";
 import { clientIpFromRequest } from "@/src/server/http";
@@ -11,6 +10,7 @@ import { can } from "@/src/server/auth/permissions";
 import { UnknownTokenError, authenticate, callTool } from "./dispatch";
 import { appBaseUrl, protectedResourceMetadataUrl } from "./oauth/http";
 import { isMcpConnectorFeatureOn } from "./oauth/service";
+import { redactTextForClaude } from "./redact";
 import { allTools } from "./tools";
 import type { McpContext, Tool } from "./tools/types";
 
@@ -70,10 +70,10 @@ export function toolErrorMessage(error: unknown): string {
   if (error instanceof ZodError) {
     const issue = error.issues[0];
     const where = issue?.path?.length ? ` (${issue.path.join(".")})` : "";
-    return sanitizeTextForAI(`Datos inválidos${where}: ${issue?.message ?? "revisa los campos."}`);
+    return redactTextForClaude(`Datos inválidos${where}: ${issue?.message ?? "revisa los campos."}`);
   }
   // Los mensajes de reglas de negocio pueden citar datos: se limpian como los resultados.
-  if (error instanceof DomainError) return sanitizeTextForAI(error.message);
+  if (error instanceof DomainError) return redactTextForClaude(error.message);
   return "Error interno del CRM. No se hizo ningún cambio que no se haya confirmado.";
 }
 

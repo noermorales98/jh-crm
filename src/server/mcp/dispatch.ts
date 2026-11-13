@@ -1,6 +1,5 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/src/lib/db";
-import { sanitizeForAI } from "@/src/lib/ai/sanitize";
 import { can } from "@/src/server/auth/permissions";
 import { ForbiddenError, UnauthorizedError } from "@/src/server/auth/guards";
 import { writeAuditLog } from "@/src/server/audit";
@@ -10,6 +9,7 @@ import { runWithRequestOrigin } from "@/src/server/request-origin";
 import { assertRateLimit } from "@/src/server/security/rate-limit";
 import { hashToken } from "./oauth/core";
 import { isConnectionUsable } from "./oauth/service";
+import { redactForClaude } from "./redact";
 import type { McpContext, Tool } from "./tools/types";
 
 /**
@@ -119,5 +119,5 @@ export async function callTool(
     })
     .catch(() => undefined);
 
-  return sanitizeForAI(result);
+  return redactForClaude(result);
 }

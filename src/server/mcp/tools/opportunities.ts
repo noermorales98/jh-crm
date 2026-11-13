@@ -12,6 +12,8 @@ import {
 } from "@/src/lib/validation/opportunities";
 import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
 import * as opportunities from "@/src/server/opportunities";
+import { prisma } from "@/src/lib/db";
+import { DomainError, NotFoundError } from "@/src/server/errors";
 import { defineTool, type RevalidateTarget, type Tool } from "./types";
 
 /**
@@ -58,14 +60,27 @@ const leadFields = {
 };
 
 const createLeadInput = z.object(leadFields);
-const updateLeadInput = z.object({ opportunityId, ...leadFields });
+/**
+ * Para editar, todo es opcional: lo que Claude no envía se conserva (la acción de la app
+ * recibe el formulario completo; aquí se completa con los valores actuales).
+ */
+const updateLeadInput = z.object({
+  opportunityId,
+  ...Object.fromEntries(Object.entries(leadFields).map(([k, v]) => [k, v.optional()])),
+}) as unknown as z.ZodObject<{ opportunityId: typeof opportunityId } & { [K in keyof typeof leadFields]: z.ZodOptional<(typeof leadFields)[K]> }>;
+
+/** Etapas abiertas: crear una oportunidad ya ganada o perdida se salta la conversión de la app. */
+const OPEN_STAGES = ["NEW_LEAD", "CONTACTED", "CONSULTATION", "INTAKE_SENT", "INTAKE_COMPLETED", "PROPOSAL", "WAITING_PAYMENT"] as const;
 
 const createOpportunityInput = z.object({
   clientId: opportunityCreateSchema.shape.clientId.describe("Id del cliente al que se le abre la oportunidad."),
   ownerId: opportunityCreateSchema.shape.ownerId.describe("Id del miembro del equipo responsable (por defecto, quien conecta)."),
-  stage: opportunityCreateSchema.shape.stage.describe(
-    "Etapa inicial (por defecto NEW_LEAD): NEW_LEAD, CONTACTED, CONSULTATION, INTAKE_SENT, INTAKE_COMPLETED, PROPOSAL, WAITING_PAYMENT.",
-  ),
+  stage: z
+    .enum(OPEN_STAGES)
+    .optional()
+    .describe(
+      "Etapa inicial (por defecto NEW_LEAD): NEW_LEAD, CONTACTED, CONSULTATION, INTAKE_SENT, INTAKE_COMPLETED, PROPOSAL, WAITING_PAYMENT. Para ganar o perder usa marcar_ganada o marcar_perdida.",
+    ),
   estimatedValue: opportunityCreateSchema.shape.estimatedValue.describe("Valor estimado del trato en dólares."),
   source: opportunityCreateSchema.shape.source.describe("De dónde llegó el trato (texto libre)."),
   campaign: opportunityCreateSchema.shape.campaign.describe("Campaña de origen."),
@@ -147,7 +162,7 @@ export const opportunitiesTools: Tool[] = [
     name: "editar_lead",
     title: "Editar prospecto",
     description:
-      "Corrige los datos de un prospecto (nombre, contacto, origen, responsable, valor, seguimiento) por el id de su oportunidad. No cambia la etapa ni cierra el trato; para eso usa mover_oportunidad_etapa, marcar_ganada o marcar_perdida.",
+      "Corrige los datos de un prospecto (nombre, contacto, origen, responsable, valor, seguimiento) por el id de su oportunidad. Envía solo lo que cambia: lo que no envíes se conserva. No cambia la etapa ni cierra el trato; para eso usa mover_oportunidad_etapa, marcar_ganada o marcar_perdida.",
     inputSchema: updateLeadInput,
     permission: "opportunities.manage",
     kind: "write",
@@ -155,11 +170,45 @@ export const opportunitiesTools: Tool[] = [
       if (!can(ctx.role, "clients.edit")) {
         throw new ForbiddenError("Necesitas permiso para editar clientes además de oportunidades.");
       }
-      const result = await opportunities.updateLead(
-        ctx,
-        input.opportunityId,
-        leadData(input, await leadDates(ctx, input.nextFollowUpAt)),
-      );
+      const current = await prisma.opportunity.findFirst({
+        where: { id: input.opportunityId, organizationId: ctx.organizationId },
+        select: {
+          ownerId: true,
+          estimatedValue: true,
+          source: true,
+          campaign: true,
+          nextFollowUpAt: true,
+          client: {
+            select: {
+              firstName: true,
+              lastName: true,
+              email: true,
+              phone: true,
+              leadChannel: true,
+              serviceRequested: true,
+            },
+          },
+        },
+      });
+      if (!current) throw new NotFoundError();
+      const keep = <T,>(value: T | undefined, fallback: T) => (value === undefined ? fallback : value);
+      const merged = {
+        firstName: keep(input.firstName, current.client.firstName),
+        lastName: keep(input.lastName, current.client.lastName ?? undefined),
+        email: keep(input.email, current.client.email ?? undefined),
+        phone: keep(input.phone, current.client.phone ?? undefined),
+        source: keep(input.source, current.source ?? undefined),
+        leadChannel: keep(input.leadChannel, current.client.leadChannel ?? undefined),
+        serviceRequested: keep(input.serviceRequested, current.client.serviceRequested ?? undefined),
+        ownerId: keep(input.ownerId, current.ownerId ?? undefined),
+        estimatedValue: keep(input.estimatedValue, current.estimatedValue == null ? undefined : Number(current.estimatedValue)),
+        campaign: keep(input.campaign, current.campaign ?? undefined),
+        nextFollowUpAt: input.nextFollowUpAt,
+      } as z.infer<typeof createLeadInput>;
+      if (!merged.firstName) throw new DomainError("El nombre es obligatorio.");
+      const followUp =
+        input.nextFollowUpAt === undefined ? current.nextFollowUpAt : await leadDates(ctx, input.nextFollowUpAt);
+      const result = await opportunities.updateLead(ctx, input.opportunityId, leadData(merged, followUp));
       return {
         opportunityId: result.opportunity.id,
         clientId: result.client.id,
@@ -241,7 +290,7 @@ export const opportunitiesTools: Tool[] = [
     name: "marcar_perdida",
     title: "Marcar oportunidad como perdida",
     description:
-      "Cierra la oportunidad como perdida y guarda el motivo. Pide confirmación a la persona antes de usarla. Es un cierre lógico y reversible: la oportunidad y su historial se conservan y nada se borra.",
+      "Cierra la oportunidad como perdida y guarda el motivo. Pide confirmación a la persona antes de usarla. No se borra nada (la oportunidad y su historial se conservan), pero no se puede reabrir desde el CRM.",
     inputSchema: markLostInput,
     permission: "opportunities.manage",
     kind: "destructive",

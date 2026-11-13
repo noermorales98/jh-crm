@@ -70,6 +70,10 @@ async function run() {
     check("devuelve id y enlace", edited.id === made.id && edited.href === `/crm/clientes/${made.id}`, edited);
     check("auditoría editar_cliente", (await auditOf("mcp.tool.editar_cliente", made.id))?.metadata !== undefined && meta((await auditOf("mcp.tool.editar_cliente", made.id))?.metadata).via === "claude");
     check("refresca la ficha", revalidated.includes(`/crm/clientes/${made.id}`) && revalidated.includes("/crm/clientes"), revalidated);
+    await prisma.client.update({ where: { id: made.id }, data: { assignedToId: a.owner.userId } });
+    await call(a.staff, "editar_cliente", { clienteId: made.id, city: "Dallas", assignedToId: "" });
+    check("responsable vacío al editar → no se quita la asignación",
+      (await prisma.client.findUnique({ where: { id: made.id } }))?.assignedToId === a.owner.userId);
     const foreign = (await errorName(() => call(a.staff, "editar_cliente", { clienteId: b.client.id, city: "Hackeo" })));
     check("cliente de otra organización → no encontrado", NOT_FOUND.includes(foreign), foreign);
     check("otra organización intacta", (await prisma.client.findUnique({ where: { id: b.client.id } }))?.city === null);

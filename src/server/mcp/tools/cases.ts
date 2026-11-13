@@ -320,7 +320,7 @@ const cambiarEstadoCasoServicio = defineTool({
   title: "Cambiar estado del caso de servicio",
   description:
     "Cambia el estado de un expediente: abrir (OPEN), pausar (ON_HOLD), completar (COMPLETED) o cancelar (CANCELED). Cancelar y completar son lógicos: el expediente y su historial se conservan y se puede reabrir con OPEN. Pide confirmación a la persona antes de completar o cancelar.",
-  kind: "write",
+  kind: "destructive",
   permission: "cases.manage",
   inputSchema: z.object({ serviceCaseId: serviceCaseIdField, status: serviceCaseTransitionSchema }),
   async run(ctx, input) {

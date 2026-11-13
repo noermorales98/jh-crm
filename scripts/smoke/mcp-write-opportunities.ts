@@ -78,7 +78,14 @@ async function main() {
     check("VIEWER → ForbiddenError",
       (await errorName(() => call(a.viewer, "editar_lead", { opportunityId: lead.opportunityId, firstName: "X" }))) === "ForbiddenError");
     check("entrada inválida → ZodError",
-      (await errorName(() => call(a.staff, "editar_lead", { opportunityId: lead.opportunityId }))) === "ZodError");
+      (await errorName(() => call(a.staff, "editar_lead", { opportunityId: lead.opportunityId, email: "no-es-correo" }))) === "ZodError");
+    // Edición parcial: lo que no se envía se conserva (antes se borraba).
+    const leadClientId = (await prisma.opportunity.findUnique({ where: { id: lead.opportunityId } }))!.clientId;
+    await prisma.client.update({ where: { id: leadClientId }, data: { email: "conservar@example.test", phone: "5551230000" } });
+    await prisma.opportunity.update({
+      where: { id: lead.opportunityId },
+      data: { campaign: "Campaña X", nextFollowUpAt: new Date("2026-12-15T18:00:00Z"), estimatedValue: 900 },
+    });
     const foreignOpp = await prisma.opportunity.create({ data: { organizationId: b.org.id, clientId: b.client.id } });
     check("id de otra organización → error de no encontrado",
       ["NotFoundError", "DomainError"].includes(await errorName(() => call(a.staff, "editar_lead", { opportunityId: foreignOpp.id, firstName: "Hack" }))));
@@ -91,6 +98,13 @@ async function main() {
       source: "Claude 2",
     })) as { opportunityId: string; clientId: string };
     check("edita el cliente", (await prisma.client.findUnique({ where: { id: edited.clientId } }))?.firstName === "Luisa");
+    const keptClient = await prisma.client.findUnique({ where: { id: edited.clientId } });
+    const keptOpp = await prisma.opportunity.findUnique({ where: { id: lead.opportunityId } });
+    check("edición parcial: conserva correo y teléfono no enviados",
+      keptClient?.email === "conservar@example.test" && keptClient?.phone === "5551230000", keptClient);
+    check("edición parcial: conserva campaña, valor y seguimiento no enviados",
+      keptOpp?.campaign === "Campaña X" && Number(keptOpp?.estimatedValue) === 900 &&
+        keptOpp?.nextFollowUpAt?.toISOString() === "2026-12-15T18:00:00.000Z", keptOpp);
     await auditOk("editar_lead", "Opportunity", lead.opportunityId, a.staff);
     check("refresca como la action", revalidated.includes("/crm/dashboard") && revalidated.includes(`/crm/clientes/${edited.clientId}`), revalidated);
 
@@ -100,6 +114,10 @@ async function main() {
       (await errorName(() => call(a.viewer, "crear_oportunidad", { clientId: a.client.id }))) === "ForbiddenError");
     check("entrada inválida → ZodError",
       (await errorName(() => call(a.staff, "crear_oportunidad", { clientId: a.client.id, stage: "NOPE" }))) === "ZodError");
+    check("crear ya ganada → ZodError (hay que usar marcar_ganada)",
+      (await errorName(() => call(a.staff, "crear_oportunidad", { clientId: a.client.id, stage: "WON" }))) === "ZodError");
+    check("crear ya perdida → ZodError",
+      (await errorName(() => call(a.staff, "crear_oportunidad", { clientId: a.client.id, stage: "LOST" }))) === "ZodError");
     const foreignCount = await prisma.opportunity.count({ where: { organizationId: b.org.id } });
     check("cliente de otra organización → error de no encontrado",
       ["NotFoundError", "DomainError"].includes(await errorName(() => call(a.staff, "crear_oportunidad", { clientId: b.client.id }))));

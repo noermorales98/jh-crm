@@ -70,7 +70,7 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   crear_caso_servicio: ["cases.manage", "write"],
   mover_caso_servicio_etapa: ["cases.manage", "write"],
   fijar_proxima_accion_caso_servicio: ["cases.manage", "write"],
-  cambiar_estado_caso_servicio: ["cases.manage", "write"],
+  cambiar_estado_caso_servicio: ["cases.manage", "destructive"],
   editar_importes_caso_servicio: ["cases.manage", "write"],
   // Tareas (src/actions/tasks.ts)
   crear_tarea: ["tasks.manage", "write"],
@@ -101,6 +101,9 @@ for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {
   const tool = tools.find((t) => t.name === name);
   check(`${name}: existe, permiso ${permission}, tipo ${kind}`,
     !!tool && tool.permission === permission && tool.kind === kind, tool && { permission: tool.permission, kind: tool.kind });
+}
+for (const tool of tools.filter((t) => t.kind === "destructive")) {
+  check(`${tool.name}: no promete que se pueda deshacer`, !/reversible|reabrirse/i.test(tool.description), tool.description);
 }
 const unexpected = tools.filter((t) => t.kind !== "read" && !(t.name in EXPECTED_WRITE_TOOLS)).map((t) => t.name);
 check("no hay herramientas de escritura fuera de la lista", unexpected.length === 0, unexpected);

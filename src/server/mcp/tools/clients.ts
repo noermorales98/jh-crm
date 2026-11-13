@@ -39,7 +39,9 @@ const updateInput = z.object({
   clienteId,
   ...describeFields(clientUpdateSchema.shape),
   status: clientUpdateSchema.shape.status.describe("Estado: LEAD, ACTIVE, PAUSED, COMPLETED o CANCELLED (para archivar usa archivar_cliente)."),
-  assignedToId: clientUpdateSchema.shape.assignedToId.describe("Identificador del responsable, o vacío para no cambiarlo."),
+  assignedToId: clientUpdateSchema.shape.assignedToId.describe(
+    "Identificador del responsable. Omite el campo para no cambiarlo; para quitarlo o cambiarlo usa asignar_cliente.",
+  ),
 });
 
 const assignInput = z.object({
@@ -86,6 +88,8 @@ export const clientsTools: Tool[] = [
     inputSchema: updateInput,
     async run(ctx, input) {
       const { clienteId: id, ...rest } = input;
+      // Un responsable vacío quitaría la asignación sin querer: aquí "vacío" = no cambiar.
+      if (rest.assignedToId === "" || rest.assignedToId === null) delete rest.assignedToId;
       const client = await clientService.updateClient(ctx, cuidSchema.parse(id), clientUpdateSchema.parse(rest));
       return { id: client.id, href: href(client.id) };
     },
@@ -111,7 +115,7 @@ export const clientsTools: Tool[] = [
     name: "archivar_cliente",
     title: "Archivar cliente",
     description:
-      "Archiva un cliente: lo oculta de las listas activas pero conserva todo su historial; no se borra nada y es reversible desde el CRM. Pide confirmación a la persona antes de ejecutarla. Úsala solo cuando la persona pida archivar o dar de baja al cliente.",
+      "Archiva un cliente: lo oculta de las listas activas pero conserva todo su historial; no se borra nada, pero un cliente archivado ya no se puede editar desde el CRM. Pide confirmación a la persona antes de ejecutarla. Úsala solo cuando la persona pida archivar o dar de baja al cliente.",
     kind: "destructive",
     permission: "clients.edit",
     inputSchema: archiveInput,

@@ -155,7 +155,7 @@ const cancelarTarea = defineTool({
   name: "cancelar_tarea",
   title: "Cancelar tarea",
   description:
-    "Cancela una tarea: es una cancelación lógica y reversible (la tarea queda con estado CANCELLED, no se borra y puede reabrirse editando su estado). Claude pide confirmación antes de ejecutarla. No aplica a tareas completadas.",
+    "Cancela una tarea: la tarea queda con estado CANCELLED y no se borra, pero una tarea cancelada ya no se puede editar ni reabrir. Pide confirmación a la persona antes de ejecutarla. No aplica a tareas completadas.",
   kind: "destructive",
   permission: "tasks.manage",
   inputSchema: z.object({ tareaId }),

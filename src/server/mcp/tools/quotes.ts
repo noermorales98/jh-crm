@@ -90,7 +90,7 @@ export const quotesTools: Tool[] = [
   transitionTool(
     "marcar_cotizacion_enviada",
     "Marcar cotización como enviada",
-    "Pasa una cotización en borrador a enviada y avisa al cliente por los canales que la organización tenga activos. Úsala cuando la persona confirme que la cotización ya se mandó al cliente.",
+    "Pasa una cotización en borrador a enviada y avisa al cliente por los canales que la organización tenga activos. Envía un correo o WhatsApp real al cliente: confirma con la persona antes de usarla.",
     quoteService.markQuoteSent,
   ),
   transitionTool(
@@ -108,7 +108,7 @@ export const quotesTools: Tool[] = [
   transitionTool(
     "cancelar_cotizacion",
     "Cancelar cotización",
-    "Cancela una cotización que no esté pagada ni cancelada. Es una cancelación lógica y reversible en la práctica: la cotización queda en el historial con estado cancelada, no se borra. Pide confirmación a la persona antes de usarla.",
+    "Cancela una cotización que no esté pagada ni cancelada. La cotización queda en el historial con estado cancelada y no se borra, pero ya no se puede reactivar. Pide confirmación a la persona antes de usarla.",
     quoteService.cancelQuote,
     "destructive",
   ),

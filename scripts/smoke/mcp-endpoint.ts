@@ -217,9 +217,15 @@ async function run() {
   check("refresca la ficha del cliente", revalidated.includes(`/crm/clientes/${client.id}`), revalidated);
   const conn = await prisma.mcpConnection.findUnique({ where: { id: ctx.connectionId } });
   check("la conexión anota su último uso", conn?.lastUsedAt instanceof Date);
+  const throwing = { ...opts, revalidate: () => { throw new Error("refresco roto"); } };
+  check("un fallo al refrescar no convierte en error un cambio ya guardado",
+    (await errorName(() => callTool(ctx, "escribir_prueba", { clientId: client.id, texto: "tras refresco roto" }, throwing))) === "ok");
 
   console.log("\n[mcp-endpoint] límite de peticiones (AC-12)\n");
   const lctx = await authenticate((await connect(staff, t0)).access_token, t0);
+  // El límite usa ventanas fijas de un minuto del reloj real: se arranca lejos del cambio.
+  const sec = new Date().getSeconds();
+  if (sec > 40) await new Promise((r) => setTimeout(r, (61 - sec) * 1000));
   let early = false;
   for (let i = 0; i < TOOL_CALLS_PER_MINUTE; i += 1) {
     if ((await errorName(() => callTool(lctx, "leer_prueba", { id: "x" }, opts))) !== "ok") early = true;

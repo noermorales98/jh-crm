@@ -11,19 +11,32 @@ export type ToolKind = "read" | "write" | "destructive";
  * Herramienta del conector. El despachador aplica permiso, validación, origen,
  * auditoría (si no es de lectura), refresco y limpieza; `run` solo llama al servicio.
  */
-export interface Tool<S extends z.ZodType = z.ZodType> {
+interface ToolBase<S extends z.ZodType> {
   name: string;
   title: string;
   description: string;
   inputSchema: S;
   permission: PermissionAction;
-  kind: ToolKind;
   run(ctx: McpContext, input: z.infer<S>): Promise<unknown>;
-  /** Obligatorio si kind ≠ read: qué entidad tocó, para la auditoría. */
-  audit?(input: z.infer<S>, result: unknown): { entityType: string; entityId: string | null };
-  /** Obligatorio si kind ≠ read: rutas del CRM a refrescar. */
-  revalidate?(result: unknown, input: z.infer<S>): string[];
 }
+
+/** Herramienta de lectura: sin auditoría ni refresco. */
+export interface ReadTool<S extends z.ZodType = z.ZodType> extends ToolBase<S> {
+  kind: "read";
+  audit?: never;
+  revalidate?: never;
+}
+
+/** Herramienta que escribe o borra: auditoría y refresco obligatorios (lo exige el tipo). */
+export interface WriteTool<S extends z.ZodType = z.ZodType> extends ToolBase<S> {
+  kind: "write" | "destructive";
+  /** Qué entidad tocó, para la auditoría `mcp.tool.<nombre>`. */
+  audit(input: z.infer<S>, result: unknown): { entityType: string; entityId: string | null };
+  /** Rutas del CRM a refrescar (las mismas que la action equivalente). */
+  revalidate(result: unknown, input: z.infer<S>): string[];
+}
+
+export type Tool<S extends z.ZodType = z.ZodType> = ReadTool<S> | WriteTool<S>;
 
 export function defineTool<S extends z.ZodType>(tool: Tool<S>): Tool<S> {
   return tool;

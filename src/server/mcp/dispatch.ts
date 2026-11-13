@@ -74,7 +74,9 @@ export async function callTool(
   const result = await runWithRequestOrigin({ via: "claude", connectionId: ctx.connectionId }, async () => {
     const value = await tool.run(ctx, input);
     if (tool.kind !== "read") {
-      const target = tool.audit?.(input, value) ?? { entityType: "Unknown", entityId: null };
+      // La escritura del servicio y su auditoría no comparten transacción: si la auditoría
+      // fallara tras escribir, Claude ve el error (riesgo aceptado, ver decisions.md).
+      const target = tool.audit(input, value);
       await writeAuditLog(toAuditContext(ctx), {
         action: `mcp.tool.${tool.name}`,
         entityType: target.entityType,
@@ -84,19 +86,29 @@ export async function callTool(
     return value;
   });
 
+  // A partir de aquí el cambio ya está guardado: nada puede convertirlo en error, o Claude
+  // reintentaría y lo duplicaría. Refresco y último uso son "mejor esfuerzo".
   if (tool.kind !== "read") {
     const revalidate = options.revalidate ?? defaultRevalidate;
-    for (const path of tool.revalidate?.(result, input) ?? []) revalidate(path);
+    for (const path of tool.revalidate(result, input)) {
+      try {
+        revalidate(path);
+      } catch {
+        // Ignorado a propósito.
+      }
+    }
   }
 
   // Último uso, como mucho una vez por minuto (para "Conexiones activas").
-  await prisma.mcpConnection.updateMany({
-    where: {
-      id: ctx.connectionId,
-      OR: [{ lastUsedAt: null }, { lastUsedAt: { lt: new Date(now.getTime() - LAST_USED_RESOLUTION_MS) } }],
-    },
-    data: { lastUsedAt: now },
-  });
+  await prisma.mcpConnection
+    .updateMany({
+      where: {
+        id: ctx.connectionId,
+        OR: [{ lastUsedAt: null }, { lastUsedAt: { lt: new Date(now.getTime() - LAST_USED_RESOLUTION_MS) } }],
+      },
+      data: { lastUsedAt: now },
+    })
+    .catch(() => undefined);
 
   return sanitizeForAI(result);
 }

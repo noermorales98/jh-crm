@@ -36,7 +36,7 @@ export function CopyConnectorUrl({ url }: { url: string }) {
     <div className="space-y-2">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <code className="min-w-0 flex-1 break-all rounded-control bg-surface-panel px-3 py-2 text-sm text-ink">{url}</code>
-        <Button variant="secondary" onClick={copy} className="shrink-0" aria-label="Copiar la dirección del conector">
+        <Button variant="secondary" onClick={copy} className="shrink-0">
           {copied ? <Check className="size-4" aria-hidden /> : <Copy className="size-4" aria-hidden />}
           {copied ? "Copiada" : "Copiar"}
         </Button>
@@ -82,7 +82,7 @@ export function ConnectorSwitch({ enabled }: { enabled: boolean }) {
               return r.ok ? undefined : r.error;
             }}
             trigger={
-              <Button variant="secondary" disabled={pending} className="shrink-0">
+              <Button variant="secondary" className="shrink-0">
                 Apagar conector
               </Button>
             }
@@ -133,8 +133,8 @@ export function ConnectionList({
             {c.status === "cortada" ? (
               <p className="text-xs text-text-secondary">
                 {connectorEnabled
-                  ? "Se cortó por un cambio de rol o de correo, o porque la cuenta se desactivó. Vuelve a conectar desde Claude."
-                  : "El conector está apagado. Volverá a funcionar sola cuando un administrador lo encienda."}
+                  ? "Se cortó porque cambió tu rol o tu correo, o porque ya no tienes acceso a esta organización. Vuelve a conectar desde Claude."
+                  : "El conector está apagado. Al encenderlo debería volver a funcionar; si sigue cortada, vuelve a conectar desde Claude."}
               </p>
             ) : null}
           </div>

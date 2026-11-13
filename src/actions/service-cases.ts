@@ -10,11 +10,13 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
+import { cuidSchema, resolveOrgDateInput } from "@/src/lib/validation/common";
 import {
-  cuidSchema,
-  orgDateInputSchema,
-  resolveOrgDateInput,
-} from "@/src/lib/validation/common";
+  caseAmountsSchema,
+  createServiceCaseSchema,
+  nextActionSchema,
+  serviceCaseTransitionSchema,
+} from "@/src/lib/validation/case-actions";
 import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import { isServiceCode } from "@/src/server/services/codes";
 import * as caseService from "@/src/server/cases";
@@ -38,15 +40,6 @@ function revalidateServiceCase(
     revalidatePath(`/crm/clientes/${clientId}/casos`);
   }
 }
-
-const createServiceCaseSchema = z.object({
-  clientId: cuidSchema,
-  serviceCode: z.string().trim().min(1),
-  stageId: cuidSchema.optional(),
-  assignedToId: cuidSchema.nullish(),
-  summary: z.string().trim().max(5000).nullish(),
-  nextActionAt: orgDateInputSchema,
-});
 
 /**
  * Fase 5 — Crear expediente de cualquier vertical.
@@ -113,8 +106,6 @@ export async function moveServiceCaseStageAction(
   }
 }
 
-const nextActionSchema = z.object({ nextActionAt: orgDateInputSchema });
-
 export async function setServiceCaseNextActionAction(
   serviceCaseId: string,
   input: unknown,
@@ -137,8 +128,6 @@ export async function setServiceCaseNextActionAction(
   }
 }
 
-const transitionSchema = z.enum(["OPEN", "ON_HOLD", "COMPLETED", "CANCELED"]);
-
 export async function transitionServiceCaseAction(
   serviceCaseId: string,
   target: string,
@@ -146,7 +135,7 @@ export async function transitionServiceCaseAction(
   try {
     const ctx = await requirePermission("cases.manage");
     const id = cuidSchema.parse(serviceCaseId);
-    const status = transitionSchema.parse(target);
+    const status = serviceCaseTransitionSchema.parse(target);
     const updated = await serviceCaseService.transitionServiceCase(
       ctx,
       id,
@@ -160,19 +149,6 @@ export async function transitionServiceCaseAction(
   }
 }
 
-const amountsSchema = z.object({
-  quotedAmount: z
-    .string()
-    .trim()
-    .regex(/^\d{1,10}(\.\d{1,2})?$/, "Monto inválido (máx. 2 decimales).")
-    .nullish(),
-  agreedAmount: z
-    .string()
-    .trim()
-    .regex(/^\d{1,10}(\.\d{1,2})?$/, "Monto inválido (máx. 2 decimales).")
-    .nullish(),
-});
-
 /** PY-002 / Fase 5 — montos del expediente por serviceCaseId. */
 export async function updateServiceCaseAmountsAction(
   serviceCaseId: string,
@@ -181,7 +157,7 @@ export async function updateServiceCaseAmountsAction(
   try {
     const ctx = await requirePermission("cases.manage");
     const id = cuidSchema.parse(serviceCaseId);
-    const data = amountsSchema.parse(input);
+    const data = caseAmountsSchema.parse(input);
     await serviceCaseService.updateServiceCaseAmounts(ctx, id, {
       quotedAmount:
         data.quotedAmount === undefined ? undefined : data.quotedAmount || null,

@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { requirePermission } from "@/src/server/auth/guards";
 import {
   actionFail,
@@ -9,11 +8,13 @@ import {
   isNextControlError,
   type ActionResult,
 } from "@/src/server/errors";
+import { cuidSchema, resolveOrgDateInput } from "@/src/lib/validation/common";
 import {
-  cuidSchema,
-  orgDateInputSchema,
-  resolveOrgDateInput,
-} from "@/src/lib/validation/common";
+  caseAmountsSchema,
+  createCaseSchema,
+  nextActionSchema,
+  updateCaseSchema,
+} from "@/src/lib/validation/case-actions";
 import { getOrganizationTimezone } from "@/src/server/org-timezone";
 import * as caseService from "@/src/server/cases";
 import { CASE_ROUTE_PATTERN } from "@/src/lib/routes/case-routes";
@@ -28,14 +29,6 @@ function revalidateCases(clientId?: string, caseId?: string) {
     revalidatePath(`/crm/clientes/${clientId}/casos`);
   }
 }
-
-const createCaseSchema = z.object({
-  clientId: cuidSchema,
-  stageId: cuidSchema.optional(),
-  assignedToId: cuidSchema.nullish(),
-  summary: z.string().trim().max(5000).nullish(),
-  nextActionAt: orgDateInputSchema,
-});
 
 /** SC-001 — Crear expediente CREDIT_REPAIR (ServiceCase + CreditCase). */
 export async function createCreditCase(
@@ -69,11 +62,6 @@ export async function createCreditCase(
   }
 }
 
-const updateCaseSchema = z.object({
-  assignedToId: cuidSchema.nullish(),
-  summary: z.string().trim().max(5000).nullish(),
-});
-
 export async function updateCreditCase(
   caseId: string,
   input: unknown,
@@ -90,19 +78,6 @@ export async function updateCreditCase(
     return actionFail(error);
   }
 }
-
-const caseAmountsSchema = z.object({
-  quotedAmount: z
-    .string()
-    .trim()
-    .regex(/^\d{1,10}(\.\d{1,2})?$/, "Monto inválido (máx. 2 decimales).")
-    .nullish(),
-  agreedAmount: z
-    .string()
-    .trim()
-    .regex(/^\d{1,10}(\.\d{1,2})?$/, "Monto inválido (máx. 2 decimales).")
-    .nullish(),
-});
 
 /** PY-002 / Fase 4 — montos del expediente (balance a nivel ServiceCase). */
 export async function updateCaseAmounts(
@@ -179,8 +154,6 @@ export async function completeCase(caseId: string) {
 export async function reopenCase(caseId: string) {
   return transition(caseId, caseService.reopenCase);
 }
-
-const nextActionSchema = z.object({ nextActionAt: orgDateInputSchema });
 
 export async function setNextActionAt(
   caseId: string,

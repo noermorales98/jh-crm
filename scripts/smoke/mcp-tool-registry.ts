@@ -110,7 +110,7 @@ check("tarjeta de 16 dígitos → solo los 4 últimos", maskLongNumbers("cuenta 
 check("cuenta con guiones → solo los 4 últimos", maskLongNumbers("4111-2222-3333-4444 ok") === "****4444 ok");
 check("12 dígitos → enmascarado", maskLongNumbers("000123456789") === "****6789");
 check("teléfono de 10 dígitos intacto", maskLongNumbers("tel 5551234567") === "tel 5551234567");
-check("11 dígitos intacto", maskLongNumbers("15551234567") === "15551234567");
+check("11 dígitos en texto libre → enmascarado (posible cuenta)", maskLongNumbers("15551234567") === "****4567");
 check("importe con decimales intacto", maskLongNumbers("$1,250.00") === "$1,250.00");
 for (const raw of ["4111.2222.3333.4444", "4111/2222/3333/4444", "4111\n2222\n3333\n4444",
   "4111  2222  3333  4444", "acct4111222233334444", "cuenta_4111222233334444", "4111-2222-3333-4444-"]) {
@@ -131,6 +131,17 @@ check("buscar por 9 dígitos se rechaza", isSensitiveNumberQuery("123-45-6789"))
 check("buscar por 16 dígitos se rechaza", isSensitiveNumberQuery("4111 2222 3333 4444"));
 check("buscar por teléfono de 10 dígitos se permite", !isSensitiveNumberQuery("(555) 123-4567"));
 check("buscar por código corto se permite", !isSensitiveNumberQuery("COT-0042"));
+check("buscar por teléfono con prefijo +1 se permite", !isSensitiveNumberQuery("+1 555 123 4567"));
+check("buscar por teléfono con prefijo +52 se permite", !isSensitiveNumberQuery("+52 55 1234 5678"));
+check("buscar por 13 dígitos se rechaza", isSensitiveNumberQuery("4111222233334"));
+for (const raw of ["1234    5678    9012 3456", "12345678901", "１２３４５６７８９０１２３４"]) {
+  check(`cuenta ${JSON.stringify(raw)} → enmascarada`, maskSensitiveText(raw).startsWith("****"), maskSensitiveText(raw));
+}
+check("SSN «123 - 45 - 6789» → tapado", maskSensitiveText("123 - 45 - 6789") === "***-**-****", maskSensitiveText("123 - 45 - 6789"));
+const suffixKeys = redactForClaude({ reasonCode: "acct 123456789012", approvedAt: "acct 123456789012" });
+check("claves con sufijo Code/At ya no se eximen", !JSON.stringify(suffixKeys).includes("123456789012"), suffixKeys);
+const idKeys = redactForClaude({ clientId: "123456789012", caseHref: "/crm/x/123456789012" });
+check("…pero ids y enlaces siguen intactos", idKeys.clientId === "123456789012" && idKeys.caseHref === "/crm/x/123456789012");
 
 if (failed > 0) {
   console.error(`\n✗ ${failed} comprobación(es) fallaron\n`);

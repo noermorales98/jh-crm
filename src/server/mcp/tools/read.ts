@@ -65,7 +65,7 @@ async function orNotFound<T>(fn: () => Promise<T>): Promise<T> {
 function limitItems<T>(result: T, limite?: number): T {
   const max = Math.min(Math.max(limite ?? 20, 1), 50);
   if (result && typeof result === "object" && Array.isArray((result as { items?: unknown }).items)) {
-    const items = (result as { items: unknown[] }).items;
+    const items = (result as unknown as { items: unknown[] }).items;
     return { ...result, items: items.slice(0, max) };
   }
   return result;

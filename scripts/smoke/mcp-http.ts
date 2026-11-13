@@ -26,6 +26,18 @@ const createdUsers: string[] = [];
 const createdClients: string[] = [];
 let failed = 0;
 
+/** Los límites usan ventanas fijas del reloj real: arranca cada ráfaga lejos del cambio. */
+async function awayFromMinuteEdge() {
+  const sec = new Date().getSeconds();
+  if (sec > 40) await new Promise((r) => setTimeout(r, (61 - sec) * 1000));
+}
+async function awayFromHourEdge() {
+  const now = new Date();
+  if (now.getMinutes() === 59 && now.getSeconds() > 30) {
+    await new Promise((r) => setTimeout(r, (61 - now.getSeconds()) * 1000));
+  }
+}
+
 function check(label: string, cond: boolean, detail?: unknown) {
   if (cond) console.log(`  ✓ ${label}`);
   else {
@@ -310,6 +322,7 @@ async function run() {
     }),
   );
   check("token con cuerpo de más de 16 KB → 413", bigToken.status === 413, bigToken.status);
+  await awayFromMinuteEdge();
   const tokenIp = ip();
   let tokenLast = 0;
   let tokenEarly429 = false;
@@ -352,6 +365,7 @@ async function run() {
     }),
   );
   check("revocar con cuerpo de más de 16 KB → 200 (RFC 7009)", revBig.status === 200, revBig.status);
+  await awayFromMinuteEdge();
   const revIp = ip();
   let revLast = 0;
   let revEarly429 = false;
@@ -518,6 +532,7 @@ async function run() {
   }
   check("peticiones basura no gastan el tope global",
     (await prisma.rateLimitBucket.count({ where: { bucketKey: http.REGISTER_GLOBAL_BUCKET } })) === 0);
+  await awayFromHourEdge();
   let created = 0;
   let firstRefusal = 0;
   for (let i = 0; i < http.REGISTER_GLOBAL_LIMIT_PER_HOUR + 1; i += 1) {
@@ -712,6 +727,7 @@ async function run() {
   check("ruta GET → 405", (await mcpRoute.GET(new Request(`${APP}/api/mcp`, { headers: { authorization: `Bearer ${t3.access_token}` } }))).status === 405);
   check("ruta DELETE → 405", (await mcpRoute.DELETE(new Request(`${APP}/api/mcp`, { method: "DELETE", headers: { authorization: `Bearer ${t3.access_token}` } }))).status === 405);
   check("ruta OPTIONS → 204", (await mcpRoute.OPTIONS(new Request(`${APP}/api/mcp`, { method: "OPTIONS" }))).status === 204);
+  await awayFromMinuteEdge();
   const failIp = ip();
   let failLast = 0;
   let failEarly = false;

@@ -73,7 +73,12 @@ export async function callTool(
   options: CallToolOptions,
 ): Promise<unknown> {
   const now = options.now ?? new Date();
-  await assertRateLimit({ key: `mcp-tool:${ctx.connectionId}`, limit: TOOL_CALLS_PER_MINUTE, windowSeconds: 60 });
+  // Por persona (spec): las conexiones web, escritorio y móvil de alguien comparten el tope.
+  await assertRateLimit({
+    key: `mcp-tool:user:${ctx.organizationId}:${ctx.userId}`,
+    limit: TOOL_CALLS_PER_MINUTE,
+    windowSeconds: 60,
+  });
 
   const tool = options.tools.find((t) => t.name === name);
   if (!tool) throw new NotFoundError("Herramienta no encontrada.");

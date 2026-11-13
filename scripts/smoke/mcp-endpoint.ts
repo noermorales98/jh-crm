@@ -226,7 +226,11 @@ async function run() {
     (await errorName(() => callTool(ctx, "escribir_prueba", { clientId: client.id, texto: "tras refresco roto" }, throwing))) === "ok");
 
   console.log("\n[mcp-endpoint] límite de peticiones (AC-12)\n");
-  const lctx = await authenticate((await connect(staff, t0)).access_token, t0);
+  check("el tope es 120 llamadas por minuto (plan: la 121 se rechaza)", TOOL_CALLS_PER_MINUTE === 120, TOOL_CALLS_PER_MINUTE);
+  // Una persona nueva: el tope es por persona y las llamadas de arriba ya cuentan para `staff`.
+  const busy = await member(org.id, "STAFF", "limite");
+  const lctx = await authenticate((await connect(busy, t0)).access_token, t0);
+  const lctx2 = await authenticate((await connect(busy, t0)).access_token, t0);
   // El límite usa ventanas fijas de un minuto del reloj real: se arranca lejos del cambio.
   const sec = new Date().getSeconds();
   if (sec > 40) await new Promise((r) => setTimeout(r, (61 - sec) * 1000));
@@ -239,7 +243,10 @@ async function run() {
   check("la siguiente → RateLimitError",
     (await errorName(() => callTool(lctx, "escribir_prueba", { clientId: client.id, texto: "tope" }, opts))) === "RateLimitError");
   check("…sin escribir nada", (await prisma.activityLog.count({ where: { clientId: client.id } })) === beforeLimit);
-  check("otra conexión no comparte el límite",
+  check("el límite es por persona: otra conexión de la misma persona también queda frenada",
+    lctx2.connectionId !== lctx.connectionId &&
+      (await errorName(() => callTool(lctx2, "leer_prueba", { id: "x" }, opts))) === "RateLimitError");
+  check("otra persona no comparte el límite",
     (await errorName(() => callTool(ctx, "leer_prueba", { id: "x" }, opts))) === "ok");
 }
 

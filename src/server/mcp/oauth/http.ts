@@ -163,7 +163,7 @@ async function limit(key: string, max: number, windowSeconds: number): Promise<R
 
 export async function handleRegister(request: Request): Promise<Response> {
   if (!isMcpConnectorFeatureOn()) return notFound();
-  const limited = await limit(`mcp-register:${clientIpFromRequest(request)}`, REGISTER_LIMIT_PER_HOUR, 3600);
+  const limited = await limit(`mcp-register:ip:${clientIpFromRequest(request)}`, REGISTER_LIMIT_PER_HOUR, 3600);
   if (limited) return limited;
 
   let text: string;
@@ -209,7 +209,7 @@ export async function handleRegister(request: Request): Promise<Response> {
 
 export async function handleToken(request: Request): Promise<Response> {
   if (!isMcpConnectorFeatureOn()) return notFound();
-  const limited = await limit(`mcp-token:${clientIpFromRequest(request)}`, TOKEN_LIMIT_PER_MINUTE, 60);
+  const limited = await limit(`mcp-token:ip:${clientIpFromRequest(request)}`, TOKEN_LIMIT_PER_MINUTE, 60);
   if (limited) return limited;
 
   let params: Record<string, string>;
@@ -246,7 +246,7 @@ export async function handleToken(request: Request): Promise<Response> {
 
 export async function handleRevoke(request: Request): Promise<Response> {
   if (!isMcpConnectorFeatureOn()) return notFound();
-  const limited = await limit(`mcp-revoke:${clientIpFromRequest(request)}`, TOKEN_LIMIT_PER_MINUTE, 60);
+  const limited = await limit(`mcp-revoke:ip:${clientIpFromRequest(request)}`, TOKEN_LIMIT_PER_MINUTE, 60);
   if (limited) return limited;
   let params: Record<string, string> = {};
   try {

@@ -3,7 +3,8 @@ import { prisma } from "@/src/lib/db";
 /**
  * Limpieza periódica del conector MCP (la llama el cron de retención). Solo datos
  * técnicos del conector; nada de negocio (regla 17 no aplica). Lo vigente no se toca:
- * - llaves de acceso caducadas hace más de 1 día;
+ * - llaves de acceso caducadas hace más de 30 días (antes, una llave vieja contaría como
+ *   "inventada" y podría limitarse por IP en lugar de recibir el 401 que pide renovarla);
  * - refresh ya rotados hace más de 30 días (se guardan un tiempo para detectar robos);
  * - códigos usados o caducados hace más de 1 día;
  * - conexiones que nunca recibieron llaves, sin revocar, de más de 1 hora;
@@ -25,7 +26,7 @@ export interface McpPurgeResult {
 export async function purgeMcpArtifacts(now: Date = new Date()): Promise<McpPurgeResult> {
   const dayAgo = new Date(now.getTime() - DAY);
   const accessTokens = await prisma.mcpToken.deleteMany({
-    where: { kind: "ACCESS", expiresAt: { lt: dayAgo } },
+    where: { kind: "ACCESS", expiresAt: { lt: new Date(now.getTime() - 30 * DAY) } },
   });
   const refreshTokens = await prisma.mcpToken.deleteMany({
     where: { kind: "REFRESH", usedAt: { lt: new Date(now.getTime() - 30 * DAY) } },

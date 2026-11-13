@@ -38,12 +38,14 @@ function transitionTool(
   description: string,
   run: (ctx: Parameters<typeof quoteService.markQuoteSent>[0], id: string) => Promise<{ id: string; folio: string; status: string }>,
   kind: "write" | "destructive" = "write",
+  openWorld = false,
 ): Tool {
   return defineTool({
     name,
     title,
     description,
     kind,
+    openWorld,
     permission: "quotes.manage",
     inputSchema: idOnly,
     async run(ctx, input) {
@@ -92,6 +94,8 @@ export const quotesTools: Tool[] = [
     "Marcar cotización como enviada",
     "Pasa una cotización en borrador a enviada y avisa al cliente por los canales que la organización tenga activos. Envía un correo o WhatsApp real al cliente: confirma con la persona antes de usarla.",
     quoteService.markQuoteSent,
+    "destructive",
+    true,
   ),
   transitionTool(
     "marcar_cotizacion_aceptada",

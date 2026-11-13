@@ -92,7 +92,7 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   // Cotizaciones (src/actions/quotes.ts)
   crear_cotizacion: ["quotes.manage", "write"],
   editar_cotizacion: ["quotes.manage", "write"],
-  marcar_cotizacion_enviada: ["quotes.manage", "write"],
+  marcar_cotizacion_enviada: ["quotes.manage", "destructive"],
   marcar_cotizacion_aceptada: ["quotes.manage", "write"],
   marcar_cotizacion_rechazada: ["quotes.manage", "write"],
   cancelar_cotizacion: ["quotes.manage", "destructive"],
@@ -105,6 +105,11 @@ for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {
 for (const tool of tools.filter((t) => t.kind === "destructive")) {
   check(`${tool.name}: no promete que se pueda deshacer`, !/reversible|reabrirse/i.test(tool.description), tool.description);
 }
+const sendQuote = tools.find((t) => t.name === "marcar_cotizacion_enviada");
+check("marcar_cotizacion_enviada se anuncia con efectos fuera del CRM (manda un mensaje real)", sendQuote?.openWorld === true);
+check("solo las herramientas que contactan al cliente tienen efectos fuera del CRM",
+  tools.filter((t) => t.openWorld).map((t) => t.name).join() === "marcar_cotizacion_enviada",
+  tools.filter((t) => t.openWorld).map((t) => t.name));
 const unexpected = tools.filter((t) => t.kind !== "read" && !(t.name in EXPECTED_WRITE_TOOLS)).map((t) => t.name);
 check("no hay herramientas de escritura fuera de la lista", unexpected.length === 0, unexpected);
 

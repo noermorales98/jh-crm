@@ -20,6 +20,8 @@ interface ToolBase<S extends z.ZodType> {
   description: string;
   inputSchema: S;
   permission: PermissionAction;
+  /** Tiene efectos fuera del CRM (p. ej. manda un mensaje real al cliente). */
+  openWorld?: boolean;
   run(ctx: McpContext, input: z.infer<S>): Promise<unknown>;
 }
 

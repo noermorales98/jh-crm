@@ -188,7 +188,7 @@ export async function listServiceCases(ctx: OrganizationContext, filters: ListFi
 export async function getServiceCaseBrief(ctx: OrganizationContext, id: string) {
   requireView(ctx, "cases.view");
   const row = await prisma.serviceCase.findFirst({
-    where: { id, organizationId: ctx.organizationId },
+    where: { id, organizationId: ctx.organizationId, archivedAt: null },
     select: SERVICE_CASE_SELECT,
   });
   if (!row) return null;

@@ -6,6 +6,16 @@
 import { PrismaClient } from "@prisma/client";
 import { assertDisposableDb, errorName, meta, seedMcpOrg } from "./_lib/mcp-seed";
 
+/** Nombre y mensaje del error: AC-3 pide que Claude lea "no encontrada", no otro fallo. */
+async function errorText(fn: () => Promise<unknown>): Promise<string> {
+  try {
+    await fn();
+    return "ok";
+  } catch (error) {
+    return `${(error as Error).name}: ${(error as Error).message}`;
+  }
+}
+
 assertDisposableDb();
 process.env.FEATURE_MCP_CONNECTOR = "true";
 
@@ -85,7 +95,7 @@ async function main() {
     check("auditoría", !!au2 && au2.entityType === "Task" && meta(au2.metadata).via === "claude", au2);
     check("refresca", tasksPaths(calls), calls);
     check("entrada inválida -> ZodError", (await errorName(() => call(a.staff, "editar_tarea", { tareaId: t.id, priority: "NOPE" }))) === "ZodError");
-    check("tarea ajena -> no encontrada y sin cambios", (await errorName(() => call(a.staff, "editar_tarea", { tareaId: foreign.id, title: "hack" }))) !== "ok" && (await prisma.task.findUnique({ where: { id: foreign.id } }))!.title === `T ${MARK}`);
+    check("tarea ajena -> no encontrada y sin cambios", (await errorText(() => call(a.staff, "editar_tarea", { tareaId: foreign.id, title: "hack" }))) === "DomainError: Tarea no encontrada." && (await prisma.task.findUnique({ where: { id: foreign.id } }))!.title === `T ${MARK}`);
 
     console.log("completar_tarea");
     check("VIEWER -> ForbiddenError", (await errorName(() => call(a.viewer, "completar_tarea", { tareaId: t.id }))) === "ForbiddenError");
@@ -97,7 +107,7 @@ async function main() {
     check("auditoría", !!au3 && meta(au3.metadata).via === "claude", au3);
     check("refresca", tasksPaths(calls), calls);
     check("entrada inválida -> ZodError", (await errorName(() => call(a.staff, "completar_tarea", {}))) === "ZodError");
-    check("tarea ajena -> no encontrada y sin cambios", (await errorName(() => call(a.staff, "completar_tarea", { tareaId: foreign.id }))) !== "ok" && (await prisma.task.findUnique({ where: { id: foreign.id } }))!.status === "PENDING");
+    check("tarea ajena -> no encontrada y sin cambios", (await errorText(() => call(a.staff, "completar_tarea", { tareaId: foreign.id }))) === "DomainError: Tarea no encontrada." && (await prisma.task.findUnique({ where: { id: foreign.id } }))!.status === "PENDING");
 
     console.log("reasignar_tarea");
     const r = await mk(a.org.id, a.staff.userId, a.owner.userId);
@@ -109,7 +119,7 @@ async function main() {
     check("auditoría", !!au4 && meta(au4.metadata).via === "claude", au4);
     check("refresca", tasksPaths(calls), calls);
     check("entrada inválida -> ZodError", (await errorName(() => call(a.staff, "reasignar_tarea", { tareaId: r.id }))) === "ZodError");
-    check("tarea ajena -> no encontrada y sin cambios", (await errorName(() => call(a.staff, "reasignar_tarea", { tareaId: foreign.id, assignedToId: a.owner.userId }))) !== "ok" && (await prisma.task.findUnique({ where: { id: foreign.id } }))!.assignedToId === b.staff.userId);
+    check("tarea ajena -> no encontrada y sin cambios", (await errorText(() => call(a.staff, "reasignar_tarea", { tareaId: foreign.id, assignedToId: a.owner.userId }))) === "DomainError: Tarea no encontrada." && (await prisma.task.findUnique({ where: { id: foreign.id } }))!.assignedToId === b.staff.userId);
     check("responsable de otra organización: sin cambios", (await errorName(() => call(a.staff, "reasignar_tarea", { tareaId: r.id, assignedToId: b.staff.userId }))) !== "ok" && (await prisma.task.findUnique({ where: { id: r.id } }))?.assignedToId === a.owner.userId);
 
     console.log("cancelar_tarea");
@@ -123,7 +133,7 @@ async function main() {
     check("auditoría", !!au5 && meta(au5.metadata).via === "claude", au5);
     check("refresca", tasksPaths(calls), calls);
     check("entrada inválida -> ZodError", (await errorName(() => call(a.staff, "cancelar_tarea", { tareaId: "" }))) === "ZodError");
-    check("tarea ajena -> no encontrada y sin cambios", (await errorName(() => call(a.staff, "cancelar_tarea", { tareaId: foreign.id }))) !== "ok" && (await prisma.task.findUnique({ where: { id: foreign.id } }))!.status === "PENDING");
+    check("tarea ajena -> no encontrada y sin cambios", (await errorText(() => call(a.staff, "cancelar_tarea", { tareaId: foreign.id }))) === "DomainError: Tarea no encontrada." && (await prisma.task.findUnique({ where: { id: foreign.id } }))!.status === "PENDING");
   } finally {
     await a.cleanup();
     await b.cleanup();

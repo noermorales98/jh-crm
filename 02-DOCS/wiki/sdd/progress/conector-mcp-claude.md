@@ -158,6 +158,12 @@ branch: feat/conector-mcp-claude
 - sin evidencia automática (queda para T029): AC-2 (MFA al conectar) y AC-11 (estados de la página; capturas solo descritas aquí)
 - no hecho (nit): la prueba de AC-12 no comprueba que la ventana se reinicie (tardaría 60 s)
 
+## Panel sobre los arreglos de cierre — 2026-11-13
+- 3 revisores sobre 44aaed0..03a7250: security pass (sin hallazgos) · correctness pass (nit: `mcp-auth-fail` sin `:ip:`) · tests changes-needed (2 should-fix: nada probaba que `openWorldHint=true` llegue en tools/list ni que `ver` oculte un caso archivado)
+- arreglado: herramienta falsa con `openWorld` en `mcp-http.ts`; caso archivado en `mcp-read-tools.ts`; asserts de las dos frases nuevas de las instrucciones; purga fijada en 29 días (se queda) / 31 (se borra); ráfaga de registro por IP lejos del cambio de hora; `mcp-auth-fail:ip:`
+- mutantes ejecutados: `openWorldHint: false` → 2 ✗ en mcp-http; quitar `archivedAt: null` → 1 ✗ en mcp-read-tools; restaurados
+- evidencia: `smoke:mcp-db` exit 0 · 4 pruebas sin BD exit 0 · typecheck y `eslint app src scripts` exit 0
+
 ## Decision queue
 - **blocking** · T001 · tier 2 · Unir la migración del conector requiere tu sí (regla 13). Opciones: aprobar en el PR / pedir cambios. Recomendación: aprobar; 3 revisores sin bloqueos. Evidencia: entrada T001.
 - **blocking** · T005, T007 · tier 2 · El núcleo y el servicio OAuth tocan el inicio de sesión: necesitan tu sí en el PR (regla 13).

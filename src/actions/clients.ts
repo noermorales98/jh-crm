@@ -10,6 +10,7 @@ import {
   type ActionResult,
 } from "@/src/server/errors";
 import {
+  clientAssignSchema,
   clientCreateSchema,
   clientUpdateSchema,
   sensitiveProfileSchema,
@@ -85,8 +86,6 @@ export async function archiveClient(
   }
 }
 
-const assignSchema = z.object({ assignedToId: cuidSchema.nullable() });
-
 export async function assignClient(
   clientId: string,
   input: unknown,
@@ -94,7 +93,7 @@ export async function assignClient(
   try {
     const ctx = await requirePermission("clients.edit");
     const id = cuidSchema.parse(clientId);
-    const { assignedToId } = assignSchema.parse(input);
+    const { assignedToId } = clientAssignSchema.parse(input);
     const client = await clientService.assignClient(ctx, id, assignedToId);
     revalidateClients(client.id);
     return actionOk({ id: client.id });

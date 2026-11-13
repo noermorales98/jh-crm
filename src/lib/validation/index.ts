@@ -1,5 +1,6 @@
 export { loginSchema } from "./common";
 export {
+  clientAssignSchema,
   clientCreateSchema,
   clientUpdateSchema,
   sensitiveProfileSchema,

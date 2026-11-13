@@ -67,3 +67,6 @@ Append-only. Newest at the bottom.
   required CI checks passed. Batch 1 is in production code but switched off: production answers 404
   on the connector routes until `FEATURE_MCP_CONNECTOR=true` is set in Vercel. T029 (real claude.ai
   run) is still open. `rsc/knowledge` was not merged: it only mirrors docs already in #42.
+- 2026-11-13 — `conector-mcp-claude` batch 2 plan. Claude gets no tool to delete credit items: the
+  app deletes them for real, and the constitution only allows soft deletes. Editing the item covers
+  corrections. Letter templates, progress-report PDFs and consultation checkout move to batch 3.

@@ -49,6 +49,62 @@ for (const tool of tools) {
   check(`${tool.name}: un VIEWER no puede usarla (AC-4)`, !can("VIEWER", tool.permission), tool.permission);
 }
 
+console.log("\n[mcp-tool-registry] herramientas de escritura de la tanda 1 (AC-5)\n");
+/** Nombre → [permiso de la action equivalente, tipo]. Fuente: src/actions/*.ts. */
+const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = {
+  // Clientes (src/actions/clients.ts)
+  crear_cliente: ["clients.create", "write"],
+  editar_cliente: ["clients.edit", "write"],
+  asignar_cliente: ["clients.edit", "write"],
+  archivar_cliente: ["clients.edit", "destructive"],
+  // Casos de crédito (src/actions/cases.ts)
+  crear_caso: ["cases.manage", "write"],
+  editar_caso: ["cases.manage", "write"],
+  editar_importes_caso: ["cases.manage", "write"],
+  mover_caso_etapa: ["cases.manage", "write"],
+  pausar_caso: ["cases.manage", "write"],
+  completar_caso: ["cases.manage", "write"],
+  reabrir_caso: ["cases.manage", "write"],
+  fijar_proxima_accion_caso: ["cases.manage", "write"],
+  // Casos de servicio (src/actions/service-cases.ts)
+  crear_caso_servicio: ["cases.manage", "write"],
+  mover_caso_servicio_etapa: ["cases.manage", "write"],
+  fijar_proxima_accion_caso_servicio: ["cases.manage", "write"],
+  cambiar_estado_caso_servicio: ["cases.manage", "write"],
+  editar_importes_caso_servicio: ["cases.manage", "write"],
+  // Tareas (src/actions/tasks.ts)
+  crear_tarea: ["tasks.manage", "write"],
+  editar_tarea: ["tasks.manage", "write"],
+  completar_tarea: ["tasks.manage", "write"],
+  reasignar_tarea: ["tasks.manage", "write"],
+  cancelar_tarea: ["tasks.manage", "destructive"],
+  // Notas (src/actions/notes.ts)
+  agregar_nota_cliente: ["clients.edit", "write"],
+  agregar_nota_caso: ["cases.manage", "write"],
+  agregar_mensaje_lead: ["opportunities.manage", "write"],
+  // Oportunidades (src/actions/opportunities.ts)
+  crear_lead: ["opportunities.manage", "write"],
+  editar_lead: ["opportunities.manage", "write"],
+  crear_oportunidad: ["opportunities.manage", "write"],
+  mover_oportunidad_etapa: ["opportunities.manage", "write"],
+  marcar_ganada: ["opportunities.manage", "write"],
+  marcar_perdida: ["opportunities.manage", "destructive"],
+  // Cotizaciones (src/actions/quotes.ts)
+  crear_cotizacion: ["quotes.manage", "write"],
+  editar_cotizacion: ["quotes.manage", "write"],
+  marcar_cotizacion_enviada: ["quotes.manage", "write"],
+  marcar_cotizacion_aceptada: ["quotes.manage", "write"],
+  marcar_cotizacion_rechazada: ["quotes.manage", "write"],
+  cancelar_cotizacion: ["quotes.manage", "destructive"],
+};
+for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {
+  const tool = tools.find((t) => t.name === name);
+  check(`${name}: existe, permiso ${permission}, tipo ${kind}`,
+    !!tool && tool.permission === permission && tool.kind === kind, tool && { permission: tool.permission, kind: tool.kind });
+}
+const unexpected = tools.filter((t) => t.kind !== "read" && !(t.name in EXPECTED_WRITE_TOOLS)).map((t) => t.name);
+check("no hay herramientas de escritura fuera de la lista", unexpected.length === 0, unexpected);
+
 console.log("\n[mcp-tool-registry] limpieza de números largos (AC-6)\n");
 check("tarjeta de 16 dígitos → solo los 4 últimos", maskLongNumbers("cuenta 4111222233334444") === "cuenta ****4444");
 check("cuenta con guiones → solo los 4 últimos", maskLongNumbers("4111-2222-3333-4444 ok") === "****4444 ok");

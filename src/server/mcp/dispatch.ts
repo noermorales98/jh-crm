@@ -33,7 +33,7 @@ export class UnknownTokenError extends UnauthorizedError {
 export interface CallToolOptions {
   tools: Tool[];
   now?: Date;
-  revalidate?: (path: string) => void;
+  revalidate?: (path: string, type?: "layout" | "page") => void;
 }
 
 export async function authenticate(bearer: string | null, now: Date = new Date()): Promise<McpContext> {
@@ -58,9 +58,9 @@ export async function authenticate(bearer: string | null, now: Date = new Date()
   };
 }
 
-function defaultRevalidate(path: string) {
+function defaultRevalidate(path: string, type?: "layout" | "page") {
   try {
-    revalidatePath(path);
+    revalidatePath(path, type);
   } catch {
     // Fuera de un request de Next (pruebas) no hay caché que refrescar.
   }
@@ -99,9 +99,10 @@ export async function callTool(
   // reintentaría y lo duplicaría. Refresco y último uso son "mejor esfuerzo".
   if (tool.kind !== "read") {
     const revalidate = options.revalidate ?? defaultRevalidate;
-    for (const path of tool.revalidate(result, input)) {
+    for (const target of tool.revalidate(result, input)) {
       try {
-        revalidate(path);
+        if (typeof target === "string") revalidate(target);
+        else revalidate(target.path, target.type);
       } catch {
         // Ignorado a propósito.
       }

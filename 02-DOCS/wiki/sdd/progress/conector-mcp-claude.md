@@ -93,6 +93,50 @@ branch: feat/conector-mcp-claude
 - ronda 1: security 1 should-fix (clickjacking) + 1 pregunta (nombre del cliente falseable) · tests 2 should-fix (reglas de redirección de Permitir/Cancelar sin prueba) · correctness pass (3 nits)
 - fix: CSP `frame-ancestors 'none'` + `X-Frame-Options: DENY`; fila «Volverá a» con el destino real; solo 7 campos ocultos; decisiones de los botones en `consent.ts` con pruebas contra BD (redirect_uri falsa → vuelve a la pantalla)
 
+## Reanudación — 2026-11-12
+- Base desechable recreada (la carpeta temporal anterior ya no existía); migraciones aplicadas y pruebas previas en verde antes de seguir.
+
+## T010 + T011 — 2026-11-12
+- status: complete · commits 20cd1f0, 454e54e · tier 1 (1 revisor seguridad)
+- red: stubs que lanzan → fallos; green: `mcp-endpoint.ts` OK
+- ronda 1: should-fix (un fallo de `lastUsedAt` tras escribir convertía un cambio guardado en error → Claude reintentaría y duplicaría) + nits; ronda 2: pass
+- fix: refresco y último uso "mejor esfuerzo"; `ReadTool | WriteTool` obliga a declarar auditoría; errores limpiados; prueba de límite estable
+
+## T012 (+ T031 MCP) — 2026-11-12
+- status: complete · commits 847ec56, 9b23b45, 9cad2ec · tier 2 (3 refuters × 3 rondas)
+- incumplimiento de orden TDD: el endpoint se escribió antes que sus casos de prueba; se compensó con mutación por los revisores y rojo→verde en las rondas 2 y 3
+- ronda 1: correctness 2 should-fix (fechas en un esquema rompían `tools/list` para todas; doble validación SDK+despachador rompía transformaciones) · tests 2 should-fix · security pass
+- ronda 2: tests 1 should-fix (aislamiento por IP del límite) · correctness pregunta (claude.ai comparte IP de Anthropic: limitar 401 de llaves caducadas bloquearía renovaciones)
+- ronda 3: pass × 3. Diseño final: servidor MCP de bajo nivel, esquema JSON propio (`z.toJSONSchema`), despachador único validador, `tools/list` filtrado por rol, 405 para GET/DELETE, límite solo para llaves inventadas
+- e2e en servidor dev: 401 + `WWW-Authenticate`; `initialize` con llave real
+
+## T013–T015 + T032 — 2026-11-12
+- status: complete · commits e6d7709, ccd00be, e2285c1 · tier 1 (seguridad, 3 rondas)
+- la prueba de lectura encontró un hueco real de AC-6 (cuenta de 16 dígitos en una nota) → `redact.ts` solo del conector
+- ronda 1: 3 should-fix (separadores/prefijos, sobre-enmascarado de teléfonos y códigos, SSN con espacios/puntos) + oráculo de búsqueda + nombres de documentos muy sensibles; ronda 2: should-fix (buscar rechazaba teléfonos con prefijo); ronda 3: pass
+- decisión: `buscar` rechaza 9 o ≥13 dígitos; riesgo residual aceptado: 11–12 dígitos se pueden buscar (la salida sigue tapada)
+
+## T016–T022 — 2026-11-12
+- status: complete · commits 4b619c2…cdc01a1, 8bf6d64 · 6 desarrolladores en paralelo (`developer`), mismo checkout, sin commits propios
+- cada sección: prueba roja (herramienta no encontrada) → verde; esquemas movidos de `"use server"` a `src/lib/validation/` sin cambiar las actions (revisado byte a byte)
+- ronda 1 (correctness): 6 should-fix → `editar_lead` borraba lo no enviado (ahora fusiona); `crear_oportunidad` aceptaba WON/LOST; 4 descripciones prometían deshacer; `editar_cliente` con responsable vacío lo quitaba; `cambiar_estado_caso_servicio` ahora destructiva; aviso de mensaje real en `marcar_cotizacion_enviada`
+- ronda 2: pass (nit aceptado: `editar_lead` sin origen toma el de la oportunidad)
+- pruebas de sección ajenas que fallan con la BD desechable (`sc-00x`, `mark-won-br012`, `ai-fase8-tasks`, `client-merge`): no están en `ci:qa` y dependen de datos de la org de smoke; no se tocaron
+
+## T023–T026 — 2026-11-12
+- T023/T024 complete · 595c9d1 · `mcp-connections.ts` rojo (stub) → verde
+- T025 in review (ronda 2) · da14d53, 9a1ecaa · capturas: escritorio, móvil 375 px sin scroll horizontal, apagar con confirmación, «Cortada» con motivo, cortar acceso
+- T026 complete · 45f3fb0 · `mcp-purge.ts` rojo → verde; integrado en `cron/retention` en bloque aparte
+- aceptado: N+1 en el listado de conexiones y tope de 200 (organización pequeña)
+
+## T027 + T028 — 2026-11-12
+- T027 · 4155847 · `smoke:mcp-db` (13 pruebas con BD) en el job de MySQL desechable; `auth-paths`, `login-redirect`, `mcp-oauth-core`, `mcp-tool-registry` en `ci:qa`
+- T028 · 5c16040 · `02-DOCS/wiki/guias/conectar-claude.md` + sección en `docs/07-SECURITY.md`
+
+## Pendiente
+- T029: prueba real con claude.ai — necesita un despliegue con URL pública (preview de Vercel) y tu cuenta de Claude.
+- T030: cierre (verify + revisión de cierre de toda la rama + PR) — necesita tu sí (regla 13).
+
 ## Decision queue
 - **blocking** · T001 · tier 2 · Unir la migración del conector requiere tu sí (regla 13). Opciones: aprobar en el PR / pedir cambios. Recomendación: aprobar; 3 revisores sin bloqueos. Evidencia: entrada T001.
 - **blocking** · T005, T007 · tier 2 · El núcleo y el servicio OAuth tocan el inicio de sesión: necesitan tu sí en el PR (regla 13).
@@ -103,3 +147,5 @@ branch: feat/conector-mcp-claude
 - T010: en curso, sin commit. `scripts/smoke/mcp-endpoint.ts` escrita y en rojo (stubs en `src/server/mcp/dispatch.ts` y `src/server/mcp/tools/types.ts`). Siguiente: implementar `authenticate` y `callTool` (T011).
 - `@modelcontextprotocol/sdk@1.32.2` instalado (package.json y lock modificados, sin commit) para T012.
 - Servidor dev en 3999 y MySQL desechable en 3399 pueden seguir encendidos; `.claude/launch.json` sin commit (solo local).
+- **blocking** · T012 · tier 2 · Endpoint MCP y dependencia nueva `@modelcontextprotocol/sdk@1.32.2`: necesitan tu sí en el PR (regla 13).
+- **review-after** · T015 · Riesgo aceptado: `buscar` permite números de 10–12 dígitos (teléfonos con prefijo); una cuenta de 11–12 dígitos podría confirmarse por coincidencia, aunque nunca se muestra.

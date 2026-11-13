@@ -184,7 +184,7 @@ organization.setMcpEnabled(ctx: settings.manage, enabled: boolean)
 | Clientes | listar/ver/buscar | crear_cliente, editar_cliente, asignar_cliente | archivar_cliente |
 | Casos (crédito y servicio) | listar/ver/buscar | crear_caso, editar_caso, mover_caso_etapa, pausar/completar/reabrir_caso, fijar_proxima_accion | — |
 | Tareas | listar/ver/buscar | crear_tarea, editar_tarea, completar_tarea, reasignar_tarea | cancelar_tarea |
-| Notas | ver (en cliente/caso) | agregar_nota (cliente o caso) | — |
+| Notas | ver (en cliente/caso) | agregar_nota_cliente, agregar_nota_caso, agregar_mensaje_lead | — |
 | Oportunidades | listar/ver/buscar | crear_lead, editar_lead, crear_oportunidad, mover_oportunidad_etapa, marcar_ganada | marcar_perdida |
 | Cotizaciones | listar/ver/buscar | crear_cotizacion, editar_cotizacion, marcar_enviada/aceptada/rechazada | cancelar_cotizacion |
 
@@ -371,3 +371,11 @@ sobre las rutas previstas; `implement` lo recalcula sobre el diff real.
   de cierre se hace por bloques: esquema · OAuth · endpoint MCP · herramientas · UI · CI.
 - Antes del primer commit: rama propia (área delicada, regla 13) y `branch:` en el frontmatter del spec
   para que pase `npx @ericrisco/rsc spec gate`.
+
+### Cambios de ejecución (2026-11-12)
+- T016 se reparte por sección: cada T017–T022 escribe primero su prueba `scripts/smoke/mcp-write-<sección>.ts` (roja) y después su archivo `src/server/mcp/tools/<sección>.ts`. La lista exacta de herramientas, permiso y tipo vive en `scripts/smoke/mcp-tool-registry.ts` (`EXPECTED_WRITE_TOOLS`).
+- Notas: tres herramientas (una por permiso de la action): `agregar_nota_cliente` (clients.edit), `agregar_nota_caso` (cases.manage), `agregar_mensaje_lead` (opportunities.manage).
+- Casos de servicio: `crear_caso_servicio`, `mover_caso_servicio_etapa`, `fijar_proxima_accion_caso_servicio`, `cambiar_estado_caso_servicio`, `editar_importes_caso_servicio`; casos de crédito añaden `editar_importes_caso` y `fijar_proxima_accion_caso`.
+- Esquemas que hoy viven dentro de un archivo `"use server"` se mueven a `src/lib/validation/` sin cambiar su comportamiento, para que la action y la herramienta usen el mismo.
+- `callTool(ctx, name, args, { tools })`: el registro se pasa explícito (lo hace el endpoint con `allTools()`).
+- Toda salida hacia Claude pasa por `redactForClaude` (sanitizeForAI + series de 12+ dígitos enmascaradas).

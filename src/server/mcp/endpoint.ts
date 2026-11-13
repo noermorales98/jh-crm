@@ -1,9 +1,12 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { ZodError } from "zod";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { ZodError, z } from "zod";
 import { sanitizeTextForAI } from "@/src/lib/ai/sanitize";
 import { ForbiddenError, UnauthorizedError } from "@/src/server/auth/guards";
 import { DomainError, NotFoundError, RateLimitError } from "@/src/server/errors";
+import { clientIpFromRequest } from "@/src/server/http";
+import { assertRateLimit } from "@/src/server/security/rate-limit";
 import { authenticate, callTool } from "./dispatch";
 import { appBaseUrl, protectedResourceMetadataUrl } from "./oauth/http";
 import { isMcpConnectorFeatureOn } from "./oauth/service";
@@ -14,6 +17,8 @@ import type { McpContext, Tool } from "./tools/types";
  * Endpoint MCP (`/api/mcp`): un servidor sin estado por petición, con las herramientas
  * ligadas a la persona de la llave. Sin llave válida → 401 con la pista de OAuth.
  */
+
+export const AUTH_FAILURES_PER_MINUTE = 60;
 
 export const MCP_SERVER_INSTRUCTIONS = [
   "Conector del CRM de J&H Multiservices. Responde en español.",
@@ -71,35 +76,55 @@ export function toolErrorMessage(error: unknown): string {
   return "Error interno del CRM. No se hizo ningún cambio que no se haya confirmado.";
 }
 
-function buildServer(ctx: McpContext, tools: Tool[]): McpServer {
-  const server = new McpServer(
+/**
+ * Esquema JSON de entrada para `tools/list`, generado sin fallar: lo que JSON Schema no
+ * representa (fechas, transformaciones) se describe como texto. La validación real la
+ * hace el despachador con el esquema zod (única fuente de validación).
+ */
+export function toolInputJsonSchema(tool: Tool): Record<string, unknown> {
+  const json = z.toJSONSchema(tool.inputSchema, {
+    io: "input",
+    unrepresentable: "any",
+    override: (ctx) => {
+      const def = (ctx.zodSchema as { _zod?: { def?: { type?: string } } })._zod?.def;
+      if (def?.type === "date") {
+        ctx.jsonSchema.type = "string";
+        ctx.jsonSchema.format = "date-time";
+      }
+    },
+  }) as Record<string, unknown>;
+  delete json.$schema;
+  if (json.type !== "object") return { type: "object", properties: {} };
+  return json;
+}
+
+function buildServer(ctx: McpContext, tools: Tool[]): Server {
+  const server = new Server(
     { name: "jh-crm", title: "J&H CRM", version: "1.0.0" },
-    { instructions: MCP_SERVER_INSTRUCTIONS },
+    { capabilities: { tools: {} }, instructions: MCP_SERVER_INSTRUCTIONS },
   );
-  for (const tool of tools) {
-    server.registerTool(
-      tool.name,
-      {
+  server.setRequestHandler(ListToolsRequestSchema, async () => ({
+    tools: tools.map((tool) => ({
+      name: tool.name,
+      title: tool.title,
+      description: tool.description,
+      inputSchema: toolInputJsonSchema(tool) as { type: "object" },
+      annotations: {
         title: tool.title,
-        description: tool.description,
-        inputSchema: tool.inputSchema as never,
-        annotations: {
-          title: tool.title,
-          readOnlyHint: tool.kind === "read",
-          destructiveHint: tool.kind === "destructive",
-          openWorldHint: false,
-        },
+        readOnlyHint: tool.kind === "read",
+        destructiveHint: tool.kind === "destructive",
+        openWorldHint: false,
       },
-      (async (args: unknown) => {
-        try {
-          const result = await callTool(ctx, tool.name, args, { tools });
-          return { content: [{ type: "text" as const, text: JSON.stringify(result ?? null) }] };
-        } catch (error) {
-          return { isError: true, content: [{ type: "text" as const, text: toolErrorMessage(error) }] };
-        }
-      }) as never,
-    );
-  }
+    })),
+  }));
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    try {
+      const result = await callTool(ctx, request.params.name, request.params.arguments ?? {}, { tools });
+      return { content: [{ type: "text" as const, text: JSON.stringify(result ?? null) }] };
+    } catch (error) {
+      return { isError: true, content: [{ type: "text" as const, text: toolErrorMessage(error) }] };
+    }
+  });
   return server;
 }
 
@@ -110,6 +135,10 @@ export interface McpRequestOptions {
 export async function handleMcpRequest(request: Request, options: McpRequestOptions = {}): Promise<Response> {
   if (!isMcpConnectorFeatureOn()) return new Response("Not found", { status: 404 });
   if (request.method === "OPTIONS") return withCors(new Response(null, { status: 204 }));
+  // Servidor sin estado: no hay flujo SSE independiente ni sesiones que cerrar.
+  if (request.method !== "POST") {
+    return withCors(new Response("Method not allowed", { status: 405, headers: { Allow: "POST, OPTIONS" } }));
+  }
   // La URL pública del CRM tiene que estar configurada antes de aceptar nada.
   appBaseUrl();
 
@@ -117,8 +146,20 @@ export async function handleMcpRequest(request: Request, options: McpRequestOpti
   try {
     ctx = await authenticate(bearerFrom(request));
   } catch (error) {
-    if (error instanceof UnauthorizedError) return unauthorized();
-    throw error;
+    if (!(error instanceof UnauthorizedError)) throw error;
+    // Llaves falsas en ráfaga: se limitan por IP (solo cuentan los fallos).
+    try {
+      await assertRateLimit({ key: `mcp-auth-fail:${clientIpFromRequest(request)}`, limit: AUTH_FAILURES_PER_MINUTE, windowSeconds: 60 });
+    } catch (limitError) {
+      if (limitError instanceof RateLimitError) {
+        return withCors(new Response(JSON.stringify({ error: "rate_limited" }), {
+          status: 429,
+          headers: { "Content-Type": "application/json", "Retry-After": "60" },
+        }));
+      }
+      throw limitError;
+    }
+    return unauthorized();
   }
 
   const tools = options.tools ?? allTools();

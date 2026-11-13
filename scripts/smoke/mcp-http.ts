@@ -548,6 +548,12 @@ async function run() {
       run: async (_c, input) => ({ id: input.id, ssn: "123-45-6789" }),
     }),
     defineTool({
+      name: "crear_prueba", title: "Crear (prueba)", description: "Escritura de prueba.",
+      inputSchema: z.object({ id: z.string() }), permission: "clients.edit", kind: "write",
+      run: async () => ({ ok: true }),
+      audit: (input) => ({ entityType: "Prueba", entityId: input.id }), revalidate: () => [],
+    }),
+    defineTool({
       name: "borrar_prueba", title: "Borrar (prueba)", description: "Borrado de prueba.",
       inputSchema: z.object({ id: z.string() }), permission: "users.manage", kind: "destructive",
       run: async () => ({ ok: true }),
@@ -596,11 +602,18 @@ async function run() {
   const list = await json(await endpoint.handleMcpRequest(
     mcpPost({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }, t3.access_token), { tools: fakeTools }));
   const listed = ((list.result as { tools?: Array<{ name: string; annotations?: Record<string, unknown>; inputSchema?: unknown }> })?.tools) ?? [];
-  check("tools/list devuelve las herramientas", listed.map((t) => t.name).sort().join() === "borrar_prueba,leer_prueba", listed);
+  check("tools/list devuelve las herramientas", listed.map((t) => t.name).sort().join() === "borrar_prueba,crear_prueba,leer_prueba", listed);
+  const escritura = listed.find((t) => t.name === "crear_prueba") as { annotations?: Record<string, unknown> } | undefined;
+  check("escritura: ni solo lectura ni destructiva",
+    escritura?.annotations?.readOnlyHint === false && escritura?.annotations?.destructiveHint === false, escritura);
+  check("todas con título, descripción y openWorldHint=false",
+    listed.every((t) => (t as { title?: string }).title && (t as { description?: string }).description &&
+      t.annotations?.openWorldHint === false), listed);
   const lectura = listed.find((t) => t.name === "leer_prueba");
   const borrado = listed.find((t) => t.name === "borrar_prueba");
   check("lectura marcada readOnlyHint", lectura?.annotations?.readOnlyHint === true && lectura?.annotations?.destructiveHint === false);
   check("borrado marcado destructiveHint (Claude pide confirmación)", borrado?.annotations?.destructiveHint === true);
+  check("borrado no marcado como solo lectura", borrado?.annotations?.readOnlyHint === false);
   check("tools/list publica el esquema de entrada",
     JSON.stringify(lectura?.inputSchema ?? {}).includes("\"id\""), lectura?.inputSchema);
   const call = await json(await endpoint.handleMcpRequest(
@@ -615,8 +628,79 @@ async function run() {
   check("tools/call sin permiso → error en español, sin trazas",
     (toolDenied.result as { isError?: boolean })?.isError === true &&
       JSON.stringify(toolDenied.result).includes("Sin permiso") && !JSON.stringify(toolDenied.result).includes(" at "), toolDenied);
+  const datedTools = [
+    ...fakeTools,
+    defineTool({
+      name: "con_fecha", title: "Con fecha", description: "Prueba con fecha y transformación.",
+      inputSchema: z.object({ cuando: z.coerce.date(), largo: z.string().transform((x) => x.length) }),
+      permission: "clients.view", kind: "read",
+      run: async (_c, input) => ({ year: input.cuando.getUTCFullYear(), largo: input.largo }),
+    }),
+  ] as never[];
+  const listDated = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 5, method: "tools/list", params: {} }, t3.access_token), { tools: datedTools }));
+  const datedTool = ((listDated.result as { tools?: Array<{ name: string; inputSchema?: { properties?: Record<string, { format?: string }> } }> })?.tools ?? [])
+    .find((t) => t.name === "con_fecha");
+  check("tools/list no falla con una herramienta que usa fechas", !!datedTool, listDated);
+  check("…y describe la fecha como date-time", datedTool?.inputSchema?.properties?.cuando?.format === "date-time", datedTool);
+  const datedCall = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 6, method: "tools/call", params: { name: "con_fecha", arguments: { cuando: "2020-05-01", largo: "abcd" } } }, t3.access_token),
+    { tools: datedTools }));
+  check("tools/call con fecha y transformación se valida una sola vez",
+    JSON.stringify(datedCall.result).includes('\\"year\\":2020') && JSON.stringify(datedCall.result).includes('\\"largo\\":4'), datedCall);
+  const badArgs = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 7, method: "tools/call", params: { name: "leer_prueba", arguments: { id: 5 } } }, t3.access_token),
+    { tools: fakeTools }));
+  check("argumentos inválidos → mensaje en español", JSON.stringify(badArgs.result).includes("Datos inválidos"), badArgs);
+  const unknownTool = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 8, method: "tools/call", params: { name: "no_existe", arguments: {} } }, t3.access_token),
+    { tools: fakeTools }));
+  check("herramienta desconocida → «No encontrado.»", JSON.stringify(unknownTool.result).includes("No encontrado"), unknownTool);
+  const emptyList = await json(await endpoint.handleMcpRequest(
+    mcpPost({ jsonrpc: "2.0", id: 9, method: "tools/list", params: {} }, t3.access_token), { tools: [] }));
+  check("registro vacío → tools/list devuelve []",
+    Array.isArray((emptyList.result as { tools?: unknown[] })?.tools) && (emptyList.result as { tools: unknown[] }).tools.length === 0, emptyList);
+  const initCaps = (initJson.result as { capabilities?: { tools?: unknown } })?.capabilities;
+  check("initialize anuncia la capacidad tools", !!initCaps?.tools, initCaps);
+  const getRes = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, {
+    method: "GET", headers: { accept: "text/event-stream", authorization: `Bearer ${t3.access_token}` } }));
+  check("GET → 405 (servidor sin estado)", getRes.status === 405, getRes.status);
   check("el endpoint de la ruta delega en handleMcpRequest",
     (await (await import("../../app/api/mcp/route")).POST(mcpPost(initBody))).status === 401);
+  const { DomainError, NotFoundError, RateLimitError } = await import("../../src/server/errors");
+  check("toolErrorMessage limpia el SSN de una regla de negocio (AC-6)",
+    !endpoint.toolErrorMessage(new DomainError("Cliente con SSN 123-45-6789 duplicado")).includes("123-45-6789"));
+  const zerr = z.object({ ssn: z.literal("x") }).safeParse({ ssn: "123-45-6789" });
+  check("toolErrorMessage limpia el SSN de un error de validación (AC-6)",
+    !zerr.success && !endpoint.toolErrorMessage(zerr.error).includes("123-45-6789"));
+  check("toolErrorMessage: No encontrado", endpoint.toolErrorMessage(new NotFoundError("x")) === "No encontrado.");
+  check("toolErrorMessage: Demasiadas peticiones", endpoint.toolErrorMessage(new RateLimitError()).startsWith("Demasiadas peticiones"));
+  const okInit = await endpoint.handleMcpRequest(mcpPost(initBody, t3.access_token), { tools: fakeTools });
+  check("respuesta correcta con CORS y sin caché",
+    okInit.headers.get("access-control-allow-origin") === "*" && okInit.headers.get("cache-control") === "no-store");
+  const lower = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, {
+    method: "POST",
+    headers: { "content-type": "application/json", accept: "application/json, text/event-stream", authorization: `bearer ${t3.access_token}` },
+    body: JSON.stringify(initBody),
+  }), { tools: fakeTools });
+  check("cabecera 'bearer' en minúsculas también vale", lower.status === 200, lower.status);
+  const mcpRoute = await import("../../app/api/mcp/route");
+  check("ruta GET → 405", (await mcpRoute.GET(new Request(`${APP}/api/mcp`, { headers: { authorization: `Bearer ${t3.access_token}` } }))).status === 405);
+  check("ruta DELETE → 405", (await mcpRoute.DELETE(new Request(`${APP}/api/mcp`, { method: "DELETE", headers: { authorization: `Bearer ${t3.access_token}` } }))).status === 405);
+  check("ruta OPTIONS → 204", (await mcpRoute.OPTIONS(new Request(`${APP}/api/mcp`, { method: "OPTIONS" }))).status === 204);
+  const failIp = ip();
+  let failLast = 0;
+  let failEarly = false;
+  for (let i = 0; i <= endpoint.AUTH_FAILURES_PER_MINUTE; i += 1) {
+    const r = await endpoint.handleMcpRequest(new Request(`${APP}/api/mcp`, {
+      method: "POST", headers: { "content-type": "application/json", "x-forwarded-for": failIp, authorization: "Bearer falsa" },
+      body: "{}",
+    }));
+    failLast = r.status;
+    if (i < endpoint.AUTH_FAILURES_PER_MINUTE && r.status !== 401) failEarly = true;
+  }
+  check(`las primeras ${endpoint.AUTH_FAILURES_PER_MINUTE} llaves falsas → 401`, !failEarly);
+  check("la siguiente llave falsa desde la misma IP → 429", failLast === 429, failLast);
   check("toolErrorMessage: errores internos sin detalle",
     endpoint.toolErrorMessage(new Error("prisma secreto")).startsWith("Error interno") &&
       !endpoint.toolErrorMessage(new Error("prisma secreto")).includes("prisma"));

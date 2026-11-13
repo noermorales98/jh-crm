@@ -132,7 +132,7 @@ const structured = redactForClaude({ phone: "+52 55 1234 5678", clientCode: "SC-
   id: "123456789012", href: "/crm/clientes/123456789012", note: "tel +52 55 1234 5678" });
 check("campos estructurados intactos (teléfono, códigos, id, enlace)",
   structured.phone === "+52 55 1234 5678" && structured.clientCode === "SC-20261112-0001" &&
-    structured.caseNumber === "202611120001" && structured.id === "123456789012" && structured.href === "/crm/clientes/123456789012",
+    structured.caseNumber === "202611120001" && structured.id === "123456789012" && structured.href.endsWith("/crm/clientes/123456789012"),
   structured);
 check("…pero en texto libre se tapa", structured.note !== "tel +52 55 1234 5678", structured.note);
 check("buscar por 9 dígitos se rechaza", isSensitiveNumberQuery("123-45-6789"));
@@ -149,7 +149,29 @@ check("SSN «123 - 45 - 6789» → tapado", maskSensitiveText("123 - 45 - 6789")
 const suffixKeys = redactForClaude({ reasonCode: "acct 123456789012", approvedAt: "acct 123456789012" });
 check("claves con sufijo Code/At ya no se eximen", !JSON.stringify(suffixKeys).includes("123456789012"), suffixKeys);
 const idKeys = redactForClaude({ clientId: "123456789012", caseHref: "/crm/x/123456789012" });
-check("…pero ids y enlaces siguen intactos", idKeys.clientId === "123456789012" && idKeys.caseHref === "/crm/x/123456789012");
+check("…pero ids y enlaces siguen intactos", idKeys.clientId === "123456789012" && idKeys.caseHref.endsWith("/crm/x/123456789012"));
+
+{
+  const prev = process.env.NEXT_PUBLIC_APP_URL;
+  process.env.NEXT_PUBLIC_APP_URL = "https://www.jh-multiservices.com/";
+  const linked = redactForClaude({
+    href: "/crm/clientes/abc",
+    items: [{ href: "/crm/expedientes/x", client: { href: "/crm/clientes/y" } }],
+    caseHref: "/crm/x/1",
+    other: "/crm/clientes/abc",
+  });
+  check("enlaces internos salen con la dirección del CRM (no se abren en claude.ai)",
+    linked.href === "https://www.jh-multiservices.com/crm/clientes/abc" &&
+      linked.items[0].href === "https://www.jh-multiservices.com/crm/expedientes/x" &&
+      linked.items[0].client.href === "https://www.jh-multiservices.com/crm/clientes/y" &&
+      linked.caseHref === "https://www.jh-multiservices.com/crm/x/1", linked);
+  check("solo cambian los campos de enlace", linked.other === "/crm/clientes/abc", linked);
+  const ext = redactForClaude({ href: "https://otro.example/x", other2Href: "//evil.example/x" });
+  check("enlaces ya completos o de protocolo relativo no se tocan",
+    ext.href === "https://otro.example/x" && ext.other2Href === "//evil.example/x", ext);
+  if (prev === undefined) delete process.env.NEXT_PUBLIC_APP_URL;
+  else process.env.NEXT_PUBLIC_APP_URL = prev;
+}
 
 if (failed > 0) {
   console.error(`\n✗ ${failed} comprobación(es) fallaron\n`);

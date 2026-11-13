@@ -190,3 +190,15 @@ branch: feat/conector-mcp-claude
   3. Admin: Configuración → Claude → activar para la organización.
   4. T029: conectar desde claude.ai una vez (login con MFA, permitir, `listar`, una escritura).
   5. Programar `/api/cron/retention` (no hay cron configurado en el repo): sin él, la limpieza no corre.
+
+## Arreglo tras la prueba real (2026-11-13)
+
+- Bug visto en claude.ai: los enlaces "ver caso", "ver cliente" abrían `https://claude.ai/crm/...`.
+  Los `href` salían como rutas relativas y Claude las completa con su dominio.
+- Arreglo: `redactForClaude` (`src/server/mcp/redact.ts`) antepone `NEXT_PUBLIC_APP_URL` a todo
+  campo `href` / `*Href` que empiece por `/`. Enlaces ya completos y `//…` no se tocan.
+- Controles: tests ✅ (`mcp-tool-registry` con y sin URL, 3 casos nuevos; mutante sin el arreglo
+  → falla 1; `smoke:mcp-db` 13 smokes exit 0) · build: `tsc` 0 errores, eslint ok; `next build`
+  **no ejecutado** en local, lo corre la CI · seguridad: solo cambia campos de enlace, la base sale
+  de una variable de entorno, sin entrada del usuario · trazabilidad: enlaces al CRM del spec.
+- T029 (prueba real en claude.ai): hecha por la dueña. Conexión, login y lectura funcionan.

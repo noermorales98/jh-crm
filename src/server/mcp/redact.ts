@@ -32,8 +32,24 @@ export function maskSensitiveText(raw: string): string {
 /** Compatibilidad: nombre anterior. */
 export const maskLongNumbers = maskSensitiveText;
 
+const HREF_KEY = /^href$|[a-z]Href$/;
+
+/**
+ * Los enlaces internos salen como rutas (`/crm/clientes/…`). Claude los abre desde su
+ * propia web, así que una ruta suelta acabaría en claude.ai: se les antepone la dirección
+ * pública del CRM. Sin NEXT_PUBLIC_APP_URL se dejan como están.
+ */
+export function absoluteHref(href: string): string {
+  if (!href.startsWith("/") || href.startsWith("//")) return href;
+  const base = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, "");
+  return base ? `${base}${href}` : href;
+}
+
 function walk(value: unknown, key: string | null): unknown {
-  if (typeof value === "string") return key !== null && VERBATIM_KEY.test(key) ? value : maskSensitiveText(value);
+  if (typeof value === "string") {
+    if (key !== null && HREF_KEY.test(key)) return absoluteHref(value);
+    return key !== null && VERBATIM_KEY.test(key) ? value : maskSensitiveText(value);
+  }
   if (Array.isArray(value)) return value.map((v) => walk(v, key));
   if (value && typeof value === "object" && !(value instanceof Date)) {
     const out: Record<string, unknown> = {};

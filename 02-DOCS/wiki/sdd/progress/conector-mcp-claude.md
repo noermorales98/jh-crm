@@ -176,3 +176,17 @@ branch: feat/conector-mcp-claude
 - Servidor dev en 3999 y MySQL desechable en 3399 pueden seguir encendidos; `.claude/launch.json` sin commit (solo local).
 - **blocking** · T012 · tier 2 · Endpoint MCP y dependencia nueva `@modelcontextprotocol/sdk@1.32.2`: necesitan tu sí en el PR (regla 13).
 - **review-after** · T015 · Riesgo aceptado: `buscar` permite números de 10–12 dígitos (teléfonos con prefijo); una cuenta de 11–12 dígitos podría confirmarse por coincidencia, aunque nunca se muestra.
+
+## Envío (2026-11-13)
+
+- PR #42 unido a main (bd4267d) con orden explícita de la dueña. CI requerida en verde
+  (lint + typecheck + build:qa, db smokes). Despliegue de producción en Vercel: success.
+- Producción (`www.jh-multiservices.com`) responde 404 en `/api/mcp` y en el descubrimiento OAuth:
+  el interruptor `FEATURE_MCP_CONNECTOR` sigue apagado, como se diseñó.
+- Pendiente para encenderlo:
+  1. En Vercel (producción): `FEATURE_MCP_CONNECTOR=true` y `NEXT_PUBLIC_APP_URL=https://www.jh-multiservices.com`
+     (con `www`: el dominio sin `www` redirige y el `issuer` de OAuth debe coincidir). Redeploy.
+  2. Confirmar que la migración `20261109120000_mcp_connector` se aplicó (el build de producción la corre).
+  3. Admin: Configuración → Claude → activar para la organización.
+  4. T029: conectar desde claude.ai una vez (login con MFA, permitir, `listar`, una escritura).
+  5. Programar `/api/cron/retention` (no hay cron configurado en el repo): sin él, la limpieza no corre.

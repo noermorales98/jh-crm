@@ -7,8 +7,9 @@ timestamp: 2026-11-09T00:00:00Z
 topic: sdd
 slug: conector-mcp-claude
 branch: feat/conector-mcp-claude
-status: approved
+status: shipped
 approved_by: Noeli, 2026-11-09 ("Sí, la apruebo")
+shipped: 2026-11-13, PR #42 merged into main (bd4267d)
 ---
 
 # Spec — Conector MCP de JH CRM para Claude

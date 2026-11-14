@@ -75,3 +75,12 @@ Append-only. Newest at the bottom.
   open-world because it emails the team and sends a WhatsApp through an external service. Claude
   cannot set a consultation to paid: payments arrive with batch 3. Bulk dispute tools validate every
   id before the first write, so a bad id adds nothing.
+- 2026-11-14 — `conector-mcp-claude` batch 3 plan. Batch 3 is about three times batch 2, so it
+  ships as three PRs: 3a money (payments, receipts, payment plans, contracts — closes AC-7), 3b
+  catalog and operations (services and packages, processors, testimonials, mails, comparisons,
+  funding), 3c administration and the rest (users, stages, notifications, audit, attribution,
+  dashboard, intake and portal links). In 3a Claude cannot sign contracts (the signature is the
+  client's) or edit contract templates (legal text, pending legal review); it never receives contract
+  text, the signature image, the signer's IP or browser. Recording a payment or a refund only writes
+  to the CRM; the Stripe link only creates the payment page; sending it by WhatsApp is destructive
+  and open-world. `registrar_pago` keeps the app's default (RECEIVED) and its description says so.

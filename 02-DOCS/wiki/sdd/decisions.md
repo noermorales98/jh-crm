@@ -84,3 +84,11 @@ Append-only. Newest at the bottom.
   text, the signature image, the signer's IP or browser. Recording a payment or a refund only writes
   to the CRM; the Stripe link only creates the payment page; sending it by WhatsApp is destructive
   and open-world. `registrar_pago` keeps the app's default (RECEIVED) and its description says so.
+- 2026-11-14 — `conector-mcp-claude` batch 3a closing review. Three lenses, nothing blocking. Applied:
+  `registrar_pago` requires `status` (the app defaults to RECEIVED, but Claude must decide whether the
+  money arrived, so a note or document cannot make it issue a receipt); `marcar_contrato_enviado` is
+  destructive because it stamps the agency signature and the contract cannot go back to draft; a
+  foreign linked case or quote answers "No encontrado"; an inactive template says so. Accepted: no
+  per-quote throttle on the WhatsApp payment link (same as the app button; it is destructive and
+  open-world). Found, pre-existing and out of scope: the client name is inserted into the contract
+  HTML without escaping and the sanitizer can miss `/onload=`; tracked as its own fix.

@@ -12,8 +12,17 @@ export function escapeHtml(text: string): string {
   );
 }
 
-const DANGEROUS_TAGS =
-  /<\/?(?:script|iframe|frame|frameset|object|embed|applet|link|meta|base|form|input|button|textarea|select|option|svg|math|template|noscript|portal)\b[^>]*>/gi;
+const DANGEROUS_TAG_NAMES =
+  "script|style|iframe|frame|frameset|object|embed|applet|link|meta|base|form|input|button|textarea|select|option|svg|math|template|noscript|portal";
+
+/** Apertura de una etiqueta peligrosa; se evalúa sobre cada etiqueta completa del escáner. */
+const DANGEROUS_OPEN_TAG = new RegExp(`^<(?:${DANGEROUS_TAG_NAMES})\\b`, "i");
+
+/**
+ * Cierre de una etiqueta peligrosa. Un cierre no lleva atributos vivos; `[^<>]*` mantiene
+ * la búsqueda lineal (con `[^>]*`, `<svg <svg <svg…` sin `>` era cuadrático).
+ */
+const DANGEROUS_CLOSE_TAG = new RegExp(`</(?:${DANGEROUS_TAG_NAMES})\\b[^<>]*>?`, "gi");
 
 /**
  * Atributos de evento (`onload`, `onerror`...). El navegador los acepta tras
@@ -116,6 +125,7 @@ function rewriteOpenTags(html: string, fn: (tag: string) => string): string {
 
 /** Reglas de atributos: solo dentro de etiquetas, para no tocar el texto escapado. */
 function sanitizeTag(tag: string): string {
+  if (DANGEROUS_OPEN_TAG.test(tag)) return "";
   return tag
     .replace(EVENT_HANDLER_ATTR, "$1")
     .replace(FORBIDDEN_ATTR, "$1")
@@ -156,8 +166,7 @@ function sanitizeOnce(html: string): string {
     "<style",
     "</style",
   )
-    .replace(DANGEROUS_TAGS, "")
-    .replace(/<\/?(?:script|style)\b[^>]*>/gi, "");
+    .replace(DANGEROUS_CLOSE_TAG, "");
   return rewriteOpenTags(stripped, sanitizeTag);
 }
 

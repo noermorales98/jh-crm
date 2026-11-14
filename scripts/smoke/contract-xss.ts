@@ -121,6 +121,18 @@ function filterChecks() {
     "estilo con @import": "<p style=\"@import 'https://x.test/a.css'\">x</p>",
     "estilo con javascript:": '<p style="background:javascript:alert(1)">x</p>',
     "form con formaction": '<button formaction="javascript:alert(1)">x</button>',
+    "href tras `/`": "<a/href=javascript:alert(1)>x</a>",
+    "manejador tras comilla simple": "<img src='x'onerror=alert(1)>",
+    "manejador con espacio antes de `=`": "<img src=x onerror =alert(1)>",
+    "JAVASCRIPT: en mayúsculas": '<a href="JAVASCRIPT:alert(1)">x</a>',
+    "javascript: con &NewLine;": '<a href="java&NewLine;script:alert(1)">x</a>',
+    "entidad decimal sin `;`": '<a href="&#106avascript:alert(1)">x</a>',
+    "`>` en valor con espacio tras `=`": '<a title= ">" onclick=alert(1)>x</a>',
+    "`>` en valor con comilla simple": "<a title='>' onclick=alert(1)>x</a>",
+    "etiqueta sin cerrar al final": "<p>x</p><img src=x onerror=alert(1)",
+    "url() con entidad en estilo": '<p style="background:u&#114;l(https://x.test/a.png)">x</p>',
+    "background=javascript:": '<td background="javascript:alert(1)">x</td>',
+    "svg en mayúsculas": "<SVG onload=alert(1)>",
   };
   for (const [label, html] of Object.entries(vectors)) {
     const out = sanitizeContractHtml(html);
@@ -159,6 +171,9 @@ function filterChecks() {
     "muchos `<script` sin cierre": "<script".repeat(20000),
     "muchos comentarios sin cierre": "<!--".repeat(20000),
     "muchos `on` sin `=`": "<a " + " on".repeat(20000) + ">",
+    "muchos `<svg ` sin `>`": "<svg ".repeat(40000),
+    "muchos `</form` sin `>`": "</form".repeat(40000),
+    "muchos `<input x` sin `>`": "<input x".repeat(30000),
   };
   for (const [label, html] of Object.entries(heavy)) {
     const t0 = performance.now();
@@ -170,6 +185,56 @@ function filterChecks() {
     "un valor con comilla sin cerrar no deja un manejador vivo",
     !looksExecutable(sanitizeContractHtml('<p>x</p><img alt="y src=x onerror=alert(1)>')),
     sanitizeContractHtml('<p>x</p><img alt="y src=x onerror=alert(1)>'),
+  );
+
+  // Forma exacta de la salida: quitar lo peligroso no rompe el HTML de alrededor ni sobre-escapa.
+  const exact: Array<[string, string, string]> = [
+    ["conserva el HTML de alrededor", '<p>a</p><img src="x" onerror="alert(1)"><p>b &amp; c</p>', '<p>a</p><img src="x" ><p>b &amp; c</p>'],
+    ["quita svg sin tocar lo demás", "<h2>T</h2><svg/onload=alert(1)><p>ok</p></svg>", "<h2>T</h2><p>ok</p>"],
+    ["neutraliza el enlace y deja su texto", '<p><a href="javascript:alert(1)">ver</a></p>', '<p><a href="#">ver</a></p>'],
+    ["comilla sin cerrar: el resto queda como texto", '<p>x</p><img alt="y src=x onerror=alert(1)>', '<p>x</p>&lt;img alt=&quot;y src=x onerror=alert(1)&gt;'],
+    ["etiqueta sin `>`: el resto queda como texto", "<p>x</p><img src=x", "<p>x</p>&lt;img src=x"],
+    ["quita el bloque script con su contenido", "<p>a</p><script>alert(1)</script><p>b</p>", "<p>a</p><p>b</p>"],
+    ["quita el bloque style con su contenido", "<p>a</p><style>p{color:red}</style><p>b</p>", "<p>a</p><p>b</p>"],
+    ["quita comentarios", "<p>a</p><!-- nota --><p>b</p>", "<p>a</p><p>b</p>"],
+    ["texto con `<` suelto sale igual", "<p>5 < 6 y a<b y c>d, I <3 you</p>", "<p>5 < 6 y a<b y c>d, I <3 you</p>"],
+  ];
+  for (const [label, input, expected] of exact) {
+    const out = sanitizeContractHtml(input);
+    check(label, out === expected, out);
+  }
+
+  const twoChips = presentContractHtml("<p>{{clientName}} y {{clientFullName}}</p>");
+  check(
+    "dos chips pendientes llevan icono y no dejan el marcador",
+    (twoChips.match(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="14"/g) ?? []).length === 2 &&
+      !/jhtplicon/.test(twoChips),
+    twoChips,
+  );
+  const filledSpan = presentContractHtml(
+    '<p>Firma: <span data-template-var="clientFullName" class="jh-template-var">Ana Perez</span></p>',
+  );
+  check(
+    "una variable ya sustituida se ve como texto, no como chip",
+    filledSpan === "<p>Firma: Ana Perez</p>",
+    filledSpan,
+  );
+  const preWrapped = presentContractHtml(
+    '<p><span data-template-var="clientName" class="jh-template-var">{{clientName}}</span></p>',
+  );
+  check(
+    "un chip ya envuelto no se envuelve dos veces",
+    (preWrapped.match(/<\/span>/g) ?? []).length === 2 && (preWrapped.match(/<span/g) ?? []).length === 2,
+    preWrapped,
+  );
+  const distinct = fillTemplateVariables("<p>{{clientName}}|{{clientFullName}}</p>", {
+    clientName: "Ana <A>",
+    clientFullName: "Ana <B> Perez",
+  });
+  check(
+    "cada token recibe su propio valor escapado",
+    distinct === "<p>Ana &lt;A&gt;|Ana &lt;B&gt; Perez</p>",
+    distinct,
   );
 
   const reflow = '<img alt=<span data-template-var="k"> src=x onerror=alert(1)>X</span>';

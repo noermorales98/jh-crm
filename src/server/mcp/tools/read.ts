@@ -3,11 +3,19 @@ import { ForbiddenError } from "@/src/server/auth/guards";
 import { DomainError, NotFoundError } from "@/src/server/errors";
 import { getCaseBrief, getClientBrief, listCrm, searchCrm } from "@/src/server/ai/queries";
 import {
+  getConsultationDetail,
+  getCreditReportDetail,
+  getLetterDetail,
   getOpportunityDetail,
+  getRoundDetail,
   getQuoteBrief,
   getServiceCaseBrief,
   getTaskBrief,
+  listConsultationsMcp,
+  listCreditReports,
+  listLetters,
   listOpportunities,
+  listRounds,
   listServiceCases,
 } from "@/src/server/mcp/queries";
 import { isSensitiveNumberQuery } from "@/src/server/mcp/redact";
@@ -25,12 +33,16 @@ export const READ_SECTIONS = [
   "tareas",
   "oportunidades",
   "cotizaciones",
+  "rondas",
+  "cartas",
+  "reportes_credito",
+  "consultas",
 ] as const;
 export type ReadSection = (typeof READ_SECTIONS)[number];
 
 const seccion = z
   .enum(READ_SECTIONS)
-  .describe("Sección del CRM: clientes, casos (crédito), casos_servicio, tareas, oportunidades o cotizaciones.");
+  .describe("Sección del CRM: clientes, casos (crédito), casos_servicio, tareas, oportunidades, cotizaciones, rondas (con sus ítems de disputa), cartas, reportes_credito o consultas.");
 
 /**
  * Las consultas del asistente interno devuelven `{ error }` en lugar de lanzar.
@@ -103,6 +115,14 @@ async function listSection(ctx: McpContext, input: { seccion: ReadSection; estad
       return listServiceCases(ctx, input);
     case "oportunidades":
       return listOpportunities(ctx, input);
+    case "rondas":
+      return listRounds(ctx, input);
+    case "cartas":
+      return listLetters(ctx, input);
+    case "reportes_credito":
+      return listCreditReports(ctx, input);
+    case "consultas":
+      return listConsultationsMcp(ctx, input);
   }
 }
 
@@ -120,6 +140,14 @@ async function viewSection(ctx: McpContext, input: { seccion: ReadSection; id: s
       return found(await getServiceCaseBrief(ctx, input.id));
     case "oportunidades":
       return found(await getOpportunityDetail(ctx, input.id));
+    case "rondas":
+      return found(await getRoundDetail(ctx, input.id));
+    case "cartas":
+      return found(await getLetterDetail(ctx, input.id));
+    case "reportes_credito":
+      return found(await getCreditReportDetail(ctx, input.id));
+    case "consultas":
+      return found(await getConsultationDetail(ctx, input.id));
   }
 }
 

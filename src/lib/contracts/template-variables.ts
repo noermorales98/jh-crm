@@ -1,5 +1,7 @@
 /** Variables de fusión en plantillas de contrato (se sustituyen al emitir). */
 
+import { escapeHtml } from "@/src/lib/contracts/sanitize";
+
 export const TEMPLATE_VARIABLES = {
   clientName: {
     token: "{{clientName}}",
@@ -27,6 +29,18 @@ export function getTemplateVariable(key: string) {
 
 function alreadyWrapped(html: string, offset: number) {
   return /data-template-var\s*=/.test(html.slice(Math.max(0, offset - 80), offset));
+}
+
+/**
+ * Sustituye cada token por su valor **escapado como HTML**. Los valores vienen
+ * del cliente (nombre) y se muestran luego en el portal con `dangerouslySetInnerHTML`,
+ * así que nunca se insertan en crudo.
+ */
+export function fillTemplateVariables(
+  html: string,
+  values: Record<TemplateVariableKey, string>,
+): string {
+  return html.replace(TOKEN_RE, (_match, key: TemplateVariableKey) => escapeHtml(values[key]));
 }
 
 /** Envuelve tokens sueltos para que TipTap los parsee como nodos. */

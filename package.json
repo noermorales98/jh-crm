@@ -87,6 +87,7 @@
     "smoke:credit-portal": "tsx scripts/smoke/credit-portal.ts",
     "smoke:credit-operations": "tsx scripts/smoke/credit-operations.ts",
     "smoke:contract-gates-db": "tsx scripts/smoke/contract-gates-db.ts",
+    "smoke:contract-xss": "tsx scripts/smoke/contract-xss.ts",
     "smoke:mcp-oauth-core": "tsx scripts/smoke/mcp-oauth-core.ts",
     "smoke:mcp-tool-registry": "tsx scripts/smoke/mcp-tool-registry.ts",
     "smoke:login-redirect": "tsx scripts/smoke/login-redirect.ts",

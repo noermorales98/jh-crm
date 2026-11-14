@@ -1,15 +1,113 @@
 /** Sanitiza HTML de contratos para vista segura (sin scripts ni eventos). */
 
-const DANGEROUS_TAGS =
-  /<\/?(?:script|iframe|object|embed|link|meta|base|form|input|button|textarea|select)[^>]*>/gi;
+/**
+ * Escapa texto para insertarlo dentro de HTML (contenido o atributo entre comillas).
+ * Todo valor que venga de un cliente u organización pasa por aquí antes de entrar
+ * a `contentSnapshot`.
+ */
+export function escapeHtml(text: string): string {
+  return text.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+}
 
-export function sanitizeContractHtml(html: string): string {
+const DANGEROUS_TAGS =
+  /<\/?(?:script|iframe|frame|frameset|object|embed|applet|link|meta|base|form|input|button|textarea|select|option|svg|math|template|noscript|portal)\b[^>]*>/gi;
+
+/**
+ * Atributos de evento (`onload`, `onerror`...). El navegador los acepta tras
+ * espacio, `/` o una comilla de cierre (`<svg/onload=...>`, `<a""onclick=...>`),
+ * así que se cubren todos esos separadores.
+ */
+const EVENT_HANDLER_ATTR = /([\s/"'`])on[a-z]+\s*=\s*("[^"]*"|'[^']*'|`[^`]*`|[^\s>]*)/gi;
+
+/** Atributos que cargan o navegan a una URL. */
+const URL_ATTR =
+  /([\s/"'`])(href|src|xlink:href|action|formaction|background|poster|data)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+
+/** Atributos que nunca hacen falta en un contrato y abren otra vía de ejecución. */
+const FORBIDDEN_ATTR = /([\s/"'`])(srcdoc|srcset)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+
+/** Estilos inline con `expression(` / `javascript:` / `url(`. */
+const DANGEROUS_STYLE_ATTR = /([\s/"'`])style\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+
+/** Solo imágenes rasterizadas en base64 (la firma del representante). */
+const SAFE_DATA_IMAGE = /^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=]+$/i;
+
+function unquote(value: string): string {
+  const first = value[0];
+  if ((first === '"' || first === "'" || first === "`") && value.endsWith(first)) {
+    return value.slice(1, -1);
+  }
+  return value;
+}
+
+/** Normaliza lo que un navegador ignora al resolver el esquema de una URL. */
+function normalizedScheme(value: string): string {
+  return unquote(value)
+    .replace(/&#x0*([0-9a-f]+);?/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#0*([0-9]+);?/g, (_m, dec: string) => String.fromCharCode(Number(dec)))
+    .replace(/&(?:tab|newline|colon);/gi, (m) => (m.toLowerCase() === "&colon;" ? ":" : ""))
+    .replace(/[\u0000-\u0020\u007f-\u009f]/g, "")
+    .toLowerCase();
+}
+
+function isDangerousUrl(attr: string, value: string): boolean {
+  const url = normalizedScheme(value);
+  if (/^(?:javascript|vbscript|livescript|mocha):/.test(url)) return true;
+  if (url.startsWith("data:")) {
+    return !(attr.toLowerCase() === "src" && SAFE_DATA_IMAGE.test(unquote(value).trim()));
+  }
+  return false;
+}
+
+/**
+ * Una etiqueta de apertura completa. Respeta valores entre comillas (`alt="a>b"`)
+ * y, si una comilla queda sin cerrar, la trata como un carácter más: así la
+ * coincidencia nunca termina antes que la etiqueta que ve el navegador.
+ */
+const OPEN_TAG = /<[a-z][^\s/>]*(?:"[^"]*"|'[^']*'|`[^`]*`|[^>])*>/gi;
+
+/** Reglas de atributos: solo dentro de etiquetas, para no tocar el texto escapado. */
+function sanitizeTag(tag: string): string {
+  return tag
+    .replace(EVENT_HANDLER_ATTR, "$1")
+    .replace(FORBIDDEN_ATTR, "$1")
+    .replace(URL_ATTR, (full, sep: string, attr: string, value: string) =>
+      isDangerousUrl(attr, value) ? `${sep}${attr}="#"` : full,
+    )
+    .replace(DANGEROUS_STYLE_ATTR, (full, sep: string, value: string) =>
+      /expression\s*\(|javascript:|url\s*\(|@import|behavior\s*:/i.test(normalizedScheme(value))
+        ? sep
+        : full,
+    );
+}
+
+function sanitizeOnce(html: string): string {
   return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
+    .replace(/<style[\s\S]*?<\/style\s*>/gi, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
     .replace(DANGEROUS_TAGS, "")
-    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/(href|src|xlink:href)\s*=\s*(['"])\s*javascript:[^'"]*\2/gi, "$1=$2#$2");
+    .replace(/<\/?(?:script|style)\b[^>]*>/gi, "")
+    .replace(OPEN_TAG, sanitizeTag);
+}
+
+/**
+ * Filtro defensivo por expresiones regulares (no es un parser HTML).
+ * Se repite hasta que el resultado deja de cambiar, para que un vector partido
+ * (`<scr<script>ipt>`, `oonnload=`) no se reconstruya al quitar una pieza.
+ */
+export function sanitizeContractHtml(html: string): string {
+  let current = html;
+  for (let i = 0; i < 10; i += 1) {
+    const next = sanitizeOnce(current);
+    if (next === current) return next;
+    current = next;
+  }
+  // No convergió: no se puede garantizar nada, se entrega como texto.
+  return escapeHtml(html);
 }
 
 /**

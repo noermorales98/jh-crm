@@ -86,7 +86,13 @@ conector solo añade otra vía.
   `plaintext` como vivas. Chrome: el payload del revisor da `PWNED = 0`; 600 000 entradas nuevas
   (con chips dentro de atributos y trucos CSS), 0 ejecutables. Mutantes: 55 + 9 combinados; quedan
   solo equivalentes (una etiqueta quitada de una sola de las dos listas sigue cubierta por la otra).
+- Panel sobre `bc35018`. Corrección: sin defectos. Pruebas: sin supervivientes que ejecuten o
+  carguen algo; se fijan `src(`, `image(`, `cross-fade(`. Seguridad: el argumento del chip canónico
+  se sostiene; `url&lpar;` esquivaba la lista de estilos (carga remota, no ejecuta). Ahora un
+  `style` con cualquier `&` distinto de `&quot;`, `&#39;` o `&amp;` se rechaza entero.
 
 ## Siguiente paso
 
-Revisión y PR. Seguimiento posible: sustituir el filtro por un sanitizador basado en parser.
+En espera (2026-11-14): la spec aprobada deja fuera «un sanitizador basado en parser (DOMPurify o
+similar)» y el filtro actual es un tokenizador propio. Noe decide entre DOMPurify y el filtro
+propio antes del push y el PR. El escape del nombre en origen no depende de esa decisión.

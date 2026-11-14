@@ -7,12 +7,13 @@ timestamp: 2026-11-14T18:00:00Z
 topic: sdd
 slug: contrato-xss-nombre-cliente
 branch: claude/youthful-leavitt-d8f81e
-status: draft
+status: approved
+approved_by: Noeli, 2026-11-14 ("I approve")
 ---
 
 # Spec — Contratos sin XSS por nombre de cliente
 
-> Slug: `contrato-xss-nombre-cliente` · Status: draft (pendiente de aprobación de Noe) · Created: 2026-11-14
+> Slug: `contrato-xss-nombre-cliente` · Status: approved · Created: 2026-11-14
 > Inherits: [constitution](../constitution.md). Origen: [decisions](../decisions.md), revisión de cierre
 > de la tanda 3a del conector MCP (2026-11-14). Documento de trabajo: [ftd](../../ftd/contrato-xss-nombre-cliente.md).
 
@@ -91,4 +92,4 @@ contratos existentes siguen en verde.
 
 ## Points to clarify
 
-- Ninguno abierto. Falta la aprobación de Noe.
+- Ninguno abierto.

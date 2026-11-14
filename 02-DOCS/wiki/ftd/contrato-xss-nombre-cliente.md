@@ -48,6 +48,15 @@ conector solo añade otra vía.
 - `npm run typecheck` → sin errores. `eslint` sobre los ficheros tocados → limpio.
 - `rsc risk` → tier 1, sin aprobación humana obligatoria.
 
+- Revisor de pruebas: 47 de 73 mutantes sobrevivían (oráculo débil, vectores que no probaban lo que
+  decían, escape comprobado contra sí mismo). Oráculo nuevo (comillas, entidades, más etiquetas),
+  33 vectores, escape con valores escritos a mano. 26 mutantes dirigidos, incluidos todos los
+  supervivientes relevantes: 26 muertos.
+- Revisor de corrección: ReDoS en el regex de etiquetas (129 caracteres → 15 s). Sustituido por un
+  escáner lineal con la regla del navegador (comilla solo tras `=`). Además, los regex perezosos de
+  `<script`/`<style`/comentarios (ya en `main`) eran cuadráticos: 140 000 caracteres → 3,3 s; ahora
+  corte lineal. Todas las entradas hostiles de prueba (hasta 185 000 caracteres) < 50 ms.
+
 ## Siguiente paso
 
 Revisión y PR. Seguimiento posible: sustituir el filtro por un sanitizador basado en parser.

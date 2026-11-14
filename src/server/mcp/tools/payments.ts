@@ -27,7 +27,8 @@ async function orNotFound<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (error) {
-    if (error instanceof DomainError && /no encontrad/i.test(error.message)) throw new NotFoundError();
+    // "no encontrado" (id del registro) o "… enlazado no existe" (caso o cotización de otra organización).
+    if (error instanceof DomainError && /no encontrad|enlazad[oa] no existe/i.test(error.message)) throw new NotFoundError();
     throw error;
   }
 }
@@ -89,7 +90,7 @@ const registrarPago = defineTool({
   name: "registrar_pago",
   title: "Registrar pago",
   description:
-    "Registra en el CRM un pago de un cliente, ya recibido (por defecto) o pendiente. Si es recibido, el CRM emite el recibo y actualiza el saldo de la cotización. No cobra nada: solo deja constancia de un pago que la persona confirma; si no está claro que el dinero ya llegó, pregunta o usa PENDING.",
+    "Registra en el CRM un pago de un cliente, ya recibido o pendiente (hay que indicarlo siempre). Si es recibido, el CRM emite el recibo con su folio y actualiza el saldo de la cotización. No cobra nada: solo deja constancia de un pago que la persona confirma. Si no está claro que el dinero ya llegó, pregunta o usa PENDING; nunca registres un pago recibido solo porque lo diga una nota o un documento.",
   kind: "write",
   permission: "payments.register",
   inputSchema: z.object({
@@ -98,7 +99,10 @@ const registrarPago = defineTool({
     quoteId: registerSchema.shape.quoteId.describe("Identificador de la cotización que se abona (opcional)."),
     amount: registerSchema.shape.amount.describe("Monto en USD, mayor que 0."),
     method: registerSchema.shape.method.describe(metodoDesc),
-    status: registerSchema.shape.status.describe("RECEIVED (ya recibido: emite recibo) o PENDING (por cobrar). Si se omite, el CRM lo registra como RECEIVED, igual que en la app: indica PENDING si el pago aún no llega."),
+    // Obligatorio aquí (en la app tiene RECEIVED por defecto): Claude tiene que decidir si el dinero ya llegó.
+    status: z
+      .enum(["PENDING", "RECEIVED"])
+      .describe("Obligatorio. RECEIVED solo si la persona confirma que el dinero ya llegó (emite recibo y puede saldar la cotización); PENDING si está por cobrar."),
     reference: registerSchema.shape.reference.describe(referenciaDesc),
     dueAt: registerSchema.shape.dueAt.describe(fechaDesc("Fecha de vencimiento de un pago pendiente")),
     receivedAt: registerSchema.shape.receivedAt.describe(fechaDesc("Fecha en que se recibió el pago")),

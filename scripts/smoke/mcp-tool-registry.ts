@@ -129,7 +129,7 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   crear_plan_pago: ["payments.register", "write"],
   cancelar_plan_pago: ["payments.register", "destructive"],
   crear_contrato: ["contracts.manage", "write"],
-  marcar_contrato_enviado: ["contracts.manage", "write"],
+  marcar_contrato_enviado: ["contracts.manage", "destructive"],
   cancelar_contrato: ["contracts.manage", "destructive"],
 };
 for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {

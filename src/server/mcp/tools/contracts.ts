@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { cuidSchema } from "@/src/lib/validation/common";
 import { createContractSchema } from "@/src/lib/validation/contracts";
+import { prisma } from "@/src/lib/db";
 import { DomainError, NotFoundError } from "@/src/server/errors";
 import * as contracts from "@/src/server/contracts";
 import { defineTool, type RevalidateTarget, type Tool } from "./types";
@@ -18,7 +19,8 @@ async function orNotFound<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
   } catch (error) {
-    if (error instanceof DomainError && /no encontrad/i.test(error.message)) throw new NotFoundError();
+    // "no encontrado" (id del registro) o "… enlazado no existe" (caso de otra organización).
+    if (error instanceof DomainError && /no encontrad|enlazad[oa] no existe/i.test(error.message)) throw new NotFoundError();
     throw error;
   }
 }
@@ -74,6 +76,14 @@ const crearContrato = defineTool({
   }),
   async run(ctx, input) {
     const data = createContractSchema.parse(input);
+    // El servicio dice "no encontrada o inactiva": aquí se separa para que Claude sepa qué pasó.
+    const template = await prisma.contractTemplate.findFirst({
+      where: { id: data.templateId, organizationId: ctx.organizationId },
+      select: { active: true },
+    });
+    if (template && !template.active) {
+      throw new DomainError("La plantilla está inactiva. Elige una activa con `listar` en plantillas_contrato.");
+    }
     const contract = await orNotFound(() => contracts.createContractFromTemplate(ctx, data));
     return contractResult(contract);
   },
@@ -85,8 +95,8 @@ const marcarContratoEnviado = defineTool({
   name: "marcar_contrato_enviado",
   title: "Marcar contrato como enviado",
   description:
-    "Marca un contrato en borrador como enviado y le añade la firma del representante de la agencia; desde ese momento el cliente puede firmarlo en el portal. No manda correos ni mensajes. Falla si al contrato le falta título, versión, contenido o plazo de cancelación.",
-  kind: "write",
+    "Marca un contrato en borrador como enviado: le estampa la firma del representante de la agencia con la fecha de hoy y desde ese momento el cliente puede firmarlo en el portal. No manda correos ni mensajes, pero el contrato ya no vuelve a borrador (solo se puede cancelar). Pide confirmación a la persona antes de usarla. Falla si al contrato le falta título, versión, contenido o plazo de cancelación.",
+  kind: "destructive",
   permission: "contracts.manage",
   inputSchema: z.object({ contratoId }),
   async run(ctx, { contratoId: id }) {

@@ -106,7 +106,13 @@ async function seed(suffix: string) {
       signedAt: new Date("2026-02-02T12:00:00Z"),
     },
   });
-  return { s, payment, receipt, plan, template, contract };
+  const pendingPayment = await prisma.payment.create({
+    data: { organizationId: orgId, clientId, amount: 40, method: "CASH", status: "PENDING" },
+  });
+  const inactiveTemplate = await prisma.contractTemplate.create({
+    data: { organizationId: orgId, name: `Vieja ${suffix} ${MARK}`, contentHtml: "<p>vieja</p>", active: false },
+  });
+  return { s, payment, pendingPayment, receipt, plan, template, inactiveTemplate, contract };
 }
 
 async function run() {
@@ -125,6 +131,12 @@ async function run() {
     planes_pago: { a: a.plan.id, b: b.plan.id },
     contratos: { a: a.contract.id, b: b.contract.id },
   };
+  const expectedHref: Record<string, string> = {
+    pagos: "/crm/pagos",
+    recibos: "/crm/recibos",
+    planes_pago: `/crm/planes-pago/${a.plan.id}`,
+    contratos: `/crm/clientes/${a.s.client.id}`,
+  };
   const secrets = [SSN, ACCOUNT, CONTRACT_TEXT, TEMPLATE_TEXT, SIGNATURE, SIGNER_IP, `Agente ${MARK}`];
   const leaks = (text: string) => secrets.filter((secret) => text.includes(secret));
 
@@ -139,7 +151,8 @@ async function run() {
     check(`ver ${seccion} → devuelve el registro`, !(seen instanceof Error) && seenText.includes(id.a), seenText.slice(0, 300));
     check(`ver ${seccion} con id de otra organización → No encontrado`,
       (await errorText(() => callTool(octx, "ver", { seccion, id: id.b }, opts))) === "NotFoundError: No encontrado.");
-    check(`ver ${seccion} → incluye enlace al CRM`, seenText.includes("/crm/"), seenText.slice(0, 200));
+    const href = String((seen as { href?: unknown }).href ?? "");
+    check(`ver ${seccion} → enlace exacto a su página del CRM`, href.endsWith(expectedHref[seccion]), href);
     check(`ver ${seccion} → nada sensible`, leaks(seenText).length === 0, leaks(seenText));
     check(`listar ${seccion} → nada sensible`, leaks(listText).length === 0, leaks(listText));
     check(`VIEWER puede listar ${seccion}`, (await errorText(() => callTool(vctx, "listar", { seccion }, opts))) === "ok");
@@ -159,18 +172,37 @@ async function run() {
     !("contentSnapshot" in con) && !("signatureData" in con) && !("signerIp" in con) && !("userAgent" in con), Object.keys(con));
 
   const filtered = JSON.stringify(await callTool(octx, "listar", { seccion: "pagos", estado: "pending" }, opts));
-  check("listar pagos estado PENDING → sin el pago recibido", !filtered.includes(a.payment.id), filtered.slice(0, 200));
+  check("listar pagos estado PENDING → el pendiente sí, el recibido no", filtered.includes(a.pendingPayment.id) && !filtered.includes(a.payment.id), filtered.slice(0, 200));
+  const list = async (seccion: string, args: object) => JSON.stringify(await callTool(octx, "listar", { seccion, ...args }, opts));
+  const statusCases: Array<[string, string, string, string]> = [
+    ["recibos", "ISSUED", "VOID", a.receipt.id],
+    ["planes_pago", "ACTIVE", "CANCELLED", a.plan.id],
+    ["contratos", "SIGNED", "CANCELLED", a.contract.id],
+  ];
+  for (const [seccion, match, other, id] of statusCases) {
+    check(`listar ${seccion} estado ${match} → lo incluye`, (await list(seccion, { estado: match })).includes(id));
+    check(`listar ${seccion} estado ${other} → no lo incluye`, !(await list(seccion, { estado: other })).includes(id));
+  }
+  const ownCode = a.s.client.clientCode;
+  const otherCode = `NADA${MARK}`;
+  for (const [seccion, id] of [["pagos", a.payment.id], ["planes_pago", a.plan.id], ["contratos", a.contract.id]] as const) {
+    check(`listar ${seccion} por código del cliente → lo encuentra`, (await list(seccion, { texto: ownCode })).includes(id));
+    check(`listar ${seccion} por un texto que no coincide → no sale`, !(await list(seccion, { texto: otherCode })).includes(id));
+  }
   check("listar pagos con estado inválido → DomainError",
     (await errorText(() => callTool(octx, "listar", { seccion: "pagos", estado: "PAGADO" }, opts))).startsWith("DomainError"));
   const byFolio = JSON.stringify(await callTool(octx, "listar", { seccion: "recibos", texto: a.receipt.folio }, opts));
   check("listar recibos por folio → lo encuentra", byFolio.includes(a.receipt.id), byFolio.slice(0, 200));
 
   console.log("\n[mcp-read-tools-3] plantillas de contrato\n");
-  const tpl = JSON.stringify(await callTool(octx, "listar", { seccion: "plantillas_contrato" }, opts));
+  // Con el MARK como texto, las plantillas de ambas organizaciones coinciden: solo el filtro por organización deja fuera la ajena.
+  const tpl = JSON.stringify(await callTool(octx, "listar", { seccion: "plantillas_contrato", texto: MARK }, opts));
   check("listar plantillas_contrato → la propia, sin la ajena", tpl.includes(a.template.id) && !tpl.includes(b.template.id), tpl.slice(0, 300));
+  const active = JSON.stringify(await callTool(octx, "listar", { seccion: "plantillas_contrato", estado: "ACTIVE", texto: MARK }, opts));
+  check("listar plantillas_contrato ACTIVE → la activa sí, la inactiva no", active.includes(a.template.id) && !active.includes(a.inactiveTemplate.id), active);
   check("listar plantillas_contrato → sin texto legal", !tpl.includes(TEMPLATE_TEXT) && !tpl.includes("contentHtml"), tpl);
-  const inactive = JSON.stringify(await callTool(octx, "listar", { seccion: "plantillas_contrato", estado: "INACTIVE" }, opts));
-  check("listar plantillas_contrato INACTIVE → sin la activa", !inactive.includes(a.template.id), inactive);
+  const inactive = JSON.stringify(await callTool(octx, "listar", { seccion: "plantillas_contrato", estado: "INACTIVE", texto: MARK }, opts));
+  check("listar plantillas_contrato INACTIVE → la inactiva sí, la activa no", inactive.includes(a.inactiveTemplate.id) && !inactive.includes(a.template.id), inactive);
   check("ver plantillas_contrato → error claro, sin texto",
     (await errorText(() => callTool(octx, "ver", { seccion: "plantillas_contrato", id: a.template.id }, opts))).startsWith("DomainError: Las plantillas"));
 }

@@ -42,6 +42,16 @@ async function main() {
   const auditOf = (name: string, entityId: string) =>
     prisma.auditLog.findFirst({ where: { organizationId: a.org.id, action: `mcp.tool.${name}`, entityId } });
   const payments = () => prisma.payment.count({ where: { organizationId: a.org.id } });
+  const auditOk = async (name: string, entityId: string, entityType: string) => {
+    const row = await auditOf(name, entityId);
+    return !!row && row.entityType === entityType && meta(row.metadata).via === "claude";
+  };
+  /** El motivo queda en la auditoría del servicio (pago) o en la actividad del cliente (plan). */
+  const reasonLogged = async (reason: string) =>
+    [
+      ...(await prisma.auditLog.findMany({ where: { organizationId: a.org.id }, select: { metadata: true } })),
+      ...(await prisma.activityLog.findMany({ where: { organizationId: a.org.id }, select: { metadata: true } })),
+    ].some((r) => meta(r.metadata).reason === reason);
   const refreshesPayments = () => ["/crm/pagos", "/crm/recibos", "/crm/cotizaciones", "/crm/dashboard"].every((p) => calls.some((c) => c.path === p));
 
   try {
@@ -62,7 +72,7 @@ async function main() {
     console.log("registrar_pago");
     const n0 = await payments();
     check("VIEWER -> Sin permiso y no escribe",
-      (await errorText(() => call(a.viewer, "registrar_pago", { clientId: a.client.id, amount: 10, method: "CASH" }))).includes("Sin permiso") && (await payments()) === n0);
+      (await errorText(() => call(a.viewer, "registrar_pago", { clientId: a.client.id, amount: 10, method: "CASH", status: "PENDING" }))).includes("Sin permiso") && (await payments()) === n0);
     calls.length = 0;
     const pending = await call(a.staff, "registrar_pago", { clientId: a.client.id, amount: 80, method: "ZELLE", status: "PENDING", dueAt: "2026-12-15", notes: ` nota ${MARK} ` });
     const pRow = await prisma.payment.findUnique({ where: { id: String(pending.id) } });
@@ -73,25 +83,35 @@ async function main() {
     check("auditoría via claude y entidad Payment", !!au && au.entityType === "Payment" && meta(au.metadata).via === "claude", au);
     check("refresca pagos, recibos, cotizaciones y panel", refreshesPayments(), calls);
     const received = await call(a.staff, "registrar_pago", { clientId: a.client.id, amount: 120, method: "CASH", status: "RECEIVED", receivedAt: "2026-11-10" });
+    const recRow = await prisma.payment.findUnique({ where: { id: String(received.id) } });
+    check("receivedAt AAAA-MM-DD queda a mediodía en la zona de la organización",
+      !!recRow?.receivedAt && recRow.receivedAt.getUTCDate() === 10 && recRow.receivedAt.getUTCHours() >= 16 && recRow.receivedAt.getUTCHours() <= 19, recRow?.receivedAt);
     const receipt = await prisma.receipt.findUnique({ where: { paymentId: String(received.id) } });
     check("recibido: el CRM emite el recibo", !!receipt && receipt.status === "ISSUED" && received.receiptId === receipt.id && received.receiptFolio === receipt.folio, { received, receipt });
     const nz = await payments();
-    check("monto 0 -> error y no escribe", (await errorText(() => call(a.staff, "registrar_pago", { clientId: a.client.id, amount: 0, method: "CASH" }))) !== "ok" && (await payments()) === nz);
-    const dflt = await call(a.staff, "registrar_pago", { clientId: a.client.id, amount: 5, method: "CASH" });
-    check("sin estado: RECEIVED con recibo, igual que la app (y la descripción lo dice)",
-      dflt.status === "RECEIVED" && !!dflt.receiptId && /por defecto/i.test(byName("registrar_pago").description) && /PENDING/.test(byName("registrar_pago").description), dflt);
+    check("monto 0 -> error y no escribe", (await errorText(() => call(a.staff, "registrar_pago", { clientId: a.client.id, amount: 0, method: "CASH", status: "RECEIVED" }))) !== "ok" && (await payments()) === nz);
+    const ns = await payments();
+    check("sin estado -> ZodError y no escribe (Claude tiene que decidir si el dinero llegó)",
+      (await errorName(() => call(a.staff, "registrar_pago", { clientId: a.client.id, amount: 5, method: "CASH" }))) === "ZodError" && (await payments()) === ns);
+    check("la descripción pide no registrar recibidos por una nota o documento", /nunca registres un pago recibido/i.test(byName("registrar_pago").description));
     check("método inválido -> ZodError", (await errorName(() => call(a.staff, "registrar_pago", { clientId: a.client.id, amount: 5, method: "BITCOIN" }))) === "ZodError");
     const n1 = await payments();
     check("cliente de otra organización -> No encontrado y no escribe",
-      (await errorText(() => call(a.staff, "registrar_pago", { clientId: b.client.id, amount: 5, method: "CASH" }))) === "NotFoundError: No encontrado." && (await payments()) === n1);
+      (await errorText(() => call(a.staff, "registrar_pago", { clientId: b.client.id, amount: 5, method: "CASH", status: "PENDING" }))) === "NotFoundError: No encontrado." && (await payments()) === n1);
+    const bService = await prisma.serviceCase.create({ data: { organizationId: b.org.id, clientId: b.client.id, serviceId: b.service.id, caseNumber: `SB-${MARK}`.slice(0, 30), stageId: b.stage.id } as never });
+    const bCase = await prisma.creditCase.create({ data: { organizationId: b.org.id, clientId: b.client.id, serviceCaseId: bService.id, caseCode: `CB-${MARK}`.slice(0, 30), stageId: b.stage.id } });
+    check("caso de otra organización -> No encontrado y no escribe",
+      (await errorText(() => call(a.staff, "registrar_pago", { clientId: a.client.id, caseId: bCase.id, amount: 5, method: "CASH", status: "PENDING" }))) === "NotFoundError: No encontrado." && (await payments()) === n1);
 
     console.log("editar_pago_pendiente");
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "editar_pago_pendiente", { pagoId: String(pending.id), amount: 90 }))).includes("Sin permiso"));
     calls.length = 0;
-    await call(a.staff, "editar_pago_pendiente", { pagoId: String(pending.id), amount: 95, reference: "ZL-1", notes: null });
+    await call(a.staff, "editar_pago_pendiente", { pagoId: String(pending.id), amount: 95, reference: "ZL-1", notes: null, dueAt: "2026-12-20" });
     const edited = await prisma.payment.findUnique({ where: { id: String(pending.id) } });
     check("STAFF edita monto, referencia y borra notas", edited?.amount.toString() === "95" && edited.reference === "ZL-1" && edited.notes === null, edited);
-    check("auditoría", !!(await auditOf("editar_pago_pendiente", String(pending.id))));
+    check("el nuevo vencimiento queda a mediodía en la zona de la organización",
+      !!edited?.dueAt && edited.dueAt.getUTCDate() === 20 && edited.dueAt.getUTCHours() >= 16 && edited.dueAt.getUTCHours() <= 19, edited?.dueAt);
+    check("auditoría via claude y entidad Payment", await auditOk("editar_pago_pendiente", String(pending.id), "Payment"));
     check("refresca pagos", refreshesPayments(), calls);
     check("pago recibido no se edita -> DomainError y sin cambios",
       (await errorText(() => call(a.staff, "editar_pago_pendiente", { pagoId: String(received.id), amount: 1 }))).startsWith("DomainError") &&
@@ -104,10 +124,13 @@ async function main() {
     console.log("cancelar_pago (AC-7)");
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "cancelar_pago", { pagoId: String(pending.id) }))).includes("Sin permiso"));
     const n2 = await payments();
-    const cancelled = await call(a.staff, "cancelar_pago", { pagoId: String(pending.id), reason: "duplicado" });
+    calls.length = 0;
+    const cancelled = await call(a.staff, "cancelar_pago", { pagoId: String(pending.id), reason: `duplicado ${MARK}` });
+    check("refresca pagos, recibos, cotizaciones y panel", refreshesPayments(), calls);
+    check("el motivo queda en la auditoría del pago", await reasonLogged(`duplicado ${MARK}`));
     check("STAFF cancela: estado CANCELLED", cancelled.status === "CANCELLED", cancelled);
     check("el pago sigue existiendo (borrado lógico)", (await payments()) === n2 && (await prisma.payment.findUnique({ where: { id: String(pending.id) } }))?.status === "CANCELLED");
-    check("auditoría", !!(await auditOf("cancelar_pago", String(pending.id))));
+    check("auditoría via claude y entidad Payment", await auditOk("cancelar_pago", String(pending.id), "Payment"));
     check("pago recibido no se cancela -> DomainError", (await errorText(() => call(a.staff, "cancelar_pago", { pagoId: String(received.id) }))).startsWith("DomainError"));
     check("pago ajeno -> No encontrado y sin cambios",
       (await errorText(() => call(a.staff, "cancelar_pago", { pagoId: foreignPay.id }))) === "NotFoundError: No encontrado." &&
@@ -115,11 +138,14 @@ async function main() {
 
     console.log("marcar_pago_reembolsado (AC-7)");
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "marcar_pago_reembolsado", { pagoId: String(received.id) }))).includes("Sin permiso"));
+    calls.length = 0;
     const refunded = await call(a.staff, "marcar_pago_reembolsado", { pagoId: String(received.id), reason: "devuelto en efectivo" });
+    check("refresca pagos, recibos, cotizaciones y panel", refreshesPayments(), calls);
     const rPay = await prisma.payment.findUnique({ where: { id: String(received.id) } });
     const rRec = await prisma.receipt.findUnique({ where: { paymentId: String(received.id) } });
     check("STAFF lo marca: pago REFUNDED y recibo VOID, ambos siguen existiendo", refunded.status === "REFUNDED" && rPay?.status === "REFUNDED" && rRec?.status === "VOID", { rPay, rRec });
-    check("auditoría", !!(await auditOf("marcar_pago_reembolsado", String(received.id))));
+    check("el motivo queda en el recibo anulado", rRec?.voidReason === "devuelto en efectivo", rRec?.voidReason);
+    check("auditoría via claude y entidad Payment", await auditOk("marcar_pago_reembolsado", String(received.id), "Payment"));
     check("pago no recibido -> DomainError", (await errorText(() => call(a.staff, "marcar_pago_reembolsado", { pagoId: String(pending.id) }))).startsWith("DomainError"));
 
     console.log("anular_recibo (solo OWNER/ADMIN, AC-7)");
@@ -162,11 +188,15 @@ async function main() {
 
     console.log("cancelar_plan_pago (AC-7)");
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "cancelar_plan_pago", { planId: String(plan.id) }))).includes("Sin permiso"));
-    const cp = await call(a.staff, "cancelar_plan_pago", { planId: String(plan.id), reason: "cliente cambió de plan" });
+    calls.length = 0;
+    const cp = await call(a.staff, "cancelar_plan_pago", { planId: String(plan.id), reason: `cambió de plan ${MARK}` });
+    check("refresca planes, el plan, pagos y el cliente",
+      ["/crm/planes-pago", `/crm/planes-pago/${plan.id}`, "/crm/pagos", `/crm/clientes/${a.client.id}`].every((p) => calls.some((c) => c.path === p)), calls);
+    check("el motivo queda en la actividad", await reasonLogged(`cambió de plan ${MARK}`));
     const cpRow = await prisma.paymentPlan.findUnique({ where: { id: String(plan.id) }, include: { installments: true } });
     check("STAFF cancela: plan CANCELLED, cuotas CANCELLED, todo sigue existiendo",
       cp.status === "CANCELLED" && cpRow?.status === "CANCELLED" && cpRow.installments.length === 3 && cpRow.installments.every((i) => i.status === "CANCELLED"), cpRow);
-    check("auditoría", !!(await auditOf("cancelar_plan_pago", String(plan.id))));
+    check("auditoría via claude y entidad PaymentPlan", await auditOk("cancelar_plan_pago", String(plan.id), "PaymentPlan"));
     check("plan ya cancelado -> DomainError", (await errorText(() => call(a.staff, "cancelar_plan_pago", { planId: String(plan.id) }))).startsWith("DomainError"));
     const bPlan = await prisma.paymentPlan.create({ data: { organizationId: b.org.id, clientId: b.client.id, totalAmount: 200, installmentAmount: 100, frequency: "MONTHLY", numberOfInstallments: 2, startDate: new Date() } });
     check("plan ajeno -> No encontrado y sin cambios",

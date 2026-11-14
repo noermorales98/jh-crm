@@ -63,7 +63,7 @@ const LIVE_TAGS =
 
 const URL_ATTRS = /^(?:href|src|xlink:href|action|formaction|background|poster|data|cite|ping|longdesc|usemap|lowsrc|dynsrc)$/;
 const BAD_SCHEME = /^(?:javascript|vbscript|livescript|mocha):/;
-const BAD_STYLE = /&(?!quot;|#39;|#x27;|amp;)|position\s*:\s*(?:fixed|sticky)|\\|expression|url|image-set|image\s*\(|cross-fade|element\s*\(|src\s*\(|@import|behavior|binding|javascript:/i;
+const BAD_STYLE = /attr\s*\(|&(?!quot;|#39;|#x27;|amp;)|position\s*:\s*(?:fixed|sticky)|\\|expression|url|image-set|image\s*\(|cross-fade|element\s*\(|src\s*\(|@import|behavior|binding|javascript:/i;
 
 /**
  * Etiquetas de apertura tal como las corta el navegador: una comilla solo abre un valor
@@ -140,6 +140,7 @@ function looksExecutable(html: string) {
         if (value.startsWith("data:") && !(name === "src" && /^data:image\/(?:png|jpeg|gif|webp);base64,/.test(value))) return true;
       }
       if (name === "style" && BAD_STYLE.test(value)) return true;
+      if ((name === "background" || name === "poster") && value) return true;
     }
     return false;
   });
@@ -224,6 +225,8 @@ function filterChecks() {
     "position:sticky": '<div style="position: sticky; top: 0">x</div>',
     "data:image con cola tras el base64": '<img src="data:image/png;base64,AAAA?x=1">',
     "data:image/svg con espacio delante": '<img src=" data:image/svg+xml;base64,PHN2Zz4=">',
+    "estilo con attr()": '<p title="https://x.test/a.png" style="background:attr(title url)">x</p>',
+    "background remoto en celda": '<table><tr><td background="https://x.test/a.png">x</td></tr></table>',
     "estilo con escape CSS": '<p style="background:\\75rl(https://x.test/p.png)">x</p>',
     "estilo con image-set()": "<p style=\"background:image-set('https://x.test/p.png' 1x)\">x</p>",
     "estilo con comentario partiendo url": '<p style="background:u/**/rl(https://x.test/p.png)">x</p>',
@@ -303,13 +306,6 @@ function filterChecks() {
     threw = true;
   }
   check("la profundidad máxima permitida no lanza una excepción", !threw);
-  const t1 = performance.now();
-  const nested = sanitizeContractHtml("<div>".repeat(700) + "x" + "</div>".repeat(700));
-  check(
-    "un contrato dentro del tope (700 niveles) se filtra con normalidad y en menos de 2 s",
-    performance.now() - t1 < 2000 && nested.startsWith("<div><div>"),
-    nested.slice(0, 40),
-  );
   check(
     "un contrato largo y plano (1 000 párrafos) se conserva entero",
     sanitizeContractHtml("<p>a</p>".repeat(1000)) === "<p>a</p>".repeat(1000),
@@ -325,7 +321,7 @@ function filterChecks() {
     ["conserva el HTML de alrededor", '<p>a</p><img src="x" onerror="alert(1)"><p>b &amp; c</p>', '<p>a</p><img src="x"><p>b &amp; c</p>'],
     ["quita svg sin tocar lo demás", "<h2>T</h2><svg/onload=alert(1)><p>ok</p></svg>", "<h2>T</h2><p>ok</p>"],
     ["neutraliza el enlace y deja su texto", '<p><a href="javascript:alert(1)">ver</a></p>', "<p><a>ver</a></p>"],
-    ["comilla sin cerrar: el navegador descarta la etiqueta", '<p>x</p><img alt="y src=x onerror=alert(1)>', "<p>x</p>"],
+    ["comilla sin cerrar: no se puede leer con seguridad, todo queda como texto", '<p>x</p><img alt="y src=x onerror=alert(1)>', '&lt;p&gt;x&lt;/p&gt;&lt;img alt=&quot;y src=x onerror=alert(1)&gt;'],
     ["etiqueta sin `>`: el navegador la descarta", "<p>x</p><img src=x", "<p>x</p>"],
     ["quita el bloque script con su contenido", "<p>a</p><script>alert(1)</script><p>b</p>", "<p>a</p><p>b</p>"],
     ["quita el bloque style con su contenido", "<p>a</p><style>p{color:red}</style><p>b</p>", "<p>a</p><p>b</p>"],
@@ -419,6 +415,68 @@ function filterChecks() {
     "cada token recibe su propio valor escapado",
     distinct === "<p>Ana &lt;A&gt;|Ana &lt;B&gt; Perez</p>",
     distinct,
+  );
+
+  // Contenido legítimo: cada etiqueta y atributo de la lista cerrada sale tal cual. Si alguien
+  // quita `td`, `colspan`, `u`... de la lista, un contrato firmado perdería su formato.
+  const legit =
+    '<h1>t1</h1><h2>t2</h2><h3>t3</h3><h4>t4</h4><h5>t5</h5><h6>t6</h6>' +
+    '<p class="x" title="tt" style="text-align: center">a <strong>b</strong> <b>b</b> <em>c</em> <i>i</i> <u>u</u> <s>s</s> <strike>k</strike> <sub>2</sub> <sup>3</sup> <small>sm</small> <mark>mk</mark><br>fin</p>' +
+    '<hr><blockquote><p>q</p></blockquote><pre><code>c = 1</code></pre>' +
+    '<div data-jh-section="fees" align="center"><span class="jh-template-var" data-template-var="clientName">n</span></div>' +
+    '<div data-jh-agency-signature="1" style="margin-top:2.5rem"><p>Fecha</p></div>' +
+    '<ul><li>a</li><li>b</li></ul><ol start="3" reversed="" type="a"><li>c</li></ol>' +
+    '<a href="https://a.test/x?y=1" title="l" target="_blank" rel="noopener noreferrer">l</a>' +
+    '<img src="https://a.test/i.png" alt="i" width="10" height="20" class="im" style="max-width:50%">' +
+    '<table><colgroup><col colwidth="100" width="50%"></colgroup><caption>cap</caption><thead><tr><th colspan="2" align="left">h</th></tr></thead>' +
+    '<tbody><tr><td rowspan="2" colwidth="100" style="width: 25%">x</td><td>y</td></tr><tr><td>z</td></tr></tbody><tfoot><tr><td colspan="2">f</td></tr></tfoot></table>';
+  check("el contenido legítimo sale idéntico (todas las etiquetas y atributos permitidos)", sanitizeContractHtml(legit) === legit, sanitizeContractHtml(legit));
+
+  // Topes: la profundidad manda; el total de aperturas solo acota el peor caso.
+  const okDeep = sanitizeContractHtml("<div>".repeat(200) + "x" + "</div>".repeat(200));
+  check("200 niveles de profundidad se filtran con normalidad", okDeep.startsWith("<div><div>") && okDeep.includes("x"), okDeep.slice(0, 30));
+  const tooDeep = sanitizeContractHtml("<div>".repeat(201) + "x" + "</div>".repeat(201));
+  check("201 niveles se entregan como texto", tooDeep.startsWith("&lt;div&gt;"), tooDeep.slice(0, 30));
+  const table = "<table><tbody>" + "<tr><td><p>a</p></td><td><p>b</p></td></tr>".repeat(300) + "</tbody></table>";
+  check("una tabla larga (1 500 aperturas) se conserva", sanitizeContractHtml(table) === table);
+  check("8 000 aperturas planas se conservan", sanitizeContractHtml("<p>a</p>".repeat(8000)) === "<p>a</p>".repeat(8000));
+  check("8 001 aperturas se entregan como texto", sanitizeContractHtml("<p>a</p>".repeat(8001)).startsWith("&lt;p&gt;"));
+  for (const [label, html] of Object.entries({
+    "`<DIV>` en mayúsculas ×20 000": "<DIV>".repeat(20000),
+    "cierre falso dentro de un atributo ×3 000": '<div title="</div>">'.repeat(3000),
+    "cierre falso dentro de un comentario ×3 000": "<div><!--</div>-->".repeat(3000),
+    "cierre falso dentro de un textarea ×3 000": "<div><textarea></div></textarea>".repeat(3000),
+    "`=` al empezar un atributo ×3 000": '<div =" </div>">'.repeat(3000),
+    "valor con comilla simple ×3 000": "<div a='</div>'>".repeat(3000),
+    "cierres que no corresponden ×3 000": "<div></span>".repeat(3000),
+    "comentario con `>` dentro ×3 000": "<div><!-- > </div> -->".repeat(3000),
+    "`=` al empezar un atributo y comilla abierta ×3 000": '<div =" >'.repeat(3000),
+    "`/=` tras un atributo ×3 000": '<div a/=" >'.repeat(3000),
+    "`=` al empezar un atributo, 300 niveles (justo sobre el tope)": '<div =" >'.repeat(300),
+    "`/=` tras un atributo, 300 niveles": '<div a/=" >'.repeat(300),
+    "texto crudo en mayúsculas ×300": "<DIV><SCRIPT></DIV></SCRIPT>".repeat(300),
+    "textarea en mayúsculas ×300": "<div><TEXTAREA></div></TEXTAREA>".repeat(300),
+    "cierre en mayúsculas de un div en minúsculas ×300": "<div>x</DIV><div><DIV>".repeat(300),
+    "`<div/>` (HTML ignora la barra) ×3 000": "<div/>".repeat(3000),
+    "`<span/>` ×3 000": "<span/>".repeat(3000),
+  })) {
+    const t0 = performance.now();
+    const out = sanitizeContractHtml(html);
+    const ms = performance.now() - t0;
+    check(`el medidor de profundidad no se deja engañar: ${label}`, ms < 1000 && out.startsWith("&lt;"), `${ms.toFixed(0)} ms`);
+  }
+  const voids = "<br>".repeat(500) + '<img src="https://a.test/x.png">'.repeat(500) + "<hr>".repeat(500);
+  check("los elementos vacíos no cuentan como profundidad", sanitizeContractHtml(voids).startsWith("<br>"), sanitizeContractHtml(voids).slice(0, 30));
+  const t60 = performance.now();
+  presentContractHtml('<span data-template-var="clientName">'.repeat(60000));
+  check("60 000 chips sin cerrar se procesan en menos de 500 ms", performance.now() - t60 < 500, `${(performance.now() - t60).toFixed(0)} ms`);
+  const chipPos = presentContractHtml('<p>{{clientName}}</p><span data-template-var="otra">{{clientFullName}}</span>');
+  check(
+    "el icono va justo tras la apertura de cada chip",
+    /<span class="jh-template-var" data-template-var="clientName"><svg [^>]*>[\s\S]*?<\/svg><span>Nombre del usuario<\/span><\/span><\/p>/.test(chipPos) &&
+      (chipPos.match(/<svg /g) ?? []).length === 1 &&
+      !/jhtplicon/.test(chipPos),
+    chipPos,
   );
 
   const reflow = '<img alt=<span data-template-var="k"> src=x onerror=alert(1)>X</span>';

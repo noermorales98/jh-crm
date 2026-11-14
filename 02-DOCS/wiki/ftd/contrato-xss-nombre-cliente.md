@@ -103,6 +103,18 @@ conector solo añade otra vía.
   descarta por estructura al estar su etiqueta contenedora prohibida, `/*` sin efecto sin `\`,
   tope de caracteres cubierto por el de aperturas, `catch` inalcanzable dentro de los topes, y
   comprobaciones redundantes del chip).
+- Panel sobre `5920e62`. Seguridad: sin hallazgos (70 payloads de mXSS en Chrome, 15 000 fuzz, marcador
+  del chip no falsificable, lockfile solo con el árbol de jsdom). Corrección: el tope de 1 500
+  aperturas convertía en texto una tabla legítima larga; ahora manda la profundidad
+  (`estimateMaxDepth`, 200 niveles, lectura como el navegador: comillas tras `=`, comentarios, texto
+  crudo, cierres solo si coinciden; `<div/>` se cuenta como apertura porque HTML ignora la barra) y
+  el total de aperturas sube a 8 000. Pruebas: el smoke no notaba perder etiquetas o atributos
+  legítimos, mayúsculas en el tope ni el bucle lento de chips; ahora hay un documento con todas las
+  etiquetas y atributos permitidos que sale idéntico, los límites 200/201 y 8 000/8 001, siete trucos
+  contra el medidor y 60 000 chips. 74 + 4 mutantes más muertos (quitar cada etiqueta y atributo de
+  las listas, y el medidor); equivalentes: `tbody` (el navegador lo reinserta), `rel` sin `target`,
+  `'` en el medidor (solo sobrestima). Añadido `engines.node` (`^22.22.2 || ^24.15.0 || >=26`) por
+  los requisitos de jsdom 30 y `attr(` a los estilos bloqueados.
 
 ## Siguiente paso
 

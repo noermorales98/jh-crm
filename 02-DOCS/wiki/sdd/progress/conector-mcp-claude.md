@@ -176,3 +176,56 @@ branch: feat/conector-mcp-claude
 - Servidor dev en 3999 y MySQL desechable en 3399 pueden seguir encendidos; `.claude/launch.json` sin commit (solo local).
 - **blocking** · T012 · tier 2 · Endpoint MCP y dependencia nueva `@modelcontextprotocol/sdk@1.32.2`: necesitan tu sí en el PR (regla 13).
 - **review-after** · T015 · Riesgo aceptado: `buscar` permite números de 10–12 dígitos (teléfonos con prefijo); una cuenta de 11–12 dígitos podría confirmarse por coincidencia, aunque nunca se muestra.
+
+## Envío (2026-11-13)
+
+- PR #42 unido a main (bd4267d) con orden explícita de la dueña. CI requerida en verde
+  (lint + typecheck + build:qa, db smokes). Despliegue de producción en Vercel: success.
+- Producción (`www.jh-multiservices.com`) responde 404 en `/api/mcp` y en el descubrimiento OAuth:
+  el interruptor `FEATURE_MCP_CONNECTOR` sigue apagado, como se diseñó.
+- Pendiente para encenderlo:
+  1. En Vercel (producción): `FEATURE_MCP_CONNECTOR=true` y `NEXT_PUBLIC_APP_URL=https://www.jh-multiservices.com`
+     (con `www`: el dominio sin `www` redirige y el `issuer` de OAuth debe coincidir). Redeploy.
+  2. Confirmar que la migración `20261109120000_mcp_connector` se aplicó (el build de producción la corre).
+  3. Admin: Configuración → Claude → activar para la organización.
+  4. T029: conectar desde claude.ai una vez (login con MFA, permitir, `listar`, una escritura).
+  5. Programar `/api/cron/retention` (no hay cron configurado en el repo): sin él, la limpieza no corre.
+
+## Arreglo tras la prueba real (2026-11-13)
+
+- Bug visto en claude.ai: los enlaces "ver caso", "ver cliente" abrían `https://claude.ai/crm/...`.
+  Los `href` salían como rutas relativas y Claude las completa con su dominio.
+- Arreglo: `redactForClaude` (`src/server/mcp/redact.ts`) antepone `NEXT_PUBLIC_APP_URL` a todo
+  campo `href` / `*Href` que empiece por `/`. Enlaces ya completos y `//…` no se tocan.
+- Controles: tests ✅ (`mcp-tool-registry` con y sin URL, 3 casos nuevos; mutante sin el arreglo
+  → falla 1; `smoke:mcp-db` 13 smokes exit 0) · build: `tsc` 0 errores, eslint ok; `next build`
+  **no ejecutado** en local, lo corre la CI · seguridad: solo cambia campos de enlace, la base sale
+  de una variable de entorno, sin entrada del usuario · trazabilidad: enlaces al CRM del spec.
+- T029 (prueba real en claude.ai): hecha por la dueña. Conexión, login y lectura funcionan.
+
+## Tanda 2 (2026-11-13)
+
+Branch `feat/conector-mcp-tanda-2`. Six developer agents in parallel (one per section, disjoint files),
+then integration (registry, `smoke:mcp-db` grows to 19 smokes).
+
+- T2-01 read sections rondas, cartas, reportes_credito, consultas → `mcp-read-tools-2` green.
+- T2-02..T2-06 write tools (22) → one smoke each, green with and without `NEXT_PUBLIC_APP_URL`.
+- T2-07 registry, package scripts, `mcp-tool-registry` → green.
+- T2-08 closing panel on efed0fb..e778826 — correctness, security, tests: nothing blocking.
+  Should-fix applied in 2888092:
+  - letter body (client address) no longer returned;
+  - `editar_reporte_credito` drops `snapshots` (hard-delete path);
+  - `solicitar_consulta` destructive + open-world (emails and WhatsApp through an external service);
+  - no PAID / PAYMENT_PENDING from Claude;
+  - consultations map foreign ids to NotFound;
+  - dispute bulk tools pre-validate every id;
+  - truncation and hidden flags;
+  - tests for 10-digit accounts, sibling records, filters, exact dates.
+- Delta panel on 2888092 — correctness clean; security 1 should-fix (personal-info dispute values in
+  `ver rondas`); tests 4 should-fix (all-or-nothing gaps). Fixed in 4bce30d. Each of the 5 new
+  assertions was proven with a mutant that removes the protection (4, 1, 3, 2, 1 failures).
+- Evidence on 4bce30d: `smoke:mcp-db` 19/19, 0 failed checks, with and without app URL;
+  registry, auth-paths, login-redirect, mcp-oauth-core green; tsc 0 errors; eslint 0 errors.
+- Review after: the bulk dispute tools still write item by item, so a concurrent writer could leave
+  a partial batch (validation closes the ordinary cases); `disputeItemsHidden: true` cannot be reached
+  today because every role has `disputes.view`.

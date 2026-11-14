@@ -38,20 +38,42 @@ function portalHtml(snapshot: string) {
   return presentContractHtml(sanitizeContractHtml(snapshot));
 }
 
-/** Rasgos de un vector vivo: etiqueta activa, manejador de evento o esquema peligroso. */
+/** Decodifica las entidades que un navegador resuelve dentro de un atributo. */
+function decodeEntities(text: string) {
+  return text
+    .replace(/&#x0*([0-9a-f]+);?/gi, (_m, h: string) => String.fromCharCode(parseInt(h, 16)))
+    .replace(/&#0*([0-9]+);?/g, (_m, d: string) => String.fromCharCode(Number(d)))
+    .replace(/&tab;/gi, "\t")
+    .replace(/&newline;/gi, "\n")
+    .replace(/&colon;/gi, ":");
+}
+
+const LIVE_TAGS =
+  /^<(?:script|style|svg|iframe|frame|frameset|object|embed|applet|math|template|form|button|input|textarea|select|link|meta|base|portal|noscript)\b/i;
+
+/**
+ * Oráculo independiente del filtro: ¿queda algo que el navegador ejecutaría o cargaría?
+ * Mira cada etiqueta de dos formas (hasta el primer `>` y respetando comillas) para
+ * que un `>` dentro de un atributo no le esconda lo que sigue.
+ */
 function looksExecutable(html: string) {
   // El icono del chip de variables (lo añade `presentContractHtml` tras filtrar) es nuestro.
   const own = html.replace(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="14"[\s\S]*?<\/svg>/g, "");
-  // Escaneo propio, más amplio que el del filtro: cualquier `<letra` hasta el siguiente `>`.
-  const tags = own.match(/<[a-z][^>]*>?/gi) ?? [];
-  return tags.some(
-    (tag) =>
-      /^<(?:script|svg|iframe|object|embed|math|template|frame|applet|form|button)\b/i.test(tag) ||
-      /[\s/"'`]on[a-z]+\s*=/i.test(tag) ||
-      /(?:href|src|action|formaction)\s*=\s*["'`]?\s*(?:javascript|vbscript|data:text)/i.test(tag) ||
-      /srcdoc\s*=/i.test(tag) ||
-      /expression\s*\(/i.test(tag),
-  );
+  const tags = [
+    ...(own.match(/<[a-z][^>]*>?/gi) ?? []),
+    ...(own.match(/<[a-z](?:"[^"]*"|'[^']*'|`[^`]*`|[^>])*>?/gi) ?? []),
+  ];
+  return tags.some((raw) => {
+    const decoded = decodeEntities(raw).replace(/[\u0000-\u0020\u007f-\u009f]/g, "");
+    return (
+      LIVE_TAGS.test(raw) ||
+      /[\s/"'`]on[a-z]+\s*=/i.test(raw) ||
+      /(?:javascript|vbscript|livescript):/i.test(decoded) ||
+      /(?:href|src|action|formaction|background|poster|data)\s*=\s*["'`]?data:(?!image\/(?:png|jpeg|gif|webp);base64,)/i.test(decoded) ||
+      /\b(?:srcdoc|srcset)\s*=/i.test(raw) ||
+      /expression\s*\(|url\s*\(|@import|behavior\s*:/i.test(decoded)
+    );
+  });
 }
 
 const HOSTILE_NAMES = [
@@ -66,19 +88,38 @@ function filterChecks() {
   console.log("\n[contract-xss] filtro de HTML (sin DB)\n");
 
   const vectors: Record<string, string> = {
-    "manejador sin espacio previo (`/onload=`)": "<svg/onload=alert(1)>",
+    "manejador tras `/` en etiqueta permitida (`<img/src=x/onerror=`)": "<img/src=x/onerror=alert(1)>",
+    "manejador sin espacio previo en svg (`/onload=`)": "<svg/onload=alert(1)>",
     "manejador tras comilla de cierre": '<img src="x"onerror="alert(1)">',
+    "manejador tras acento grave": "<img src=`x`onerror=alert(1)>",
     "manejador con mayúsculas y tabulador": "<img src=x\tOnErRoR=alert(1)>",
-    "manejador partido que se recompone": "<img src=x oonerrornerror=alert(1)>",
+    "manejador tras `>` entre comillas": '<a title="a>b" onclick=alert(1)>x</a>',
+    "manejador que se recompone al quitar otro": '<img src=x o onerror=""nerror=alert(1)>',
+    "etiqueta que se recompone al quitar otra": "<ifr<iframe>ame src=x>",
     "script partido que se recompone": "<scr<script>x</script>ipt>alert(1)</script>",
     "javascript: sin comillas": "<a href=javascript:alert(1)>x</a>",
-    "javascript: con entidades y espacios": '<a href=" jav&#x09;ascript&colon;alert(1)">x</a>',
+    "javascript: con &Tab;": '<a href="java&Tab;script:alert(1)">x</a>',
+    "javascript: con entidad hex y &colon;": '<a href=" jav&#x09;ascript&colon;alert(1)">x</a>',
     "javascript: con entidad decimal": '<a href="&#106;avascript:alert(1)">x</a>',
+    "javascript: con caracteres de control": '<a href="\u0001javascript:alert(1)">x</a>',
+    "vbscript:": '<a href="vbscript:msgbox(1)">x</a>',
+    "javascript: en xlink:href": '<a xlink:href="javascript:alert(1)">x</a>',
     "data:text/html en enlace": '<a href="data:text/html;base64,PHNjcmlwdD4=">x</a>',
+    "data:image/svg+xml en src": '<img src="data:image/svg+xml;base64,PHN2Zz4=">',
     "iframe con srcdoc": '<iframe srcdoc="<script>alert(1)</script>"></iframe>',
     "srcdoc en otra etiqueta": '<div srcdoc="x">y</div>',
+    "srcset": '<img srcset="https://x.test/a.png 1x">',
     "math/mtext": "<math><mtext><img src=x onerror=alert(1)></mtext></math>",
+    "template": "<template><img src=x onerror=alert(1)></template>",
+    "object": '<object data="https://x.test/a.swf"></object>',
+    "embed": '<embed src="https://x.test/a.swf">',
+    "link": '<link rel="stylesheet" href="https://x.test/a.css">',
+    "meta refresh": '<meta http-equiv="refresh" content="0;url=https://x.test">',
+    "base": '<base href="https://x.test/">',
     "estilo con expression()": '<p style="width:expression(alert(1))">x</p>',
+    "estilo con url()": '<p style="background:URL(https://x.test/a.png)">x</p>',
+    "estilo con @import": "<p style=\"@import 'https://x.test/a.css'\">x</p>",
+    "estilo con javascript:": '<p style="background:javascript:alert(1)">x</p>',
     "form con formaction": '<button formaction="javascript:alert(1)">x</button>',
   };
   for (const [label, html] of Object.entries(vectors)) {
@@ -104,8 +145,31 @@ function filterChecks() {
   );
   check(
     "no toca texto que solo menciona «on»",
-    sanitizeContractHtml("<p>persona on=line</p>") === "<p>persona on=line</p>" ||
-      !looksExecutable(sanitizeContractHtml("<p>persona on=line</p>")),
+    sanitizeContractHtml("<p>persona on=line</p>") === "<p>persona on=line</p>",
+  );
+  check(
+    "no toca un nombre ya escapado en el texto",
+    sanitizeContractHtml("<p>&lt;svg/onload=alert(1)&gt;</p>") === "<p>&lt;svg/onload=alert(1)&gt;</p>",
+  );
+
+  // Rendimiento: entradas hostiles grandes no bloquean el servidor ni la pestaña (ReDoS).
+  const heavy: Record<string, string> = {
+    "comillas sin cerrar ni `>`": '<a ' + '"x '.repeat(20000),
+    "valores con comilla sin cerrar": '<a ' + 'b="x '.repeat(20000),
+    "muchos `<script` sin cierre": "<script".repeat(20000),
+    "muchos comentarios sin cierre": "<!--".repeat(20000),
+    "muchos `on` sin `=`": "<a " + " on".repeat(20000) + ">",
+  };
+  for (const [label, html] of Object.entries(heavy)) {
+    const t0 = performance.now();
+    const out = presentContractHtml(sanitizeContractHtml(html));
+    const ms = performance.now() - t0;
+    check(`responde rápido con ${label} (${html.length} car.)`, ms < 500 && !looksExecutable(out), `${ms.toFixed(0)} ms`);
+  }
+  check(
+    "un valor con comilla sin cerrar no deja un manejador vivo",
+    !looksExecutable(sanitizeContractHtml('<p>x</p><img alt="y src=x onerror=alert(1)>')),
+    sanitizeContractHtml('<p>x</p><img alt="y src=x onerror=alert(1)>'),
   );
 
   const reflow = '<img alt=<span data-template-var="k"> src=x onerror=alert(1)>X</span>';
@@ -127,17 +191,33 @@ function filterChecks() {
     chip.includes('<svg xmlns="http://www.w3.org/2000/svg" width="14"') && chip.includes("Nombre del usuario"),
     chip,
   );
+  // Defensa adicional: `presentContractHtml` solo trata como chip las variables propias.
   check(
     "una clave heredada del prototipo no cuenta como variable",
     presentContractHtml('<span data-template-var="toString">x</span>') === "x",
   );
 
-  for (const name of HOSTILE_NAMES) {
-    const filled = fillTemplateVariables("<p>Cliente: <strong>{{clientName}}</strong></p>", {
-      clientName: name,
-      clientFullName: name,
-    });
-    check(`la sustitución escapa ${JSON.stringify(name)}`, filled.includes(escapeHtml(name)) && !filled.includes(name), filled);
+  // Valor esperado escrito a mano (no con `escapeHtml`), para que la prueba no sea circular.
+  check(
+    "escapeHtml cubre & < > \" '",
+    escapeHtml(`a&b<c>d"e'f`) === "a&amp;b&lt;c&gt;d&quot;e&#39;f",
+    escapeHtml(`a&b<c>d"e'f`),
+  );
+  const fillCases: Array<[string, string]> = [
+    ["<svg/onload=alert(1)>", "&lt;svg/onload=alert(1)&gt;"],
+    ['"><script>alert(1)</script>', "&quot;&gt;&lt;script&gt;alert(1)&lt;/script&gt;"],
+    ["O'Brien & Hijos", "O&#39;Brien &amp; Hijos"],
+  ];
+  for (const [name, expected] of fillCases) {
+    const filled = fillTemplateVariables(
+      '<p title="{{clientFullName}}">Cliente: <strong>{{clientName}}</strong></p>',
+      { clientName: name, clientFullName: name },
+    );
+    check(
+      `la sustitución escapa ${JSON.stringify(name)} en texto y atributo`,
+      filled === `<p title="${expected}">Cliente: <strong>${expected}</strong></p>`,
+      filled,
+    );
   }
 }
 

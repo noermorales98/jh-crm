@@ -63,11 +63,56 @@ function isDangerousUrl(attr: string, value: string): boolean {
 }
 
 /**
- * Una etiqueta de apertura completa. Respeta valores entre comillas (`alt="a>b"`)
- * y, si una comilla queda sin cerrar, la trata como un carácter más: así la
- * coincidencia nunca termina antes que la etiqueta que ve el navegador.
+ * Recorre el HTML y pasa cada etiqueta de apertura completa a `fn`, en tiempo lineal.
+ * Sigue la regla del navegador: una comilla solo abre un valor justo después de `=`
+ * (`alt="a>b"` es una sola etiqueta; en `<a "x>` la comilla es un carácter más).
+ * Un valor entre comillas sin cerrar hace que el navegador descarte la etiqueta y todo
+ * lo que sigue; aquí ese resto se entrega escapado, como texto inerte.
+ * (Sustituye a un regex con alternancia ambigua que retrocedía de forma exponencial.)
  */
-const OPEN_TAG = /<[a-z][^\s/>]*(?:"[^"]*"|'[^']*'|`[^`]*`|[^>])*>/gi;
+function rewriteOpenTags(html: string, fn: (tag: string) => string): string {
+  let out = "";
+  let last = 0;
+  let i = html.indexOf("<");
+  while (i !== -1 && i < html.length - 1) {
+    if (!/[a-z]/i.test(html[i + 1]!)) {
+      i = html.indexOf("<", i + 1);
+      continue;
+    }
+    let j = i + 1;
+    let end = -1;
+    while (j < html.length) {
+      const c = html[j]!;
+      if (c === ">") {
+        end = j;
+        break;
+      }
+      if (c === "=") {
+        j += 1;
+        while (j < html.length && /[\t\n\f\r ]/.test(html[j]!)) j += 1;
+        const q = html[j];
+        if (q === '"' || q === "'") {
+          const close = html.indexOf(q, j + 1);
+          if (close === -1) {
+            // Comilla sin cerrar: el navegador no pinta nada desde aquí.
+            return out + html.slice(last, i) + escapeHtml(html.slice(i));
+          }
+          j = close + 1;
+        }
+        continue;
+      }
+      j += 1;
+    }
+    if (end === -1) {
+      // Etiqueta sin `>` hasta el final: tampoco se pinta; se entrega como texto.
+      return out + html.slice(last, i) + escapeHtml(html.slice(i));
+    }
+    out += html.slice(last, i) + fn(html.slice(i, end + 1));
+    last = end + 1;
+    i = html.indexOf("<", last);
+  }
+  return out + html.slice(last);
+}
 
 /** Reglas de atributos: solo dentro de etiquetas, para no tocar el texto escapado. */
 function sanitizeTag(tag: string): string {
@@ -84,14 +129,36 @@ function sanitizeTag(tag: string): string {
     );
 }
 
+/**
+ * Quita bloques `open … close` (con su contenido) en tiempo lineal. Sin cierre, quita
+ * hasta el final: el navegador tampoco pinta lo que sigue a un `<script>`/`<!--` abierto.
+ */
+function stripBlocks(html: string, open: string, close: string): string {
+  const lower = html.toLowerCase();
+  let out = "";
+  let last = 0;
+  let i = lower.indexOf(open);
+  while (i !== -1) {
+    const c = lower.indexOf(close, i + open.length);
+    if (c === -1) return out + html.slice(last, i);
+    const end = close.endsWith(">") ? c + close.length : lower.indexOf(">", c + close.length);
+    if (end === -1) return out + html.slice(last, i);
+    out += html.slice(last, i);
+    last = close.endsWith(">") ? end : end + 1;
+    i = lower.indexOf(open, last);
+  }
+  return out + html.slice(last);
+}
+
 function sanitizeOnce(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script\s*>/gi, "")
-    .replace(/<style[\s\S]*?<\/style\s*>/gi, "")
-    .replace(/<!--[\s\S]*?-->/g, "")
+  const stripped = stripBlocks(
+    stripBlocks(stripBlocks(html, "<!--", "-->"), "<script", "</script"),
+    "<style",
+    "</style",
+  )
     .replace(DANGEROUS_TAGS, "")
-    .replace(/<\/?(?:script|style)\b[^>]*>/gi, "")
-    .replace(OPEN_TAG, sanitizeTag);
+    .replace(/<\/?(?:script|style)\b[^>]*>/gi, "");
+  return rewriteOpenTags(stripped, sanitizeTag);
 }
 
 /**

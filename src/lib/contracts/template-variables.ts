@@ -68,16 +68,28 @@ function stripTags(html: string) {
 export function presentContractHtml(html: string): string {
   const marker = `jhtplicon${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
   const wrapped = wrapTemplateVariablesInHtml(html.split(marker).join(""));
-  const presented = wrapped.replace(
-    /<span([^>]*\bdata-template-var="([^"]+)"[^>]*)>([\s\S]*?)<\/span>/g,
-    (_full, _attrs: string, key: string, inner: string) => {
-      const text = stripTags(inner);
-      const meta = getTemplateVariable(key);
-      if (meta && text === meta.token) {
-        return `<span class="jh-template-var" data-template-var="${key}">${marker}<span>${meta.label}</span></span>`;
-      }
-      return inner;
-    },
-  );
+  // Búsqueda lineal: cada apertura con `data-template-var` hasta el `</span>` más cercano.
+  // (Antes un regex perezoso hasta `</span>`: cuadrático con muchas aperturas sin cierre.)
+  const openRe = /<span\b[^<>]*>/g;
+  let presented = "";
+  let last = 0;
+  for (let m = openRe.exec(wrapped); m; m = openRe.exec(wrapped)) {
+    const keyMatch = /\bdata-template-var="([^"<>]+)"/.exec(m[0]);
+    if (!keyMatch) continue;
+    const innerStart = m.index + m[0].length;
+    const close = wrapped.indexOf("</span>", innerStart);
+    if (close === -1) break;
+    const key = keyMatch[1]!;
+    const inner = wrapped.slice(innerStart, close);
+    const meta = getTemplateVariable(key);
+    presented += wrapped.slice(last, m.index);
+    presented +=
+      meta && stripTags(inner) === meta.token
+        ? `<span class="jh-template-var" data-template-var="${key}">${marker}<span>${meta.label}</span></span>`
+        : inner;
+    last = close + "</span>".length;
+    openRe.lastIndex = last;
+  }
+  presented += wrapped.slice(last);
   return sanitizeContractHtml(presented).split(marker).join(USER_ICON_SVG);
 }

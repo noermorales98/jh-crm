@@ -12,49 +12,55 @@ export function escapeHtml(text: string): string {
   );
 }
 
-const DANGEROUS_TAG_NAMES =
-  "script|style|iframe|frame|frameset|object|embed|applet|link|meta|base|form|input|button|textarea|select|option|svg|math|template|noscript|portal";
-
-/** Apertura de una etiqueta peligrosa; se evalúa sobre cada etiqueta completa del escáner. */
-const DANGEROUS_OPEN_TAG = new RegExp(`^<(?:${DANGEROUS_TAG_NAMES})\\b`, "i");
-
 /**
- * Cierre de una etiqueta peligrosa. Un cierre no lleva atributos vivos; `[^<>]*` mantiene
- * la búsqueda lineal (con `[^>]*`, `<svg <svg <svg…` sin `>` era cuadrático).
+ * Etiquetas que se eliminan (la etiqueta; su contenido sigue como HTML normal).
+ * Incluye las de texto crudo (`xmp`, `title`...), cuyo contenido el navegador no
+ * analiza como etiquetas: si se dejaran, el filtro y el navegador leerían distinto.
  */
-const DANGEROUS_CLOSE_TAG = new RegExp(`</(?:${DANGEROUS_TAG_NAMES})\\b[^<>]*>?`, "gi");
+const DROPPED_TAGS = new Set([
+  "script", "style", "iframe", "frame", "frameset", "object", "embed", "applet", "link", "meta",
+  "base", "form", "input", "button", "textarea", "select", "option", "svg", "math", "template",
+  "noscript", "portal", "xmp", "noembed", "noframes", "plaintext", "title",
+]);
 
-/**
- * Atributos de evento (`onload`, `onerror`...). El navegador los acepta tras
- * espacio, `/` o una comilla de cierre (`<svg/onload=...>`, `<a""onclick=...>`),
- * así que se cubren todos esos separadores.
- */
-const EVENT_HANDLER_ATTR = /([\s/"'`])on[a-z]+\s*=\s*("[^"]*"|'[^']*'|`[^`]*`|[^\s>]*)/gi;
+/** Etiquetas cuyo contenido el navegador trata como texto crudo: se quita etiqueta y contenido. */
+const RAW_TEXT_TAGS = new Set([
+  "script", "style", "iframe", "textarea", "title", "xmp", "noembed", "noframes", "noscript",
+]);
 
 /** Atributos que cargan o navegan a una URL. */
-const URL_ATTR =
-  /([\s/"'`])(href|src|xlink:href|action|formaction|background|poster|data)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+const URL_ATTRS = new Set([
+  "href", "src", "xlink:href", "action", "formaction", "background", "poster", "data", "cite",
+  "longdesc", "usemap", "lowsrc", "dynsrc", "ping", "manifest", "codebase", "archive", "icon",
+]);
 
-/** Atributos que nunca hacen falta en un contrato y abren otra vía de ejecución. */
-const FORBIDDEN_ATTR = /([\s/"'`])(srcdoc|srcset)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+/** Atributos que nunca hacen falta en un contrato y abren otra vía de ejecución o carga. */
+const FORBIDDEN_ATTRS = new Set(["srcdoc", "srcset", "imagesrcset", "is"]);
 
-/** Estilos inline con `expression(` / `javascript:` / `url(`. */
-const DANGEROUS_STYLE_ATTR = /([\s/"'`])style\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi;
+const SAFE_TAG_NAME = /^[a-z][a-z0-9-]*$/;
+const SAFE_ATTR_NAME = /^[a-z_:][a-z0-9_:.-]*$/;
+const DANGEROUS_STYLE = /expression\s*\(|javascript:|url\s*\(|@import|behavior\s*:|-moz-binding/;
 
 /** Solo imágenes rasterizadas en base64 (la firma del representante). */
 const SAFE_DATA_IMAGE = /^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=]+$/i;
 
-function unquote(value: string): string {
-  const first = value[0];
-  if ((first === '"' || first === "'" || first === "`") && value.endsWith(first)) {
-    return value.slice(1, -1);
-  }
-  return value;
+/** Espacio en blanco según HTML (no `\s` de JS, que incluye NBSP y otros). */
+function isHtmlSpace(c: string | undefined): boolean {
+  return c === " " || c === "\t" || c === "\n" || c === "\f" || c === "\r";
 }
 
-/** Normaliza lo que un navegador ignora al resolver el esquema de una URL. */
+function isAsciiAlpha(c: string | undefined): boolean {
+  return c !== undefined && ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z"));
+}
+
+/** Minúsculas solo ASCII: no cambia la longitud (`İ`.toLowerCase() ocupa 2 unidades). */
+function asciiLower(text: string): string {
+  return text.replace(/[A-Z]/g, (c) => String.fromCharCode(c.charCodeAt(0) + 32));
+}
+
+/** Normaliza lo que un navegador ignora al resolver el esquema de una URL o un estilo. */
 function normalizedScheme(value: string): string {
-  return unquote(value)
+  return value
     .replace(/&#x0*([0-9a-f]+);?/gi, (_m, hex: string) => String.fromCharCode(parseInt(hex, 16)))
     .replace(/&#0*([0-9]+);?/g, (_m, dec: string) => String.fromCharCode(Number(dec)))
     .replace(/&(?:tab|newline|colon);/gi, (m) => (m.toLowerCase() === "&colon;" ? ":" : ""))
@@ -66,118 +72,222 @@ function isDangerousUrl(attr: string, value: string): boolean {
   const url = normalizedScheme(value);
   if (/^(?:javascript|vbscript|livescript|mocha):/.test(url)) return true;
   if (url.startsWith("data:")) {
-    return !(attr.toLowerCase() === "src" && SAFE_DATA_IMAGE.test(unquote(value).trim()));
+    return !(attr === "src" && SAFE_DATA_IMAGE.test(value.trim()));
   }
   return false;
 }
 
+type ParsedTag = {
+  name: string;
+  attrs: Array<{ name: string; value: string | null }>;
+  selfClosing: boolean;
+  /** Índice del `>` que cierra la etiqueta. */
+  end: number;
+};
+
 /**
- * Recorre el HTML y pasa cada etiqueta de apertura completa a `fn`, en tiempo lineal.
- * Sigue la regla del navegador: una comilla solo abre un valor justo después de `=`
- * (`alt="a>b"` es una sola etiqueta; en `<a "x>` la comilla es un carácter más).
- * Un valor entre comillas sin cerrar hace que el navegador descarte la etiqueta y todo
- * lo que sigue; aquí ese resto se entrega escapado, como texto inerte.
- * (Sustituye a un regex con alternancia ambigua que retrocedía de forma exponencial.)
+ * Lee una etiqueta como lo hace el tokenizador HTML (estados de nombre, atributo y
+ * valor): una comilla solo abre un valor en el estado «antes del valor», un `=` al
+ * empezar un nombre es parte del nombre, `/` cierra o separa. Devuelve `null` si la
+ * entrada acaba dentro de la etiqueta (el navegador la descarta junto con el resto).
+ * `start` apunta al primer carácter del nombre. Tiempo lineal.
  */
-function rewriteOpenTags(html: string, fn: (tag: string) => string): string {
-  let out = "";
-  let last = 0;
-  let i = html.indexOf("<");
-  while (i !== -1 && i < html.length - 1) {
-    if (!/[a-z]/i.test(html[i + 1]!)) {
-      i = html.indexOf("<", i + 1);
+function parseTag(html: string, start: number): ParsedTag | null {
+  const n = html.length;
+  let i = start;
+  while (i < n && !isHtmlSpace(html[i]) && html[i] !== "/" && html[i] !== ">") i += 1;
+  const name = asciiLower(html.slice(start, i));
+  const attrs: ParsedTag["attrs"] = [];
+  let selfClosing = false;
+  while (i < n) {
+    const c = html[i]!;
+    if (isHtmlSpace(c)) {
+      i += 1;
       continue;
     }
-    let j = i + 1;
-    let end = -1;
-    while (j < html.length) {
-      const c = html[j]!;
-      if (c === ">") {
-        end = j;
-        break;
+    if (c === ">") return { name, attrs, selfClosing, end: i };
+    if (c === "/") {
+      i += 1;
+      if (html[i] === ">") {
+        selfClosing = true;
+        return { name, attrs, selfClosing, end: i };
       }
-      if (c === "=") {
-        j += 1;
-        while (j < html.length && /[\t\n\f\r ]/.test(html[j]!)) j += 1;
-        const q = html[j];
-        if (q === '"' || q === "'") {
-          const close = html.indexOf(q, j + 1);
-          if (close === -1) {
-            // Comilla sin cerrar: el navegador no pinta nada desde aquí.
-            return out + html.slice(last, i) + escapeHtml(html.slice(i));
-          }
-          j = close + 1;
-        }
+      continue;
+    }
+    // Nombre de atributo: el primer carácter (aunque sea `=`) siempre forma parte.
+    const nameStart = i;
+    i += 1;
+    while (i < n && !isHtmlSpace(html[i]) && html[i] !== "/" && html[i] !== ">" && html[i] !== "=") i += 1;
+    const attrName = asciiLower(html.slice(nameStart, i));
+    while (i < n && isHtmlSpace(html[i])) i += 1;
+    if (html[i] !== "=") {
+      attrs.push({ name: attrName, value: null });
+      continue;
+    }
+    i += 1;
+    while (i < n && isHtmlSpace(html[i])) i += 1;
+    const q = html[i];
+    if (q === '"' || q === "'") {
+      const close = html.indexOf(q, i + 1);
+      if (close === -1) return null;
+      attrs.push({ name: attrName, value: html.slice(i + 1, close) });
+      i = close + 1;
+      continue;
+    }
+    if (q === ">") {
+      attrs.push({ name: attrName, value: "" });
+      continue;
+    }
+    const valueStart = i;
+    while (i < n && !isHtmlSpace(html[i]) && html[i] !== ">") i += 1;
+    attrs.push({ name: attrName, value: html.slice(valueStart, i) });
+  }
+  return null;
+}
+
+/** Reconstruye una etiqueta de apertura solo con lo que se analizó y se permite. */
+function renderStartTag(tag: ParsedTag): string {
+  const seen = new Set<string>();
+  let out = `<${tag.name}`;
+  for (const { name, value } of tag.attrs) {
+    if (seen.has(name)) continue; // el navegador se queda con el primero
+    seen.add(name);
+    if (!SAFE_ATTR_NAME.test(name) || name.startsWith("on") || FORBIDDEN_ATTRS.has(name)) continue;
+    if (value === null) {
+      out += ` ${name}`;
+      continue;
+    }
+    if (name === "style" && DANGEROUS_STYLE.test(normalizedScheme(value))) continue;
+    const safe = URL_ATTRS.has(name) && isDangerousUrl(name, value) ? "#" : value;
+    out += ` ${name}="${safe.replace(/\u0000/g, "\uFFFD").replace(/"/g, "&quot;")}"`;
+  }
+  return `${out}${tag.selfClosing ? " /" : ""}>`;
+}
+
+/** Busca `</name` seguido de espacio, `/`, `>` o fin (fin de texto crudo). */
+function findRawTextEnd(lower: string, name: string, from: number): number {
+  const needle = `</${name}`;
+  let k = lower.indexOf(needle, from);
+  while (k !== -1) {
+    const after = lower[k + needle.length];
+    if (after === undefined || isHtmlSpace(after) || after === "/" || after === ">") return k;
+    k = lower.indexOf(needle, k + 1);
+  }
+  return -1;
+}
+
+/**
+ * Recorre el HTML una vez, como el tokenizador del navegador, y lo reescribe:
+ * - etiquetas: se reconstruyen desde lo analizado (sin `on*`, URLs peligrosas, etc.);
+ * - etiquetas peligrosas: fuera; las de texto crudo, con su contenido;
+ * - comentarios, `<!…>`, `<?…>` y `</…>` raros: fuera;
+ * - `<` que no abre nada: `&lt;`;
+ * - entrada que acaba dentro de una etiqueta: el resto, escapado como texto.
+ * Lo que sale es exactamente lo que se revisó. Tiempo lineal.
+ */
+function sanitizeOnce(html: string): string {
+  const lower = asciiLower(html);
+  const n = html.length;
+  let out = "";
+  let i = 0;
+  while (i < n) {
+    const lt = html.indexOf("<", i);
+    if (lt === -1) {
+      out += html.slice(i);
+      break;
+    }
+    out += html.slice(i, lt);
+    const c = html[lt + 1];
+
+    if (isAsciiAlpha(c)) {
+      const tag = parseTag(html, lt + 1);
+      if (!tag) return out + escapeHtml(html.slice(lt));
+      i = tag.end + 1;
+      if (tag.name === "plaintext") break;
+      if (RAW_TEXT_TAGS.has(tag.name)) {
+        const close = findRawTextEnd(lower, tag.name, i);
+        if (close === -1) break;
+        const closeTag = parseTag(html, close + 2);
+        if (!closeTag) break;
+        i = closeTag.end + 1;
         continue;
       }
-      j += 1;
+      if (!DROPPED_TAGS.has(tag.name) && SAFE_TAG_NAME.test(tag.name)) out += renderStartTag(tag);
+      continue;
     }
-    if (end === -1) {
-      // Etiqueta sin `>` hasta el final: tampoco se pinta; se entrega como texto.
-      return out + html.slice(last, i) + escapeHtml(html.slice(i));
-    }
-    out += html.slice(last, i) + fn(html.slice(i, end + 1));
-    last = end + 1;
-    i = html.indexOf("<", last);
-  }
-  return out + html.slice(last);
-}
 
-/** Reglas de atributos: solo dentro de etiquetas, para no tocar el texto escapado. */
-function sanitizeTag(tag: string): string {
-  if (DANGEROUS_OPEN_TAG.test(tag)) return "";
-  return tag
-    .replace(EVENT_HANDLER_ATTR, "$1")
-    .replace(FORBIDDEN_ATTR, "$1")
-    .replace(URL_ATTR, (full, sep: string, attr: string, value: string) =>
-      isDangerousUrl(attr, value) ? `${sep}${attr}="#"` : full,
-    )
-    .replace(DANGEROUS_STYLE_ATTR, (full, sep: string, value: string) =>
-      /expression\s*\(|javascript:|url\s*\(|@import|behavior\s*:/i.test(normalizedScheme(value))
-        ? sep
-        : full,
-    );
+    if (c === "/") {
+      const d = html[lt + 2];
+      if (isAsciiAlpha(d)) {
+        const tag = parseTag(html, lt + 2);
+        if (!tag) return out + escapeHtml(html.slice(lt));
+        if (!DROPPED_TAGS.has(tag.name) && SAFE_TAG_NAME.test(tag.name)) out += `</${tag.name}>`;
+        i = tag.end + 1;
+        continue;
+      }
+      if (d === ">") {
+        i = lt + 3;
+        continue;
+      }
+      if (d === undefined) {
+        out += "&lt;/";
+        break;
+      }
+      const gt = html.indexOf(">", lt + 2); // comentario falso hasta el primer `>`
+      if (gt === -1) break;
+      i = gt + 1;
+      continue;
+    }
+
+    if (c === "!" && html.startsWith("<!--", lt)) {
+      const j = lt + 4;
+      if (html[j] === ">") {
+        i = j + 1;
+        continue;
+      }
+      if (html.startsWith("->", j)) {
+        i = j + 2;
+        continue;
+      }
+      let k = html.indexOf("--", j);
+      let end = -1;
+      while (k !== -1) {
+        if (html[k + 2] === ">") {
+          end = k + 3;
+          break;
+        }
+        if (html.startsWith("!>", k + 2)) {
+          end = k + 4;
+          break;
+        }
+        k = html.indexOf("--", k + 1);
+      }
+      if (end === -1) break; // comentario sin cerrar: el navegador no pinta el resto
+      i = end;
+      continue;
+    }
+
+    if (c === "!" || c === "?") {
+      const gt = html.indexOf(">", lt + 2);
+      if (gt === -1) break;
+      i = gt + 1;
+      continue;
+    }
+
+    out += "&lt;";
+    i = lt + 1;
+  }
+  return out;
 }
 
 /**
- * Quita bloques `open … close` (con su contenido) en tiempo lineal. Sin cierre, quita
- * hasta el final: el navegador tampoco pinta lo que sigue a un `<script>`/`<!--` abierto.
- */
-function stripBlocks(html: string, open: string, close: string): string {
-  const lower = html.toLowerCase();
-  let out = "";
-  let last = 0;
-  let i = lower.indexOf(open);
-  while (i !== -1) {
-    const c = lower.indexOf(close, i + open.length);
-    if (c === -1) return out + html.slice(last, i);
-    const end = close.endsWith(">") ? c + close.length : lower.indexOf(">", c + close.length);
-    if (end === -1) return out + html.slice(last, i);
-    out += html.slice(last, i);
-    last = close.endsWith(">") ? end : end + 1;
-    i = lower.indexOf(open, last);
-  }
-  return out + html.slice(last);
-}
-
-function sanitizeOnce(html: string): string {
-  const stripped = stripBlocks(
-    stripBlocks(stripBlocks(html, "<!--", "-->"), "<script", "</script"),
-    "<style",
-    "</style",
-  )
-    .replace(DANGEROUS_CLOSE_TAG, "");
-  return rewriteOpenTags(stripped, sanitizeTag);
-}
-
-/**
- * Filtro defensivo por expresiones regulares (no es un parser HTML).
- * Se repite hasta que el resultado deja de cambiar, para que un vector partido
- * (`<scr<script>ipt>`, `oonnload=`) no se reconstruya al quitar una pieza.
+ * Filtro de HTML de contratos. Recorre la entrada como el tokenizador del navegador y
+ * reconstruye cada etiqueta permitida, en vez de quitar trozos con expresiones regulares.
+ * Se repite hasta que no cambia (la salida ya es canónica; es una red de seguridad).
  */
 export function sanitizeContractHtml(html: string): string {
   let current = html;
-  for (let i = 0; i < 10; i += 1) {
+  for (let i = 0; i < 4; i += 1) {
     const next = sanitizeOnce(current);
     if (next === current) return next;
     current = next;

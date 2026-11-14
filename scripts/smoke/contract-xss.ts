@@ -51,10 +51,15 @@ function decodeEntities(text: string) {
 const LIVE_TAGS =
   /^<(?:script|style|svg|iframe|frame|frameset|object|embed|applet|math|template|form|button|input|textarea|select|link|meta|base|portal|noscript)\b/i;
 
+const URL_ATTRS = /^(?:href|src|xlink:href|action|formaction|background|poster|data|cite|ping|longdesc|usemap|lowsrc|dynsrc)$/;
+const BAD_SCHEME = /^(?:javascript|vbscript|livescript|mocha):/;
+const BAD_STYLE = /expression\s*\(|url\s*\(|@import|behavior\s*:|-moz-binding|javascript:/i;
+
 /**
  * Oráculo independiente del filtro: ¿queda algo que el navegador ejecutaría o cargaría?
- * Mira cada etiqueta de dos formas (hasta el primer `>` y respetando comillas) para
- * que un `>` dentro de un atributo no le esconda lo que sigue.
+ * Mira cada etiqueta de dos formas (hasta el primer `>` y respetando comillas). Los
+ * valores entre comillas dobles se leen como valores (como el navegador) y se juzgan
+ * según su atributo; todo lo demás de la etiqueta se juzga de forma conservadora.
  */
 function looksExecutable(html: string) {
   // El icono del chip de variables (lo añade `presentContractHtml` tras filtrar) es nuestro.
@@ -64,15 +69,29 @@ function looksExecutable(html: string) {
     ...(own.match(/<[a-z](?:"[^"]*"|'[^']*'|`[^`]*`|[^>])*>?/gi) ?? []),
   ];
   return tags.some((raw) => {
-    const decoded = decodeEntities(raw).replace(/[\u0000-\u0020\u007f-\u009f]/g, "");
-    return (
-      LIVE_TAGS.test(raw) ||
-      /[\s/"'`]on[a-z]+\s*=/i.test(raw) ||
-      /(?:javascript|vbscript|livescript):/i.test(decoded) ||
-      /(?:href|src|action|formaction|background|poster|data)\s*=\s*["'`]?data:(?!image\/(?:png|jpeg|gif|webp);base64,)/i.test(decoded) ||
-      /\b(?:srcdoc|srcset)\s*=/i.test(raw) ||
-      /expression\s*\(|url\s*\(|@import|behavior\s*:/i.test(decoded)
-    );
+    if (LIVE_TAGS.test(raw)) return true;
+    const skeleton = raw.replace(/=[\t\n\f\r ]*"[^"]*"/g, '=""');
+    const dskel = decodeEntities(skeleton).replace(/[\u0000- \u007f-\u009f]/g, "");
+    if (
+      /[\s/"'`]on[a-z]+\s*=/i.test(skeleton) ||
+      /\b(?:srcdoc|srcset)\s*=/i.test(skeleton) ||
+      /(?:javascript|vbscript|livescript):/i.test(dskel) ||
+      /data:(?!image\/(?:png|jpeg|gif|webp);base64,)/i.test(dskel) ||
+      BAD_STYLE.test(dskel)
+    ) {
+      return true;
+    }
+    for (const [, rawName, rawValue] of raw.matchAll(/([^\s"'<>/=]+)[\t\n\f\r ]*=[\t\n\f\r ]*"([^"]*)"/g)) {
+      const name = rawName!.toLowerCase();
+      const value = decodeEntities(rawValue!).replace(/[\u0000- \u007f-\u009f]/g, "").toLowerCase();
+      if (name.startsWith("on") || name === "srcdoc" || name === "srcset") return true;
+      if (URL_ATTRS.test(name)) {
+        if (BAD_SCHEME.test(value)) return true;
+        if (value.startsWith("data:") && !(name === "src" && /^data:image\/(?:png|jpeg|gif|webp);base64,/.test(value))) return true;
+      }
+      if (name === "style" && BAD_STYLE.test(value)) return true;
+    }
+    return false;
   });
 }
 
@@ -174,6 +193,9 @@ function filterChecks() {
     "muchos `<svg ` sin `>`": "<svg ".repeat(40000),
     "muchos `</form` sin `>`": "</form".repeat(40000),
     "muchos `<input x` sin `>`": "<input x".repeat(30000),
+    "un `<span` con muchas variables y sin `>`": "<span " + 'data-template-var="x" '.repeat(10000),
+    "muchas aperturas de chip sin cierre": '<span data-template-var="clientName">'.repeat(20000),
+    "comentario con muchos guiones sin cierre": "<!--" + "-".repeat(160000),
   };
   for (const [label, html] of Object.entries(heavy)) {
     const t0 = performance.now();
@@ -189,7 +211,7 @@ function filterChecks() {
 
   // Forma exacta de la salida: quitar lo peligroso no rompe el HTML de alrededor ni sobre-escapa.
   const exact: Array<[string, string, string]> = [
-    ["conserva el HTML de alrededor", '<p>a</p><img src="x" onerror="alert(1)"><p>b &amp; c</p>', '<p>a</p><img src="x" ><p>b &amp; c</p>'],
+    ["conserva el HTML de alrededor", '<p>a</p><img src="x" onerror="alert(1)"><p>b &amp; c</p>', '<p>a</p><img src="x"><p>b &amp; c</p>'],
     ["quita svg sin tocar lo demás", "<h2>T</h2><svg/onload=alert(1)><p>ok</p></svg>", "<h2>T</h2><p>ok</p>"],
     ["neutraliza el enlace y deja su texto", '<p><a href="javascript:alert(1)">ver</a></p>', '<p><a href="#">ver</a></p>'],
     ["comilla sin cerrar: el resto queda como texto", '<p>x</p><img alt="y src=x onerror=alert(1)>', '<p>x</p>&lt;img alt=&quot;y src=x onerror=alert(1)&gt;'],
@@ -197,7 +219,17 @@ function filterChecks() {
     ["quita el bloque script con su contenido", "<p>a</p><script>alert(1)</script><p>b</p>", "<p>a</p><p>b</p>"],
     ["quita el bloque style con su contenido", "<p>a</p><style>p{color:red}</style><p>b</p>", "<p>a</p><p>b</p>"],
     ["quita comentarios", "<p>a</p><!-- nota --><p>b</p>", "<p>a</p><p>b</p>"],
-    ["texto con `<` suelto sale igual", "<p>5 < 6 y a<b y c>d, I <3 you</p>", "<p>5 < 6 y a<b y c>d, I <3 you</p>"],
+    ["una comilla doble dentro de un valor con comilla simple no abre atributos", "<a title='x\" onclick=alert(1) y'>t</a>", '<a title="x&quot; onclick=alert(1) y">t</a>'],
+    ["el primer atributo repetido gana, como en el navegador", '<a href="https://a.test/" href="https://b.test/">t</a>', '<a href="https://a.test/">t</a>'],
+    ["un `<` que no abre etiqueta queda como texto", "<p>5 < 6, I <3 you</p>", "<p>5 &lt; 6, I &lt;3 you</p>"],
+    ["`=` al empezar un atributo no abre un valor", '<img /="x><base href=https://evil.example/>" a="">', '<img>" a="">'],
+    ["un `<!…>` raro se descarta hasta el primer `>`", '<!x <img alt="> <base href=https://evil.example/>">', ' ">'],
+    ["texto crudo (`xmp`) no esconde etiquetas", '<xmp><img alt="</xmp><base href=x>">', '">'],
+    ["comentario cerrado con `--!>`", "<!-- a --!><base href=x><p>b</p>", "<p>b</p>"],
+    ["`İ` antes de un bloque no descuadra el texto", "İİİİİİİİİİİİ<script>x</script><p>ok</p><b>fin</b>", "İİİİİİİİİİİİ<p>ok</p><b>fin</b>"],
+    ["espacio entre `=` y el valor entre comillas", '<a title= "x" href="https://a.test/">t</a>', '<a title="x" href="https://a.test/">t</a>'],
+    ["quita form (y su action)", '<form action="https://x.test/"><p>a</p></form>', "<p>a</p>"],
+    ["estilo sin comillas con NBSP no esconde url()", "<p style=color:red;\u00a0background:url(https://x.test/a.png)>x</p>", "<p>x</p>"],
   ];
   for (const [label, input, expected] of exact) {
     const out = sanitizeContractHtml(input);

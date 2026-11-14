@@ -321,7 +321,7 @@ function filterChecks() {
     ["conserva el HTML de alrededor", '<p>a</p><img src="x" onerror="alert(1)"><p>b &amp; c</p>', '<p>a</p><img src="x"><p>b &amp; c</p>'],
     ["quita svg sin tocar lo demás", "<h2>T</h2><svg/onload=alert(1)><p>ok</p></svg>", "<h2>T</h2><p>ok</p>"],
     ["neutraliza el enlace y deja su texto", '<p><a href="javascript:alert(1)">ver</a></p>', "<p><a>ver</a></p>"],
-    ["comilla sin cerrar: no se puede leer con seguridad, todo queda como texto", '<p>x</p><img alt="y src=x onerror=alert(1)>', '&lt;p&gt;x&lt;/p&gt;&lt;img alt=&quot;y src=x onerror=alert(1)&gt;'],
+    ["comilla sin cerrar: el navegador descarta la etiqueta", '<p>x</p><img alt="y src=x onerror=alert(1)>', "<p>x</p>"],
     ["etiqueta sin `>`: el navegador la descarta", "<p>x</p><img src=x", "<p>x</p>"],
     ["quita el bloque script con su contenido", "<p>a</p><script>alert(1)</script><p>b</p>", "<p>a</p><p>b</p>"],
     ["quita el bloque style con su contenido", "<p>a</p><style>p{color:red}</style><p>b</p>", "<p>a</p><p>b</p>"],
@@ -432,39 +432,31 @@ function filterChecks() {
     '<tbody><tr><td rowspan="2" colwidth="100" style="width: 25%">x</td><td>y</td></tr><tr><td>z</td></tr></tbody><tfoot><tr><td colspan="2">f</td></tr></tfoot></table>';
   check("el contenido legítimo sale idéntico (todas las etiquetas y atributos permitidos)", sanitizeContractHtml(legit) === legit, sanitizeContractHtml(legit));
 
-  // Topes: la profundidad manda; el total de aperturas solo acota el peor caso.
-  const okDeep = sanitizeContractHtml("<div>".repeat(200) + "x" + "</div>".repeat(200));
-  check("200 niveles de profundidad se filtran con normalidad", okDeep.startsWith("<div><div>") && okDeep.includes("x"), okDeep.slice(0, 30));
-  const tooDeep = sanitizeContractHtml("<div>".repeat(201) + "x" + "</div>".repeat(201));
-  check("201 niveles se entregan como texto", tooDeep.startsWith("&lt;div&gt;"), tooDeep.slice(0, 30));
+  // Topes: el total de aperturas es el tope duro (no depende de interpretar el HTML).
   const table = "<table><tbody>" + "<tr><td><p>a</p></td><td><p>b</p></td></tr>".repeat(300) + "</tbody></table>";
   check("una tabla larga (1 500 aperturas) se conserva", sanitizeContractHtml(table) === table);
-  check("8 000 aperturas planas se conservan", sanitizeContractHtml("<p>a</p>".repeat(8000)) === "<p>a</p>".repeat(8000));
-  check("8 001 aperturas se entregan como texto", sanitizeContractHtml("<p>a</p>".repeat(8001)).startsWith("&lt;p&gt;"));
+  check("3 000 aperturas planas se conservan", sanitizeContractHtml("<p>a</p>".repeat(3000)) === "<p>a</p>".repeat(3000));
+  check("3 001 aperturas se entregan como texto", sanitizeContractHtml("<p>a</p>".repeat(3001)).startsWith("&lt;p&gt;"));
   for (const [label, html] of Object.entries({
     "`<DIV>` en mayúsculas ×20 000": "<DIV>".repeat(20000),
-    "cierre falso dentro de un atributo ×3 000": '<div title="</div>">'.repeat(3000),
-    "cierre falso dentro de un comentario ×3 000": "<div><!--</div>-->".repeat(3000),
-    "cierre falso dentro de un textarea ×3 000": "<div><textarea></div></textarea>".repeat(3000),
-    "`=` al empezar un atributo ×3 000": '<div =" </div>">'.repeat(3000),
-    "valor con comilla simple ×3 000": "<div a='</div>'>".repeat(3000),
-    "cierres que no corresponden ×3 000": "<div></span>".repeat(3000),
-    "comentario con `>` dentro ×3 000": "<div><!-- > </div> -->".repeat(3000),
-    "`=` al empezar un atributo y comilla abierta ×3 000": '<div =" >'.repeat(3000),
-    "`/=` tras un atributo ×3 000": '<div a/=" >'.repeat(3000),
-    "`=` al empezar un atributo, 300 niveles (justo sobre el tope)": '<div =" >'.repeat(300),
-    "`/=` tras un atributo, 300 niveles": '<div a/=" >'.repeat(300),
-    "texto crudo en mayúsculas ×300": "<DIV><SCRIPT></DIV></SCRIPT>".repeat(300),
-    "textarea en mayúsculas ×300": "<div><TEXTAREA></div></TEXTAREA>".repeat(300),
-    "cierre en mayúsculas de un div en minúsculas ×300": "<div>x</DIV><div><DIV>".repeat(300),
-    "`<div/>` (HTML ignora la barra) ×3 000": "<div/>".repeat(3000),
-    "`<span/>` ×3 000": "<span/>".repeat(3000),
+    "`<!-->` y 7 900 `<div>` (comentario ya cerrado)": "<!-->" + "<div>".repeat(7900),
+    "`<!--->` y 7 900 `<div>`": "<!--->" + "<div>".repeat(7900),
+    "`<noscript>` sin cerrar y 7 900 `<div>`": "<noscript>" + "<div>".repeat(7900),
+    "comentario cerrado con `--!>` y 7 900 `<div>`": "<!--x--!>" + "<div>".repeat(7900) + "-->",
+    "`<div/>` ×7 900": "<div/>".repeat(7900),
+    "cierre falso dentro de un atributo ×3 001": '<div title="</div>">'.repeat(3001),
+    "`=` al empezar un atributo ×3 001": '<div =" >'.repeat(3001),
+    "`<span/>` ×3 001": "<span/>".repeat(3001),
   })) {
     const t0 = performance.now();
     const out = sanitizeContractHtml(html);
     const ms = performance.now() - t0;
-    check(`el medidor de profundidad no se deja engañar: ${label}`, ms < 1000 && out.startsWith("&lt;"), `${ms.toFixed(0)} ms`);
+    check(`el tope no se esquiva: ${label}`, ms < 1000 && out.startsWith("&lt;"), `${ms.toFixed(0)} ms`);
   }
+  // El peor caso permitido (3 000 niveles reales) cuesta unos segundos con jsdom: se mide y se acota.
+  const tWorst = performance.now();
+  sanitizeContractHtml("<div>".repeat(2999));
+  check("el peor caso dentro del tope (2 999 niveles anidados) termina en menos de 20 s", performance.now() - tWorst < 20000, `${(performance.now() - tWorst).toFixed(0)} ms`);
   const voids = "<br>".repeat(500) + '<img src="https://a.test/x.png">'.repeat(500) + "<hr>".repeat(500);
   check("los elementos vacíos no cuentan como profundidad", sanitizeContractHtml(voids).startsWith("<br>"), sanitizeContractHtml(voids).slice(0, 30));
   const t60 = performance.now();

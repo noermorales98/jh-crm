@@ -83,136 +83,26 @@ function configure() {
 
 /**
  * Topes de entrada. DOMPurify construye un DOM completo, y con jsdom el coste crece de forma
- * cuadrática con la profundidad (20 000 `<div>` anidados: 78 s y desbordamiento de pila). Un
- * contrato real es poco profundo (una tabla con celdas y párrafos no pasa de ~10 niveles) pero
- * puede llevar miles de etiquetas; por eso el tope principal es la profundidad y el total de
- * aperturas solo acota el peor caso si el medidor se equivocara.
+ * cuadrática con la profundidad real (20 000 `<div>` anidados: 78 s y desbordamiento de pila;
+ * 3 000: unos 2,5 s). Medir la profundidad leyendo el HTML se descartó: cada diferencia con el
+ * parser del navegador (`<!-->`, `<noscript>`, `<div/>`...) es una forma de esquivar el medidor.
+ * El tope duro es el total de aperturas (`<letra`), que no depende de interpretar nada: el peor
+ * caso queda acotado. Un contrato real tiene decenas o pocos cientos de etiquetas; pasado el
+ * tope se entrega como texto inerte.
  */
 const MAX_INPUT_CHARS = 1_000_000;
-const MAX_OPEN_TAGS = 8000;
-const MAX_DEPTH = 200;
-
-const VOID_TAGS = new Set([
-  "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "param", "source",
-  "track", "wbr",
-]);
-const RAW_TEXT_TAGS = new Set([
-  "script", "style", "textarea", "title", "xmp", "noembed", "noframes", "iframe", "noscript",
-  "plaintext",
-]);
-
-function isSpace(c: string | undefined): boolean {
-  return c === " " || c === "\t" || c === "\n" || c === "\f" || c === "\r";
-}
-
-function isAlpha(c: string | undefined): boolean {
-  return c !== undefined && ((c >= "a" && c <= "z") || (c >= "A" && c <= "Z"));
-}
-
-/**
- * Profundidad máxima de anidamiento, leyendo las etiquetas como el navegador: una comilla solo
- * abre un valor justo después de `=`, los comentarios y el texto crudo se saltan, y una etiqueta
- * de cierre solo resta si coincide con una abierta. Tiempo lineal. Devuelve `Infinity` si no puede
- * leer la entrada con seguridad (comilla sin cerrar). Se equivoca solo por exceso (`<p><p>`).
- */
-export function estimateMaxDepth(html: string): number {
-  const n = html.length;
-  const lower = html.toLowerCase();
-  const stack: string[] = [];
-  const counts = new Map<string, number>();
-  let max = 0;
-  let i = html.indexOf("<");
-  while (i !== -1 && i < n - 1) {
-    const c = html[i + 1];
-    if (c === "!" || c === "?") {
-      const end = html.startsWith("<!--", i) ? html.indexOf("-->", i + 4) : html.indexOf(">", i + 2);
-      if (end === -1) break;
-      i = html.indexOf("<", end + 1);
-      continue;
-    }
-    const closing = c === "/";
-    const start = i + (closing ? 2 : 1);
-    if (!isAlpha(html[start])) {
-      i = html.indexOf("<", i + 1);
-      continue;
-    }
-    let j = start;
-    while (j < n && !isSpace(html[j]) && html[j] !== "/" && html[j] !== ">") j += 1;
-    const name = lower.slice(start, j);
-    let end = -1;
-    // `afterName`: el último elemento leído es un nombre de atributo (un `=` ahora asigna valor).
-    // Un `=` al empezar un nombre forma parte del nombre, como en el tokenizador del navegador.
-    let afterName = false;
-    while (j < n) {
-      const ch = html[j]!;
-      if (ch === ">") {
-        end = j;
-        break;
-      }
-      if (isSpace(ch)) {
-        j += 1;
-        continue;
-      }
-      if (ch === "/") {
-        afterName = false;
-        j += 1;
-        continue;
-      }
-      if (ch === "=" && afterName) {
-        j += 1;
-        while (j < n && isSpace(html[j])) j += 1;
-        const q = html[j];
-        if (q === '"' || q === "'") {
-          const close = html.indexOf(q, j + 1);
-          if (close === -1) return Infinity;
-          j = close + 1;
-        }
-        afterName = false;
-        continue;
-      }
-      afterName = true;
-      j += 1;
-    }
-    if (end === -1) break;
-    i = html.indexOf("<", end + 1);
-    if (closing) {
-      if ((counts.get(name) ?? 0) > 0) {
-        for (;;) {
-          const top = stack.pop()!;
-          counts.set(top, counts.get(top)! - 1);
-          if (top === name) break;
-        }
-      }
-      continue;
-    }
-    // Un `/>` solo cierra elementos vacíos (y contenido SVG/MathML): HTML lo ignora en `<div/>`.
-    if (VOID_TAGS.has(name)) continue;
-    if (RAW_TEXT_TAGS.has(name)) {
-      const at = lower.indexOf(`</${name}`, end + 1);
-      if (at === -1) break;
-      const gt = html.indexOf(">", at);
-      i = gt === -1 ? -1 : html.indexOf("<", gt + 1);
-      continue;
-    }
-    stack.push(name);
-    counts.set(name, (counts.get(name) ?? 0) + 1);
-    if (stack.length > max) max = stack.length;
-  }
-  return max;
-}
+const MAX_OPEN_TAGS = 3000;
 
 /**
  * Filtro de HTML de contratos, con DOMPurify (`isomorphic-dompurify`: funciona igual en el
  * navegador y en el servidor, donde el portal también renderiza). Lista cerrada de etiquetas
  * y atributos, `data:` solo para imágenes rasterizadas, estilos filtrados por `isDangerousStyle`.
- * Ante entrada desmesurada, demasiado profunda o cualquier error, falla cerrado: devuelve el
- * texto escapado.
+ * Ante entrada desmesurada o cualquier error, falla cerrado: devuelve el texto escapado.
  */
 export function sanitizeContractHtml(html: string): string {
   if (html.length > MAX_INPUT_CHARS) return escapeHtml(html);
   const opens = html.match(/<[a-z]/gi);
   if (opens && opens.length > MAX_OPEN_TAGS) return escapeHtml(html);
-  if (opens && estimateMaxDepth(html) > MAX_DEPTH) return escapeHtml(html);
   try {
     configure();
     return DOMPurify.sanitize(html, {

@@ -291,6 +291,23 @@ async function run() {
   const bigD = JSON.parse(JSON.stringify(await callTool(octx, "ver", { seccion: "rondas", id: bigRound.id }, opts)));
   check("ver rondas con 101 disputas → 100 y itemsTruncated:true", bigD.disputeItems?.length === 100 && bigD.itemsTruncated === true, { n: bigD.disputeItems?.length, t: bigD.itemsTruncated });
 
+  const piRound = await prisma.creditRound.create({
+    data: { organizationId: a.s.org.id, caseId: a.creditCase.id, roundNumber: 10, status: "PREPARING" },
+  });
+  await prisma.disputeItem.create({
+    data: {
+      organizationId: a.s.org.id,
+      roundId: piRound.id,
+      targetKind: "PERSONAL_INFO",
+      targetLabel: "Address: 742 Calle Ficticia 123, Springfield",
+      bureau: "EXPERIAN",
+      disputeReason: "This information is not mine or is out of date. Please remove it.",
+    },
+  });
+  const pi = JSON.stringify(await callTool(octx, "ver", { seccion: "rondas", id: piRound.id }, opts));
+  check("ver rondas → disputa de datos personales muestra el tipo, no el dato (sin dirección)",
+    pi.includes("Address: [dato personal oculto]") && !pi.includes("742 Calle Ficticia") && !pi.includes("Springfield"), pi);
+
   console.log("\n[mcp-read-tools-2] filtros estado y texto (dos registros distintos por sección)\n");
   const listIds = async (seccion: string, args: Record<string, unknown>) =>
     JSON.stringify(await callTool(octx, "listar", { seccion, ...args }, opts));

@@ -34,15 +34,15 @@ async function errorText(fn: () => Promise<unknown>): Promise<string> {
 type Seed = Awaited<ReturnType<typeof seedMcpOrg>>;
 
 /** Caso de crédito, reporte, cuentas, una consulta y una ronda abierta (datos sintéticos). */
-async function seedCredit(s: Seed, tag: string, accounts: number) {
+async function seedCredit(s: Seed, tag: string, accounts: number, clientId: string = s.client.id) {
   const serviceCase = await prisma.serviceCase.create({
-    data: { organizationId: s.org.id, clientId: s.client.id, serviceId: s.service.id, caseNumber: `SC-${tag}`.slice(0, 30), stageId: s.stage.id },
+    data: { organizationId: s.org.id, clientId, serviceId: s.service.id, caseNumber: `SC-${tag}`.slice(0, 30), stageId: s.stage.id },
   });
   const creditCase = await prisma.creditCase.create({
-    data: { organizationId: s.org.id, clientId: s.client.id, serviceCaseId: serviceCase.id, caseCode: `CC-${tag}`.slice(0, 30), stageId: s.stage.id },
+    data: { organizationId: s.org.id, clientId, serviceCaseId: serviceCase.id, caseCode: `CC-${tag}`.slice(0, 30), stageId: s.stage.id },
   });
   const report = await prisma.creditReport.create({
-    data: { organizationId: s.org.id, clientId: s.client.id, caseId: creditCase.id, reportDate: new Date("2026-10-01"), type: "MANUAL" },
+    data: { organizationId: s.org.id, clientId, caseId: creditCase.id, reportDate: new Date("2026-10-01"), type: "MANUAL" },
   });
   const items = [];
   for (let i = 0; i < accounts; i++) {
@@ -50,7 +50,7 @@ async function seedCredit(s: Seed, tag: string, accounts: number) {
       await prisma.creditItem.create({
         data: {
           organizationId: s.org.id,
-          clientId: s.client.id,
+          clientId,
           caseId: creditCase.id,
           reportId: report.id,
           creditorName: `Acreedor ${tag} ${i}`,
@@ -63,7 +63,7 @@ async function seedCredit(s: Seed, tag: string, accounts: number) {
   const inquiry = await prisma.creditInquiry.create({
     data: {
       organizationId: s.org.id,
-      clientId: s.client.id,
+      clientId,
       reportId: report.id,
       bureau: "EQUIFAX",
       creditorName: `Consulta ${tag}`,
@@ -201,6 +201,37 @@ async function main() {
     check("la misma consulta repetida -> error y cero agregadas", npRepeat !== "ok" && (await disputeCount()) === n4, { npRepeat });
     const npClosed = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", { roundId: closedRound.id, personal: [{ bureau: "EXPERIAN", kind: "NAME", value: "Nombre Falso" }] }));
     check("ronda cerrada -> error y cero agregadas", npClosed !== "ok" && (await disputeCount()) === n4, { npClosed });
+
+    console.log("todo o nada: casos de la misma organización");
+    const otherCase = await seedCredit(a, `${MARK}a2`, 1);
+    const n5 = await disputeCount();
+    const otherCaseMix = await errorText(() => call(a.staff, "agregar_disputas_lote", { ...bulkArgs, creditItemIds: [goodA, otherCase.items[0].id] }));
+    check("lote: cuenta válida + cuenta de otro caso de la misma organización -> No encontrado y cero agregadas",
+      otherCaseMix.endsWith("No encontrado.") && (await disputeCount()) === n5, { otherCaseMix });
+    const inq3 = await prisma.creditInquiry.create({ data: { organizationId: a.org.id, clientId: a.client.id, reportId: ca.report.id, bureau: "EQUIFAX", creditorName: `Consulta 3 ${MARK}`, inquiryType: "HARD" } });
+    const wrongBureau = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", {
+      roundId: ca.round.id,
+      inquiries: [{ inquiryId: inq2.id, bureau: "EQUIFAX", label: "valida" }, { inquiryId: inq3.id, bureau: "EXPERIAN", label: "buró cambiado, sin usar" }],
+    }));
+    check("consulta válida + consulta libre con buró distinto -> error y cero agregadas",
+      wrongBureau !== "ok" && (await disputeCount()) === n5, { wrongBureau });
+    const blank = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", {
+      roundId: ca.round.id,
+      inquiries: [{ inquiryId: inq2.id, bureau: "EQUIFAX", label: "valida" }, { inquiryId: inq3.id, bureau: "EQUIFAX", label: "   " }],
+    }));
+    check("consulta válida + consulta con etiqueta en blanco -> error y cero agregadas",
+      blank !== "ok" && (await disputeCount()) === n5, { blank });
+    const otherClient = await prisma.client.create({
+      data: { organizationId: a.org.id, clientCode: `M2-${MARK}`.slice(0, 20), firstName: "Beto", lastName: `Otro ${MARK}`.slice(0, 40), status: "ACTIVE" },
+    });
+    const otherClientCredit = await seedCredit(a, `${MARK}a3`, 0, otherClient.id);
+    const foreignClientInq = otherClientCredit.inquiry;
+    const otherClientMix = await errorText(() => call(a.staff, "agregar_disputa_consulta_o_personal", {
+      roundId: ca.round.id,
+      inquiries: [{ inquiryId: inq2.id, bureau: "EQUIFAX", label: "valida" }, { inquiryId: foreignClientInq.id, bureau: "EQUIFAX", label: "de otro cliente" }],
+    }));
+    check("consulta válida + consulta de otro cliente de la misma organización -> No encontrado y cero agregadas",
+      otherClientMix.endsWith("No encontrado.") && (await disputeCount()) === n5, { otherClientMix });
 
     console.log("editar_disputa");
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "editar_disputa", { disputeItemId: String(d1.id), notes: "x" }))).includes("Sin permiso"));

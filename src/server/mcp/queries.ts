@@ -38,6 +38,16 @@ const OPPORTUNITY_STAGES: OpportunityStage[] = [
   "WON",
   "LOST",
 ];
+/**
+ * Las disputas de datos personales guardan el dato tal cual («Address: 742 …»). Hacia Claude
+ * solo sale el tipo de dato: la dirección, el nombre o el teléfono del cliente no salen del CRM.
+ */
+function disputeTargetLabel(kind: string, label: string | null): string | null {
+  if (kind !== "PERSONAL_INFO" || !label) return label;
+  const type = label.split(":")[0]?.trim() || "Personal information";
+  return `${type}: [dato personal oculto]`;
+}
+
 const SERVICE_CASE_STATUSES: ServiceCaseStatus[] = ["OPEN", "ON_HOLD", "COMPLETED", "CANCELED"];
 
 function requireView(ctx: OrganizationContext, permission: PermissionAction) {
@@ -426,7 +436,7 @@ export async function getRoundDetail(ctx: OrganizationContext, id: string) {
     disputeItems: items.slice(0, ITEM_CAP).map((i) => ({
       id: i.id,
       kind: i.targetKind,
-      target: i.creditItem?.creditorName ?? i.inquiry?.creditorName ?? i.targetLabel,
+      target: i.creditItem?.creditorName ?? i.inquiry?.creditorName ?? disputeTargetLabel(i.targetKind, i.targetLabel),
       account: maskAccount(i.creditItem?.accountNumberMasked),
       bureau: i.bureau,
       reason: i.disputeReason,

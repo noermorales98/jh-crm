@@ -108,6 +108,30 @@ function filterChecks() {
       !looksExecutable(sanitizeContractHtml("<p>persona on=line</p>")),
   );
 
+  const reflow = '<img alt=<span data-template-var="k"> src=x onerror=alert(1)>X</span>';
+  check(
+    "la reescritura del chip no reabre un manejador (orden filtro → presentación)",
+    !looksExecutable(portalHtml(reflow)) && !looksExecutable(presentContractHtml(reflow)),
+    portalHtml(reflow),
+  );
+  const reflowKnown =
+    '<img alt=<span data-template-var="clientName"> src=x onerror=alert(1)>{{clientName}}</span>';
+  check(
+    "ni con una variable conocida",
+    !looksExecutable(presentContractHtml(reflowKnown)),
+    presentContractHtml(reflowKnown),
+  );
+  const chip = presentContractHtml("<p>{{clientName}}</p>");
+  check(
+    "el chip de variable pendiente conserva su icono",
+    chip.includes('<svg xmlns="http://www.w3.org/2000/svg" width="14"') && chip.includes("Nombre del usuario"),
+    chip,
+  );
+  check(
+    "una clave heredada del prototipo no cuenta como variable",
+    presentContractHtml('<span data-template-var="toString">x</span>') === "x",
+  );
+
   for (const name of HOSTILE_NAMES) {
     const filled = fillTemplateVariables("<p>Cliente: <strong>{{clientName}}</strong></p>", {
       clientName: name,

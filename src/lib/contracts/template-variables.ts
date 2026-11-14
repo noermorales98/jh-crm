@@ -1,6 +1,6 @@
 /** Variables de fusión en plantillas de contrato (se sustituyen al emitir). */
 
-import { escapeHtml } from "@/src/lib/contracts/sanitize";
+import { escapeHtml, sanitizeContractHtml } from "@/src/lib/contracts/sanitize";
 
 export const TEMPLATE_VARIABLES = {
   clientName: {
@@ -20,7 +20,7 @@ const TOKEN_RE = /\{\{(clientName|clientFullName)\}\}/g;
 const USER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.6-3.2 4.5-5 8-5s6.4 1.8 8 5"/></svg>`;
 
 export function isTemplateVariableKey(value: string): value is TemplateVariableKey {
-  return value in TEMPLATE_VARIABLES;
+  return Object.prototype.hasOwnProperty.call(TEMPLATE_VARIABLES, value);
 }
 
 export function getTemplateVariable(key: string) {
@@ -58,18 +58,26 @@ function stripTags(html: string) {
 /**
  * Vista de solo lectura: tokens pendientes se ven como chip;
  * valores ya sustituidos se muestran como texto normal.
+ *
+ * Seguridad: esta función reescribe el HTML, así que filtra **su propia salida**
+ * (`sanitizeContractHtml` al final). Filtrar antes y reescribir después rompe los
+ * límites de etiqueta que vio el filtro (`<img alt=<span data-template-var=..> onerror=..>`).
+ * El icono SVG del chip (que el filtro quitaría) entra después, en el lugar de un
+ * marcador aleatorio por llamada que el contenido no puede prever.
  */
 export function presentContractHtml(html: string): string {
-  const wrapped = wrapTemplateVariablesInHtml(html);
-  return wrapped.replace(
+  const marker = `jhtplicon${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+  const wrapped = wrapTemplateVariablesInHtml(html.split(marker).join(""));
+  const presented = wrapped.replace(
     /<span([^>]*\bdata-template-var="([^"]+)"[^>]*)>([\s\S]*?)<\/span>/g,
     (_full, _attrs: string, key: string, inner: string) => {
       const text = stripTags(inner);
       const meta = getTemplateVariable(key);
       if (meta && text === meta.token) {
-        return `<span class="jh-template-var" data-template-var="${key}">${USER_ICON_SVG}<span>${meta.label}</span></span>`;
+        return `<span class="jh-template-var" data-template-var="${key}">${marker}<span>${meta.label}</span></span>`;
       }
       return inner;
     },
   );
+  return sanitizeContractHtml(presented).split(marker).join(USER_ICON_SVG);
 }

@@ -98,7 +98,11 @@ conector solo añade otra vía.
   ~2 % de las entradas hostiles (parseo de etiquetas rotas), solo en contenido ya inerte.
   `next build` correcto (jsdom queda como paquete externo del servidor). `DocumentView` renderizado
   en servidor sin `onerror`/`onload`. Coste: sin tope, 20 000 `<div>` anidados tardaban 78 s y
-  lanzaban `RangeError`; con los topes, < 1 s (700 niveles: ~0,3 s).
+  lanzaban `RangeError`; con los topes, < 1 s (700 niveles: ~0,3 s). 82 mutantes del nuevo diseño:
+  60 muertos; 22 supervivientes equivalentes o defensivos (etiquetas/atributos que DOMPurify ya
+  descarta por estructura al estar su etiqueta contenedora prohibida, `/*` sin efecto sin `\`,
+  tope de caracteres cubierto por el de aperturas, `catch` inalcanzable dentro de los topes, y
+  comprobaciones redundantes del chip).
 
 ## Siguiente paso
 

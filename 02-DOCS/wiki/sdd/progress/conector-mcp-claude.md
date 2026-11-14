@@ -229,3 +229,9 @@ then integration (registry, `smoke:mcp-db` grows to 19 smokes).
 - Review after: the bulk dispute tools still write item by item, so a concurrent writer could leave
   a partial batch (validation closes the ordinary cases); `disputeItemsHidden: true` cannot be reached
   today because every role has `disputes.view`.
+
+## Envío de la tanda 2 (2026-11-14)
+
+- PR #43 unido a main con el visto bueno del dueño (merge commit 04f6a5a). CI en verde: 5 pasan, 1 omitida.
+- Los 7 avisos de Graphify (acoplamiento en scripts de prueba y en `getRoundDetail`) se contestaron y cerraron sin cambiar código.
+- Pendiente: prueba real en claude.ai de rondas y cartas; tanda 3.

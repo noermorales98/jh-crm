@@ -23,7 +23,7 @@ conector solo añade otra vía.
   con `dompurify@3.4.17`, versiones exactas; decisión de Noe 2026-11-14, enmienda de la spec):
   lista cerrada de etiquetas y atributos, `data:` solo como imagen PNG/JPEG/GIF/WebP en `src`,
   estilos filtrados (`url(`, escapes CSS, `image-set(`, `position: fixed|sticky`...), `rel` seguro con
-  `target`. Con topes de entrada (1 000 000 caracteres, 1 500 aperturas de etiqueta) y falla cerrado
+  `target`. Con topes de entrada (1 000 000 caracteres, 3 000 aperturas de etiqueta) y falla cerrado
   a texto escapado, porque jsdom es cuadrático con la profundidad.
 - `presentContractHtml` (portal y vista previa del CRM) filtra su propia salida; el icono del chip
   entra después de filtrar y solo junto a la apertura de un chip.
@@ -115,6 +115,12 @@ conector solo añade otra vía.
   las listas, y el medidor); equivalentes: `tbody` (el navegador lo reinserta), `rel` sin `target`,
   `'` en el medidor (solo sobrestima). Añadido `engines.node` (`^22.22.2 || ^24.15.0 || >=26`) por
   los requisitos de jsdom 30 y `attr(` a los estilos bloqueados.
+- Panel sobre `a2752dd`. Seguridad y corrección reprodujeron la misma clase de fallo en el medidor
+  de profundidad: `<!-->`, `<!--->`, `--!>` o un `<noscript>` sin cerrar devolvían profundidad 0
+  con ~7 900 niveles reales (7–10 s de CPU), además de `<div/>`. Cada diferencia con el parser era
+  una evasión; se eliminó el medidor y queda un tope duro de 3 000 aperturas (no interpreta nada).
+  Peor caso medido: 2 999 `<div>` anidados ≈ 2,2 s; 7 900 variantes del truco → texto en < 1 s.
+  Coste aceptado: documentos con más de 3 000 etiquetas (tablas de >600 filas) se ven como texto.
 
 ## Siguiente paso
 

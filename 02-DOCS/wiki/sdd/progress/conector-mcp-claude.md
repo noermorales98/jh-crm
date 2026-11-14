@@ -202,3 +202,30 @@ branch: feat/conector-mcp-claude
   **no ejecutado** en local, lo corre la CI · seguridad: solo cambia campos de enlace, la base sale
   de una variable de entorno, sin entrada del usuario · trazabilidad: enlaces al CRM del spec.
 - T029 (prueba real en claude.ai): hecha por la dueña. Conexión, login y lectura funcionan.
+
+## Tanda 2 (2026-11-13)
+
+Branch `feat/conector-mcp-tanda-2`. Six developer agents in parallel (one per section, disjoint files),
+then integration (registry, `smoke:mcp-db` grows to 19 smokes).
+
+- T2-01 read sections rondas, cartas, reportes_credito, consultas → `mcp-read-tools-2` green.
+- T2-02..T2-06 write tools (22) → one smoke each, green with and without `NEXT_PUBLIC_APP_URL`.
+- T2-07 registry, package scripts, `mcp-tool-registry` → green.
+- T2-08 closing panel on efed0fb..e778826 — correctness, security, tests: nothing blocking.
+  Should-fix applied in 2888092:
+  - letter body (client address) no longer returned;
+  - `editar_reporte_credito` drops `snapshots` (hard-delete path);
+  - `solicitar_consulta` destructive + open-world (emails and WhatsApp through an external service);
+  - no PAID / PAYMENT_PENDING from Claude;
+  - consultations map foreign ids to NotFound;
+  - dispute bulk tools pre-validate every id;
+  - truncation and hidden flags;
+  - tests for 10-digit accounts, sibling records, filters, exact dates.
+- Delta panel on 2888092 — correctness clean; security 1 should-fix (personal-info dispute values in
+  `ver rondas`); tests 4 should-fix (all-or-nothing gaps). Fixed in 4bce30d. Each of the 5 new
+  assertions was proven with a mutant that removes the protection (4, 1, 3, 2, 1 failures).
+- Evidence on 4bce30d: `smoke:mcp-db` 19/19, 0 failed checks, with and without app URL;
+  registry, auth-paths, login-redirect, mcp-oauth-core green; tsc 0 errors; eslint 0 errors.
+- Review after: the bulk dispute tools still write item by item, so a concurrent writer could leave
+  a partial batch (validation closes the ordinary cases); `disputeItemsHidden: true` cannot be reached
+  today because every role has `disputes.view`.

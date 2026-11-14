@@ -6,10 +6,10 @@ tags: [sdd, spec, mcp, ai, auth, oauth]
 timestamp: 2026-11-09T00:00:00Z
 topic: sdd
 slug: conector-mcp-claude
-branch: feat/conector-mcp-tanda-2
+branch: feat/conector-mcp-tanda-3a
 status: approved
 approved_by: Noeli, 2026-11-09 ("Sí, la apruebo")
-shipped: batch 1 on 2026-11-13, PR #42 merged into main (bd4267d); batch 2 in progress
+shipped: batch 1 on 2026-11-13, PR #42 merged into main (bd4267d); batch 2 on 2026-11-14, PR #43 merged into main (04f6a5a); batch 3a in progress (batch 3 split into 3a/3b/3c)
 ---
 
 # Spec — Conector MCP de JH CRM para Claude

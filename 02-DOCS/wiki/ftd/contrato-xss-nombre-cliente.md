@@ -56,6 +56,14 @@ conector solo añade otra vía.
   escáner lineal con la regla del navegador (comilla solo tras `=`). Además, los regex perezosos de
   `<script`/`<style`/comentarios (ya en `main`) eran cuadráticos: 140 000 caracteres → 3,3 s; ahora
   corte lineal. Todas las entradas hostiles de prueba (hasta 185 000 caracteres) < 50 ms.
+- Panel final sobre `bfcfdef`. Corrección: `DANGEROUS_TAGS` con `[^>]*` era cuadrático sin `>`
+  (`<svg ` ×40 000 → 3,2 s); la apertura peligrosa pasa al escáner y el cierre usa `[^<>]*` (6 ms).
+  Pruebas: 11 mutantes explotables y 3 funcionales sobrevivían; añadidos sus vectores y checks de
+  forma exacta (HTML de alrededor, bloques script/style, comentarios, comilla y etiqueta sin cerrar,
+  dos chips, variable ya sustituida, chip ya envuelto, valores distintos por token). 44 mutantes
+  dirigidos: 42 muertos; 2 equivalentes (el bucle de punto fijo ya no cambia el resultado porque el
+  escáner quita las aperturas peligrosas en una pasada; `[^>]*>?` en el cierre traga el resto en una
+  sola coincidencia y sigue lineal).
 
 ## Siguiente paso
 

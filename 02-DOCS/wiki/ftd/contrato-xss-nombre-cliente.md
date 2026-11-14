@@ -76,6 +76,16 @@ conector solo añade otra vía.
   marca los 3 casos malos de control). Regex del chip en `presentContractHtml` lineal. 19 entradas
   hostiles de hasta 740 000 caracteres: todas < 25 ms en el filtro. 39 mutantes: 38 muertos, 1
   equivalente (`iframe` también se quita como texto crudo).
+- Panel sobre `d199d22`. Corrección: sin defectos. Seguridad: XSS por el icono del chip (el
+  marcador podía quedar dentro de un atributo y el SVG rompía las comillas); ahora el icono solo
+  entra justo tras la apertura canónica del chip y cualquier otro marcador se borra. Seguridad y
+  pruebas: estilos con escapes CSS (`\75rl(`) o `image-set(` cargaban imágenes remotas; ahora se
+  rechaza cualquier `style` con `\`, `/*`, `image-set(`/`image(`/`cross-fade(`/`src(` o
+  `position: fixed|sticky`. Fuera también `ping`, `video`, `audio`, `source`, `track`. El detector
+  del smoke corta etiquetas con la regla del navegador y trata `noembed`/`noframes`/`title`/`xmp`/
+  `plaintext` como vivas. Chrome: el payload del revisor da `PWNED = 0`; 600 000 entradas nuevas
+  (con chips dentro de atributos y trucos CSS), 0 ejecutables. Mutantes: 55 + 9 combinados; quedan
+  solo equivalentes (una etiqueta quitada de una sola de las dos listas sigue cubierta por la otra).
 
 ## Siguiente paso
 

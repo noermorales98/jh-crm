@@ -79,7 +79,7 @@ contratos existentes siguen en verde.
    CSS, `image-set(`, `position: fixed|sticky`, etc., fuera) y la vista
    (`presentContractHtml`) filtra su propia salida después de reescribir los chips; el icono del
    chip entra tras filtrar, solo junto a la apertura de un chip.
-3. Entrada desmesurada (más de 1 000 000 caracteres o 1 500 aperturas de etiqueta) o cualquier
+3. Entrada desmesurada (más de 1 000 000 caracteres o 3 000 aperturas de etiqueta) o cualquier
    error del filtro: se entrega como texto escapado (falla cerrado).
 
 ## Acceptance criteria
@@ -103,7 +103,9 @@ construir y revisar un filtro propio (cuatro rondas de tres revisores), Noe deci
 - `sanitizeContractHtml` pasa a ser DOMPurify configurado; el escape de valores en
   `fillTemplateVariables` no cambia.
 - Coste conocido: con jsdom el filtro es cuadrático con la profundidad del HTML, por eso los topes
-  de entrada de «Behaviour».
+  de entrada de «Behaviour». Se probó medir la profundidad leyendo el HTML y se descartó: cada
+  diferencia con el parser del navegador era una forma de esquivarlo; queda un tope duro de aperturas
+  (peor caso medido: unos 2,3 s con 3 000 niveles reales).
 
 ## Assumptions
 

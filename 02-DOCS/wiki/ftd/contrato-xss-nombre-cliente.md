@@ -25,8 +25,9 @@ conector solo añade otra vía.
   `javascript:`/`vbscript:`/`data:` con normalización de entidades y espacios (se permite
   `data:image/...;base64` en `src`, que usa la firma); fuera `srcdoc`/`srcset` y estilos con
   `expression(`/`url(`; se repite hasta que no cambia.
-- Fuera de alcance: cambiar a un sanitizador por parser (DOMPurify o similar). Sigue siendo un
-  filtro por regex; la defensa principal es el escape en origen.
+- Fuera de alcance: añadir una dependencia (DOMPurify o similar). El filtro es un tokenizador propio
+  que sigue los estados de HTML y reconstruye las etiquetas; la defensa principal sigue siendo el
+  escape en origen.
 
 ## Checklist
 
@@ -64,6 +65,17 @@ conector solo añade otra vía.
   dirigidos: 42 muertos; 2 equivalentes (el bucle de punto fijo ya no cambia el resultado porque el
   escáner quita las aperturas peligrosas en una pasada; `[^>]*>?` en el cierre traga el resto en una
   sola coincidencia y sigue lineal).
+- Seguridad (panel final, fuzz de 1,6 M en Chrome): `bfcfdef` limpio; en `eaa4d19`, bypass
+  `<img /="x><base href=…>">` (el escáner y el navegador leían distinto un `=` al empezar un
+  atributo) y desfase de índices con `İ`. Cambio de diseño: `sanitizeOnce` es ahora un tokenizador
+  con los estados de HTML (nombre, atributo, valor; comentarios, `<!…>`, `<?…>`, `</…>`; texto
+  crudo) que **reconstruye** cada etiqueta permitida en forma canónica (valores entre comillas
+  dobles con `"` escapado, nombres validados, primer atributo repetido gana). Lo que llega al
+  navegador es exactamente lo que se revisó; un error de lectura solo puede afectar a la fidelidad.
+  Fuzz propio en Chrome sobre el código nuevo: 600 000 entradas, 0 ejecutables (el detector sí
+  marca los 3 casos malos de control). Regex del chip en `presentContractHtml` lineal. 19 entradas
+  hostiles de hasta 740 000 caracteres: todas < 25 ms en el filtro. 39 mutantes: 38 muertos, 1
+  equivalente (`iframe` también se quita como texto crudo).
 
 ## Siguiente paso
 

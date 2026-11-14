@@ -111,7 +111,7 @@ export const HOW_TO_GUIDE = `
 Roles: VIEWER (solo lectura), STAFF (operación, sin sensibles), SPECIALIST (incluye SSN/documentos sensibles), ADMIN/OWNER (todo + usuarios, auditoría, anular recibos).
 
 ## Empresa
-J&H MultiServices LLC. Servicios: formación de LLC, páginas web, consultoría personalizada, proyectos personales y de negocio. Tel. (872) 202-0156. Web https://jh-multiservices.com/
+J&H MultiServices LLC. Servicios: formación de LLC, páginas web, consultoría personalizada, proyectos personales y de negocio. Tel. (708) 766-1220. Web https://jh-multiservices.com/
 `.trim();
 
 export function routesForPrompt(): string {

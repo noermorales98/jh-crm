@@ -56,7 +56,7 @@ export default function TermsPage() {
       <p>
         Preguntas sobre estos términos:{" "}
         <a href="mailto:jhmultiservices10@gmail.com">jhmultiservices10@gmail.com</a>{" "}
-        · (872) 202-0156.
+        · (708) 766-1220.
       </p>
     </LegalShell>
   );

@@ -123,7 +123,7 @@ export function MarketingHome() {
             </ul>
           </nav>
           <div className="nav-cta">
-            <a className="nav-phone" href="tel:+18722020156" aria-label="Llamar al (872) 202-0156">
+            <a className="nav-phone" href="tel:+17087661220" aria-label="Llamar al (708) 766-1220">
               <svg
                 width="18"
                 height="18"
@@ -137,7 +137,7 @@ export function MarketingHome() {
               >
                 <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z" />
               </svg>
-              <span>(872) 202-0156</span>
+              <span>(708) 766-1220</span>
             </a>
             <a className="btn btn-primary btn-sm nav-consult" href="#inicio">
               Consulta por $1
@@ -488,7 +488,7 @@ export function MarketingHome() {
                   <p className="contact-big">
                     Llámenos hoy:
                     <br />
-                    <a href="tel:+18722020156">(872) 202-0156</a>
+                    <a href="tel:+17087661220">(708) 766-1220</a>
                   </p>
                   <div className="contact-list">
                     <div className="contact-item">
@@ -527,7 +527,7 @@ export function MarketingHome() {
                       </div>
                       <div>
                         <b>Teléfono</b>
-                        <a href="tel:+18722020156">(872) 202-0156</a>
+                        <a href="tel:+17087661220">(708) 766-1220</a>
                       </div>
                     </div>
                     <div className="contact-item">
@@ -595,7 +595,7 @@ export function MarketingHome() {
               </div>
               <div className="foot-col">
                 <b>Contacto</b>
-                <a href="tel:+18722020156">(872) 202-0156</a>
+                <a href="tel:+17087661220">(708) 766-1220</a>
                 <a href="mailto:jhmultiservices10@gmail.com">jhmultiservices10@gmail.com</a>
                 <a href="https://jh-multiservices.com/" target="_blank" rel="noopener">
                   jh-multiservices.com

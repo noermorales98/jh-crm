@@ -19,15 +19,16 @@ conector solo añade otra vía.
   (`fillTemplateVariables` en `src/lib/contracts/template-variables.ts`). Hoy los únicos tokens son
   `{{clientName}}` y `{{clientFullName}}`. Los datos de la organización en la firma de la agencia ya
   se escapaban (`agencySignatureHtml`).
-- `sanitizeContractHtml` (`src/lib/contracts/sanitize.ts`) se endurece: manejadores `on*=` tras
-  espacio, `/`, comilla o acento grave; reglas de atributos solo dentro de etiquetas (no toca texto
-  escapado); más etiquetas bloqueadas (`svg`, `math`, `template`, `frame`...); URLs
-  `javascript:`/`vbscript:`/`data:` con normalización de entidades y espacios (se permite
-  `data:image/...;base64` en `src`, que usa la firma); fuera `srcdoc`/`srcset` y estilos con
-  `expression(`/`url(`; se repite hasta que no cambia.
-- Fuera de alcance: añadir una dependencia (DOMPurify o similar). El filtro es un tokenizador propio
-  que sigue los estados de HTML y reconstruye las etiquetas; la defensa principal sigue siendo el
-  escape en origen.
+- `sanitizeContractHtml` (`src/lib/contracts/sanitize.ts`) es DOMPurify (`isomorphic-dompurify@4.6.0`
+  con `dompurify@3.4.17`, versiones exactas; decisión de Noe 2026-11-14, enmienda de la spec):
+  lista cerrada de etiquetas y atributos, `data:` solo como imagen PNG/JPEG/GIF/WebP en `src`,
+  estilos filtrados (`url(`, escapes CSS, `image-set(`, `position: fixed|sticky`...), `rel` seguro con
+  `target`. Con topes de entrada (1 000 000 caracteres, 1 500 aperturas de etiqueta) y falla cerrado
+  a texto escapado, porque jsdom es cuadrático con la profundidad.
+- `presentContractHtml` (portal y vista previa del CRM) filtra su propia salida; el icono del chip
+  entra después de filtrar y solo junto a la apertura de un chip.
+- Un filtro propio (tokenizador) se construyó y revisó antes de la decisión; se descartó a favor de
+  DOMPurify y su historial está en los commits anteriores de la rama.
 
 ## Checklist
 
@@ -38,6 +39,8 @@ conector solo añade otra vía.
 - [x] Smoke nuevo `npm run smoke:contract-xss` (DB solo `jh_gates` en 127.0.0.1:3399).
 - [x] Smokes de contratos existentes siguen en verde.
 - [ ] Revisión de un revisor (tier 1).
+- [x] Sustituido por DOMPurify (decisión de Noe) — smoke, build de Next, SSR con `DocumentView`.
+- [ ] Panel de 3 lentes sobre el commit final.
 - [ ] PR contra `main`; merge solo con el sí de Noe.
 
 ## Evidencia (2026-11-14)
@@ -90,9 +93,13 @@ conector solo añade otra vía.
   carguen algo; se fijan `src(`, `image(`, `cross-fade(`. Seguridad: el argumento del chip canónico
   se sostiene; `url&lpar;` esquivaba la lista de estilos (carga remota, no ejecuta). Ahora un
   `style` con cualquier `&` distinto de `&quot;`, `&#39;` o `&amp;` se rechaza entero.
+- DOMPurify: 4 × 150 000 entradas aleatorias en Chrome con el build de navegador (más 60 000
+  salidas del servidor, jsdom, parseadas en Chrome): 0 ejecutables. Chrome y jsdom difieren en
+  ~2 % de las entradas hostiles (parseo de etiquetas rotas), solo en contenido ya inerte.
+  `next build` correcto (jsdom queda como paquete externo del servidor). `DocumentView` renderizado
+  en servidor sin `onerror`/`onload`. Coste: sin tope, 20 000 `<div>` anidados tardaban 78 s y
+  lanzaban `RangeError`; con los topes, < 1 s (700 niveles: ~0,3 s).
 
 ## Siguiente paso
 
-En espera (2026-11-14): la spec aprobada deja fuera «un sanitizador basado en parser (DOMPurify o
-similar)» y el filtro actual es un tokenizador propio. Noe decide entre DOMPurify y el filtro
-propio antes del push y el PR. El escape del nombre en origen no depende de esa decisión.
+Panel final sobre el commit, push y PR contra `main`. Sin merge hasta el sí de Noe.

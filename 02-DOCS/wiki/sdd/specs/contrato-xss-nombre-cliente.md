@@ -76,7 +76,7 @@ contratos existentes siguen en verde.
 1. Al crear un contrato, `fillTemplateVariables` sustituye cada token por su valor escapado.
 2. El portal filtra el HTML guardado con DOMPurify (configuración explícita: lista cerrada de
    etiquetas y atributos; `data:` solo como imagen PNG/JPEG/GIF/WebP; estilos con `url(`, escapes
-   CSS, `image-set(`, `position: fixed|sticky` o entidades con nombre, fuera) y la vista
+   CSS, `image-set(`, `position: fixed|sticky`, etc., fuera) y la vista
    (`presentContractHtml`) filtra su propia salida después de reescribir los chips; el icono del
    chip entra tras filtrar, solo junto a la apertura de un chip.
 3. Entrada desmesurada (más de 1 000 000 caracteres o 1 500 aperturas de etiqueta) o cualquier
@@ -88,6 +88,7 @@ contratos existentes siguen en verde.
 - El filtro bloquea manejadores `on*=` sin espacio previo (`/onload=`), `javascript:` ofuscado,
   `srcdoc`, `svg`/`math`/`template` y estilos con `expression(`/`url(`.
 - La vista filtra su propia salida; no hay reescritura tras el filtro.
+- Entrada desmesurada se entrega como texto escapado y sin esperar (topes de «Behaviour»).
 
 ## Amendment 2026-11-14 — DOMPurify
 

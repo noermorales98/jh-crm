@@ -33,6 +33,16 @@ function check(label: string, cond: boolean, detail?: unknown) {
   }
 }
 
+/** El texto que ve la persona: las cinco entidades de texto decodificadas. */
+function decodeTextEntities(html: string) {
+  return html
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+}
+
 /** Lo que el portal entrega a `dangerouslySetInnerHTML`. */
 function portalHtml(snapshot: string) {
   return presentContractHtml(sanitizeContractHtml(snapshot));
@@ -210,6 +220,10 @@ function filterChecks() {
     "estilo con src()": "<div style=\"background:src('https://x.test/a.png')\">x</div>",
     "estilo con image()": "<div style=\"background:image('https://x.test/a.png')\">x</div>",
     "estilo con cross-fade()": "<div style=\"background:cross-fade(50%, 'https://x.test/a.png')\">x</div>",
+    "onload en una imagen": '<img src="https://x.test/a.png" onload=alert(1)>',
+    "position:sticky": '<div style="position: sticky; top: 0">x</div>',
+    "data:image con cola tras el base64": '<img src="data:image/png;base64,AAAA?x=1">',
+    "data:image/svg con espacio delante": '<img src=" data:image/svg+xml;base64,PHN2Zz4=">',
     "estilo con escape CSS": '<p style="background:\\75rl(https://x.test/p.png)">x</p>',
     "estilo con image-set()": "<p style=\"background:image-set('https://x.test/p.png' 1x)\">x</p>",
     "estilo con comentario partiendo url": '<p style="background:u/**/rl(https://x.test/p.png)">x</p>',
@@ -222,8 +236,8 @@ function filterChecks() {
   const signature =
     '<p><img src="data:image/png;base64,iVBORw0KGgo=" alt="Firma" style="max-height:72px;max-width:260px" /></p>';
   check(
-    "conserva la firma en data:image/png",
-    sanitizeContractHtml(signature) === signature,
+    "conserva la firma en data:image/png (el serializador quita solo la `/` final)",
+    sanitizeContractHtml(signature) === signature.replace(" />", ">"),
     sanitizeContractHtml(signature),
   );
   check(
@@ -264,6 +278,42 @@ function filterChecks() {
     const ms = performance.now() - t0;
     check(`responde rápido con ${label} (${html.length} car.)`, ms < 500 && !looksExecutable(out), `${ms.toFixed(0)} ms`);
   }
+  // DOMPurify construye un DOM: el coste es cuadrático con la profundidad y se desborda la pila.
+  const deep: Record<string, string> = {
+    "20 000 `<div>` anidados": "<div>".repeat(20000) + "x",
+    "20 000 tablas anidadas": "<table><tr><td>".repeat(20000),
+    "20 000 listas anidadas": "<ul><li>".repeat(20000),
+    "entrada de 2 millones de caracteres": "<p>a</p>".repeat(250000),
+  };
+  for (const [label, html] of Object.entries(deep)) {
+    const t0 = performance.now();
+    const out = sanitizeContractHtml(html);
+    const ms = performance.now() - t0;
+    check(
+      `entrada desmesurada se entrega como texto y sin esperar: ${label}`,
+      ms < 1000 && !/<(?:div|table|ul|li|p)\b/.test(out),
+      `${ms.toFixed(0)} ms`,
+    );
+  }
+  let threw = false;
+  try {
+    sanitizeContractHtml("<table><tr><td>".repeat(499) + "x");
+    sanitizeContractHtml("<ul><li>".repeat(740) + "x");
+  } catch {
+    threw = true;
+  }
+  check("la profundidad máxima permitida no lanza una excepción", !threw);
+  const t1 = performance.now();
+  const nested = sanitizeContractHtml("<div>".repeat(700) + "x" + "</div>".repeat(700));
+  check(
+    "un contrato dentro del tope (700 niveles) se filtra con normalidad y en menos de 2 s",
+    performance.now() - t1 < 2000 && nested.startsWith("<div><div>"),
+    nested.slice(0, 40),
+  );
+  check(
+    "un contrato largo y plano (1 000 párrafos) se conserva entero",
+    sanitizeContractHtml("<p>a</p>".repeat(1000)) === "<p>a</p>".repeat(1000),
+  );
   check(
     "un valor con comilla sin cerrar no deja un manejador vivo",
     !looksExecutable(sanitizeContractHtml('<p>x</p><img alt="y src=x onerror=alert(1)>')),
@@ -274,29 +324,42 @@ function filterChecks() {
   const exact: Array<[string, string, string]> = [
     ["conserva el HTML de alrededor", '<p>a</p><img src="x" onerror="alert(1)"><p>b &amp; c</p>', '<p>a</p><img src="x"><p>b &amp; c</p>'],
     ["quita svg sin tocar lo demás", "<h2>T</h2><svg/onload=alert(1)><p>ok</p></svg>", "<h2>T</h2><p>ok</p>"],
-    ["neutraliza el enlace y deja su texto", '<p><a href="javascript:alert(1)">ver</a></p>', '<p><a href="#">ver</a></p>'],
-    ["comilla sin cerrar: el resto queda como texto", '<p>x</p><img alt="y src=x onerror=alert(1)>', '<p>x</p>&lt;img alt=&quot;y src=x onerror=alert(1)&gt;'],
-    ["etiqueta sin `>`: el resto queda como texto", "<p>x</p><img src=x", "<p>x</p>&lt;img src=x"],
+    ["neutraliza el enlace y deja su texto", '<p><a href="javascript:alert(1)">ver</a></p>', "<p><a>ver</a></p>"],
+    ["comilla sin cerrar: el navegador descarta la etiqueta", '<p>x</p><img alt="y src=x onerror=alert(1)>', "<p>x</p>"],
+    ["etiqueta sin `>`: el navegador la descarta", "<p>x</p><img src=x", "<p>x</p>"],
     ["quita el bloque script con su contenido", "<p>a</p><script>alert(1)</script><p>b</p>", "<p>a</p><p>b</p>"],
     ["quita el bloque style con su contenido", "<p>a</p><style>p{color:red}</style><p>b</p>", "<p>a</p><p>b</p>"],
     ["quita comentarios", "<p>a</p><!-- nota --><p>b</p>", "<p>a</p><p>b</p>"],
     ["una comilla doble dentro de un valor con comilla simple no abre atributos", "<a title='x\" onclick=alert(1) y'>t</a>", '<a title="x&quot; onclick=alert(1) y">t</a>'],
     ["el primer atributo repetido gana, como en el navegador", '<a href="https://a.test/" href="https://b.test/">t</a>', '<a href="https://a.test/">t</a>'],
     ["un `<` que no abre etiqueta queda como texto", "<p>5 < 6, I <3 you</p>", "<p>5 &lt; 6, I &lt;3 you</p>"],
-    ["`=` al empezar un atributo no abre un valor", '<img /="x><base href=https://evil.example/>" a="">', '<img>" a="">'],
-    ["un `<!…>` raro se descarta hasta el primer `>`", '<!x <img alt="> <base href=https://evil.example/>">', ' ">'],
-    ["texto crudo (`xmp`) no esconde etiquetas", '<xmp><img alt="</xmp><base href=x>">', '">'],
+    ["`=` al empezar un atributo no abre un valor", '<img /="x><base href=https://evil.example/>" a="">', '<img>" a=""&gt;'],
+    ["un `<!…>` raro se descarta hasta el primer `>`", '<!x <img alt="> <base href=https://evil.example/>">', '"&gt;'],
+    ["texto crudo (`xmp`) no esconde etiquetas", '<xmp><img alt="</xmp><base href=x>">', '"&gt;'],
     ["comentario cerrado con `--!>`", "<!-- a --!><base href=x><p>b</p>", "<p>b</p>"],
     ["`İ` antes de un bloque no descuadra el texto", "İİİİİİİİİİİİ<script>x</script><p>ok</p><b>fin</b>", "İİİİİİİİİİİİ<p>ok</p><b>fin</b>"],
     ["espacio entre `=` y el valor entre comillas", '<a title= "x" href="https://a.test/">t</a>', '<a title="x" href="https://a.test/">t</a>'],
     ["mayúsculas: el bloque SCRIPT no se come lo que sigue", "<SCRIPT>a</SCRIPT><p>b</p>", "<p>b</p>"],
     ["mayúsculas en etiquetas normales", "<P>Hola</P>", "<p>Hola</p>"],
-    ["atributo sin valor se conserva", "<ol reversed><li>a</li></ol>", "<ol reversed><li>a</li></ol>"],
+    ["atributo sin valor se conserva (como `reversed=\"\"`)", "<ol reversed><li>a</li></ol>", '<ol reversed=""><li>a</li></ol>'],
     ["estilo con comillas en font-family se conserva", '<p style="font-family: &quot;Inter&quot;, sans-serif">a</p>', '<p style="font-family: &quot;Inter&quot;, sans-serif">a</p>'],
     ["estilo normal de TipTap se conserva", '<p style="text-align: center; color: #333">a</p>', '<p style="text-align: center; color: #333">a</p>'],
     ["firma en data:image/jpeg", '<img src="data:image/jpeg;base64,/9j/4AAQ">', '<img src="data:image/jpeg;base64,/9j/4AAQ">'],
     ["imagen data:image/gif", '<img src="data:image/gif;base64,R0lGODlh">', '<img src="data:image/gif;base64,R0lGODlh">'],
     ["imagen data:image/webp", '<img src="data:image/webp;base64,UklGRg==">', '<img src="data:image/webp;base64,UklGRg==">'],
+    ["una etiqueta desconocida conserva su texto", "<p>a <font color=red>b</font> c</p>", "<p>a b c</p>"],
+    ["los data-* ajenos se quitan, los propios se conservan", '<p data-x="1" data-jh-section="fees" aria-label="x" id="y" name="z">a</p>', '<p data-jh-section="fees">a</p>'],
+    ["target añade rel noopener", '<a href="https://a.test/" target="_blank">t</a>', '<a href="https://a.test/" target="_blank" rel="noopener noreferrer">t</a>'],
+    ["rel ajeno se reemplaza si hay target", '<a href="https://a.test/" target="_blank" rel="opener">t</a>', '<a href="https://a.test/" target="_blank" rel="noopener noreferrer">t</a>'],
+    ["mailto y tel se conservan", '<a href="mailto:a@b.test">m</a><a href="tel:+15550100">t</a>', '<a href="mailto:a@b.test">m</a><a href="tel:+15550100">t</a>'],
+    ["enlace relativo y ancla se conservan", '<a href="/x">r</a><a href="#s">a</a>', '<a href="/x">r</a><a href="#s">a</a>'],
+    ["protocolo desconocido fuera", '<a href="foo:bar">x</a>', "<a>x</a>"],
+    ["`data:` en href fuera aunque sea imagen", '<a href="data:image/png;base64,iVBORw0KGgo=">x</a>', "<a>x</a>"],
+    ["`data:` de imagen en un atributo que no es src fuera", '<img src="https://a.test/x.png" title="data:text/html,x" alt="data:image/png;base64,AAAA">', '<img src="https://a.test/x.png">'],
+    ["data:image con cola tras el base64 se descarta", '<img src="data:image/png;base64,AAAA?x=1">', "<img>"],
+    ["data:image/svg con espacio delante se descarta", '<img src=" data:image/svg+xml;base64,PHN2Zz4=">', "<img>"],
+    ["estilo con element() se descarta", '<p style="background:element(#x)">a</p>', "<p>a</p>"],
+    ["estilo con behavior se descarta", '<p style="behavior: foo">a</p>', "<p>a</p>"],
     ["quita form (y su action)", '<form action="https://x.test/"><p>a</p></form>', "<p>a</p>"],
     ["estilo sin comillas con NBSP no esconde url()", "<p style=color:red;\u00a0background:url(https://x.test/a.png)>x</p>", "<p>x</p>"],
   ];
@@ -458,7 +521,7 @@ async function dbChecks(prisma: PrismaClient) {
     check("el HTML del portal queda inerte", !looksExecutable(portalHtml(contract.contentSnapshot)));
     check(
       "el portal muestra el nombre como texto",
-      portalHtml(contract.contentSnapshot).includes(escaped),
+      decodeTextEntities(portalHtml(contract.contentSnapshot)).includes(`${firstName} Prueba`),
     );
 
     const sent = await markSent(ctx, contract.id);

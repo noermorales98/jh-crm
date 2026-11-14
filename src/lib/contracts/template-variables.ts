@@ -91,13 +91,18 @@ export function presentContractHtml(html: string): string {
     openRe.lastIndex = last;
   }
   presented += wrapped.slice(last);
-  // El icono entra solo donde el propio chip puso el marcador: justo tras la apertura
-  // canónica del chip. Esa secuencia, con comillas sin escapar, solo puede ser marcado
-  // real (el filtro escribe `"` como `&quot;` dentro de valores y `<` como `&lt;` en
-  // texto). Cualquier otro marcador (p. ej. dentro de un atributo) se borra.
-  const chipOpen = /(<span class="jh-template-var" data-template-var="(?:clientName|clientFullName)">)/;
+  // El icono entra solo donde el propio chip puso el marcador: justo tras la apertura de un
+  // chip (`class="jh-template-var"` + `data-template-var="clientName|clientFullName"`). Con
+  // comillas sin escapar esa apertura solo puede ser marcado real: el serializador escribe `"`
+  // como `&quot;` dentro de los valores. Cualquier otro marcador (p. ej. dentro de un atributo)
+  // se borra.
+  const chipOpen = new RegExp(`<span((?: [a-z-]+="[^"<>]*")+)>${marker}`, "g");
   return sanitizeContractHtml(presented)
-    .replace(new RegExp(`${chipOpen.source}${marker}`, "g"), `$1${USER_ICON_SVG}`)
+    .replace(chipOpen, (full, attrs: string) =>
+      /class="jh-template-var"/.test(attrs) && /data-template-var="(?:clientName|clientFullName)"/.test(attrs)
+        ? `<span${attrs}>${USER_ICON_SVG}`
+        : full,
+    )
     .split(marker)
     .join("");
 }

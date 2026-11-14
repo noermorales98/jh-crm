@@ -53,7 +53,7 @@ const LIVE_TAGS =
 
 const URL_ATTRS = /^(?:href|src|xlink:href|action|formaction|background|poster|data|cite|ping|longdesc|usemap|lowsrc|dynsrc)$/;
 const BAD_SCHEME = /^(?:javascript|vbscript|livescript|mocha):/;
-const BAD_STYLE = /position\s*:\s*(?:fixed|sticky)|\\|expression|url|image-set|image\s*\(|cross-fade|element\s*\(|src\s*\(|@import|behavior|binding|javascript:/i;
+const BAD_STYLE = /&(?!quot;|#39;|#x27;|amp;)|position\s*:\s*(?:fixed|sticky)|\\|expression|url|image-set|image\s*\(|cross-fade|element\s*\(|src\s*\(|@import|behavior|binding|javascript:/i;
 
 /**
  * Etiquetas de apertura tal como las corta el navegador: una comilla solo abre un valor
@@ -204,6 +204,12 @@ function filterChecks() {
     "estilo position:fixed (aviso falso a pantalla completa)": '<div style="position: fixed; inset: 0">x</div>',
     "video remoto": '<video src="https://x.test/a.mp4"></video>',
     "ping en enlace": '<a href="https://a.test/" ping="https://x.test/">x</a>',
+    "estilo con url&lpar;": '<div style="background:url&lpar;https://x.test/a.png&rpar;">x</div>',
+    "estilo con image-set&lpar;": "<div style=\"cursor:image-set&lpar;'https://x.test/a.png' 1x)\">x</div>",
+    "estilo con entidad numérica": '<div style="background:url&#40;https://x.test/a.png)">x</div>',
+    "estilo con src()": "<div style=\"background:src('https://x.test/a.png')\">x</div>",
+    "estilo con image()": "<div style=\"background:image('https://x.test/a.png')\">x</div>",
+    "estilo con cross-fade()": "<div style=\"background:cross-fade(50%, 'https://x.test/a.png')\">x</div>",
     "estilo con escape CSS": '<p style="background:\\75rl(https://x.test/p.png)">x</p>',
     "estilo con image-set()": "<p style=\"background:image-set('https://x.test/p.png' 1x)\">x</p>",
     "estilo con comentario partiendo url": '<p style="background:u/**/rl(https://x.test/p.png)">x</p>',
@@ -286,6 +292,7 @@ function filterChecks() {
     ["mayúsculas: el bloque SCRIPT no se come lo que sigue", "<SCRIPT>a</SCRIPT><p>b</p>", "<p>b</p>"],
     ["mayúsculas en etiquetas normales", "<P>Hola</P>", "<p>Hola</p>"],
     ["atributo sin valor se conserva", "<ol reversed><li>a</li></ol>", "<ol reversed><li>a</li></ol>"],
+    ["estilo con comillas en font-family se conserva", '<p style="font-family: &quot;Inter&quot;, sans-serif">a</p>', '<p style="font-family: &quot;Inter&quot;, sans-serif">a</p>'],
     ["estilo normal de TipTap se conserva", '<p style="text-align: center; color: #333">a</p>', '<p style="text-align: center; color: #333">a</p>'],
     ["firma en data:image/jpeg", '<img src="data:image/jpeg;base64,/9j/4AAQ">', '<img src="data:image/jpeg;base64,/9j/4AAQ">'],
     ["imagen data:image/gif", '<img src="data:image/gif;base64,R0lGODlh">', '<img src="data:image/gif;base64,R0lGODlh">'],

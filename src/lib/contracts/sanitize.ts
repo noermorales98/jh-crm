@@ -84,6 +84,15 @@ function isDangerousUrl(attr: string, value: string): boolean {
   return false;
 }
 
+/**
+ * Un estilo con referencias de carácter con nombre (`url&lpar;` = `url(`) esquivaría la
+ * lista; en vez de decodificarlas todas, solo se aceptan `&quot;`, `&#39;` y `&amp;`.
+ */
+function isDangerousStyle(value: string): boolean {
+  if (/&(?!quot;|#39;|#x27;|amp;)/i.test(value)) return true;
+  return DANGEROUS_STYLE.test(normalizedScheme(value));
+}
+
 type ParsedTag = {
   name: string;
   attrs: Array<{ name: string; value: string | null }>;
@@ -164,7 +173,7 @@ function renderStartTag(tag: ParsedTag): string {
       out += ` ${name}`;
       continue;
     }
-    if (name === "style" && DANGEROUS_STYLE.test(normalizedScheme(value))) continue;
+    if (name === "style" && isDangerousStyle(value)) continue;
     const safe = URL_ATTRS.has(name) && isDangerousUrl(name, value) ? "#" : value;
     out += ` ${name}="${safe.replace(/\u0000/g, "\uFFFD").replace(/"/g, "&quot;")}"`;
   }

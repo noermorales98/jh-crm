@@ -43,7 +43,6 @@ contratos ya guardados. Por eso se hace también el endurecimiento del filtro.
 
 ## Non-goals / out of scope
 
-- Cambiar el filtro por un sanitizador basado en parser (DOMPurify o similar).
 - Otros HTML del sistema (cartas, correos).
 
 ## Users & context
@@ -75,8 +74,13 @@ contratos existentes siguen en verde.
 ## Behaviour
 
 1. Al crear un contrato, `fillTemplateVariables` sustituye cada token por su valor escapado.
-2. El portal filtra el HTML guardado y la vista (`presentContractHtml`) vuelve a filtrar su salida
-   después de reescribir los chips; el icono del chip entra tras filtrar.
+2. El portal filtra el HTML guardado con DOMPurify (configuración explícita: lista cerrada de
+   etiquetas y atributos; `data:` solo como imagen PNG/JPEG/GIF/WebP; estilos con `url(`, escapes
+   CSS, `image-set(`, `position: fixed|sticky` o entidades con nombre, fuera) y la vista
+   (`presentContractHtml`) filtra su propia salida después de reescribir los chips; el icono del
+   chip entra tras filtrar, solo junto a la apertura de un chip.
+3. Entrada desmesurada (más de 1 000 000 caracteres o 1 500 aperturas de etiqueta) o cualquier
+   error del filtro: se entrega como texto escapado (falla cerrado).
 
 ## Acceptance criteria
 
@@ -85,6 +89,21 @@ contratos existentes siguen en verde.
   `srcdoc`, `svg`/`math`/`template` y estilos con `expression(`/`url(`.
 - La vista filtra su propia salida; no hay reescritura tras el filtro.
 
+## Amendment 2026-11-14 — DOMPurify
+
+La spec aprobada dejaba fuera «un sanitizador basado en parser (DOMPurify o similar)». Tras
+construir y revisar un filtro propio (cuatro rondas de tres revisores), Noe decidió usar DOMPurify:
+«usa dompurify» (2026-11-14, transmitido por la sesión «Conexión MCP CRM JH con Claude»). Cambia:
+
+- Sale de «out of scope» la dependencia de un sanitizador; se acepta la dependencia
+  `isomorphic-dompurify@4.6.0` (publicada 2026-10-16) con `dompurify@3.4.17` (2026-10-12), ambas
+  versiones exactas y con más de dos semanas. Arrastra `jsdom@30.1.3` (el portal renderiza también
+  en el servidor). Requiere Node `^22.22.2 || ^24.15.0 || >=26`.
+- `sanitizeContractHtml` pasa a ser DOMPurify configurado; el escape de valores en
+  `fillTemplateVariables` no cambia.
+- Coste conocido: con jsdom el filtro es cuadrático con la profundidad del HTML, por eso los topes
+  de entrada de «Behaviour».
+
 ## Assumptions
 
 - Ninguna plantilla real usa comentarios HTML, `<svg>`, `<math>`, estilos con `url(` ni imágenes
@@ -92,4 +111,4 @@ contratos existentes siguen en verde.
 
 ## Points to clarify
 
-- Ninguno abierto.
+- Ninguno abierto. La enmienda de DOMPurify queda registrada arriba.

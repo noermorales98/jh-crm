@@ -63,7 +63,7 @@ function stripTags(html: string) {
  * (`sanitizeContractHtml` al final). Filtrar antes y reescribir después rompe los
  * límites de etiqueta que vio el filtro (`<img alt=<span data-template-var=..> onerror=..>`).
  * El icono SVG del chip (que el filtro quitaría) entra después, en el lugar de un
- * marcador aleatorio por llamada que el contenido no puede prever.
+ * marcador aleatorio por llamada, y solo en la posición exacta del chip.
  */
 export function presentContractHtml(html: string): string {
   const marker = `jhtplicon${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
@@ -91,5 +91,13 @@ export function presentContractHtml(html: string): string {
     openRe.lastIndex = last;
   }
   presented += wrapped.slice(last);
-  return sanitizeContractHtml(presented).split(marker).join(USER_ICON_SVG);
+  // El icono entra solo donde el propio chip puso el marcador: justo tras la apertura
+  // canónica del chip. Esa secuencia, con comillas sin escapar, solo puede ser marcado
+  // real (el filtro escribe `"` como `&quot;` dentro de valores y `<` como `&lt;` en
+  // texto). Cualquier otro marcador (p. ej. dentro de un atributo) se borra.
+  const chipOpen = /(<span class="jh-template-var" data-template-var="(?:clientName|clientFullName)">)/;
+  return sanitizeContractHtml(presented)
+    .replace(new RegExp(`${chipOpen.source}${marker}`, "g"), `$1${USER_ICON_SVG}`)
+    .split(marker)
+    .join("");
 }

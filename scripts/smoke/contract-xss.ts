@@ -49,28 +49,68 @@ function decodeEntities(text: string) {
 }
 
 const LIVE_TAGS =
-  /^<(?:script|style|svg|iframe|frame|frameset|object|embed|applet|math|template|form|button|input|textarea|select|link|meta|base|portal|noscript)\b/i;
+  /^<(?:noembed|noframes|title|xmp|plaintext|video|audio|source|track|script|style|svg|iframe|frame|frameset|object|embed|applet|math|template|form|button|input|textarea|select|link|meta|base|portal|noscript)\b/i;
 
 const URL_ATTRS = /^(?:href|src|xlink:href|action|formaction|background|poster|data|cite|ping|longdesc|usemap|lowsrc|dynsrc)$/;
 const BAD_SCHEME = /^(?:javascript|vbscript|livescript|mocha):/;
-const BAD_STYLE = /expression\s*\(|url\s*\(|@import|behavior\s*:|-moz-binding|javascript:/i;
+const BAD_STYLE = /position\s*:\s*(?:fixed|sticky)|\\|expression|url|image-set|image\s*\(|cross-fade|element\s*\(|src\s*\(|@import|behavior|binding|javascript:/i;
+
+/**
+ * Etiquetas de apertura tal como las corta el navegador: una comilla solo abre un valor
+ * justo después de `=` (tras espacios opcionales). Si la entrada acaba dentro de una
+ * etiqueta, se devuelve el resto entero (se juzga igual, de forma conservadora).
+ */
+function browserTags(html: string): string[] {
+  const tags: string[] = [];
+  let i = html.indexOf("<");
+  while (i !== -1) {
+    if (!/[a-z]/i.test(html[i + 1] ?? "")) {
+      i = html.indexOf("<", i + 1);
+      continue;
+    }
+    let j = i + 1;
+    let end = -1;
+    while (j < html.length) {
+      const ch = html[j]!;
+      if (ch === ">") {
+        end = j;
+        break;
+      }
+      if (ch === "=" && !/[\t\n\f\r /<]/.test(html[j - 1]!)) {
+        j += 1;
+        while (j < html.length && /[\t\n\f\r ]/.test(html[j]!)) j += 1;
+        const q = html[j];
+        if (q === '"' || q === "'") {
+          const k = html.indexOf(q, j + 1);
+          j = k === -1 ? html.length : k + 1;
+        }
+        continue;
+      }
+      j += 1;
+    }
+    if (end === -1) {
+      tags.push(html.slice(i));
+      break;
+    }
+    tags.push(html.slice(i, end + 1));
+    i = html.indexOf("<", end + 1);
+  }
+  return tags;
+}
 
 /**
  * Oráculo independiente del filtro: ¿queda algo que el navegador ejecutaría o cargaría?
- * Mira cada etiqueta de dos formas (hasta el primer `>` y respetando comillas). Los
- * valores entre comillas dobles se leen como valores (como el navegador) y se juzgan
- * según su atributo; todo lo demás de la etiqueta se juzga de forma conservadora.
+ * Corta las etiquetas con la regla del navegador (`browserTags`). Los valores entre
+ * comillas se leen como valores y se juzgan según su atributo; todo lo demás de la
+ * etiqueta se juzga de forma conservadora.
  */
 function looksExecutable(html: string) {
   // El icono del chip de variables (lo añade `presentContractHtml` tras filtrar) es nuestro.
   const own = html.replace(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="14"[\s\S]*?<\/svg>/g, "");
-  const tags = [
-    ...(own.match(/<[a-z][^>]*>?/gi) ?? []),
-    ...(own.match(/<[a-z](?:"[^"]*"|'[^']*'|`[^`]*`|[^>])*>?/gi) ?? []),
-  ];
+  const tags = browserTags(own);
   return tags.some((raw) => {
     if (LIVE_TAGS.test(raw)) return true;
-    const skeleton = raw.replace(/=[\t\n\f\r ]*"[^"]*"/g, '=""');
+    const skeleton = raw.replace(/=[\t\n\f\r ]*(?:"[^"]*"|'[^']*')/g, '=""');
     const dskel = decodeEntities(skeleton).replace(/[\u0000- \u007f-\u009f]/g, "");
     if (
       /[\s/"'`]on[a-z]+\s*=/i.test(skeleton) ||
@@ -81,10 +121,10 @@ function looksExecutable(html: string) {
     ) {
       return true;
     }
-    for (const [, rawName, rawValue] of raw.matchAll(/([^\s"'<>/=]+)[\t\n\f\r ]*=[\t\n\f\r ]*"([^"]*)"/g)) {
+    for (const [, rawName, dq, sq] of raw.matchAll(/([^\s"'<>/=]+)[\t\n\f\r ]*=[\t\n\f\r ]*(?:"([^"]*)"|'([^']*)')/g)) {
       const name = rawName!.toLowerCase();
-      const value = decodeEntities(rawValue!).replace(/[\u0000- \u007f-\u009f]/g, "").toLowerCase();
-      if (name.startsWith("on") || name === "srcdoc" || name === "srcset") return true;
+      const value = decodeEntities(dq ?? sq ?? "").replace(/[\u0000- \u007f-\u009f]/g, "").toLowerCase();
+      if (name.startsWith("on") || name === "srcdoc" || name === "srcset" || name === "ping") return true;
       if (URL_ATTRS.test(name)) {
         if (BAD_SCHEME.test(value)) return true;
         if (value.startsWith("data:") && !(name === "src" && /^data:image\/(?:png|jpeg|gif|webp);base64,/.test(value))) return true;
@@ -152,6 +192,21 @@ function filterChecks() {
     "url() con entidad en estilo": '<p style="background:u&#114;l(https://x.test/a.png)">x</p>',
     "background=javascript:": '<td background="javascript:alert(1)">x</td>',
     "svg en mayúsculas": "<SVG onload=alert(1)>",
+    "texto crudo noembed": '<noembed><img alt="</noembed><img src=x onerror=alert(1)>">',
+    "texto crudo noframes": '<noframes><img alt="</noframes><img src=x onerror=alert(1)>">',
+    "texto crudo textarea": '<textarea><img alt="</textarea><img src=x onerror=alert(1)>">',
+    "texto crudo title": '<title><img alt="</title><img src=x onerror=alert(1)>">',
+    "texto crudo noscript": '<noscript><img alt="</noscript><img src=x onerror=alert(1)>">',
+    "plaintext": '<plaintext><img src=x onerror=alert(1)>',
+    "entidad hex sin `;`": '<a href="&#x6a&#x61vascript:alert(1)">x</a>',
+    "input type=image": '<input type=image src="https://x.test/p.png">',
+    "portal": '<portal src="https://x.test/"></portal>',
+    "estilo position:fixed (aviso falso a pantalla completa)": '<div style="position: fixed; inset: 0">x</div>',
+    "video remoto": '<video src="https://x.test/a.mp4"></video>',
+    "ping en enlace": '<a href="https://a.test/" ping="https://x.test/">x</a>',
+    "estilo con escape CSS": '<p style="background:\\75rl(https://x.test/p.png)">x</p>',
+    "estilo con image-set()": "<p style=\"background:image-set('https://x.test/p.png' 1x)\">x</p>",
+    "estilo con comentario partiendo url": '<p style="background:u/**/rl(https://x.test/p.png)">x</p>',
   };
   for (const [label, html] of Object.entries(vectors)) {
     const out = sanitizeContractHtml(html);
@@ -228,6 +283,13 @@ function filterChecks() {
     ["comentario cerrado con `--!>`", "<!-- a --!><base href=x><p>b</p>", "<p>b</p>"],
     ["`İ` antes de un bloque no descuadra el texto", "İİİİİİİİİİİİ<script>x</script><p>ok</p><b>fin</b>", "İİİİİİİİİİİİ<p>ok</p><b>fin</b>"],
     ["espacio entre `=` y el valor entre comillas", '<a title= "x" href="https://a.test/">t</a>', '<a title="x" href="https://a.test/">t</a>'],
+    ["mayúsculas: el bloque SCRIPT no se come lo que sigue", "<SCRIPT>a</SCRIPT><p>b</p>", "<p>b</p>"],
+    ["mayúsculas en etiquetas normales", "<P>Hola</P>", "<p>Hola</p>"],
+    ["atributo sin valor se conserva", "<ol reversed><li>a</li></ol>", "<ol reversed><li>a</li></ol>"],
+    ["estilo normal de TipTap se conserva", '<p style="text-align: center; color: #333">a</p>', '<p style="text-align: center; color: #333">a</p>'],
+    ["firma en data:image/jpeg", '<img src="data:image/jpeg;base64,/9j/4AAQ">', '<img src="data:image/jpeg;base64,/9j/4AAQ">'],
+    ["imagen data:image/gif", '<img src="data:image/gif;base64,R0lGODlh">', '<img src="data:image/gif;base64,R0lGODlh">'],
+    ["imagen data:image/webp", '<img src="data:image/webp;base64,UklGRg==">', '<img src="data:image/webp;base64,UklGRg==">'],
     ["quita form (y su action)", '<form action="https://x.test/"><p>a</p></form>', "<p>a</p>"],
     ["estilo sin comillas con NBSP no esconde url()", "<p style=color:red;\u00a0background:url(https://x.test/a.png)>x</p>", "<p>x</p>"],
   ];
@@ -251,6 +313,26 @@ function filterChecks() {
     filledSpan === "<p>Firma: Ana Perez</p>",
     filledSpan,
   );
+  const markerInAttr =
+    "<img alt=\"{{clientName}}<a title='{{clientName}}<img src=x onerror=window.PWNED=1>'>\">";
+  check(
+    "el icono del chip no entra dentro de un atributo",
+    !looksExecutable(presentContractHtml(markerInAttr)) && !looksExecutable(portalHtml(markerInAttr)),
+    presentContractHtml(markerInAttr),
+  );
+  for (const tricky of [
+    '<p title="{{clientName}}">{{clientName}}</p>',
+    '<a href="https://a.test/{{clientFullName}}">{{clientFullName}}</a>',
+    "<img alt='{{clientName}}' src=x>",
+  ]) {
+    const out = presentContractHtml(tricky);
+    const icons = (out.match(/<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="14"/g) ?? []).length;
+    check(`el icono solo aparece en chips de texto: ${tricky}`, icons <= 1 && !/jhtplicon/.test(out) && !looksExecutable(out), out);
+  }
+  const almostToken = presentContractHtml(
+    '<p><span data-template-var="clientName" class="jh-template-var">{{clientName}} extra</span></p>',
+  );
+  check("solo el token exacto se convierte en chip", almostToken === "<p>{{clientName}} extra</p>", almostToken);
   const preWrapped = presentContractHtml(
     '<p><span data-template-var="clientName" class="jh-template-var">{{clientName}}</span></p>',
   );

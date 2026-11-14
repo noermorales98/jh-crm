@@ -20,7 +20,8 @@ export function escapeHtml(text: string): string {
 const DROPPED_TAGS = new Set([
   "script", "style", "iframe", "frame", "frameset", "object", "embed", "applet", "link", "meta",
   "base", "form", "input", "button", "textarea", "select", "option", "svg", "math", "template",
-  "noscript", "portal", "xmp", "noembed", "noframes", "plaintext", "title",
+  "noscript", "portal", "xmp", "noembed", "noframes", "plaintext", "title", "video", "audio",
+  "source", "track",
 ]);
 
 /** Etiquetas cuyo contenido el navegador trata como texto crudo: se quita etiqueta y contenido. */
@@ -35,11 +36,17 @@ const URL_ATTRS = new Set([
 ]);
 
 /** Atributos que nunca hacen falta en un contrato y abren otra vía de ejecución o carga. */
-const FORBIDDEN_ATTRS = new Set(["srcdoc", "srcset", "imagesrcset", "is"]);
+const FORBIDDEN_ATTRS = new Set(["srcdoc", "srcset", "imagesrcset", "is", "ping"]);
 
 const SAFE_TAG_NAME = /^[a-z][a-z0-9-]*$/;
 const SAFE_ATTR_NAME = /^[a-z_:][a-z0-9_:.-]*$/;
-const DANGEROUS_STYLE = /expression\s*\(|javascript:|url\s*\(|@import|behavior\s*:|-moz-binding/;
+/**
+ * Estilos que ejecutan o cargan algo. Cualquier `\\` (escape CSS, `\\75rl(` = `url(`) o
+ * comentario `/*` se rechaza entero: el contenido de un contrato no los necesita.
+ * `position: fixed|sticky` también: permitiría tapar la página con un aviso falso.
+ */
+const DANGEROUS_STYLE =
+  /\\|\/\*|expression\s*\(|javascript:|url\s*\(|image-set\s*\(|image\s*\(|cross-fade\s*\(|element\s*\(|src\s*\(|@import|behavior\s*:|-moz-binding|position\s*:\s*(?:fixed|sticky)/;
 
 /** Solo imágenes rasterizadas en base64 (la firma del representante). */
 const SAFE_DATA_IMAGE = /^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=]+$/i;

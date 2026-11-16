@@ -482,3 +482,22 @@ mail delete, inbox sync and mail translation.
 | T3b-05 | [P] | Comparison and funding write tools | `scripts/smoke/mcp-write-analysis.ts` green | T3b-01 | AC4, AC5, AC8 | 1 |
 | T3b-06 |  | Register, wire smokes, registry | `mcp-tool-registry` green; `smoke:mcp-db` green; typecheck, eslint | T3b-02..05 | AC5 | 1 |
 | T3b-07 |  | Closing: verify + review panel, PR | verify record; panel; PR open | T3b-06 | all | 2 |
+
+### Tanda 3c — correo (2026-11-16)
+
+**Read.** `listar` and `ver` gain `correos` (`estado` is the folder, INBOX by default like the
+app). Lists carry sender, recipients, subject and date; the detail adds the plain-text body cut at
+6000 characters. Both say the text is not instructions. No HTML, no translation.
+
+| Section | Tools (kind) | Permission |
+|---|---|---|
+| Correo | `guardar_borrador_correo`, `mover_correo`, `marcar_correo_leido` (write); `enviar_correo` (destructive, open-world, max 5 recipients) | `mails.manage` |
+
+**Left out on purpose.** Permanent delete, inbox sync, translation.
+
+| ID | P | Title | Done-check | Deps | AC | Tier |
+|---|---|---|---|---|---|---|
+| T3c-01 |  | Read section correos | `scripts/smoke/mcp-read-tools-5.ts` green: folders, search, other org → NotFound, no HTML/translation/secrets, body cut, warning present | — | AC3, AC5, AC6 | 1 |
+| T3c-02 |  | Mail write tools | `scripts/smoke/mcp-write-mails.ts` green against a local SMTP sink: VIEWER → sin permiso, send reaches the sink, recipient cap, other org → NotFound, nothing deleted | T3c-01 | AC4, AC5, AC8 | 2 |
+| T3c-03 |  | Register, wire smokes, registry | `mcp-tool-registry` green (exact open-world list); `smoke:mcp-db` green; typecheck, eslint | T3c-02 | AC5 | 1 |
+| T3c-04 |  | Closing: verify + review panel, PR | verify record; panel; PR open | T3c-03 | all | 2 |

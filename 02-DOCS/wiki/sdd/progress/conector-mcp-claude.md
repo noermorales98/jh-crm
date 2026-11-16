@@ -259,3 +259,8 @@ then integration (registry, `smoke:mcp-db` grows to 19 smokes).
 - 3b: lectura de servicios, paquetes, procesadores, testimonios, comparaciones y financiamiento; 17 herramientas de escritura. Sin correo (va aparte). Claude no registra consentimientos, no aprueba ni publica testimonios.
 - Revisión con 3 lentes: nada bloqueante. Arreglos aplicados; 7 mutantes provocados a mano, todos detectados.
 - Pendiente: PR de la 3b, correo (3c), administración y resto (3d), prueba real en claude.ai.
+
+## Envío de la tanda 3b (2026-11-16)
+
+- PR #48 unido a main con el visto bueno del dueño (merge commit d3b89c5). CI en verde.
+- Pendiente: prueba real en claude.ai de las tandas 2, 3a y 3b; 3c (correo) y 3d (administración y resto, cierra AC-5).

@@ -3,29 +3,41 @@ import { ForbiddenError } from "@/src/server/auth/guards";
 import { DomainError, NotFoundError } from "@/src/server/errors";
 import { getCaseBrief, getClientBrief, listCrm, searchCrm } from "@/src/server/ai/queries";
 import {
+  getComparisonDetail,
   getConsultationDetail,
   getContractDetail,
   getCreditReportDetail,
+  getFundingDetail,
   getLetterDetail,
   getOpportunityDetail,
+  getPackageDetail,
   getPaymentDetailMcp,
   getPaymentPlanDetail,
+  getProcessorDetail,
   getReceiptDetail,
   getRoundDetail,
   getQuoteBrief,
   getServiceCaseBrief,
+  getServiceDetail,
   getTaskBrief,
+  getTestimonialDetail,
+  listComparisonsMcp,
   listConsultationsMcp,
   listContractTemplatesMcp,
   listContractsMcp,
   listCreditReports,
+  listFundingMcp,
   listLetters,
   listOpportunities,
+  listPackagesMcp,
   listPaymentPlansMcp,
   listPaymentsMcp,
+  listProcessorsMcp,
   listReceiptsMcp,
   listRounds,
   listServiceCases,
+  listServicesMcp,
+  listTestimonialsMcp,
 } from "@/src/server/mcp/queries";
 import { isSensitiveNumberQuery } from "@/src/server/mcp/redact";
 import { defineTool, type McpContext, type Tool } from "./types";
@@ -51,12 +63,18 @@ export const READ_SECTIONS = [
   "planes_pago",
   "contratos",
   "plantillas_contrato",
+  "servicios",
+  "paquetes",
+  "procesadores",
+  "testimonios",
+  "comparaciones",
+  "financiamiento",
 ] as const;
 export type ReadSection = (typeof READ_SECTIONS)[number];
 
 const seccion = z
   .enum(READ_SECTIONS)
-  .describe("Sección del CRM: clientes, casos (crédito), casos_servicio, tareas, oportunidades, cotizaciones, rondas (con sus ítems de disputa), cartas, reportes_credito, consultas, pagos, recibos, planes_pago (con sus cuotas), contratos o plantillas_contrato (solo para listar).");
+  .describe("Sección del CRM: clientes, casos (crédito), casos_servicio, tareas, oportunidades, cotizaciones, rondas (con sus ítems de disputa), cartas, reportes_credito, consultas, pagos, recibos, planes_pago (con sus cuotas), contratos, plantillas_contrato (solo para listar), servicios, paquetes, procesadores (con las cuentas de clientes), testimonios, comparaciones (con sus partidas) o financiamiento (solicitudes a prestamistas).");
 
 /**
  * Las consultas del asistente interno devuelven `{ error }` en lugar de lanzar.
@@ -147,6 +165,18 @@ async function listSection(ctx: McpContext, input: { seccion: ReadSection; estad
       return listContractsMcp(ctx, input);
     case "plantillas_contrato":
       return listContractTemplatesMcp(ctx, input);
+    case "servicios":
+      return listServicesMcp(ctx, input);
+    case "paquetes":
+      return listPackagesMcp(ctx, input);
+    case "procesadores":
+      return listProcessorsMcp(ctx, input);
+    case "testimonios":
+      return listTestimonialsMcp(ctx, input);
+    case "comparaciones":
+      return listComparisonsMcp(ctx, input);
+    case "financiamiento":
+      return listFundingMcp(ctx, input);
   }
 }
 
@@ -182,6 +212,18 @@ async function viewSection(ctx: McpContext, input: { seccion: ReadSection; id: s
       return found(await getContractDetail(ctx, input.id));
     case "plantillas_contrato":
       throw new DomainError("Las plantillas de contrato solo se listan; su texto legal se abre en el CRM.");
+    case "servicios":
+      return found(await getServiceDetail(ctx, input.id));
+    case "paquetes":
+      return found(await getPackageDetail(ctx, input.id));
+    case "procesadores":
+      return found(await getProcessorDetail(ctx, input.id));
+    case "testimonios":
+      return found(await getTestimonialDetail(ctx, input.id));
+    case "comparaciones":
+      return found(await getComparisonDetail(ctx, input.id));
+    case "financiamiento":
+      return found(await getFundingDetail(ctx, input.id));
   }
 }
 

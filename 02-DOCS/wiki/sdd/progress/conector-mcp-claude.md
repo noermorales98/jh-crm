@@ -253,3 +253,9 @@ then integration (registry, `smoke:mcp-db` grows to 19 smokes).
 - Pendiente: prueba real en claude.ai de la 3a; tanda 3b (catálogo y operación) y 3c (administración y resto, cierra AC-5).
 
 > 2026-11-16 — PR #45 (arreglo del XSS en contratos con DOMPurify) unido a main (8487668) con el visto bueno del dueño. Cierra el pendiente anotado en la revisión de la tanda 3a.
+
+## Tanda 3b (2026-11-16)
+
+- 3b: lectura de servicios, paquetes, procesadores, testimonios, comparaciones y financiamiento; 17 herramientas de escritura. Sin correo (va aparte). Claude no registra consentimientos, no aprueba ni publica testimonios.
+- Revisión con 3 lentes: nada bloqueante. Arreglos aplicados; 7 mutantes provocados a mano, todos detectados.
+- Pendiente: PR de la 3b, correo (3c), administración y resto (3d), prueba real en claude.ai.

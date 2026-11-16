@@ -455,3 +455,30 @@ editing contract templates (legal text, gate JH-011). Logged in `decisions.md`.
 | T3a-03 | [P] | Contract write tools | `scripts/smoke/mcp-write-contracts.ts` green, same checks; no sign or template tool | T3a-01 | AC4, AC5, AC7, AC8 | 1 |
 | T3a-04 |  | Register, wire smokes, registry | `mcp-tool-registry` green (exact open-world list, no delete tools); `smoke:mcp-db` green; typecheck, eslint | T3a-02..03 | AC5, AC7 | 1 |
 | T3a-05 |  | Closing: verify + review panel, PR | verify record; panel; PR open | T3a-04 | all | 2 |
+
+### Tanda 3b — catálogo y operación, sin correo (2026-11-16)
+
+**Read.** `listar` and `ver` gain `servicios`, `paquetes`, `procesadores` (detail lists the client
+accounts, never the member id or account address), `testimonios` (no consent evidence),
+`comparaciones` (items with the effective result, no account numbers) and `financiamiento`.
+
+| Section | Tools (kind) | Permission |
+|---|---|---|
+| Catálogo | `crear_servicio`, `editar_servicio`, `crear_paquete`, `editar_paquete` (write); `archivar_servicio`, `archivar_paquete` (destructive) | `catalog.manage` (OWNER/ADMIN) |
+| Procesadores | `crear_procesador`, `editar_procesador`, `vincular_cuenta_procesador`, `editar_cuenta_procesador` (write) | `processors.manage` (OWNER/ADMIN/SPECIALIST) |
+| Testimonios | `crear_testimonio`, `editar_testimonio` (write); `eliminar_testimonio` (destructive, soft) | `testimonials.manage` |
+| Comparaciones | `crear_comparacion`, `ajustar_resultado_comparacion` (write) | `comparisons.manage` |
+| Financiamiento | `crear_solicitud_financiamiento`, `editar_solicitud_financiamiento` (write) | `cases.manage` |
+
+**Left out on purpose.** Testimonial consent, approval and publication; mail (own PR); permanent
+mail delete, inbox sync and mail translation.
+
+| ID | P | Title | Done-check | Deps | AC | Tier |
+|---|---|---|---|---|---|---|
+| T3b-01 |  | Read sections servicios, paquetes, procesadores, testimonios, comparaciones, financiamiento | `scripts/smoke/mcp-read-tools-4.ts` green | — | AC3, AC5, AC6 | 1 |
+| T3b-02 | [P] | Catalog write tools | `scripts/smoke/mcp-write-catalog.ts` green | T3b-01 | AC4, AC5, AC7, AC8 | 1 |
+| T3b-03 | [P] | Processor write tools | `scripts/smoke/mcp-write-processors.ts` green | T3b-01 | AC4, AC5, AC8 | 1 |
+| T3b-04 | [P] | Testimonial write tools | `scripts/smoke/mcp-write-testimonials.ts` green | T3b-01 | AC4, AC5, AC7, AC8 | 1 |
+| T3b-05 | [P] | Comparison and funding write tools | `scripts/smoke/mcp-write-analysis.ts` green | T3b-01 | AC4, AC5, AC8 | 1 |
+| T3b-06 |  | Register, wire smokes, registry | `mcp-tool-registry` green; `smoke:mcp-db` green; typecheck, eslint | T3b-02..05 | AC5 | 1 |
+| T3b-07 |  | Closing: verify + review panel, PR | verify record; panel; PR open | T3b-06 | all | 2 |

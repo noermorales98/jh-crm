@@ -14,7 +14,7 @@
  * El trabajo de jsdom sobre una entrada que cabe en el presupuesto queda acotado por el mismo
  * presupuesto, porque construye el mismo árbol.
  */
-import { defaultTreeAdapter, parse } from "parse5";
+import { defaultTreeAdapter, Parser } from "parse5";
 
 /** Nodos (elementos, comentarios y textos) que se permite crear. Un contrato real: cientos. */
 export const MAX_NODES = 20_000;
@@ -30,67 +30,12 @@ export const MAX_TOTAL_ATTRS = 40_000;
  */
 export const MAX_CHILDREN = 5_000;
 
-/**
- * Palabras sueltas dentro de una misma etiqueta (fuera de comillas). parse5 revisa cada atributo
- * nuevo contra los anteriores de su etiqueta (cuadrático): 30 000 atributos tardaban 2,5 s en el
- * propio parser y 100 000 más de un minuto, antes de que el adaptador viera la etiqueta. Se mide
- * en el texto, antes de parsear. Solo sobrestima: ignora la regla de comillas del navegador y
- * trata cualquier comilla como apertura.
- */
-export const MAX_TAG_TOKENS = 500;
-
 const OVER_BUDGET = Symbol("over-budget");
-
-/** Separadores de atributos en HTML: espacio y `/` (`<p/a/b/c>` son tres atributos). */
-function isSeparator(c: string): boolean {
-  return c === " " || c === "\t" || c === "\n" || c === "\f" || c === "\r" || c === "/";
-}
-
-/** `true` si alguna etiqueta tiene más de `MAX_TAG_TOKENS` palabras. Tiempo lineal. */
-function tagTooBusy(html: string): boolean {
-  const n = html.length;
-  let i = html.indexOf("<");
-  while (i !== -1 && i < n - 1) {
-    const first = html.charCodeAt(i + 1) | 32;
-    if (first < 97 || first > 122) {
-      i = html.indexOf("<", i + 1);
-      continue;
-    }
-    let j = i + 1;
-    let tokens = 0;
-    let inToken = false;
-    while (j < n) {
-      const c = html[j]!;
-      if (c === ">") break;
-      if (c === '"' || c === "'") {
-        const close = html.indexOf(c, j + 1);
-        if (close === -1) return false; // comilla sin cerrar: parse5 la descarta entera
-        j = close + 1;
-        // Tras unas comillas puede empezar otro atributo sin espacio (`a="1"b="2"`).
-        tokens += 1;
-        if (tokens > MAX_TAG_TOKENS) return true;
-        inToken = false;
-        continue;
-      }
-      if (isSeparator(c)) {
-        inToken = false;
-      } else if (!inToken) {
-        inToken = true;
-        tokens += 1;
-        if (tokens > MAX_TAG_TOKENS) return true;
-      }
-      j += 1;
-    }
-    i = html.indexOf("<", j + 1);
-  }
-  return false;
-}
 
 type Adapter = typeof defaultTreeAdapter;
 
 /** `true` si el HTML cabe en el presupuesto del parser; `false` si lo supera. */
 export function withinParseBudget(html: string): boolean {
-  if (tagTooBusy(html)) return false;
   let nodes = 0;
   const depth = new WeakMap<object, number>();
   const count = () => {
@@ -162,8 +107,23 @@ export function withinParseBudget(html: string): boolean {
 
   try {
     // Sin scripting, como el DOMParser de jsdom y de los navegadores: el contenido de `<noscript>`
-    // se parsea como elementos (con scripting activo sería texto y escondería nodos).
-    parse(html, { treeAdapter: adapter, scriptingEnabled: false });
+    // se parsea como elementos (con scripting activo sería texto y esconde nodos).
+    const parser = new Parser({ treeAdapter: adapter, scriptingEnabled: false });
+    // parse5 compara cada atributo nuevo con los anteriores de su etiqueta (cuadrático): 30 000
+    // atributos tardan 2,5 s y 100 000 más de un minuto, antes de que el adaptador vea la etiqueta.
+    // Se corta en el propio tokenizador al llegar al tope (se mide el texto de verdad, no una
+    // aproximación: cualquier comilla o separador raro cuenta igual que para el parser).
+    const tokenizer = parser.tokenizer as unknown as {
+      _leaveAttrName(): void;
+      currentToken: { attrs?: unknown[] } | null;
+    };
+    const leaveAttrName = tokenizer._leaveAttrName.bind(tokenizer);
+    tokenizer._leaveAttrName = () => {
+      if ((tokenizer.currentToken?.attrs?.length ?? 0) >= MAX_ATTRS_PER_ELEMENT) throw OVER_BUDGET;
+      leaveAttrName();
+    };
+    // Equivale a `parse(html, options)` de parse5.
+    parser.tokenizer.write(html, true);
     return true;
   } catch (error) {
     if (error === OVER_BUDGET) return false;

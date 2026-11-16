@@ -499,6 +499,9 @@ function filterChecks() {
   const htmlTags = (n: number) => Array.from({ length: n }, (_, j) => "<html " + names(100).map((x) => `${x}_${j}`).join(" ") + ">").join("");
   check("`<html>` repetido: 400 etiquetas de 100 atributos (40 000) caben", withinParseBudget(htmlTags(400)));
   check("`<html>` repetido: 401 etiquetas superan los 40 000 atributos", !withinParseBudget(htmlTags(401)));
+  const tAfterQuote = performance.now();
+  const afterQuote = sanitizeContractHtml('<p a"x>" ' + names(50000).join(" ") + ">x</p>");
+  check("tras `a\"x>` el resto es texto (el parser cierra la etiqueta): se filtra sin esperar y sin atributos", performance.now() - tAfterQuote < 1500 && afterQuote.startsWith('<p>"'), afterQuote.slice(0, 60));
   check("`<template>` anidadas heredan la profundidad (48 caben, 49 no)", withinParseBudget("<template>".repeat(48)) && !withinParseBudget("<template>".repeat(49)));
   const htmlPlusOne = htmlTags(400) + "<html z>";
   check("`<html>` repetido: un atributo más de los 40 000 ya no cabe", !withinParseBudget(htmlPlusOne));
@@ -510,9 +513,11 @@ function filterChecks() {
   for (const [label, html] of Object.entries({
     "30 000 atributos separados por espacio": "<p " + names(30000).join(" ") + ">x</p>",
     "50 000 atributos con `>` entre comillas por delante": '<p title=">" ' + names(50000).join(" ") + ">x</p>",
-    "50 000 atributos tras unas comillas sin `=`": '<p a"x>" ' + names(50000).join(" ") + ">x</p>",
     "50 000 atributos separados por `/`": "<p/" + names(50000).join("/") + ">x</p>",
     "50 000 atributos pegados tras sus comillas": "<p " + names(50000).map((x) => `${x}="1"`).join("") + ">x</p>",
+    "125 000 atributos tras una comilla simple en posición de nombre": "<a '" + names(125000).join(" ") + " '>x",
+    "125 000 atributos tras una comilla doble en posición de nombre": '<a "' + names(125000).join(" ") + ' ">x',
+    "una comilla en un valor sin comillas esconde otra etiqueta con 60 000 atributos": '<p a=b"c>x</p><p ' + names(60000).join(" ") + '>y</p>"',
     "50 000 atributos con `<` dentro de la etiqueta": "<p " + names(50000).map((x) => `<b ${x}`).join(" ") + ">x</p>",
     "9 000 `<template>` anidadas y un `<img onerror>`": "<template>".repeat(9000) + "<img src=x onerror=alert(1)>",
     "`<x>` (no permitida) con 19 000 hijos": "<x>" + "<p></p>".repeat(19000),

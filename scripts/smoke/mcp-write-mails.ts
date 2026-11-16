@@ -81,7 +81,7 @@ function startSink(): Promise<{ server: Server; port: number; messages: string[]
 
 async function main() {
   const { callTool } = await import("../../src/server/mcp/dispatch");
-  const { mailsTools, MAX_RECIPIENTS } = await import("../../src/server/mcp/tools/mails");
+  const { mailsTools, MAX_RECIPIENTS, SEND_LIMIT_PER_HOUR, SEND_LIMIT_PER_DAY } = await import("../../src/server/mcp/tools/mails");
   const a = await seedMcpOrg(prisma, `${MARK}a`);
   const b = await seedMcpOrg(prisma, `${MARK}b`);
   const sink = await startSink();
@@ -176,6 +176,36 @@ async function main() {
     const foreignOriginal = await mk(b.org.id, {});
     check("responder a un correo de otra organización -> No encontrado y no envía", (await errorText(() => call(a.staff, "enviar_correo", { ...sargs, respondeAId: foreignOriginal.id }))) === "NotFoundError: No encontrado." && sink.messages.length === afterReply);
     check("cliente de otra organización -> No encontrado y no envía", (await errorText(() => call(a.staff, "enviar_correo", { ...sargs, clientId: b.client.id }))) === "NotFoundError: No encontrado." && sink.messages.length === afterReply);
+
+    console.log("borradores: actualizar y enviar conservan lo que no se envía");
+    const keepC = await call(a.staff, "guardar_borrador_correo", { to: "uno@example.test, dos@example.test", cc: "copia@example.test", subject: "Asunto original", body: "Cuerpo original", clientId: a.client.id });
+    await call(a.staff, "guardar_borrador_correo", { borradorId: String(keepC.id), body: "Solo cambia el texto" });
+    const k1 = await prisma.mailMessage.findUnique({ where: { id: String(keepC.id) } });
+    check("actualizar solo el texto conserva destinatarios, copia, asunto y cliente", k1?.bodyText === "Solo cambia el texto" && (k1.toAddresses as string[]).join() === "uno@example.test,dos@example.test" && (k1.ccAddresses as string[]).join() === "copia@example.test" && k1.subject === "Asunto original" && k1.clientId === a.client.id, k1);
+    await call(a.staff, "guardar_borrador_correo", { borradorId: String(keepC.id), cc: "" });
+    check("enviar \"\" en un campo lo vacía y el resto se conserva", ((await prisma.mailMessage.findUnique({ where: { id: String(keepC.id) } }))?.ccAddresses as string[]).length === 0 && (await prisma.mailMessage.findUnique({ where: { id: String(keepC.id) } }))?.subject === "Asunto original");
+    const draftClient = await call(a.staff, "guardar_borrador_correo", { to: "otra@example.test", subject: "Con cliente", body: "x", clientId: a.client.id });
+    const beforeDraftSend = sink.messages.length;
+    await call(a.staff, "enviar_correo", { to: "otra@example.test", subject: "Con cliente", body: "x", borradorId: String(draftClient.id) });
+    const sentFromDraft = await prisma.mailMessage.findUnique({ where: { id: String(draftClient.id) } });
+    check("enviar un borrador sin repetir el cliente conserva el vínculo", sink.messages.length === beforeDraftSend + 1 && sentFromDraft?.folder === "SENT" && sentFromDraft.clientId === a.client.id, sentFromDraft);
+
+    console.log("tope de envíos por persona");
+    check("enviar_correo avisa del tope por hora y por día en su descripción", new RegExp(`${SEND_LIMIT_PER_HOUR}.*hora.*${SEND_LIMIT_PER_DAY}.*día`, "s").test(send.description), send.description);
+    let delivered = 0;
+    let blocked = "";
+    for (let i = 0; i < 8 && !blocked; i += 1) {
+      const before2 = sink.messages.length;
+      const attempt = await errorText(() => call(a.staff, "enviar_correo", { to: `m${i}a@example.test,m${i}b@example.test,m${i}c@example.test,m${i}d@example.test,m${i}e@example.test`, subject: `Masivo ${i}`, body: "x" }));
+      if (attempt === "ok") delivered += 1;
+      else {
+        blocked = attempt;
+        check("el envío que pasa el tope no sale", sink.messages.length === before2, sink.messages.length - before2);
+      }
+    }
+    check("al pasar el tope por hora: DomainError claro (no el de «espera un minuto») y sugiere borradores", blocked.startsWith("DomainError: Se alcanzó el tope de correos") && /borradores/.test(blocked), blocked);
+    check("antes del tope sí se enviaron correos", delivered >= 1, delivered);
+    check("el tope es por persona: otro usuario de la organización sigue pudiendo enviar", (await errorText(() => call(a.owner, "enviar_correo", { to: "otro@example.test", subject: "Del dueño", body: "x" }))) === "ok");
 
     console.log("mover_correo (nada se borra)");
     const m = await mk(a.org.id, {});

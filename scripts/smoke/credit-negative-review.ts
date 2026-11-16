@@ -80,6 +80,12 @@ function main() {
   check("cobranza y acreedor original con ****7457 = posible duplicado", pra?.reasons.some((r) => r.code === "DUPLICATE") === true, pra?.reasons);
   const jpm = debts.find((x) => x.creditorName === "Jpmcb Card Services");
   check("abierta hace más de 7 años = revisar antigüedad", jpm?.reasons.some((r) => r.code === "OBSOLETE") === true, jpm?.reasons);
+  // Quiebras: FCRA §605(a)(1) = 10 años desde la orden de relief; el resto, 7 años.
+  const bk = (opened: string) => groupNegativeDebts([item({ creditorName: "Chapter 7", accountStatus: "Bankruptcy", negativeType: "BANKRUPTCY", dateOpened: d(opened) })], asOf)[0];
+  check("quiebra de hace 8 años: todavía no se sugiere salida (son 10)", bk("2018-09-01")?.reasons.some((r) => r.code === "OBSOLETE") === false, bk("2018-09-01")?.reasons);
+  check("quiebra de hace 11 años: sugiere salida a los 10 años", /10 años/.test(bk("2015-08-01")?.reasons.find((r) => r.code === "OBSOLETE")?.detail ?? ""), bk("2015-08-01")?.reasons);
+  const col = (opened: string) => groupNegativeDebts([item({ creditorName: "Cobranza X", accountStatus: "Collection Account", dateOpened: d(opened) })], asOf)[0];
+  check("cobranza de hace 8 años: sigue en 7 años (+180 días)", col("2018-09-01")?.reasons.some((r) => r.code === "OBSOLETE") === true, col("2018-09-01")?.reasons);
   check("sin número de cuenta = datos incompletos", jpm?.reasons.some((r) => r.code === "INCOMPLETE") === true);
 
   // Caso real (PDF del 3 sep 2026): TransUnion enmascara otro número.

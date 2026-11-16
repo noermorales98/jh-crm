@@ -502,6 +502,9 @@ function filterChecks() {
   const tAfterQuote = performance.now();
   const afterQuote = sanitizeContractHtml('<p a"x>" ' + names(50000).join(" ") + ">x</p>");
   check("tras `a\"x>` el resto es texto (el parser cierra la etiqueta): se filtra sin esperar y sin atributos", performance.now() - tAfterQuote < 1500 && afterQuote.startsWith('<p>"'), afterQuote.slice(0, 60));
+  const mixed = (n: number) => chunked(n, "x<i></i>", 2000);
+  check("9 996 pares texto+elemento (dos nodos cada uno) caben", withinParseBudget(mixed(9996)));
+  check("9 997 pares texto+elemento no caben (el texto también cuenta)", !withinParseBudget(mixed(9997)));
   check("`<template>` anidadas heredan la profundidad (48 caben, 49 no)", withinParseBudget("<template>".repeat(48)) && !withinParseBudget("<template>".repeat(49)));
   const htmlPlusOne = htmlTags(400) + "<html z>";
   check("`<html>` repetido: un atributo más de los 40 000 ya no cabe", !withinParseBudget(htmlPlusOne));
@@ -538,6 +541,12 @@ function filterChecks() {
     "un chip con una clave desconocida no rompe ni se convierte en chip",
     presentContractHtml('<span class="jh-template-var" data-template-var="evil">{{clientName}}</span>') !== "" && !/jhtplicon/.test(presentContractHtml('<span class="jh-template-var" data-template-var="evil">{{clientName}}</span>')),
   );
+  const styledChip = presentContractHtml('<p><span data-template-var="clientName" class="jh-template-var" style="color: red; font-size: 12px;">{{clientName}}</span> y {{clientFullName}}</p>');
+  check("un chip con `style` no se duplica y el token siguiente también es chip", (styledChip.match(/<svg /g) ?? []).length === 2 && (styledChip.match(/Nombre del usuario/g) ?? []).length === 2, styledChip);
+  const nbspChip = presentContractHtml('<p><span data-template-var="clientName" class="jh-template-var">&nbsp;{{clientName}}&nbsp;</span></p>');
+  check("un chip con espacios duros alrededor sigue siendo chip", /Nombre del usuario/.test(nbspChip) && !/\{\{clientName\}\}/.test(nbspChip), nbspChip);
+  const longStyle = sanitizeContractHtml('<p style="' + "a:b;".repeat(60) + 'background:url(https://evil.test/x.png)">x</p>');
+  check("un estilo largo con `url(` al final se rechaza entero (no se mira solo el principio)", longStyle === "<p>x</p>", longStyle.slice(0, 80));
   const chipPos = presentContractHtml('<p>{{clientName}}</p><span data-template-var="otra">{{clientFullName}}</span>');
   check(
     "el icono va justo tras la apertura de cada chip",

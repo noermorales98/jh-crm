@@ -235,3 +235,21 @@ then integration (registry, `smoke:mcp-db` grows to 19 smokes).
 - PR #43 unido a main con el visto bueno del dueño (merge commit 04f6a5a). CI en verde: 5 pasan, 1 omitida.
 - Los 7 avisos de Graphify (acoplamiento en scripts de prueba y en `getRoundDetail`) se contestaron y cerraron sin cambiar código.
 - Pendiente: prueba real en claude.ai de rondas y cartas; tanda 3.
+
+## Tanda 3a (2026-11-14)
+
+- La tanda 3 se divide en 3 PR (3a dinero, 3b catálogo y operación, 3c administración y resto).
+- 3a: lectura de pagos, recibos, planes de pago, contratos y plantillas; 12 herramientas de escritura.
+  Cancelar, reembolsar y anular solo cambian el estado (AC-7 para pagos y contratos).
+- Revisión con 3 lentes: nada bloqueante. Arreglos aplicados en cb767c4; 6 mutantes provocados a mano
+  (filtro de estado, refresco, motivo, estado opcional, caso ajeno, filtro de organización), todos
+  detectados.
+- Pendiente: XSS previo en el texto del contrato (nombre del cliente sin escapar), fuera de esta tanda.
+
+## Envío de la tanda 3a (2026-11-16)
+
+- PR #44 unido a main con el visto bueno del dueño (merge commit fe817b0). CI en verde.
+- AC-7 cumplido: cancelar un pago, un plan, una ronda o un contrato, reembolsar y anular un recibo solo cambian el estado.
+- Pendiente: prueba real en claude.ai de la 3a; tanda 3b (catálogo y operación) y 3c (administración y resto, cierra AC-5).
+
+> 2026-11-16 — PR #45 (arreglo del XSS en contratos con DOMPurify) unido a main (8487668) con el visto bueno del dueño. Cierra el pendiente anotado en la revisión de la tanda 3a.

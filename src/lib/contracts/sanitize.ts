@@ -1,15 +1,122 @@
 /** Sanitiza HTML de contratos para vista segura (sin scripts ni eventos). */
 
-const DANGEROUS_TAGS =
-  /<\/?(?:script|iframe|object|embed|link|meta|base|form|input|button|textarea|select)[^>]*>/gi;
+import DOMPurify from "isomorphic-dompurify";
+import { withinParseBudget } from "@/src/lib/contracts/parse-budget";
 
+/**
+ * Escapa texto para insertarlo dentro de HTML (contenido o atributo entre comillas).
+ * Todo valor que venga de un cliente u organización pasa por aquí antes de entrar
+ * a `contentSnapshot`.
+ */
+export function escapeHtml(text: string): string {
+  return text.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+  );
+}
+
+/**
+ * Etiquetas que puede llevar un contrato (lista cerrada: lo que no está aquí se elimina,
+ * y su contenido de texto se conserva salvo en las de texto crudo/foráneo, que DOMPurify
+ * quita con su contenido). `span`/`div` llevan los marcadores `data-jh-*` y los chips.
+ */
+const ALLOWED_TAGS = [
+  "p", "br", "hr", "div", "span", "h1", "h2", "h3", "h4", "h5", "h6", "strong", "b", "em", "i",
+  "u", "s", "strike", "sub", "sup", "small", "mark", "blockquote", "pre", "code", "ul", "ol", "li",
+  "a", "img", "table", "thead", "tbody", "tfoot", "tr", "td", "th", "col", "colgroup", "caption",
+];
+
+/**
+ * Atributos permitidos (lista cerrada). Los `data-*` solo si se nombran aquí: los marcadores
+ * de sección legal, los chips de variables y el bloque de firma de la agencia.
+ */
+const ALLOWED_ATTR = [
+  "href", "src", "alt", "title", "class", "style", "target", "rel", "colspan", "rowspan",
+  "colwidth", "width", "height", "align", "start", "reversed", "type",
+  "data-jh-section", "data-template-var", "data-jh-agency-signature",
+];
+
+/**
+ * Estilos que ejecutan o cargan algo. Cualquier `\` (escape CSS, `\75rl(` = `url(`) o
+ * comentario `/*` se rechaza entero: el contenido de un contrato no los necesita.
+ * `position: fixed|sticky` también: permitiría tapar la página con un aviso falso.
+ * El valor llega ya decodificado desde el DOM (`url&lpar;` ya es `url(`).
+ */
+const DANGEROUS_STYLE =
+  /\\|\/\*|expression\s*\(|javascript:|url\s*\(|image-set\s*\(|image\s*\(|cross-fade\s*\(|element\s*\(|src\s*\(|attr\s*\(|@import|behavior\s*:|-moz-binding|position\s*:\s*(?:fixed|sticky)/;
+
+export function isDangerousStyle(value: string): boolean {
+  return DANGEROUS_STYLE.test(
+    value
+      .replace(/[\u0000-\u0020\u007f-\u009f]/g, "")
+      .toLowerCase(),
+  );
+}
+
+/** Solo imágenes rasterizadas en base64 (la firma del representante). */
+const SAFE_DATA_IMAGE = /^data:image\/(?:png|jpeg|gif|webp);base64,[a-z0-9+/=]+$/i;
+
+let configured = false;
+
+/** Ajustes de DOMPurify que no caben en la configuración: se registran una sola vez. */
+function configure() {
+  if (configured) return;
+  configured = true;
+  DOMPurify.removeAllHooks();
+  DOMPurify.addHook("uponSanitizeAttribute", (_node, data) => {
+    const name = data.attrName.toLowerCase();
+    const value = data.attrValue;
+    if (name === "style" && isDangerousStyle(value)) {
+      data.keepAttr = false;
+      return;
+    }
+    // `data:` solo como imagen rasterizada en `src`; en cualquier otro sitio, fuera.
+    if (/^[\s\u0000-\u001f]*data:/i.test(value) && !(name === "src" && SAFE_DATA_IMAGE.test(value.trim()))) {
+      data.keepAttr = false;
+    }
+  });
+  DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+    if (node.nodeName === "A" && node.hasAttribute("target")) {
+      node.setAttribute("rel", "noopener noreferrer");
+    }
+  });
+}
+
+/**
+ * Tope de caracteres (barato). El resto del presupuesto lo marca `withinParseBudget`: el mismo
+ * parser que usa jsdom cuenta los nodos y la profundidad, y lo que lo supera no llega a DOMPurify.
+ * Se aplica igual en servidor y navegador para que la salida sea idéntica en la hidratación.
+ */
+const MAX_INPUT_CHARS = 1_000_000;
+
+/**
+ * Filtro de HTML de contratos, con DOMPurify (`isomorphic-dompurify`: funciona igual en el
+ * navegador y en el servidor, donde el portal también renderiza). Lista cerrada de etiquetas
+ * y atributos, `data:` solo para imágenes rasterizadas, estilos filtrados por `isDangerousStyle`.
+ * Ante entrada desmesurada, fuera de presupuesto o cualquier error, falla cerrado: devuelve el
+ * texto escapado.
+ */
 export function sanitizeContractHtml(html: string): string {
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(DANGEROUS_TAGS, "")
-    .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, "")
-    .replace(/(href|src|xlink:href)\s*=\s*(['"])\s*javascript:[^'"]*\2/gi, "$1=$2#$2");
+  if (html.length > MAX_INPUT_CHARS) return escapeHtml(html);
+  try {
+    if (!withinParseBudget(html)) return escapeHtml(html);
+    configure();
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS,
+      ALLOWED_ATTR,
+      ALLOW_DATA_ATTR: false,
+      ALLOW_ARIA_ATTR: false,
+      ALLOW_UNKNOWN_PROTOCOLS: false,
+      KEEP_CONTENT: true,
+      SANITIZE_NAMED_PROPS: true,
+      WHOLE_DOCUMENT: false,
+      RETURN_DOM: false,
+      RETURN_DOM_FRAGMENT: false,
+      RETURN_TRUSTED_TYPE: false,
+    });
+  } catch {
+    return escapeHtml(html);
+  }
 }
 
 /**

@@ -1,11 +1,13 @@
 import { casesTools } from "./cases";
 import { clientsTools } from "./clients";
 import { consultationsTools } from "./consultations";
+import { contractsTools } from "./contracts";
 import { creditReportsTools } from "./credit-reports";
 import { disputesTools } from "./disputes";
 import { lettersTools } from "./letters";
 import { notesTools } from "./notes";
 import { opportunitiesTools } from "./opportunities";
+import { paymentsTools } from "./payments";
 import { quotesTools } from "./quotes";
 import { readTools } from "./read";
 import { roundsTools } from "./rounds";
@@ -30,5 +32,7 @@ export function allTools(): Tool[] {
     ...lettersTools,
     ...creditReportsTools,
     ...consultationsTools,
+    ...paymentsTools,
+    ...contractsTools,
   ];
 }

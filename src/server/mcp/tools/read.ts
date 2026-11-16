@@ -4,17 +4,26 @@ import { DomainError, NotFoundError } from "@/src/server/errors";
 import { getCaseBrief, getClientBrief, listCrm, searchCrm } from "@/src/server/ai/queries";
 import {
   getConsultationDetail,
+  getContractDetail,
   getCreditReportDetail,
   getLetterDetail,
   getOpportunityDetail,
+  getPaymentDetailMcp,
+  getPaymentPlanDetail,
+  getReceiptDetail,
   getRoundDetail,
   getQuoteBrief,
   getServiceCaseBrief,
   getTaskBrief,
   listConsultationsMcp,
+  listContractTemplatesMcp,
+  listContractsMcp,
   listCreditReports,
   listLetters,
   listOpportunities,
+  listPaymentPlansMcp,
+  listPaymentsMcp,
+  listReceiptsMcp,
   listRounds,
   listServiceCases,
 } from "@/src/server/mcp/queries";
@@ -37,12 +46,17 @@ export const READ_SECTIONS = [
   "cartas",
   "reportes_credito",
   "consultas",
+  "pagos",
+  "recibos",
+  "planes_pago",
+  "contratos",
+  "plantillas_contrato",
 ] as const;
 export type ReadSection = (typeof READ_SECTIONS)[number];
 
 const seccion = z
   .enum(READ_SECTIONS)
-  .describe("Sección del CRM: clientes, casos (crédito), casos_servicio, tareas, oportunidades, cotizaciones, rondas (con sus ítems de disputa), cartas, reportes_credito o consultas.");
+  .describe("Sección del CRM: clientes, casos (crédito), casos_servicio, tareas, oportunidades, cotizaciones, rondas (con sus ítems de disputa), cartas, reportes_credito, consultas, pagos, recibos, planes_pago (con sus cuotas), contratos o plantillas_contrato (solo para listar).");
 
 /**
  * Las consultas del asistente interno devuelven `{ error }` en lugar de lanzar.
@@ -123,6 +137,16 @@ async function listSection(ctx: McpContext, input: { seccion: ReadSection; estad
       return listCreditReports(ctx, input);
     case "consultas":
       return listConsultationsMcp(ctx, input);
+    case "pagos":
+      return listPaymentsMcp(ctx, input);
+    case "recibos":
+      return listReceiptsMcp(ctx, input);
+    case "planes_pago":
+      return listPaymentPlansMcp(ctx, input);
+    case "contratos":
+      return listContractsMcp(ctx, input);
+    case "plantillas_contrato":
+      return listContractTemplatesMcp(ctx, input);
   }
 }
 
@@ -148,6 +172,16 @@ async function viewSection(ctx: McpContext, input: { seccion: ReadSection; id: s
       return found(await getCreditReportDetail(ctx, input.id));
     case "consultas":
       return found(await getConsultationDetail(ctx, input.id));
+    case "pagos":
+      return found(await getPaymentDetailMcp(ctx, input.id));
+    case "recibos":
+      return found(await getReceiptDetail(ctx, input.id));
+    case "planes_pago":
+      return found(await getPaymentPlanDetail(ctx, input.id));
+    case "contratos":
+      return found(await getContractDetail(ctx, input.id));
+    case "plantillas_contrato":
+      throw new DomainError("Las plantillas de contrato solo se listan; su texto legal se abre en el CRM.");
   }
 }
 

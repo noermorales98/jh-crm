@@ -2,6 +2,9 @@
   "name": "jh-multiservices-crm",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "node scripts/migrate-on-deploy.mjs && next build",
@@ -90,8 +93,12 @@
     "smoke:credit-portal": "tsx scripts/smoke/credit-portal.ts",
     "smoke:credit-operations": "tsx scripts/smoke/credit-operations.ts",
     "smoke:contract-gates-db": "tsx scripts/smoke/contract-gates-db.ts",
+    "smoke:contract-xss": "tsx scripts/smoke/contract-xss.ts",
     "smoke:mcp-oauth-core": "tsx scripts/smoke/mcp-oauth-core.ts",
     "smoke:mcp-tool-registry": "tsx scripts/smoke/mcp-tool-registry.ts",
+    "smoke:mcp-read-tools-3": "tsx scripts/smoke/mcp-read-tools-3.ts",
+    "smoke:mcp-write-payments": "tsx scripts/smoke/mcp-write-payments.ts",
+    "smoke:mcp-write-contracts": "tsx scripts/smoke/mcp-write-contracts.ts",
     "smoke:login-redirect": "tsx scripts/smoke/login-redirect.ts",
     "smoke:mcp-request-origin": "tsx scripts/smoke/mcp-request-origin.ts",
     "smoke:mcp-oauth-db": "tsx scripts/smoke/mcp-oauth-db.ts",
@@ -112,7 +119,7 @@
     "smoke:mcp-write-letters": "tsx scripts/smoke/mcp-write-letters.ts",
     "smoke:mcp-write-credit-reports": "tsx scripts/smoke/mcp-write-credit-reports.ts",
     "smoke:mcp-write-consultations": "tsx scripts/smoke/mcp-write-consultations.ts",
-    "smoke:mcp-db": "npm run smoke:mcp-request-origin && npm run smoke:mcp-oauth-db && npm run smoke:mcp-http && npm run smoke:mcp-endpoint && npm run smoke:mcp-read-tools && npm run smoke:mcp-connections && npm run smoke:mcp-purge && npm run smoke:mcp-write-clients && npm run smoke:mcp-write-cases && npm run smoke:mcp-write-tasks && npm run smoke:mcp-write-notes && npm run smoke:mcp-write-opportunities && npm run smoke:mcp-write-quotes && npm run smoke:mcp-read-tools-2 && npm run smoke:mcp-write-rounds && npm run smoke:mcp-write-disputes && npm run smoke:mcp-write-letters && npm run smoke:mcp-write-credit-reports && npm run smoke:mcp-write-consultations",
+    "smoke:mcp-db": "npm run smoke:mcp-request-origin && npm run smoke:mcp-oauth-db && npm run smoke:mcp-http && npm run smoke:mcp-endpoint && npm run smoke:mcp-read-tools && npm run smoke:mcp-connections && npm run smoke:mcp-purge && npm run smoke:mcp-write-clients && npm run smoke:mcp-write-cases && npm run smoke:mcp-write-tasks && npm run smoke:mcp-write-notes && npm run smoke:mcp-write-opportunities && npm run smoke:mcp-write-quotes && npm run smoke:mcp-read-tools-2 && npm run smoke:mcp-write-rounds && npm run smoke:mcp-write-disputes && npm run smoke:mcp-write-letters && npm run smoke:mcp-write-credit-reports && npm run smoke:mcp-write-consultations && npm run smoke:mcp-read-tools-3 && npm run smoke:mcp-write-payments && npm run smoke:mcp-write-contracts",
     "smoke:credit-corpus": "tsx scripts/smoke/credit-corpus.ts",
     "smoke:credit-telemetry": "tsx scripts/smoke/credit-telemetry.ts",
     "smoke:credit-journey": "tsx scripts/smoke/credit-journey.ts",
@@ -137,6 +144,9 @@
     "seed:demo-credit": "tsx --env-file=.env.local scripts/seed-demo-credit-case.ts",
     "postinstall": "prisma generate"
   },
+  "overrides": {
+    "canvas": "2.11.2"
+  },
   "dependencies": {
     "@ai-sdk/react": "^4.0.92",
     "@aws-sdk/client-s3": "^3.1123.0",
@@ -158,7 +168,9 @@
     "blobatar": "^2.7.0",
     "cuelume": "^0.2.2",
     "date-fns": "^4.4.0",
+    "dompurify": "3.4.17",
     "imapflow": "^1.7.8",
+    "isomorphic-dompurify": "4.6.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.38.0",
     "mailparser": "^3.9.20",
@@ -166,6 +178,7 @@
     "next-auth": "^5.0.0-beta.32",
     "nodemailer": "^8.0.11",
     "otpauth": "^9.5.2",
+    "parse5": "8.0.1",
     "prisma": "^6.19.3",
     "qrcode": "^1.5.4",
     "react": "19.2.8",

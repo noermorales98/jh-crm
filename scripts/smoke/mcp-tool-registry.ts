@@ -18,7 +18,7 @@ function check(label: string, cond: boolean, detail?: unknown) {
 }
 
 /** Secciones de la tanda 1 que `listar` y `ver` deben cubrir. */
-export const BATCH1_SECTIONS = ["clientes", "casos", "casos_servicio", "tareas", "oportunidades", "cotizaciones", "rondas", "cartas", "reportes_credito", "consultas"];
+export const BATCH1_SECTIONS = ["clientes", "casos", "casos_servicio", "tareas", "oportunidades", "cotizaciones", "rondas", "cartas", "reportes_credito", "consultas", "pagos", "recibos", "planes_pago", "contratos", "plantillas_contrato"];
 
 console.log("\n[mcp-tool-registry] registro\n");
 const tools = allTools();
@@ -119,6 +119,18 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   editar_partida_credito: ["creditItems.manage", "write"],
   solicitar_consulta: ["consultations.manage", "destructive"],
   cambiar_estado_consulta: ["consultations.manage", "destructive"],
+  registrar_pago: ["payments.register", "write"],
+  editar_pago_pendiente: ["payments.register", "write"],
+  cancelar_pago: ["payments.register", "destructive"],
+  marcar_pago_reembolsado: ["payments.register", "destructive"],
+  crear_enlace_pago_cotizacion: ["payments.register", "write"],
+  enviar_enlace_pago_whatsapp: ["payments.register", "destructive"],
+  anular_recibo: ["receipts.void", "destructive"],
+  crear_plan_pago: ["payments.register", "write"],
+  cancelar_plan_pago: ["payments.register", "destructive"],
+  crear_contrato: ["contracts.manage", "write"],
+  marcar_contrato_enviado: ["contracts.manage", "destructive"],
+  cancelar_contrato: ["contracts.manage", "destructive"],
 };
 for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {
   const tool = tools.find((t) => t.name === name);
@@ -132,12 +144,18 @@ const sendQuote = tools.find((t) => t.name === "marcar_cotizacion_enviada");
 check("marcar_cotizacion_enviada se anuncia con efectos fuera del CRM (manda un mensaje real)", sendQuote?.openWorld === true);
 const requestConsultation = tools.find((t) => t.name === "solicitar_consulta");
 check("solicitar_consulta se anuncia con efectos fuera del CRM (correo y WhatsApp por un servicio externo)", requestConsultation?.openWorld === true);
-check("solo marcar_cotizacion_enviada y solicitar_consulta tienen efectos fuera del CRM",
-  tools.filter((t) => t.openWorld).map((t) => t.name).sort().join() === "marcar_cotizacion_enviada,solicitar_consulta",
+const OPEN_WORLD = "crear_enlace_pago_cotizacion,enviar_enlace_pago_whatsapp,marcar_cotizacion_enviada,solicitar_consulta";
+check(`solo ${OPEN_WORLD} tienen efectos fuera del CRM`,
+  tools.filter((t) => t.openWorld).map((t) => t.name).sort().join() === OPEN_WORLD,
   tools.filter((t) => t.openWorld).map((t) => t.name));
 const unexpected = tools.filter((t) => t.kind !== "read" && !(t.name in EXPECTED_WRITE_TOOLS)).map((t) => t.name);
 check("ninguna herramienta borra partidas de crédito de verdad (solo borrado lógico)",
   !tools.some((t) => /(borrar|eliminar)_partida/.test(t.name)), names);
+check("Claude no firma contratos ni edita plantillas (la firma es del cliente; el texto legal, del CRM)",
+  !tools.some((t) => /firmar|plantilla/.test(t.name)), names);
+check("anular_recibo solo para dueños y administradores", !can("STAFF", "receipts.void") && !can("SPECIALIST", "receipts.void") && can("ADMIN", "receipts.void"));
+check("ninguna herramienta borra pagos, recibos, planes ni contratos (AC-7: solo cancelar o anular)",
+  !tools.some((t) => /^(borrar|eliminar)_(pago|recibo|plan|contrato)/.test(t.name)), names);
 check("no hay herramientas de escritura fuera de la lista", unexpected.length === 0, unexpected);
 
 console.log("\n[mcp-tool-registry] limpieza de números largos (AC-6)\n");

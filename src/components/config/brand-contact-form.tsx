@@ -173,7 +173,7 @@ export function BrandContactForm({ initial }: { initial: BrandContact }) {
               inputMode="tel"
               value={whatsapp}
               onChange={(e) => setWhatsapp(e.target.value)}
-              placeholder="+1 872 202 0156"
+              placeholder="+1 708 766 1220"
             />
             {waTest ? (
               <a

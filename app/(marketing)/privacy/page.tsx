@@ -59,7 +59,7 @@ export default function PrivacyPage() {
         Puede solicitar acceso, corrección o eliminación de ciertos datos
         contactándonos en{" "}
         <a href="mailto:jhmultiservices10@gmail.com">jhmultiservices10@gmail.com</a>{" "}
-        o al (872) 202-0156, sujeto a excepciones legales.
+        o al (708) 766-1220, sujeto a excepciones legales.
       </p>
 
       <h2>6. Contacto</h2>

@@ -207,7 +207,7 @@ async function run() {
   check("buscar con 1 carácter → ZodError",
     (await errorName(() => callTool(a.ownerCtx, "buscar", { texto: "a" }, opts))) === "ZodError");
   check("ver con sección desconocida → ZodError",
-    (await errorName(() => callTool(a.ownerCtx, "ver", { seccion: "pagos", id: a.client.id }, opts))) === "ZodError");
+    (await errorName(() => callTool(a.ownerCtx, "ver", { seccion: "pagos_secretos", id: a.client.id }, opts))) === "ZodError");
 }
 
 async function main() {

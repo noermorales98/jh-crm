@@ -420,3 +420,38 @@ organization and checks `*.view`; ids from another organization → "No encontra
 | T2-06 | [P] | Consultation write tools | `scripts/smoke/mcp-write-consultations.ts` green, same checks | T2-01 | AC4, AC5, AC8 | 1 |
 | T2-07 |  | Register tools, wire smokes into `smoke:mcp-db`, registry smoke | `mcp-tool-registry` green (cancel tools destructive, none open-world); `smoke:mcp-db` green; typecheck, eslint | T2-02..06 | AC5 | 1 |
 | T2-08 |  | Closing: verify + review panel, PR | verify record; panel; PR open | T2-07 | all | 1 |
+
+## Tanda 3 — dividida en 3 PR (2026-11-14)
+
+Batch 3 ("the rest") is about three times batch 2, so it ships as three PRs with the same
+architecture: one tool file and one DB smoke per section, each tool mirroring its action.
+
+- **3a — money:** pagos, recibos, planes de pago, contratos (closes AC-7 for payments and contracts).
+- **3b — catalog and operations:** servicios y paquetes, procesadores, testimonios, mails,
+  comparaciones, financiamiento.
+- **3c — administration and the rest:** usuarios, etapas y configuración, notificaciones, auditoría,
+  atribución, panel, enlaces de intake y portal. AC-5 closes with 3c.
+
+### Tanda 3a — pagos, recibos, planes de pago y contratos
+
+**Read.** `listar` and `ver` gain `pagos`, `recibos`, `planes_pago` (detail with installments),
+`contratos` and `plantillas_contrato` (list only). Contract reads never carry the contract text, the
+signature image, the signer's IP or browser; template reads never carry the legal text.
+
+| Section | Tools (kind) | Permission |
+|---|---|---|
+| Pagos | `registrar_pago`, `editar_pago_pendiente`, `crear_enlace_pago_cotizacion` (write; the link is open-world); `cancelar_pago`, `marcar_pago_reembolsado`, `enviar_enlace_pago_whatsapp` (destructive; WhatsApp is open-world) | `payments.register` |
+| Recibos | `anular_recibo` (destructive) | `receipts.void` (OWNER/ADMIN, like the app's `requireRole`) |
+| Planes de pago | `crear_plan_pago` (write); `cancelar_plan_pago` (destructive) | `payments.register` |
+| Contratos | `crear_contrato`, `marcar_contrato_enviado` (write); `cancelar_contrato` (destructive) | `contracts.manage` |
+
+**Left out on purpose.** Signing a contract (the client signs, in person or on the portal) and
+editing contract templates (legal text, gate JH-011). Logged in `decisions.md`.
+
+| ID | P | Title | Done-check | Deps | AC | Tier |
+|---|---|---|---|---|---|---|
+| T3a-01 |  | Read sections pagos, recibos, planes_pago, contratos, plantillas_contrato | `scripts/smoke/mcp-read-tools-3.ts` green: list and view, other org → NotFound, VIEWER reads, no SSN/account, no contract text/signature/IP | — | AC3, AC5, AC6 | 1 |
+| T3a-02 | [P] | Payment, receipt and plan write tools | `scripts/smoke/mcp-write-payments.ts` green: VIEWER → sin permiso, STAFF cannot void receipts, audit via claude, cancel/refund/void keep the row | T3a-01 | AC4, AC5, AC7, AC8 | 2 |
+| T3a-03 | [P] | Contract write tools | `scripts/smoke/mcp-write-contracts.ts` green, same checks; no sign or template tool | T3a-01 | AC4, AC5, AC7, AC8 | 1 |
+| T3a-04 |  | Register, wire smokes, registry | `mcp-tool-registry` green (exact open-world list, no delete tools); `smoke:mcp-db` green; typecheck, eslint | T3a-02..03 | AC5, AC7 | 1 |
+| T3a-05 |  | Closing: verify + review panel, PR | verify record; panel; PR open | T3a-04 | all | 2 |

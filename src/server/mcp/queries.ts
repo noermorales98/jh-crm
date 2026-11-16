@@ -1,9 +1,13 @@
 import type {
   ConsultationStatus,
+  ContractStatus,
   CreditReportType,
   DisputeLetterStatus,
   OpportunityStage,
+  PaymentPlanStatus,
+  PaymentStatus,
   Prisma,
+  ReceiptStatus,
   RoundStatus,
   ServiceCaseStatus,
 } from "@prisma/client";
@@ -674,4 +678,315 @@ export async function getConsultationDetail(ctx: OrganizationContext, id: string
   });
   if (!row) return null;
   return jsonSafe({ ...consultationInfo(row), notes: row.notes });
+}
+
+// ── Pagos ──────────────────────────────────────────────────────────────────
+
+const PAYMENT_STATUSES: PaymentStatus[] = ["PENDING", "RECEIVED", "CANCELLED", "REFUNDED"];
+
+const PAYMENT_SELECT = {
+  id: true,
+  amount: true,
+  currency: true,
+  method: true,
+  status: true,
+  dueAt: true,
+  receivedAt: true,
+  createdAt: true,
+  client: { select: CLIENT_SELECT },
+  case: { select: { id: true, caseCode: true } },
+  quote: { select: { id: true, folio: true } },
+  receipt: { select: { id: true, folio: true, status: true } },
+} satisfies Prisma.PaymentSelect;
+
+type PaymentRow = Prisma.PaymentGetPayload<{ select: typeof PAYMENT_SELECT }>;
+function paymentInfo(row: PaymentRow) {
+  return {
+    id: row.id,
+    amount: formatMoney(row.amount, row.currency),
+    method: row.method,
+    status: row.status,
+    dueAt: row.dueAt,
+    receivedAt: row.receivedAt,
+    createdAt: row.createdAt,
+    client: clientInfo(row.client),
+    case: row.case ? { id: row.case.id, code: row.case.caseCode } : null,
+    quote: row.quote ? { id: row.quote.id, folio: row.quote.folio } : null,
+    receipt: row.receipt,
+    href: "/crm/pagos",
+  };
+}
+
+export async function listPaymentsMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "payments.view");
+  const status = pickEnum(filters.estado, PAYMENT_STATUSES, "Estado");
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.payment.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(status ? { status } : {}),
+      ...(search ? { client: search } : {}),
+    },
+    select: PAYMENT_SELECT,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(paymentInfo), href: "/crm/pagos" });
+}
+
+export async function getPaymentDetailMcp(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "payments.view");
+  const row = await prisma.payment.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: {
+      ...PAYMENT_SELECT,
+      reference: true,
+      notes: true,
+      createdBy: { select: { name: true } },
+      installment: { select: { sequence: true, planId: true } },
+    },
+  });
+  if (!row) return null;
+  return jsonSafe({
+    ...paymentInfo(row),
+    reference: row.reference,
+    notes: row.notes,
+    createdBy: row.createdBy?.name ?? null,
+    installment: row.installment
+      ? { sequence: row.installment.sequence, planId: row.installment.planId, href: `/crm/planes-pago/${row.installment.planId}` }
+      : null,
+  });
+}
+
+// ── Recibos ────────────────────────────────────────────────────────────────
+
+const RECEIPT_STATUSES: ReceiptStatus[] = ["ISSUED", "VOID"];
+
+const RECEIPT_SELECT = {
+  id: true,
+  folio: true,
+  status: true,
+  amount: true,
+  currency: true,
+  paymentMethod: true,
+  issuedAt: true,
+  voidedAt: true,
+  paymentId: true,
+  client: { select: CLIENT_SELECT },
+} satisfies Prisma.ReceiptSelect;
+
+type ReceiptRow = Prisma.ReceiptGetPayload<{ select: typeof RECEIPT_SELECT }>;
+function receiptInfo(row: ReceiptRow) {
+  return {
+    id: row.id,
+    folio: row.folio,
+    status: row.status,
+    amount: formatMoney(row.amount, row.currency),
+    paymentMethod: row.paymentMethod,
+    issuedAt: row.issuedAt,
+    voidedAt: row.voidedAt,
+    paymentId: row.paymentId,
+    client: clientInfo(row.client),
+    href: "/crm/recibos",
+  };
+}
+
+export async function listReceiptsMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "receipts.view");
+  const status = pickEnum(filters.estado, RECEIPT_STATUSES, "Estado");
+  const q = filters.texto?.trim();
+  const search = clientSearch(q);
+  const rows = await prisma.receipt.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(status ? { status } : {}),
+      ...(q && search ? { OR: [{ folio: { contains: q } }, { client: search }] } : {}),
+    },
+    select: RECEIPT_SELECT,
+    orderBy: [{ issuedAt: "desc" }, { id: "desc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(receiptInfo), href: "/crm/recibos" });
+}
+
+export async function getReceiptDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "receipts.view");
+  const row = await prisma.receipt.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: { ...RECEIPT_SELECT, voidReason: true, notes: true },
+  });
+  if (!row) return null;
+  return jsonSafe({ ...receiptInfo(row), voidReason: row.voidReason, notes: row.notes });
+}
+
+// ── Planes de pago ─────────────────────────────────────────────────────────
+
+const PAYMENT_PLAN_STATUSES: PaymentPlanStatus[] = ["ACTIVE", "COMPLETED", "CANCELLED", "PAUSED"];
+
+const PAYMENT_PLAN_SELECT = {
+  id: true,
+  status: true,
+  totalAmount: true,
+  installmentAmount: true,
+  currency: true,
+  frequency: true,
+  numberOfInstallments: true,
+  startDate: true,
+  createdAt: true,
+  client: { select: CLIENT_SELECT },
+  case: { select: { id: true, caseCode: true } },
+  quote: { select: { id: true, folio: true } },
+} satisfies Prisma.PaymentPlanSelect;
+
+type PaymentPlanRow = Prisma.PaymentPlanGetPayload<{ select: typeof PAYMENT_PLAN_SELECT }>;
+function paymentPlanInfo(row: PaymentPlanRow) {
+  return {
+    id: row.id,
+    status: row.status,
+    totalAmount: formatMoney(row.totalAmount, row.currency),
+    installmentAmount: formatMoney(row.installmentAmount, row.currency),
+    frequency: row.frequency,
+    numberOfInstallments: row.numberOfInstallments,
+    startDate: row.startDate,
+    createdAt: row.createdAt,
+    client: clientInfo(row.client),
+    case: row.case ? { id: row.case.id, code: row.case.caseCode } : null,
+    quote: row.quote ? { id: row.quote.id, folio: row.quote.folio } : null,
+    href: `/crm/planes-pago/${row.id}`,
+  };
+}
+
+export async function listPaymentPlansMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "payments.view");
+  const status = pickEnum(filters.estado, PAYMENT_PLAN_STATUSES, "Estado");
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.paymentPlan.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(status ? { status } : {}),
+      ...(search ? { client: search } : {}),
+    },
+    select: PAYMENT_PLAN_SELECT,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(paymentPlanInfo), href: "/crm/planes-pago" });
+}
+
+export async function getPaymentPlanDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "payments.view");
+  const row = await prisma.paymentPlan.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: {
+      ...PAYMENT_PLAN_SELECT,
+      notes: true,
+      installments: {
+        orderBy: { sequence: "asc" },
+        select: { sequence: true, amount: true, dueAt: true, status: true, paymentId: true },
+      },
+    },
+  });
+  if (!row) return null;
+  return jsonSafe({
+    ...paymentPlanInfo(row),
+    notes: row.notes,
+    installments: row.installments.map((i) => ({
+      sequence: i.sequence,
+      amount: formatMoney(i.amount, row.currency),
+      dueAt: i.dueAt,
+      status: i.status,
+      paymentId: i.paymentId,
+    })),
+  });
+}
+
+// ── Contratos ──────────────────────────────────────────────────────────────
+
+const CONTRACT_STATUSES: ContractStatus[] = ["DRAFT", "SENT", "SIGNED", "CANCELLED", "EXPIRED"];
+
+/**
+ * Sin el texto del contrato, la imagen de la firma, la IP ni el navegador del firmante:
+ * el contrato completo se abre en el CRM.
+ */
+const CONTRACT_SELECT = {
+  id: true,
+  title: true,
+  version: true,
+  status: true,
+  signedAt: true,
+  cancellationDeadline: true,
+  createdAt: true,
+  client: { select: CLIENT_SELECT },
+  case: { select: { id: true, caseCode: true } },
+  template: { select: { id: true, name: true } },
+} satisfies Prisma.ClientContractSelect;
+
+type ContractRow = Prisma.ClientContractGetPayload<{ select: typeof CONTRACT_SELECT }>;
+function contractInfo(row: ContractRow) {
+  return {
+    id: row.id,
+    title: row.title,
+    version: row.version,
+    status: row.status,
+    signedAt: row.signedAt,
+    cancellationDeadline: row.cancellationDeadline,
+    createdAt: row.createdAt,
+    client: clientInfo(row.client),
+    case: row.case ? { id: row.case.id, code: row.case.caseCode } : null,
+    template: row.template,
+    href: `/crm/clientes/${row.client.id}`,
+  };
+}
+
+export async function listContractsMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "contracts.view");
+  const status = pickEnum(filters.estado, CONTRACT_STATUSES, "Estado");
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.clientContract.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(status ? { status } : {}),
+      ...(search ? { client: search } : {}),
+    },
+    select: CONTRACT_SELECT,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(contractInfo), href: "/crm/contratos" });
+}
+
+export async function getContractDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "contracts.view");
+  const row = await prisma.clientContract.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: { ...CONTRACT_SELECT, signerName: true, createdBy: { select: { name: true } } },
+  });
+  if (!row) return null;
+  return jsonSafe({
+    ...contractInfo(row),
+    signerName: row.signerName,
+    createdBy: row.createdBy?.name ?? null,
+    contentHidden: true,
+  });
+}
+
+/** Plantillas de contrato: nombre y versión para elegir; el texto legal no sale del CRM. */
+export async function listContractTemplatesMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "contracts.view");
+  const estado = filters.estado?.trim().toUpperCase();
+  if (estado && estado !== "ACTIVE" && estado !== "INACTIVE") {
+    throw new DomainError("Estado no válido. Usa uno de: ACTIVE, INACTIVE.");
+  }
+  const q = filters.texto?.trim();
+  const rows = await prisma.contractTemplate.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(estado ? { active: estado === "ACTIVE" } : {}),
+      ...(q ? { name: { contains: q } } : {}),
+    },
+    select: { id: true, name: true, version: true, active: true, updatedAt: true },
+    orderBy: [{ active: "desc" }, { name: "asc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows, href: "/crm/contratos" });
 }

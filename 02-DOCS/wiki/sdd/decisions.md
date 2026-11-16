@@ -75,3 +75,20 @@ Append-only. Newest at the bottom.
   open-world because it emails the team and sends a WhatsApp through an external service. Claude
   cannot set a consultation to paid: payments arrive with batch 3. Bulk dispute tools validate every
   id before the first write, so a bad id adds nothing.
+- 2026-11-14 — `conector-mcp-claude` batch 3 plan. Batch 3 is about three times batch 2, so it
+  ships as three PRs: 3a money (payments, receipts, payment plans, contracts — closes AC-7), 3b
+  catalog and operations (services and packages, processors, testimonials, mails, comparisons,
+  funding), 3c administration and the rest (users, stages, notifications, audit, attribution,
+  dashboard, intake and portal links). In 3a Claude cannot sign contracts (the signature is the
+  client's) or edit contract templates (legal text, pending legal review); it never receives contract
+  text, the signature image, the signer's IP or browser. Recording a payment or a refund only writes
+  to the CRM; the Stripe link only creates the payment page; sending it by WhatsApp is destructive
+  and open-world. `registrar_pago` keeps the app's default (RECEIVED) and its description says so.
+- 2026-11-14 — `conector-mcp-claude` batch 3a closing review. Three lenses, nothing blocking. Applied:
+  `registrar_pago` requires `status` (the app defaults to RECEIVED, but Claude must decide whether the
+  money arrived, so a note or document cannot make it issue a receipt); `marcar_contrato_enviado` is
+  destructive because it stamps the agency signature and the contract cannot go back to draft; a
+  foreign linked case or quote answers "No encontrado"; an inactive template says so. Accepted: no
+  per-quote throttle on the WhatsApp payment link (same as the app button; it is destructive and
+  open-world). Found, pre-existing and out of scope: the client name is inserted into the contract
+  HTML without escaping and the sanitizer can miss `/onload=`; tracked as its own fix.

@@ -7,6 +7,7 @@
  */
 import { PrismaClient } from "@prisma/client";
 import type { OrganizationContext } from "../../src/server/auth/guards";
+import { withinParseBudget } from "../../src/lib/contracts/parse-budget";
 import {
   JH_SERVICE_CONTRACT_HTML,
   escapeHtml,
@@ -432,12 +433,20 @@ function filterChecks() {
     '<tbody><tr><td rowspan="2" colwidth="100" style="width: 25%">x</td><td>y</td></tr><tr><td>z</td></tr></tbody><tfoot><tr><td colspan="2">f</td></tr></tfoot></table>';
   check("el contenido legítimo sale idéntico (todas las etiquetas y atributos permitidos)", sanitizeContractHtml(legit) === legit, sanitizeContractHtml(legit));
 
-  // Topes: el total de aperturas es el tope duro (no depende de interpretar el HTML).
-  const table = "<table><tbody>" + "<tr><td><p>a</p></td><td><p>b</p></td></tr>".repeat(300) + "</tbody></table>";
-  check("una tabla larga (1 500 aperturas) se conserva", sanitizeContractHtml(table) === table);
-  check("3 000 aperturas planas se conservan", sanitizeContractHtml("<p>a</p>".repeat(3000)) === "<p>a</p>".repeat(3000));
-  check("3 001 aperturas se entregan como texto", sanitizeContractHtml("<p>a</p>".repeat(3001)).startsWith("&lt;p&gt;"));
+  // Presupuesto del parser (nodos y profundidad), medido con el mismo parser que usa jsdom.
+  const table = "<table><tbody>" + "<tr><td><p>a</p></td><td><p>b</p></td></tr>".repeat(600) + "</tbody></table>";
+  check("una tabla de 600 filas con párrafos en las celdas se conserva", sanitizeContractHtml(table) === table);
+  check("3 000 párrafos planos se conservan", sanitizeContractHtml("<p>a</p>".repeat(3000)) === "<p>a</p>".repeat(3000));
+  check("10 001 párrafos (más de 20 000 nodos) se entregan como texto", sanitizeContractHtml("<p>a</p>".repeat(10001)).startsWith("&lt;p&gt;"));
+  check("298 niveles anidados se conservan", sanitizeContractHtml("<div>".repeat(298) + "x" + "</div>".repeat(298)).startsWith("<div><div>"));
+  check("299 niveles anidados se entregan como texto", sanitizeContractHtml("<div>".repeat(299) + "x" + "</div>".repeat(299)).startsWith("&lt;div&gt;"));
+  const distinctFormats = (n: number, k: number) =>
+    "<div>" + Array.from({ length: n }, (_, i) => `<b x="${i}">`).join("") + "</div>" + "<div>t</div>".repeat(k);
+  check("100 elementos de formato distintos sin cerrar + 100 `<div>` se filtran", !sanitizeContractHtml(distinctFormats(100, 100)).startsWith("&lt;"));
   for (const [label, html] of Object.entries({
+    "reconstrucción de formato 800 + 800 (agotaba la memoria con 18 KB)": distinctFormats(800, 800),
+    "reconstrucción de formato 200 + 200": distinctFormats(200, 200),
+    "`<table><td>` ×1 499 (6 s con el tope antiguo)": "<table><td>".repeat(1499),
     "`<DIV>` en mayúsculas ×20 000": "<DIV>".repeat(20000),
     "`<!-->` y 7 900 `<div>` (comentario ya cerrado)": "<!-->" + "<div>".repeat(7900),
     "`<!--->` y 7 900 `<div>`": "<!--->" + "<div>".repeat(7900),
@@ -451,12 +460,21 @@ function filterChecks() {
     const t0 = performance.now();
     const out = sanitizeContractHtml(html);
     const ms = performance.now() - t0;
-    check(`el tope no se esquiva: ${label}`, ms < 1000 && out.startsWith("&lt;"), `${ms.toFixed(0)} ms`);
+    check(`el presupuesto no se esquiva: ${label}`, ms < 1500 && out.startsWith("&lt;"), `${ms.toFixed(0)} ms`);
   }
-  // El peor caso permitido (3 000 niveles reales) cuesta unos segundos con jsdom: se mide y se acota.
+  // El peor caso que cabe en el presupuesto cuesta un par de segundos con jsdom: se mide y se acota.
   const tWorst = performance.now();
-  sanitizeContractHtml("<div>".repeat(2999));
-  check("el peor caso dentro del tope (2 999 niveles anidados) termina en menos de 20 s", performance.now() - tWorst < 20000, `${(performance.now() - tWorst).toFixed(0)} ms`);
+  sanitizeContractHtml(distinctFormats(140, 140));
+  check("el peor caso dentro del presupuesto (140 formatos + 140 bloques) termina en menos de 15 s", performance.now() - tWorst < 15000, `${(performance.now() - tWorst).toFixed(0)} ms`);
+  // Fronteras exactas del presupuesto (20 000 nodos, 300 niveles): cada tipo de nodo cuenta.
+  check("19 997 elementos (+ html, head y body = 20 000) caben", withinParseBudget("<span></span>".repeat(19997)));
+  check("19 998 elementos no caben", !withinParseBudget("<span></span>".repeat(19998)));
+  check("19 997 comentarios caben", withinParseBudget("<!--a-->".repeat(19997)));
+  check("19 998 comentarios no caben", !withinParseBudget("<!--a-->".repeat(19998)));
+  check("9 998 tablas con texto (dos nodos cada una) caben", withinParseBudget("<table>x</table>".repeat(9998)));
+  check("9 999 tablas con texto no caben", !withinParseBudget("<table>x</table>".repeat(9999)));
+  check("`<table>` + 298 `<div>` (el primero se inserta antes de la tabla) caben", withinParseBudget("<table>" + "<div>".repeat(298)));
+  check("`<table>` + 299 `<div>` no caben", !withinParseBudget("<table>" + "<div>".repeat(299)));
   const voids = "<br>".repeat(500) + '<img src="https://a.test/x.png">'.repeat(500) + "<hr>".repeat(500);
   check("los elementos vacíos no cuentan como profundidad", sanitizeContractHtml(voids).startsWith("<br>"), sanitizeContractHtml(voids).slice(0, 30));
   const t60 = performance.now();

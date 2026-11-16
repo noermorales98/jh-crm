@@ -1,6 +1,7 @@
 /** Sanitiza HTML de contratos para vista segura (sin scripts ni eventos). */
 
 import DOMPurify from "isomorphic-dompurify";
+import { withinParseBudget } from "@/src/lib/contracts/parse-budget";
 
 /**
  * Escapa texto para insertarlo dentro de HTML (contenido o atributo entre comillas).
@@ -82,28 +83,23 @@ function configure() {
 }
 
 /**
- * Topes de entrada. DOMPurify construye un DOM completo, y con jsdom el coste crece de forma
- * cuadrática con la profundidad real (20 000 `<div>` anidados: 78 s y desbordamiento de pila;
- * 3 000: unos 2,5 s). Medir la profundidad leyendo el HTML se descartó: cada diferencia con el
- * parser del navegador (`<!-->`, `<noscript>`, `<div/>`...) es una forma de esquivar el medidor.
- * El tope duro es el total de aperturas (`<letra`), que no depende de interpretar nada: el peor
- * caso queda acotado. Un contrato real tiene decenas o pocos cientos de etiquetas; pasado el
- * tope se entrega como texto inerte.
+ * Tope de caracteres (barato). El resto del presupuesto lo marca `withinParseBudget`: el mismo
+ * parser que usa jsdom cuenta los nodos y la profundidad, y lo que lo supera no llega a DOMPurify.
+ * Se aplica igual en servidor y navegador para que la salida sea idéntica en la hidratación.
  */
 const MAX_INPUT_CHARS = 1_000_000;
-const MAX_OPEN_TAGS = 3000;
 
 /**
  * Filtro de HTML de contratos, con DOMPurify (`isomorphic-dompurify`: funciona igual en el
  * navegador y en el servidor, donde el portal también renderiza). Lista cerrada de etiquetas
  * y atributos, `data:` solo para imágenes rasterizadas, estilos filtrados por `isDangerousStyle`.
- * Ante entrada desmesurada o cualquier error, falla cerrado: devuelve el texto escapado.
+ * Ante entrada desmesurada, fuera de presupuesto o cualquier error, falla cerrado: devuelve el
+ * texto escapado.
  */
 export function sanitizeContractHtml(html: string): string {
   if (html.length > MAX_INPUT_CHARS) return escapeHtml(html);
-  const opens = html.match(/<[a-z]/gi);
-  if (opens && opens.length > MAX_OPEN_TAGS) return escapeHtml(html);
   try {
+    if (!withinParseBudget(html)) return escapeHtml(html);
     configure();
     return DOMPurify.sanitize(html, {
       ALLOWED_TAGS,

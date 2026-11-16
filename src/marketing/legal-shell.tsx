@@ -68,7 +68,7 @@ export function LegalShell({ title, children }: LegalShellProps) {
               </div>
               <div className="foot-col">
                 <b>Contacto</b>
-                <a href="tel:+18722020156">(872) 202-0156</a>
+                <a href="tel:+17087661220">(708) 766-1220</a>
                 <a href="mailto:jhmultiservices10@gmail.com">
                   jhmultiservices10@gmail.com
                 </a>

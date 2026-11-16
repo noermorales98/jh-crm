@@ -46,7 +46,7 @@ export default function SmsTermsPage() {
         Puede solicitar dejar de recibir SMS respondiendo STOP (si el canal lo
         soporta) o contactándonos en{" "}
         <a href="mailto:jhmultiservices10@gmail.com">jhmultiservices10@gmail.com</a>{" "}
-        / (872) 202-0156. El consentimiento de privacidad y el de SMS son
+        / (708) 766-1220. El consentimiento de privacidad y el de SMS son
         independientes.
       </p>
 

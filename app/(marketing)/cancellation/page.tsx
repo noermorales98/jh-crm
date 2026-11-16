@@ -21,7 +21,7 @@ export default function CancellationPage() {
         Puede solicitar que no le contactemos respecto a una consulta enviada
         por el formulario escribiendo a{" "}
         <a href="mailto:jhmultiservices10@gmail.com">jhmultiservices10@gmail.com</a>{" "}
-        o llamando al (872) 202-0156, e indicando su nombre y datos de contacto.
+        o llamando al (708) 766-1220, e indicando su nombre y datos de contacto.
       </p>
 
       <h2>2. Servicios contratados</h2>
@@ -42,7 +42,7 @@ export default function CancellationPage() {
       <h2>4. Cómo solicitar la cancelación</h2>
       <ul>
         <li>Correo: jhmultiservices10@gmail.com</li>
-        <li>Teléfono: (872) 202-0156</li>
+        <li>Teléfono: (708) 766-1220</li>
         <li>Incluya nombre completo, servicio y motivo breve (opcional).</li>
       </ul>
     </LegalShell>

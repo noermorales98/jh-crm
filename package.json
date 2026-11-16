@@ -138,6 +138,9 @@
     "seed:demo-credit": "tsx --env-file=.env.local scripts/seed-demo-credit-case.ts",
     "postinstall": "prisma generate"
   },
+  "overrides": {
+    "canvas": "2.11.2"
+  },
   "dependencies": {
     "@ai-sdk/react": "^4.0.92",
     "@aws-sdk/client-s3": "^3.1123.0",

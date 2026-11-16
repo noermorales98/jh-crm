@@ -1,7 +1,10 @@
 ---
 branch: claude/youthful-leavitt-d8f81e
-status: in-review
+status: done
 date: 2026-11-14
+author: Noeli
+merged: 2026-11-16
+merged_by: Noeli
 ---
 
 # Contratos: nombre de cliente hostil sin XSS en el portal
@@ -163,5 +166,4 @@ conector solo añade otra vía.
   inalcanzable y `>` frente a `>=` en el tope del tokenizador.
 
 ## Siguiente paso
-
-Push y PR contra `main`. Sin merge hasta el sí de Noe.
+Fusionado en main el 2026-11-16 (fedaf0e).

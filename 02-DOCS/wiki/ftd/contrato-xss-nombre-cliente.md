@@ -156,7 +156,12 @@ conector solo añade otra vía.
   aplica dentro del tokenizador de parse5 (`_leaveAttrName` de la instancia, no del prototipo, así
   jsdom no cambia): lo que el parser considera un atributo es lo que cuenta. Todas las variantes
   (comillas, `/`, `<`, pegados, 125 000) se rechazan en ≤ 1 ms.
+- Panel final sobre `982e146` (3 lentes). Corrección y seguridad: sin hallazgos (parser equivalente al
+  `parse` de parse5; ~80 entradas de hasta 1 MB, la más lenta 1,7 s; 27 payloads XSS neutralizados).
+  Pruebas: 115 mutantes nuevos, 76 muertos; se añadieron pruebas del texto contado como nodo, del chip
+  con `style` y con espacios duros, y del estilo largo con `url(` al final. Equivalentes: `catch`
+  inalcanzable y `>` frente a `>=` en el tope del tokenizador.
 
 ## Siguiente paso
 
-Panel final sobre el commit, push y PR contra `main`. Sin merge hasta el sí de Noe.
+Push y PR contra `main`. Sin merge hasta el sí de Noe.

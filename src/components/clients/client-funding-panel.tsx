@@ -152,6 +152,8 @@ export function ClientFundingPanel({ clientId, reportId }: { clientId: string; r
       lines.push(`Hoy podrías calificar para ${productName(result.best.product).toLowerCase()}: ${rangeText(result.best)} (estimado).`);
     } else if (result.bestPotential) {
       lines.push(`Hoy todavía no calificas. Al terminar la reparación podrías llegar a ${rangeText(result.bestPotential)} en ${productName(result.bestPotential.product).toLowerCase()} (estimado).`);
+    } else if (result.status === "READY") {
+      lines.push("Cumples los requisitos publicados de un producto, pero el monto no se estima: lo define cada prestamista con su oferta.");
     } else {
       lines.push("Todavía no calificas para fondeo.");
     }
@@ -200,9 +202,11 @@ export function ClientFundingPanel({ clientId, reportId }: { clientId: string; r
           </>
         ) : (
           <p className="mt-3 text-[15px] font-medium text-ink">
-            {result.status === "MISSING_DATA"
-              ? "Completa los datos del cliente para calcular cuánto podría conseguir."
-              : "Hoy no califica y con estos datos no hay un monto estimado."}
+            {result.status === "READY"
+              ? "Cumple los requisitos publicados de un producto. No se estima un monto: lo define cada prestamista con su oferta."
+              : result.status === "MISSING_DATA"
+                ? "Completa los datos del cliente para calcular cuánto podría conseguir."
+                : "Hoy no califica y con estos datos no hay un monto estimado."}
           </p>
         )}
         <p className="mt-3 text-[12px] text-text-secondary">{summaryBits.join(" · ")}</p>

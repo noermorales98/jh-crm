@@ -3,24 +3,34 @@
  *
  * Junta el reporte (score, negativas, uso de tarjetas, consultas, pagos
  * mensuales) con lo que declara el cliente (ingreso, ventas, tiempo del
- * negocio) y da, por producto, si cumple los requisitos típicos del mercado
- * y un RANGO estimado. No es una aprobación ni una oferta: cada prestamista
- * decide con sus propias reglas y documentos (CROA: sin promesas).
+ * negocio) y da, por producto, si cumple los requisitos que publica el mercado.
+ * Solo el préstamo personal trae un RANGO, calculado con una tasa media publicada.
+ * No es una aprobación ni una oferta: cada prestamista decide con sus propias
+ * reglas y documentos (CROA: sin promesas).
  *
- * Referencias de mercado (2026, revisar cada año):
- * - Préstamo personal: la mayoría pide 580–660 y da mejores tasas desde
- *   ~680; deuda/ingreso (DTI) preferida ≤ 35–43%. Rango: cuota que cabe en
- *   40% del ingreso, a 3 y 5 años, con tope por puntaje y por ingreso anual.
- * - Línea de crédito de negocio (online): ~625+, 6–12 meses operando,
- *   ventas desde ~$100k/año; los bancos piden 680+ y 2 años.
- * - SBA 7(a): el SBA no fija score; los bancos suelen pedir 650–700 y
- *   2+ años con flujo de caja documentado. El monto depende del flujo.
+ * Cada cifra sale de `sources.ts` con su fuente y fecha (2026-11-15):
+ * - Préstamo personal: tasa media por puntaje (Experian/Curinos); mínimo de
+ *   referencia 640 (los prestamistas publican 600–680); deuda/ingreso 40 %,
+ *   criterio prudente de la agencia.
+ * - Línea de crédito de negocio: dos niveles publicados (accesible y estándar).
+ *   No hay monto: ningún prestamista publica cómo lo calcula.
+ * - SBA 7(a): la SBA retiró su puntaje mínimo el 2026-03-01; decide cada banco
+ *   (capacidad de pago, DSCR). Los 650/2 años son una referencia de mercado.
  */
 
-export const FUNDING_CALC_VERSION = "fc01-2026-10-28";
+import {
+  BUSINESS_LINE_TIERS,
+  PERSONAL_LOAN_APR_BY_SCORE,
+  PERSONAL_LOAN_CAP_BY_SCORE,
+  SBA_REFERENCE_MONTHS,
+  SBA_REFERENCE_SCORE,
+  SOURCES_VERIFIED_AT,
+  sourceTag,
+} from "@/src/lib/credit/sources";
 
-export const FUNDING_DISCLAIMER =
-  "Estimado de referencia con el reporte y los datos que declara el cliente. No es una aprobación ni una oferta: cada prestamista decide con sus propias reglas y documentos.";
+export const FUNDING_CALC_VERSION = "fc02-2026-11-15";
+
+export const FUNDING_DISCLAIMER = `Estimado de referencia con el reporte y los datos que declara el cliente, con requisitos publicados por el mercado (verificados el ${SOURCES_VERIFIED_AT}). No es una aprobación ni una oferta: cada prestamista decide con sus propias reglas y documentos.`;
 
 export type TimeInBusiness = "LT6M" | "6TO12M" | "1TO2Y" | "2Y_PLUS";
 
@@ -99,12 +109,10 @@ export type FundingResult = {
 };
 
 const PERSONAL_MIN_SCORE = 640;
-const BUSINESS_LINE_MIN_SCORE = 625;
-const SBA_MIN_SCORE = 680;
+/** Criterio prudente de la agencia (ver `sources.ts`: DTI_40). */
 const MAX_DTI = 0.4;
 const MAX_UTIL_BPS = 3000;
 const MAX_INQUIRIES_6M = 4;
-const BUSINESS_LINE_MIN_REVENUE = 8000;
 
 /** Score de referencia: el del medio de los tres (o el promedio si hay dos). */
 export function referenceScore(scores: readonly (number | null)[]): number | null {
@@ -126,9 +134,9 @@ function roundTo(value: number, step: number): number {
 }
 
 function personalTier(score: number): { apr: number; cap: number } {
-  if (score >= 720) return { apr: 0.12, cap: 50_000 };
-  if (score >= 680) return { apr: 0.18, cap: 35_000 };
-  return { apr: 0.26, cap: 15_000 };
+  const apr = (PERSONAL_LOAN_APR_BY_SCORE.find((row) => score >= row.minScore) ?? PERSONAL_LOAN_APR_BY_SCORE.at(-1)!).apr;
+  const cap = PERSONAL_LOAN_CAP_BY_SCORE.find((row) => score >= row.minScore)!.cap;
+  return { apr, cap };
 }
 
 function usd(amount: number): string {
@@ -211,55 +219,69 @@ function personalLoan(
   return { checks, range };
 }
 
+const ACCESSIBLE_LINE = BUSINESS_LINE_TIERS[0]!;
+const STANDARD_LINE = BUSINESS_LINE_TIERS[1]!;
+
+/** Línea de negocio: se evalúa contra el nivel más accesible publicado; no se calcula un monto. */
 function businessLine(
   score: number | null,
   facts: FundingCreditFacts,
   profile: FundingProfile,
   scenario: Scenario,
-): { checks: FundingCheck[]; range: { low: number; high: number } | null } {
-  const checks = creditChecks(score, BUSINESS_LINE_MIN_SCORE, facts, scenario);
+): FundingCheck[] {
+  const tier = ACCESSIBLE_LINE;
+  const checks = creditChecks(score, tier.minScore, facts, scenario);
   checks.push(
     profile.timeInBusiness == null
       ? { label: "Tiempo operando", state: "MISSING", detail: "Indica cuánto tiempo tiene el negocio." }
       : {
           label: "Tiempo operando",
-          state: TIME_MONTHS[profile.timeInBusiness] >= 6 ? "OK" : "FAIL",
+          state: TIME_MONTHS[profile.timeInBusiness] >= tier.minMonths ? "OK" : "FAIL",
           detail:
-            TIME_MONTHS[profile.timeInBusiness] >= 6
-              ? `${TIME_IN_BUSINESS_LABEL[profile.timeInBusiness]}: cumple (6+ meses).`
-              : "Suelen pedir al menos 6 meses operando.",
+            TIME_MONTHS[profile.timeInBusiness] >= tier.minMonths
+              ? `${TIME_IN_BUSINESS_LABEL[profile.timeInBusiness]}: cumple (${tier.minMonths}+ meses).`
+              : `Los prestamistas más accesibles piden al menos ${tier.minMonths} meses operando.`,
         },
   );
+  const minRevenue = tier.minMonthlyRevenue;
   checks.push(
     profile.monthlyRevenue == null
       ? { label: "Ventas", state: "MISSING", detail: "Anota las ventas mensuales del negocio." }
       : {
           label: "Ventas",
-          state: profile.monthlyRevenue >= BUSINESS_LINE_MIN_REVENUE ? "OK" : "FAIL",
+          state: profile.monthlyRevenue >= minRevenue ? "OK" : "FAIL",
           detail:
-            profile.monthlyRevenue >= BUSINESS_LINE_MIN_REVENUE
+            profile.monthlyRevenue >= minRevenue
               ? `${usd(profile.monthlyRevenue)} al mes: cumple.`
-              : `${usd(profile.monthlyRevenue)} al mes: suelen pedir ~${usd(BUSINESS_LINE_MIN_REVENUE)} o más.`,
+              : `${usd(profile.monthlyRevenue)} al mes: piden desde ~${usd(minRevenue)} al mes.`,
         },
   );
-  const ok = statusOf(checks) === "READY";
-  const annual = (profile.monthlyRevenue ?? 0) * 12;
-  const range = ok
-    ? { low: roundTo(Math.min(annual * 0.1, 250_000), 1000), high: roundTo(Math.min(annual * 0.15, 250_000), 1000) }
-    : null;
-  return { checks, range: range && range.low > 0 ? range : null };
+  return checks;
 }
 
+/** ¿Cumple además el nivel estándar (más requisitos, mejores condiciones)? null si faltan datos. */
+function meetsStandardLine(score: number | null, profile: FundingProfile): boolean | null {
+  if (score == null || profile.timeInBusiness == null || profile.monthlyRevenue == null) return null;
+  return (
+    score >= STANDARD_LINE.minScore &&
+    TIME_MONTHS[profile.timeInBusiness] >= STANDARD_LINE.minMonths &&
+    profile.monthlyRevenue >= STANDARD_LINE.minMonthlyRevenue
+  );
+}
+
+/** SBA 7(a): la SBA ya no fija puntaje; los bancos deciden. Aquí solo una referencia de mercado. */
 function sba(score: number | null, facts: FundingCreditFacts, profile: FundingProfile, scenario: Scenario): FundingCheck[] {
-  const checks = creditChecks(score, SBA_MIN_SCORE, facts, scenario);
+  const checks = creditChecks(score, SBA_REFERENCE_SCORE, facts, scenario);
   checks.push(
     profile.timeInBusiness == null
       ? { label: "Tiempo operando", state: "MISSING", detail: "Indica cuánto tiempo tiene el negocio." }
       : {
           label: "Tiempo operando",
-          state: TIME_MONTHS[profile.timeInBusiness] >= 24 ? "OK" : "FAIL",
+          state: TIME_MONTHS[profile.timeInBusiness] >= SBA_REFERENCE_MONTHS ? "OK" : "FAIL",
           detail:
-            TIME_MONTHS[profile.timeInBusiness] >= 24 ? "2 años o más: cumple." : "Los bancos SBA suelen pedir 2 años operando.",
+            TIME_MONTHS[profile.timeInBusiness] >= SBA_REFERENCE_MONTHS
+              ? "2 años o más: cumple."
+              : "Los bancos SBA suelen pedir 2 años operando.",
         },
   );
   return checks;
@@ -287,22 +309,28 @@ export function computeFunding(facts: FundingCreditFacts, profile: FundingProfil
     checks: personalNow.checks,
     range: personalStatus === "READY" ? personalNow.range : null,
     potential: personalStatus === "READY" ? null : personalFixed.range,
-    note: null,
+    note: `Tasa media por puntaje (${sourceTag("PERSONAL_LOAN_APR")}); cada prestamista fija la suya.`,
   });
 
   if (profile.hasBusiness) {
-    const lineNow = businessLine(score, facts, profile, today);
-    const lineFixed = businessLine(score, { ...facts, inquiries6m: 0 }, profile, repaired);
-    const lineStatus = statusOf(lineNow.checks);
+    const lineChecks = businessLine(score, facts, profile, today);
+    const lineStatus = statusOf(lineChecks);
+    const standard = meetsStandardLine(score, profile);
     products.push({
       id: "BUSINESS_LINE",
       name: "Línea de crédito de negocio",
       hint: "Usa y paga lo que necesite; se renueva.",
       status: lineStatus,
-      checks: lineNow.checks,
-      range: lineStatus === "READY" ? lineNow.range : null,
-      potential: lineStatus === "READY" ? null : lineFixed.range,
-      note: "Estimado de 10% a 15% de las ventas anuales (online). Los bancos dan más con 2 años y 680+.",
+      checks: lineChecks,
+      range: null,
+      potential: null,
+      note:
+        `Sin monto: ningún prestamista publica cómo lo calcula; pide la oferta. Requisitos del nivel accesible (${sourceTag("LINE_ACCESSIBLE")}). ` +
+        (standard == null
+          ? "El nivel estándar (625, 12 meses, 10,000 USD al mes) se evalúa al completar los datos."
+          : standard
+            ? "También cumple el nivel estándar (625, 12 meses, 10,000 USD al mes), con mejores condiciones."
+            : "El nivel estándar pide 625, 12 meses y 10,000 USD al mes."),
     });
     const sbaChecks = sba(score, facts, profile, today);
     products.push({
@@ -313,7 +341,7 @@ export function computeFunding(facts: FundingCreditFacts, profile: FundingProfil
       checks: sbaChecks,
       range: null,
       potential: null,
-      note: "El monto depende del flujo de caja y los impuestos del negocio; se calcula con el banco.",
+      note: `La SBA ya no fija un puntaje mínimo: decide cada banco, con el flujo de caja del negocio (DSCR). Referencia de mercado (${sourceTag("SBA_7A_LENDER_DECIDES")}). El monto se calcula con el banco.`,
     });
   }
 

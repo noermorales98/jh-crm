@@ -10,6 +10,7 @@
 
 import type { CreditBureau, CreditNegativeType } from "@prisma/client";
 import { classifyNegative, type PracticalItem } from "@/src/lib/credit/practical";
+import { BANKRUPTCY_YEARS, NEGATIVE_YEARS } from "@/src/lib/credit/sources";
 
 export const NEGATIVE_REVIEW_VERSION = "nr02-2026-10-28";
 
@@ -17,8 +18,11 @@ export const NEGATIVE_REVIEW_VERSION = "nr02-2026-10-28";
  * FCRA §605(c): 7 años desde la primera morosidad (+180 días). El reporte no
  * trae esa fecha, así que una apertura de hace más de 7½ años solo sugiere
  * pedirla; no prueba que la cuenta ya deba salir.
+ * Las quiebras son distintas: FCRA §605(a)(1), 10 años desde la orden de relief.
+ * Fuentes: `sources.ts` (FCRA_OBSOLETE_7Y, FCRA_BANKRUPTCY_10Y).
  */
-const OBSOLETE_MONTHS = 7 * 12 + 6;
+const OBSOLETE_MONTHS = NEGATIVE_YEARS * 12 + 6;
+const BANKRUPTCY_OBSOLETE_MONTHS = BANKRUPTCY_YEARS * 12;
 /** Diferencia de fecha de reporte que ya indica un buró sin actualizar. */
 const STALE_REPORT_MONTHS = 3;
 
@@ -308,12 +312,14 @@ export function groupNegativeDebts(items: readonly ReviewItem[], asOf: Date): Ne
       .map((r) => r.dateOpened)
       .filter((d): d is Date => d != null)
       .sort((a, b) => a.getTime() - b.getTime())[0];
-    if (opened && monthsBetween(opened, asOf) > OBSOLETE_MONTHS) {
-      const cutoff = new Date(Date.UTC(asOf.getUTCFullYear() - 7, asOf.getUTCMonth() - 6, 1));
+    const isBankruptcy = type === "BANKRUPTCY";
+    if (opened && monthsBetween(opened, asOf) > (isBankruptcy ? BANKRUPTCY_OBSOLETE_MONTHS : OBSOLETE_MONTHS)) {
       reasons.push({
         code: "OBSOLETE",
         title: REASON_TITLES.OBSOLETE,
-        detail: `Abierta en ${MONTH_FMT.format(opened)}. Los 7 años se cuentan desde la primera morosidad, no desde la apertura: pide esa fecha al buró; si es anterior a ${MONTH_FMT.format(cutoff)}, debe salir (FCRA §605).`,
+        detail: isBankruptcy
+          ? `Fecha en el reporte: ${MONTH_FMT.format(opened)}. Las quiebras se cuentan 10 años desde la orden de relief (la presentación): confirma esa fecha; si es anterior a ${MONTH_FMT.format(new Date(Date.UTC(asOf.getUTCFullYear() - BANKRUPTCY_YEARS, asOf.getUTCMonth(), 1)))}, debe salir (FCRA §605(a)(1)).`
+          : `Abierta en ${MONTH_FMT.format(opened)}. Los 7 años se cuentan desde la primera morosidad, no desde la apertura: pide esa fecha al buró; si es anterior a ${MONTH_FMT.format(new Date(Date.UTC(asOf.getUTCFullYear() - NEGATIVE_YEARS, asOf.getUTCMonth() - 6, 1)))}, debe salir (FCRA §605).`,
       });
     }
 

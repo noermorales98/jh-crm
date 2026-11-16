@@ -6,10 +6,10 @@ tags: [sdd, spec, mcp, ai, auth, oauth]
 timestamp: 2026-11-09T00:00:00Z
 topic: sdd
 slug: conector-mcp-claude
-branch: feat/conector-mcp-tanda-3a
+branch: main
 status: approved
 approved_by: Noeli, 2026-11-09 ("Sí, la apruebo")
-shipped: batch 1 on 2026-11-13, PR #42 merged into main (bd4267d); batch 2 on 2026-11-14, PR #43 merged into main (04f6a5a); batch 3a in progress (batch 3 split into 3a/3b/3c)
+shipped: batch 1 on 2026-11-13, PR #42 merged into main (bd4267d); batch 2 on 2026-11-14, PR #43 merged into main (04f6a5a); batch 3a on 2026-11-16, PR #44 merged into main (fe817b0); batches 3b and 3c pending
 ---
 
 # Spec — Conector MCP de JH CRM para Claude
@@ -115,7 +115,7 @@ Pruebas en `scripts/smoke/` que fallan sin el cambio y pasan con él.
 - [ ] AC-5: Para cada sección del CRM existe al menos lectura; crear, editar y borrar existen donde la
       app los permite, con el mismo permiso.
 - [x] AC-6: Ninguna respuesta del conector contiene SSN/ITIN, números de cuenta completos ni secretos.
-- [ ] AC-7: Borrar un pago, ronda o contrato vía Claude hace borrado lógico, igual que en la app.
+- [x] AC-7: Borrar un pago, ronda o contrato vía Claude hace borrado lógico, igual que en la app.
 - [x] AC-8: Cada cambio hecho vía Claude aparece en actividad y auditoría con el usuario y el origen
       "Claude".
 - [x] AC-9: Al revocar una conexión, la siguiente llamada de Claude responde "no autorizado".

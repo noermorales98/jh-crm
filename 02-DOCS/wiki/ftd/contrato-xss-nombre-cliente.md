@@ -121,7 +121,7 @@ conector solo añade otra vía.
   con ~7 900 niveles reales (7–10 s de CPU), además de `<div/>`. Cada diferencia con el parser era
   una evasión; se eliminó el medidor y queda un tope duro de 3 000 aperturas (no interpreta nada).
   Peor caso medido: 2 999 `<div>` anidados ≈ 2,2 s; 7 900 variantes del truco → texto en < 1 s.
-  Coste aceptado: documentos con más de 3 000 etiquetas (tablas de >600 filas) se ven como texto.
+  (Superado: ese tope se sustituyó por el presupuesto del parser, ver más abajo.)
 - Panel sobre `fd67256`. Seguridad: `<table><td>` ×1 499 tardaba 6 s con el tope de 3 000 aperturas.
   Pruebas: 800 elementos de formato distintos sin cerrar + 800 `<div>` (18 KB) agotaban la memoria,
   así que ningún tope de aperturas acota el trabajo. Se sustituyó por `parse-budget.ts`: el mismo
@@ -130,6 +130,11 @@ conector solo añade otra vía.
   Medido: la plantilla, 3 000 párrafos y una tabla de 600 filas caben; el ataque 800 + 800, `<table><td>`
   ×1 499, `<noscript>`, `<!-->` y `<div/>` se rechazan en milisegundos. 19 mutantes del presupuesto:
   todos muertos salvo equivalentes (`catch` inalcanzable y tope de caracteres cubierto por el de nodos).
+- Lente de corrección sobre `fc26ef9`: el presupuesto contaba un nodo por trozo de texto (parse5 lo
+  entrega en trozos de ~palabra), así que unos 75 KB de texto (~20 páginas) superaban los 20 000 nodos y
+  se mostraban escapados. jsdom los une en un solo nodo; ahora el adaptador cuenta un texto solo si el
+  último hijo no es ya texto. Medido: un párrafo de 780 KB, 4 000 párrafos de 230 caracteres (~100
+  páginas) y 10 000 entidades caben. Mutantes: contar siempre y no contar nunca el texto, ambos muertos.
 
 ## Siguiente paso
 

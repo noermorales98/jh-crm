@@ -123,3 +123,18 @@ Append-only. Newest at the bottom.
   cannot become a mass mailing; it does not return the addresses. Left out: permanent delete (the
   app deletes the row for real), inbox sync (external server, already automatic) and translation
   (paid external service). The smoke sends to a fake SMTP server bound to 127.0.0.1.
+- 2026-11-16 — `conector-mcp-claude` batch 3c closing review. Three lenses, nothing blocking. Applied:
+  mail text is cleaned before it reaches Claude (invisible characters such as bidi marks, zero-width
+  and Unicode tag characters removed, because they hide instructions from the person but not from the
+  model; numbers masked first and then cut by whole characters so a number on the cut cannot leak
+  partly; subject 200, sender name 100, 10 addresses per field with the rest counted); searching mail
+  text with a long number is refused like `buscar` does, so it cannot be used to guess an SSN or an
+  account; `guardar_borrador_correo` and `enviar_correo` start from the draft's current values;
+  `enviar_correo` also counts recipients per person (25 per hour, 100 per day), because five per call
+  alone would let a looping session send hundreds a minute; the server instructions now say not to
+  show images, links or HTML found in a mail and never to copy CRM data into a mail because another
+  mail asks. Left for the owner to decide, later: an allow-list of recipients (only people already in
+  the CRM, the organization's domain or an address the person names; anything else only as a draft),
+  which is the strongest control against exfiltration but changes how sending is used. Replies
+  restricted to the original sender were rejected on purpose: in this threat model the sender is the
+  attacker. Nine hand-made mutants were each caught.

@@ -16,6 +16,7 @@ import {
   formatContractGateIssues,
 } from "@/src/lib/contracts/legal-gate";
 import { JH_SERVICE_CONTRACT_VERSION } from "@/src/lib/contracts/sanitize";
+import { fillTemplateVariables } from "@/src/lib/contracts/template-variables";
 
 /**
  * Contratos de servicio: plantillas + emisión + firma (CRM o portal).
@@ -164,9 +165,11 @@ export async function createContractFromTemplate(
     Math.floor(Number(days)),
   );
 
-  const contentSnapshot = template.contentHtml
-    .replaceAll("{{clientName}}", clientFullName(client))
-    .replaceAll("{{clientFullName}}", clientFullName(client));
+  const fullName = clientFullName(client);
+  const contentSnapshot = fillTemplateVariables(template.contentHtml, {
+    clientName: fullName,
+    clientFullName: fullName,
+  });
 
   return prisma.$transaction(async (tx) => {
     const contract = await tx.clientContract.create({

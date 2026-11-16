@@ -64,7 +64,7 @@ const LIVE_TAGS =
 
 const URL_ATTRS = /^(?:href|src|xlink:href|action|formaction|background|poster|data|cite|ping|longdesc|usemap|lowsrc|dynsrc)$/;
 const BAD_SCHEME = /^(?:javascript|vbscript|livescript|mocha):/;
-const BAD_STYLE = /attr\s*\(|&(?!quot;|#39;|#x27;|amp;)|position\s*:\s*(?:fixed|sticky)|\\|expression|url|image-set|image\s*\(|cross-fade|element\s*\(|src\s*\(|@import|behavior|binding|javascript:/i;
+const BAD_STYLE = /\/\*|attr\s*\(|&(?!quot;|#39;|#x27;|amp;)|position\s*:\s*(?:fixed|sticky)|\\|expression|url|image-set|image\s*\(|cross-fade|element\s*\(|src\s*\(|@import|behavior|binding|javascript:/i;
 
 /**
  * Etiquetas de apertura tal como las corta el navegador: una comilla solo abre un valor
@@ -228,6 +228,7 @@ function filterChecks() {
     "data:image/svg con espacio delante": '<img src=" data:image/svg+xml;base64,PHN2Zz4=">',
     "estilo con attr()": '<p title="https://x.test/a.png" style="background:attr(title url)">x</p>',
     "background remoto en celda": '<table><tr><td background="https://x.test/a.png">x</td></tr></table>',
+    "position con comentario en medio": '<div style="position:/**/fixed;top:0;left:0;width:100%;height:100%">x</div>',
     "estilo con escape CSS": '<p style="background:\\75rl(https://x.test/p.png)">x</p>',
     "estilo con image-set()": "<p style=\"background:image-set('https://x.test/p.png' 1x)\">x</p>",
     "estilo con comentario partiendo url": '<p style="background:u/**/rl(https://x.test/p.png)">x</p>',
@@ -438,11 +439,13 @@ function filterChecks() {
   check("una tabla de 600 filas con párrafos en las celdas se conserva", sanitizeContractHtml(table) === table);
   check("3 000 párrafos planos se conservan", sanitizeContractHtml("<p>a</p>".repeat(3000)) === "<p>a</p>".repeat(3000));
   check("10 001 párrafos (más de 20 000 nodos) se entregan como texto", sanitizeContractHtml("<p>a</p>".repeat(10001)).startsWith("&lt;p&gt;"));
-  check("298 niveles anidados se conservan", sanitizeContractHtml("<div>".repeat(298) + "x" + "</div>".repeat(298)).startsWith("<div><div>"));
-  check("299 niveles anidados se entregan como texto", sanitizeContractHtml("<div>".repeat(299) + "x" + "</div>".repeat(299)).startsWith("&lt;div&gt;"));
+  check("48 niveles anidados se conservan", sanitizeContractHtml("<div>".repeat(48) + "x" + "</div>".repeat(48)).startsWith("<div><div>"));
+  check("49 niveles anidados se entregan como texto", sanitizeContractHtml("<div>".repeat(49) + "x" + "</div>".repeat(49)).startsWith("&lt;div&gt;"));
+  check("10 niveles de listas anidadas (un contrato real) se conservan", !sanitizeContractHtml("<ul><li>".repeat(10) + "x" + "</li></ul>".repeat(10)).startsWith("&lt;"));
   const distinctFormats = (n: number, k: number) =>
     "<div>" + Array.from({ length: n }, (_, i) => `<b x="${i}">`).join("") + "</div>" + "<div>t</div>".repeat(k);
-  check("100 elementos de formato distintos sin cerrar + 100 `<div>` se filtran", !sanitizeContractHtml(distinctFormats(100, 100)).startsWith("&lt;"));
+  check("30 elementos de formato distintos sin cerrar + 30 `<div>` se filtran", !sanitizeContractHtml(distinctFormats(30, 30)).startsWith("&lt;"));
+  check("100 elementos de formato distintos + 100 `<div>` pasan de los 50 niveles", sanitizeContractHtml(distinctFormats(100, 100)).startsWith("&lt;"));
   for (const [label, html] of Object.entries({
     "reconstrucción de formato 800 + 800 (agotaba la memoria con 18 KB)": distinctFormats(800, 800),
     "reconstrucción de formato 200 + 200": distinctFormats(200, 200),
@@ -464,8 +467,8 @@ function filterChecks() {
   }
   // El peor caso que cabe en el presupuesto cuesta un par de segundos con jsdom: se mide y se acota.
   const tWorst = performance.now();
-  sanitizeContractHtml(distinctFormats(140, 140));
-  check("el peor caso dentro del presupuesto (140 formatos + 140 bloques) termina en menos de 15 s", performance.now() - tWorst < 15000, `${(performance.now() - tWorst).toFixed(0)} ms`);
+  sanitizeContractHtml(distinctFormats(45, 45));
+  check("el peor caso dentro del presupuesto (45 formatos + 45 bloques) termina en menos de 15 s", performance.now() - tWorst < 15000, `${(performance.now() - tWorst).toFixed(0)} ms`);
   // Texto largo: el parser lo entrega por trozos pero es un solo nodo; no debe agotar el presupuesto.
   const longParagraph = "<p>" + "palabra ".repeat(100000) + "</p>";
   check("un párrafo de 780 KB (~150 páginas de texto) se conserva", sanitizeContractHtml(longParagraph) === longParagraph);
@@ -475,19 +478,61 @@ function filterChecks() {
   check("10 000 entidades en un párrafo se conservan", sanitizeContractHtml(entities) === entities);
   check("texto largo + elementos de formato (1 500 párrafos con negrita y cursiva) se conservan", !sanitizeContractHtml(("<p>texto <strong>negrita</strong> y <em>cursiva</em> más texto largo aquí</p>").repeat(1500)).startsWith("&lt;"));
   // Fronteras exactas del presupuesto (20 000 nodos, 300 niveles): cada tipo de nodo cuenta.
-  check("19 997 elementos (+ html, head y body = 20 000) caben", withinParseBudget("<span></span>".repeat(19997)));
-  check("19 998 elementos no caben", !withinParseBudget("<span></span>".repeat(19998)));
-  check("19 997 comentarios caben", withinParseBudget("<!--a-->".repeat(19997)));
-  check("19 998 comentarios no caben", !withinParseBudget("<!--a-->".repeat(19998)));
-  check("9 998 tablas con texto (dos nodos cada una) caben", withinParseBudget("<table>x</table>".repeat(9998)));
-  check("9 999 tablas con texto no caben", !withinParseBudget("<table>x</table>".repeat(9999)));
-  check("`<table>` + 298 `<div>` (el primero se inserta antes de la tabla) caben", withinParseBudget("<table>" + "<div>".repeat(298)));
-  check("`<table>` + 299 `<div>` no caben", !withinParseBudget("<table>" + "<div>".repeat(299)));
+  // Se reparten en bloques de 4 000 para no chocar con el tope de hijos por elemento.
+  const chunked = (n: number, unit: string, per = 4000) => {
+    let out = "";
+    for (let left = n; left > 0; left -= per) out += "<p>" + unit.repeat(Math.min(per, left)) + "</p>";
+    return out;
+  };
+  check("19 992 elementos (+ 5 bloques + html, head y body = 20 000) caben", withinParseBudget(chunked(19992, "<span></span>")));
+  check("19 993 elementos no caben", !withinParseBudget(chunked(19993, "<span></span>")));
+  check("19 992 comentarios caben", withinParseBudget(chunked(19992, "<!--a-->")));
+  check("19 993 comentarios no caben", !withinParseBudget(chunked(19993, "<!--a-->")));
+  check("9 996 tablas con texto (dos nodos cada una) caben", withinParseBudget(chunked(9996, "<table>x</table>", 2000)));
+  check("9 997 tablas con texto no caben", !withinParseBudget(chunked(9997, "<table>x</table>", 2000)));
+  check("`<table>` + 48 `<div>` (el primero se inserta antes de la tabla) caben", withinParseBudget("<table>" + "<div>".repeat(48)));
+  check("`<table>` + 49 `<div>` no caben", !withinParseBudget("<table>" + "<div>".repeat(49)));
+  // Atributos y hijos: parse5 y DOMPurify tienen costes cuadráticos que ni los nodos ni la profundidad ven.
+  const names = (n: number) => Array.from({ length: n }, (_, i) => `a${i}`);
+  check("100 atributos en una etiqueta caben", withinParseBudget("<p " + names(100).join(" ") + ">x</p>"));
+  check("101 atributos en una etiqueta no caben", !withinParseBudget("<p " + names(101).join(" ") + ">x</p>"));
+  const htmlTags = (n: number) => Array.from({ length: n }, (_, j) => "<html " + names(100).map((x) => `${x}_${j}`).join(" ") + ">").join("");
+  check("`<html>` repetido: 400 etiquetas de 100 atributos (40 000) caben", withinParseBudget(htmlTags(400)));
+  check("`<html>` repetido: 401 etiquetas superan los 40 000 atributos", !withinParseBudget(htmlTags(401)));
+  check("`<template>` anidadas heredan la profundidad (48 caben, 49 no)", withinParseBudget("<template>".repeat(48)) && !withinParseBudget("<template>".repeat(49)));
+  const htmlPlusOne = htmlTags(400) + "<html z>";
+  check("`<html>` repetido: un atributo más de los 40 000 ya no cabe", !withinParseBudget(htmlPlusOne));
+  const pad = (n: number) => "<p>x</p>" + " ".repeat(n);
+  check("1 000 000 caracteres exactos se filtran", sanitizeContractHtml(pad(1000000 - 8)).startsWith("<p>x</p>"));
+  check("1 000 001 caracteres se entregan como texto", sanitizeContractHtml(pad(1000001 - 8)).startsWith("&lt;p&gt;"));
+  check("5 000 hijos directos caben", withinParseBudget("<div>" + "<p></p>".repeat(5000)));
+  check("5 001 hijos directos no caben", !withinParseBudget("<div>" + "<p></p>".repeat(5001)));
+  for (const [label, html] of Object.entries({
+    "30 000 atributos separados por espacio": "<p " + names(30000).join(" ") + ">x</p>",
+    "50 000 atributos con `>` entre comillas por delante": '<p title=">" ' + names(50000).join(" ") + ">x</p>",
+    "50 000 atributos tras unas comillas sin `=`": '<p a"x>" ' + names(50000).join(" ") + ">x</p>",
+    "50 000 atributos separados por `/`": "<p/" + names(50000).join("/") + ">x</p>",
+    "50 000 atributos pegados tras sus comillas": "<p " + names(50000).map((x) => `${x}="1"`).join("") + ">x</p>",
+    "50 000 atributos con `<` dentro de la etiqueta": "<p " + names(50000).map((x) => `<b ${x}`).join(" ") + ">x</p>",
+    "9 000 `<template>` anidadas y un `<img onerror>`": "<template>".repeat(9000) + "<img src=x onerror=alert(1)>",
+    "`<x>` (no permitida) con 19 000 hijos": "<x>" + "<p></p>".repeat(19000),
+    "295 `<x>` anidadas con 6 500 hijos": "<x>".repeat(295) + "<y>a</y>".repeat(6500),
+  })) {
+    const t0 = performance.now();
+    const out = sanitizeContractHtml(html);
+    const ms = performance.now() - t0;
+    check(`el presupuesto no se esquiva: ${label}`, ms < 1500 && out.startsWith("&lt;"), `${ms.toFixed(0)} ms`);
+  }
   const voids = "<br>".repeat(500) + '<img src="https://a.test/x.png">'.repeat(500) + "<hr>".repeat(500);
   check("los elementos vacíos no cuentan como profundidad", sanitizeContractHtml(voids).startsWith("<br>"), sanitizeContractHtml(voids).slice(0, 30));
   const t60 = performance.now();
   presentContractHtml('<span data-template-var="clientName">'.repeat(60000));
   check("60 000 chips sin cerrar se procesan en menos de 500 ms", performance.now() - t60 < 500, `${(performance.now() - t60).toFixed(0)} ms`);
+  check("lo que va después del último chip se conserva", presentContractHtml("<p>x</p>") === "<p>x</p>" && presentContractHtml("<p>{{clientName}}</p><p>cola</p>").endsWith("<p>cola</p>"));
+  check(
+    "un chip con una clave desconocida no rompe ni se convierte en chip",
+    presentContractHtml('<span class="jh-template-var" data-template-var="evil">{{clientName}}</span>') !== "" && !/jhtplicon/.test(presentContractHtml('<span class="jh-template-var" data-template-var="evil">{{clientName}}</span>')),
+  );
   const chipPos = presentContractHtml('<p>{{clientName}}</p><span data-template-var="otra">{{clientFullName}}</span>');
   check(
     "el icono va justo tras la apertura de cada chip",

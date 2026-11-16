@@ -19,31 +19,120 @@ import { defaultTreeAdapter, parse } from "parse5";
 /** Nodos (elementos, comentarios y textos) que se permite crear. Un contrato real: cientos. */
 export const MAX_NODES = 20_000;
 /** Profundidad máxima de inserción (cuenta `html` y `body`). Un contrato real: ~10 niveles. */
-export const MAX_DEPTH = 300;
+export const MAX_DEPTH = 50;
+/** Atributos por elemento. Uno real lleva menos de 10 (TipTap: `class`, `style`, `colspan`...). */
+export const MAX_ATTRS_PER_ELEMENT = 100;
+/** Atributos en todo el documento. */
+export const MAX_TOTAL_ATTRS = 40_000;
+/**
+ * Hijos directos de un mismo elemento. DOMPurify mueve los hijos de un elemento que quita uno a uno
+ * (cuadrático); `body` con 4 000 párrafos es normal, 5 000+ no.
+ */
+export const MAX_CHILDREN = 5_000;
+
+/**
+ * Palabras sueltas dentro de una misma etiqueta (fuera de comillas). parse5 revisa cada atributo
+ * nuevo contra los anteriores de su etiqueta (cuadrático): 30 000 atributos tardaban 2,5 s en el
+ * propio parser y 100 000 más de un minuto, antes de que el adaptador viera la etiqueta. Se mide
+ * en el texto, antes de parsear. Solo sobrestima: ignora la regla de comillas del navegador y
+ * trata cualquier comilla como apertura.
+ */
+export const MAX_TAG_TOKENS = 500;
 
 const OVER_BUDGET = Symbol("over-budget");
+
+/** Separadores de atributos en HTML: espacio y `/` (`<p/a/b/c>` son tres atributos). */
+function isSeparator(c: string): boolean {
+  return c === " " || c === "\t" || c === "\n" || c === "\f" || c === "\r" || c === "/";
+}
+
+/** `true` si alguna etiqueta tiene más de `MAX_TAG_TOKENS` palabras. Tiempo lineal. */
+function tagTooBusy(html: string): boolean {
+  const n = html.length;
+  let i = html.indexOf("<");
+  while (i !== -1 && i < n - 1) {
+    const first = html.charCodeAt(i + 1) | 32;
+    if (first < 97 || first > 122) {
+      i = html.indexOf("<", i + 1);
+      continue;
+    }
+    let j = i + 1;
+    let tokens = 0;
+    let inToken = false;
+    while (j < n) {
+      const c = html[j]!;
+      if (c === ">") break;
+      if (c === '"' || c === "'") {
+        const close = html.indexOf(c, j + 1);
+        if (close === -1) return false; // comilla sin cerrar: parse5 la descarta entera
+        j = close + 1;
+        // Tras unas comillas puede empezar otro atributo sin espacio (`a="1"b="2"`).
+        tokens += 1;
+        if (tokens > MAX_TAG_TOKENS) return true;
+        inToken = false;
+        continue;
+      }
+      if (isSeparator(c)) {
+        inToken = false;
+      } else if (!inToken) {
+        inToken = true;
+        tokens += 1;
+        if (tokens > MAX_TAG_TOKENS) return true;
+      }
+      j += 1;
+    }
+    i = html.indexOf("<", j + 1);
+  }
+  return false;
+}
 
 type Adapter = typeof defaultTreeAdapter;
 
 /** `true` si el HTML cabe en el presupuesto del parser; `false` si lo supera. */
 export function withinParseBudget(html: string): boolean {
+  if (tagTooBusy(html)) return false;
   let nodes = 0;
   const depth = new WeakMap<object, number>();
   const count = () => {
     nodes += 1;
     if (nodes > MAX_NODES) throw OVER_BUDGET;
   };
+  const children = new WeakMap<object, number>();
+  let attrs = 0;
+  const countAttrs = (n: number) => {
+    if (n > MAX_ATTRS_PER_ELEMENT) throw OVER_BUDGET;
+    attrs += n;
+    if (attrs > MAX_TOTAL_ATTRS) throw OVER_BUDGET;
+  };
+  // El contenido de `<template>` es otro fragmento: su profundidad es la de su `<template>`, que
+  // se conoce al insertarlo (después de crearlo), por eso se resuelve al usarla.
+  const templateOf = new WeakMap<object, object>();
+  const depthOf = (node: object): number => depth.get(node) ?? (templateOf.has(node) ? depthOf(templateOf.get(node)!) : 0);
   const place = (parent: object, child: object) => {
-    const d = (depth.get(parent) ?? 0) + 1;
+    const d = depthOf(parent) + 1;
     if (d > MAX_DEPTH) throw OVER_BUDGET;
     depth.set(child, d);
+    const c = (children.get(parent) ?? 0) + 1;
+    if (c > MAX_CHILDREN) throw OVER_BUDGET;
+    children.set(parent, c);
   };
 
   const adapter: Adapter = {
     ...defaultTreeAdapter,
     createElement(...args: Parameters<Adapter["createElement"]>) {
       count();
+      countAttrs(args[2].length);
       return defaultTreeAdapter.createElement(...args);
+    },
+    // Sin esto, 9 000 `<template>` anidadas reiniciaban la cuenta y desbordaban la pila del parser.
+    setTemplateContent(templateElement, contentElement) {
+      templateOf.set(contentElement, templateElement);
+      defaultTreeAdapter.setTemplateContent(templateElement, contentElement);
+    },
+    // parse5 suma al `html`/`body` los atributos de etiquetas repetidas: también cuentan.
+    adoptAttributes(recipient, attrList) {
+      countAttrs(attrList.length);
+      defaultTreeAdapter.adoptAttributes(recipient, attrList);
     },
     createCommentNode(...args: Parameters<Adapter["createCommentNode"]>) {
       count();

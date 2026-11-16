@@ -135,6 +135,20 @@ conector solo añade otra vía.
   se mostraban escapados. jsdom los une en un solo nodo; ahora el adaptador cuenta un texto solo si el
   último hijo no es ya texto. Medido: un párrafo de 780 KB, 4 000 párrafos de 230 caracteres (~100
   páginas) y 10 000 entidades caben. Mutantes: contar siempre y no contar nunca el texto, ambos muertos.
+- Panel sobre `fc26ef9`. Seguridad: 30 000 atributos en una etiqueta (5,8 s; 50 000: 14,5 s) y un
+  elemento no permitido con 19 000 hijos (3,8 s; con 295 anidados 15 s) pasaban el presupuesto.
+  Pruebas: `<template>` anidadas reiniciaban la profundidad (9 000 desbordaban la pila del parser),
+  y faltaban pruebas de la cola tras el último chip, la clave de chip desconocida, `/**/` en estilos
+  y el tope de 1 000 000 de caracteres. Ahora el presupuesto de `parse-budget.ts` también acota:
+  atributos por etiqueta (100) y en el documento (40 000), hijos directos por elemento (5 000) y
+  profundidad (50 niveles, `<template>` incluida); y antes de parsear, una lectura lineal del texto
+  rechaza etiquetas con más de 500 palabras sueltas (parse5 compara cada atributo con los
+  anteriores, cuadrático, antes de que el adaptador vea la etiqueta). Medido: todos los ataques de
+  este párrafo se rechazan en < 20 ms; 20 mutantes nuevos, todos muertos salvo dos equivalentes (doble
+  conteo tras unas comillas).
+- Límite conocido: no hay tope de tiempo; un documento que cabe en el presupuesto puede costar un par
+  de segundos con jsdom. Mejora recomendada, aparte: sanear al guardar (una vez) o en un hilo con
+  límite de tiempo, no en cada render.
 
 ## Siguiente paso
 

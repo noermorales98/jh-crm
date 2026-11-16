@@ -8,6 +8,7 @@ import { creditReportsTools } from "./credit-reports";
 import { fundingTools } from "./funding";
 import { disputesTools } from "./disputes";
 import { lettersTools } from "./letters";
+import { mailsTools } from "./mails";
 import { notesTools } from "./notes";
 import { opportunitiesTools } from "./opportunities";
 import { paymentsTools } from "./payments";
@@ -44,5 +45,6 @@ export function allTools(): Tool[] {
     ...testimonialsTools,
     ...comparisonsTools,
     ...fundingTools,
+    ...mailsTools,
   ];
 }

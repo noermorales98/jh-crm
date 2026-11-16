@@ -18,7 +18,7 @@ function check(label: string, cond: boolean, detail?: unknown) {
 }
 
 /** Secciones de la tanda 1 que `listar` y `ver` deben cubrir. */
-export const BATCH1_SECTIONS = ["clientes", "casos", "casos_servicio", "tareas", "oportunidades", "cotizaciones", "rondas", "cartas", "reportes_credito", "consultas", "pagos", "recibos", "planes_pago", "contratos", "plantillas_contrato", "servicios", "paquetes", "procesadores", "testimonios", "comparaciones", "financiamiento"];
+export const BATCH1_SECTIONS = ["clientes", "casos", "casos_servicio", "tareas", "oportunidades", "cotizaciones", "rondas", "cartas", "reportes_credito", "consultas", "pagos", "recibos", "planes_pago", "contratos", "plantillas_contrato", "servicios", "paquetes", "procesadores", "testimonios", "comparaciones", "financiamiento", "correos"];
 
 console.log("\n[mcp-tool-registry] registro\n");
 const tools = allTools();
@@ -148,6 +148,10 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   ajustar_resultado_comparacion: ["comparisons.manage", "write"],
   crear_solicitud_financiamiento: ["cases.manage", "write"],
   editar_solicitud_financiamiento: ["cases.manage", "write"],
+  guardar_borrador_correo: ["mails.manage", "write"],
+  enviar_correo: ["mails.manage", "destructive"],
+  mover_correo: ["mails.manage", "write"],
+  marcar_correo_leido: ["mails.manage", "write"],
 };
 for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {
   const tool = tools.find((t) => t.name === name);
@@ -161,7 +165,7 @@ const sendQuote = tools.find((t) => t.name === "marcar_cotizacion_enviada");
 check("marcar_cotizacion_enviada se anuncia con efectos fuera del CRM (manda un mensaje real)", sendQuote?.openWorld === true);
 const requestConsultation = tools.find((t) => t.name === "solicitar_consulta");
 check("solicitar_consulta se anuncia con efectos fuera del CRM (correo y WhatsApp por un servicio externo)", requestConsultation?.openWorld === true);
-const OPEN_WORLD = "crear_enlace_pago_cotizacion,enviar_enlace_pago_whatsapp,marcar_cotizacion_enviada,solicitar_consulta";
+const OPEN_WORLD = "crear_enlace_pago_cotizacion,enviar_correo,enviar_enlace_pago_whatsapp,marcar_cotizacion_enviada,solicitar_consulta";
 check(`solo ${OPEN_WORLD} tienen efectos fuera del CRM`,
   tools.filter((t) => t.openWorld).map((t) => t.name).sort().join() === OPEN_WORLD,
   tools.filter((t) => t.openWorld).map((t) => t.name));
@@ -179,6 +183,10 @@ check("el catálogo, los procesadores y los testimonios no se borran de verdad (
   !tools.some((t) => /^(borrar|eliminar)_(servicio|paquete|procesador|cuenta|comparacion|solicitud)/.test(t.name)), names);
 check("archivar y eliminar testimonio piden confirmación (destructive)",
   ["archivar_servicio", "archivar_paquete", "eliminar_testimonio", "editar_testimonio"].every((n) => tools.find((t) => t.name === n)?.kind === "destructive"));
+check("Claude no borra correos para siempre, no sincroniza la bandeja ni traduce",
+  !tools.some((t) => /(borrar|eliminar).*correo|correo.*(borrar|eliminar)|sincronizar|traducir/.test(t.name)), names);
+check("solo enviar_correo manda correo (las demás de correo no tocan el servidor SMTP)",
+  tools.filter((t) => /correo/.test(t.name) && t.openWorld).map((t) => t.name).join() === "enviar_correo");
 check("no hay herramientas de escritura fuera de la lista", unexpected.length === 0, unexpected);
 
 console.log("\n[mcp-tool-registry] limpieza de números largos (AC-6)\n");

@@ -23,9 +23,10 @@ conector solo añade otra vía.
   con `dompurify@3.4.17`, versiones exactas; decisión de Noe 2026-11-14, enmienda de la spec):
   lista cerrada de etiquetas y atributos, `data:` solo como imagen PNG/JPEG/GIF/WebP en `src`,
   estilos filtrados (`url(`, escapes CSS, `image-set(`, `position: fixed|sticky`...), `rel` seguro con
-  `target`. Antes de DOMPurify, un presupuesto del parser (`parse-budget.ts`: parse5 con 20 000 nodos, 50 niveles, 100 atributos por etiqueta y 5 000 hijos por elemento;
-  niveles) y falla cerrado a texto escapado, porque jsdom es cuadrático con la profundidad y la
-  reconstrucción de formato multiplica los nodos.
+  `target`. Antes de DOMPurify, un presupuesto del parser (`parse-budget.ts`: parse5 con 20 000 nodos,
+  50 niveles, 100 atributos por etiqueta (40 000 en total) y 5 000 hijos por elemento) y falla cerrado
+  a texto escapado, porque jsdom es cuadrático con la profundidad y la reconstrucción de formato
+  multiplica los nodos.
 - `presentContractHtml` (portal y vista previa del CRM) filtra su propia salida; el icono del chip
   entra después de filtrar y solo junto a la apertura de un chip.
 - Un filtro propio (tokenizador) se construyó y revisó antes de la decisión; se descartó a favor de
@@ -141,14 +142,20 @@ conector solo añade otra vía.
   y faltaban pruebas de la cola tras el último chip, la clave de chip desconocida, `/**/` en estilos
   y el tope de 1 000 000 de caracteres. Ahora el presupuesto de `parse-budget.ts` también acota:
   atributos por etiqueta (100) y en el documento (40 000), hijos directos por elemento (5 000) y
-  profundidad (50 niveles, `<template>` incluida); y antes de parsear, una lectura lineal del texto
-  rechaza etiquetas con más de 500 palabras sueltas (parse5 compara cada atributo con los
-  anteriores, cuadrático, antes de que el adaptador vea la etiqueta). Medido: todos los ataques de
+  profundidad (50 niveles, `<template>` incluida); y el
+  tope de atributos por etiqueta se aplica dentro del tokenizador de parse5 (parse5 compara cada
+  atributo con los anteriores, cuadrático, antes de que el adaptador vea la etiqueta). Medido: todos los ataques de
   este párrafo se rechazan en < 20 ms; 20 mutantes nuevos, todos muertos salvo dos equivalentes (doble
   conteo tras unas comillas).
 - Límite conocido: no hay tope de tiempo; un documento que cabe en el presupuesto puede costar un par
   de segundos con jsdom. Mejora recomendada, aparte: sanear al guardar (una vez) o en un hilo con
   límite de tiempo, no en cada render.
+- Panel sobre `d49c147`. Seguridad y corrección reprodujeron lo mismo: la lectura de texto propia
+  (`tagTooBusy`) se dejaba engañar por una comilla en posición de nombre o dentro de un valor sin
+  comillas (125 000 atributos: 29 s antes de rechazarse). Se eliminó y el tope de 100 atributos se
+  aplica dentro del tokenizador de parse5 (`_leaveAttrName` de la instancia, no del prototipo, así
+  jsdom no cambia): lo que el parser considera un atributo es lo que cuenta. Todas las variantes
+  (comillas, `/`, `<`, pegados, 125 000) se rechazan en ≤ 1 ms.
 
 ## Siguiente paso
 

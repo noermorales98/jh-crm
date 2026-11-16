@@ -57,9 +57,12 @@ export function withinParseBudget(html: string): boolean {
       place(parent, child);
       defaultTreeAdapter.insertBefore(parent, child, reference);
     },
-    // Cada inserción de texto cuenta como un nodo (sobrestima: el parser a veces fusiona textos).
+    // parse5 entrega el texto por trozos y el adaptador los une en un solo nodo (jsdom igual): solo
+    // cuenta cuando el texto abre un nodo nuevo, es decir, si el último hijo no es ya un texto.
     insertText(parent, text) {
-      count();
+      const children = defaultTreeAdapter.getChildNodes(parent);
+      const last = children[children.length - 1];
+      if (!last || !defaultTreeAdapter.isTextNode(last)) count();
       defaultTreeAdapter.insertText(parent, text);
     },
     insertTextBefore(parent, text, reference) {

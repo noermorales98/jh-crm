@@ -466,6 +466,14 @@ function filterChecks() {
   const tWorst = performance.now();
   sanitizeContractHtml(distinctFormats(140, 140));
   check("el peor caso dentro del presupuesto (140 formatos + 140 bloques) termina en menos de 15 s", performance.now() - tWorst < 15000, `${(performance.now() - tWorst).toFixed(0)} ms`);
+  // Texto largo: el parser lo entrega por trozos pero es un solo nodo; no debe agotar el presupuesto.
+  const longParagraph = "<p>" + "palabra ".repeat(100000) + "</p>";
+  check("un párrafo de 780 KB (~150 páginas de texto) se conserva", sanitizeContractHtml(longParagraph) === longParagraph);
+  const hundredPages = ("<p>" + "x".repeat(230) + "</p>").repeat(4000);
+  check("4 000 párrafos de 230 caracteres (~100 páginas) se conservan", sanitizeContractHtml(hundredPages) === hundredPages);
+  const entities = "<p>" + "a&amp;b &lt; ".repeat(10000) + "</p>";
+  check("10 000 entidades en un párrafo se conservan", sanitizeContractHtml(entities) === entities);
+  check("texto largo + elementos de formato (1 500 párrafos con negrita y cursiva) se conservan", !sanitizeContractHtml(("<p>texto <strong>negrita</strong> y <em>cursiva</em> más texto largo aquí</p>").repeat(1500)).startsWith("&lt;"));
   // Fronteras exactas del presupuesto (20 000 nodos, 300 niveles): cada tipo de nodo cuenta.
   check("19 997 elementos (+ html, head y body = 20 000) caben", withinParseBudget("<span></span>".repeat(19997)));
   check("19 998 elementos no caben", !withinParseBudget("<span></span>".repeat(19998)));

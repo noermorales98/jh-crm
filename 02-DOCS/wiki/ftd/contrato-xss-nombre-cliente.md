@@ -23,8 +23,10 @@ conector solo añade otra vía.
   con `dompurify@3.4.17`, versiones exactas; decisión de Noe 2026-11-14, enmienda de la spec):
   lista cerrada de etiquetas y atributos, `data:` solo como imagen PNG/JPEG/GIF/WebP en `src`,
   estilos filtrados (`url(`, escapes CSS, `image-set(`, `position: fixed|sticky`...), `rel` seguro con
-  `target`. Con topes de entrada (1 000 000 caracteres, 3 000 aperturas de etiqueta) y falla cerrado
-  a texto escapado, porque jsdom es cuadrático con la profundidad.
+  `target`. Antes de DOMPurify, un presupuesto del parser (`parse-budget.ts`: parse5 con 20 000 nodos,
+  50 niveles, 100 atributos por etiqueta (40 000 en total) y 5 000 hijos por elemento) y falla cerrado
+  a texto escapado, porque jsdom es cuadrático con la profundidad y la reconstrucción de formato
+  multiplica los nodos.
 - `presentContractHtml` (portal y vista previa del CRM) filtra su propia salida; el icono del chip
   entra después de filtrar y solo junto a la apertura de un chip.
 - Un filtro propio (tokenizador) se construyó y revisó antes de la decisión; se descartó a favor de
@@ -120,8 +122,46 @@ conector solo añade otra vía.
   con ~7 900 niveles reales (7–10 s de CPU), además de `<div/>`. Cada diferencia con el parser era
   una evasión; se eliminó el medidor y queda un tope duro de 3 000 aperturas (no interpreta nada).
   Peor caso medido: 2 999 `<div>` anidados ≈ 2,2 s; 7 900 variantes del truco → texto en < 1 s.
-  Coste aceptado: documentos con más de 3 000 etiquetas (tablas de >600 filas) se ven como texto.
+  (Superado: ese tope se sustituyó por el presupuesto del parser, ver más abajo.)
+- Panel sobre `fd67256`. Seguridad: `<table><td>` ×1 499 tardaba 6 s con el tope de 3 000 aperturas.
+  Pruebas: 800 elementos de formato distintos sin cerrar + 800 `<div>` (18 KB) agotaban la memoria,
+  así que ningún tope de aperturas acota el trabajo. Se sustituyó por `parse-budget.ts`: el mismo
+  parser (parse5 8.0.1, fijado y deduplicado con jsdom) cuenta nodos y profundidad con un adaptador
+  y aborta al pasar 20 000 nodos o 300 niveles; con scripting desactivado, como el DOMParser.
+  Medido: la plantilla, 3 000 párrafos y una tabla de 600 filas caben; el ataque 800 + 800, `<table><td>`
+  ×1 499, `<noscript>`, `<!-->` y `<div/>` se rechazan en milisegundos. 19 mutantes del presupuesto:
+  todos muertos salvo equivalentes (`catch` inalcanzable y tope de caracteres cubierto por el de nodos).
+- Lente de corrección sobre `fc26ef9`: el presupuesto contaba un nodo por trozo de texto (parse5 lo
+  entrega en trozos de ~palabra), así que unos 75 KB de texto (~20 páginas) superaban los 20 000 nodos y
+  se mostraban escapados. jsdom los une en un solo nodo; ahora el adaptador cuenta un texto solo si el
+  último hijo no es ya texto. Medido: un párrafo de 780 KB, 4 000 párrafos de 230 caracteres (~100
+  páginas) y 10 000 entidades caben. Mutantes: contar siempre y no contar nunca el texto, ambos muertos.
+- Panel sobre `fc26ef9`. Seguridad: 30 000 atributos en una etiqueta (5,8 s; 50 000: 14,5 s) y un
+  elemento no permitido con 19 000 hijos (3,8 s; con 295 anidados 15 s) pasaban el presupuesto.
+  Pruebas: `<template>` anidadas reiniciaban la profundidad (9 000 desbordaban la pila del parser),
+  y faltaban pruebas de la cola tras el último chip, la clave de chip desconocida, `/**/` en estilos
+  y el tope de 1 000 000 de caracteres. Ahora el presupuesto de `parse-budget.ts` también acota:
+  atributos por etiqueta (100) y en el documento (40 000), hijos directos por elemento (5 000) y
+  profundidad (50 niveles, `<template>` incluida); y el
+  tope de atributos por etiqueta se aplica dentro del tokenizador de parse5 (parse5 compara cada
+  atributo con los anteriores, cuadrático, antes de que el adaptador vea la etiqueta). Medido: todos los ataques de
+  este párrafo se rechazan en < 20 ms; 20 mutantes nuevos, todos muertos salvo dos equivalentes (doble
+  conteo tras unas comillas).
+- Límite conocido: no hay tope de tiempo; un documento que cabe en el presupuesto puede costar un par
+  de segundos con jsdom. Mejora recomendada, aparte: sanear al guardar (una vez) o en un hilo con
+  límite de tiempo, no en cada render.
+- Panel sobre `d49c147`. Seguridad y corrección reprodujeron lo mismo: la lectura de texto propia
+  (`tagTooBusy`) se dejaba engañar por una comilla en posición de nombre o dentro de un valor sin
+  comillas (125 000 atributos: 29 s antes de rechazarse). Se eliminó y el tope de 100 atributos se
+  aplica dentro del tokenizador de parse5 (`_leaveAttrName` de la instancia, no del prototipo, así
+  jsdom no cambia): lo que el parser considera un atributo es lo que cuenta. Todas las variantes
+  (comillas, `/`, `<`, pegados, 125 000) se rechazan en ≤ 1 ms.
+- Panel final sobre `982e146` (3 lentes). Corrección y seguridad: sin hallazgos (parser equivalente al
+  `parse` de parse5; ~80 entradas de hasta 1 MB, la más lenta 1,7 s; 27 payloads XSS neutralizados).
+  Pruebas: 115 mutantes nuevos, 76 muertos; se añadieron pruebas del texto contado como nodo, del chip
+  con `style` y con espacios duros, y del estilo largo con `url(` al final. Equivalentes: `catch`
+  inalcanzable y `>` frente a `>=` en el tope del tokenizador.
 
 ## Siguiente paso
 
-Panel final sobre el commit, push y PR contra `main`. Sin merge hasta el sí de Noe.
+Push y PR contra `main`. Sin merge hasta el sí de Noe.

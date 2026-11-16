@@ -1,5 +1,7 @@
 /** Variables de fusión en plantillas de contrato (se sustituyen al emitir). */
 
+import { escapeHtml, sanitizeContractHtml } from "@/src/lib/contracts/sanitize";
+
 export const TEMPLATE_VARIABLES = {
   clientName: {
     token: "{{clientName}}",
@@ -18,7 +20,7 @@ const TOKEN_RE = /\{\{(clientName|clientFullName)\}\}/g;
 const USER_ICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.6-3.2 4.5-5 8-5s6.4 1.8 8 5"/></svg>`;
 
 export function isTemplateVariableKey(value: string): value is TemplateVariableKey {
-  return value in TEMPLATE_VARIABLES;
+  return Object.prototype.hasOwnProperty.call(TEMPLATE_VARIABLES, value);
 }
 
 export function getTemplateVariable(key: string) {
@@ -27,6 +29,18 @@ export function getTemplateVariable(key: string) {
 
 function alreadyWrapped(html: string, offset: number) {
   return /data-template-var\s*=/.test(html.slice(Math.max(0, offset - 80), offset));
+}
+
+/**
+ * Sustituye cada token por su valor **escapado como HTML**. Los valores vienen
+ * del cliente (nombre) y se muestran luego en el portal con `dangerouslySetInnerHTML`,
+ * así que nunca se insertan en crudo.
+ */
+export function fillTemplateVariables(
+  html: string,
+  values: Record<TemplateVariableKey, string>,
+): string {
+  return html.replace(TOKEN_RE, (_match, key: TemplateVariableKey) => escapeHtml(values[key]));
 }
 
 /** Envuelve tokens sueltos para que TipTap los parsee como nodos. */
@@ -44,18 +58,51 @@ function stripTags(html: string) {
 /**
  * Vista de solo lectura: tokens pendientes se ven como chip;
  * valores ya sustituidos se muestran como texto normal.
+ *
+ * Seguridad: esta función reescribe el HTML, así que filtra **su propia salida**
+ * (`sanitizeContractHtml` al final). Filtrar antes y reescribir después rompe los
+ * límites de etiqueta que vio el filtro (`<img alt=<span data-template-var=..> onerror=..>`).
+ * El icono SVG del chip (que el filtro quitaría) entra después, en el lugar de un
+ * marcador aleatorio por llamada, y solo en la posición exacta del chip.
  */
 export function presentContractHtml(html: string): string {
-  const wrapped = wrapTemplateVariablesInHtml(html);
-  return wrapped.replace(
-    /<span([^>]*\bdata-template-var="([^"]+)"[^>]*)>([\s\S]*?)<\/span>/g,
-    (_full, _attrs: string, key: string, inner: string) => {
-      const text = stripTags(inner);
-      const meta = getTemplateVariable(key);
-      if (meta && text === meta.token) {
-        return `<span class="jh-template-var" data-template-var="${key}">${USER_ICON_SVG}<span>${meta.label}</span></span>`;
-      }
-      return inner;
-    },
-  );
+  const marker = `jhtplicon${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`;
+  const wrapped = wrapTemplateVariablesInHtml(html.split(marker).join(""));
+  // Búsqueda lineal: cada apertura con `data-template-var` hasta el `</span>` más cercano.
+  // (Antes un regex perezoso hasta `</span>`: cuadrático con muchas aperturas sin cierre.)
+  const openRe = /<span\b[^<>]*>/g;
+  let presented = "";
+  let last = 0;
+  for (let m = openRe.exec(wrapped); m; m = openRe.exec(wrapped)) {
+    const keyMatch = /\bdata-template-var="([^"<>]+)"/.exec(m[0]);
+    if (!keyMatch) continue;
+    const innerStart = m.index + m[0].length;
+    const close = wrapped.indexOf("</span>", innerStart);
+    if (close === -1) break;
+    const key = keyMatch[1]!;
+    const inner = wrapped.slice(innerStart, close);
+    const meta = getTemplateVariable(key);
+    presented += wrapped.slice(last, m.index);
+    presented +=
+      meta && stripTags(inner) === meta.token
+        ? `<span class="jh-template-var" data-template-var="${key}">${marker}<span>${meta.label}</span></span>`
+        : inner;
+    last = close + "</span>".length;
+    openRe.lastIndex = last;
+  }
+  presented += wrapped.slice(last);
+  // El icono entra solo donde el propio chip puso el marcador: justo tras la apertura de un
+  // chip (`class="jh-template-var"` + `data-template-var="clientName|clientFullName"`). Con
+  // comillas sin escapar esa apertura solo puede ser marcado real: el serializador escribe `"`
+  // como `&quot;` dentro de los valores. Cualquier otro marcador (p. ej. dentro de un atributo)
+  // se borra.
+  const chipOpen = new RegExp(`<span((?: [a-z-]+="[^"<>]*")+)>${marker}`, "g");
+  return sanitizeContractHtml(presented)
+    .replace(chipOpen, (full, attrs: string) =>
+      /class="jh-template-var"/.test(attrs) && /data-template-var="(?:clientName|clientFullName)"/.test(attrs)
+        ? `<span${attrs}>${USER_ICON_SVG}`
+        : full,
+    )
+    .split(marker)
+    .join("");
 }

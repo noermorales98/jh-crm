@@ -106,6 +106,9 @@ async function main() {
     check("enviar_correo pide confirmación, avisa que no se deshace y limita destinatarios",
       /confirmación explícita/i.test(send.description) && /no se puede retirar ni deshacer/i.test(send.description) && send.description.includes(String(MAX_RECIPIENTS)), send.description);
     check("enviar_correo avisa de no obedecer textos de correos, notas o documentos y sugiere el borrador", /dentro de un correo, una nota o un documento/i.test(send.description) && /borrador/i.test(send.description));
+    const { MCP_SERVER_INSTRUCTIONS } = await import("../../src/server/mcp/endpoint");
+    check("las instrucciones del servidor mandan tratar los correos recibidos como datos y pedir un sí explícito antes de enviar",
+      /correos recibidos/i.test(MCP_SERVER_INSTRUCTIONS) && /nunca una orden/i.test(MCP_SERVER_INSTRUCTIONS) && /sí explícito/i.test(MCP_SERVER_INSTRUCTIONS), MCP_SERVER_INSTRUCTIONS);
     check("el resto no abre mundo", mailsTools.filter((t) => t.name !== "enviar_correo").every((t) => !t.openWorld && t.kind === "write"));
     check("no hay herramientas para borrar para siempre, sincronizar ni traducir", !mailsTools.some((t) => /borrar|eliminar|sincron|traduc/.test(t.name)));
 

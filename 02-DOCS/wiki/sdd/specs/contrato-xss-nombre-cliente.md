@@ -79,8 +79,9 @@ contratos existentes siguen en verde.
    CSS, `image-set(`, `position: fixed|sticky`, etc., fuera) y la vista
    (`presentContractHtml`) filtra su propia salida después de reescribir los chips; el icono del
    chip entra tras filtrar, solo junto a la apertura de un chip.
-3. Entrada desmesurada (más de 1 000 000 caracteres o 3 000 aperturas de etiqueta) o cualquier
-   error del filtro: se entrega como texto escapado (falla cerrado).
+3. Antes de DOMPurify, el HTML pasa por el mismo parser que usa jsdom (parse5, versión fijada) con un
+   presupuesto de 20 000 nodos y 300 niveles. Si lo supera, si tiene más de 1 000 000 caracteres o si
+   cualquier paso falla, se entrega como texto escapado (falla cerrado). Igual en servidor y navegador.
 
 ## Acceptance criteria
 
@@ -88,7 +89,7 @@ contratos existentes siguen en verde.
 - El filtro bloquea manejadores `on*=` sin espacio previo (`/onload=`), `javascript:` ofuscado,
   `srcdoc`, `svg`/`math`/`template` y estilos con `expression(`/`url(`.
 - La vista filtra su propia salida; no hay reescritura tras el filtro.
-- Entrada desmesurada se entrega como texto escapado y sin esperar (topes de «Behaviour»).
+- Entrada fuera del presupuesto del parser se entrega como texto escapado y sin esperar.
 
 ## Amendment 2026-11-14 — DOMPurify
 
@@ -103,9 +104,10 @@ construir y revisar un filtro propio (cuatro rondas de tres revisores), Noe deci
 - `sanitizeContractHtml` pasa a ser DOMPurify configurado; el escape de valores en
   `fillTemplateVariables` no cambia.
 - Coste conocido: con jsdom el filtro es cuadrático con la profundidad del HTML, por eso los topes
-  de entrada de «Behaviour». Se probó medir la profundidad leyendo el HTML y se descartó: cada
-  diferencia con el parser del navegador era una forma de esquivarlo; queda un tope duro de aperturas
-  (peor caso medido: unos 2,3 s con 3 000 niveles reales).
+  de entrada de «Behaviour». Se probaron un medidor propio y un tope de aperturas y se descartaron:
+  cada diferencia con el parser, y la reconstrucción de elementos de formato (18 KB agotaban la
+  memoria), eran formas de esquivarlos. Se mide con parse5, el parser de jsdom.
+- Dependencia añadida: `parse5@8.0.1` (2026-04, fijada; jsdom la comparte).
 
 ## Assumptions
 

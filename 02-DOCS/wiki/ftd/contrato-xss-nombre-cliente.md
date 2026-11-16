@@ -23,8 +23,9 @@ conector solo añade otra vía.
   con `dompurify@3.4.17`, versiones exactas; decisión de Noe 2026-11-14, enmienda de la spec):
   lista cerrada de etiquetas y atributos, `data:` solo como imagen PNG/JPEG/GIF/WebP en `src`,
   estilos filtrados (`url(`, escapes CSS, `image-set(`, `position: fixed|sticky`...), `rel` seguro con
-  `target`. Con topes de entrada (1 000 000 caracteres, 3 000 aperturas de etiqueta) y falla cerrado
-  a texto escapado, porque jsdom es cuadrático con la profundidad.
+  `target`. Antes de DOMPurify, un presupuesto del parser (`parse-budget.ts`: parse5 con 20 000 nodos y 300
+  niveles) y falla cerrado a texto escapado, porque jsdom es cuadrático con la profundidad y la
+  reconstrucción de formato multiplica los nodos.
 - `presentContractHtml` (portal y vista previa del CRM) filtra su propia salida; el icono del chip
   entra después de filtrar y solo junto a la apertura de un chip.
 - Un filtro propio (tokenizador) se construyó y revisó antes de la decisión; se descartó a favor de
@@ -121,6 +122,14 @@ conector solo añade otra vía.
   una evasión; se eliminó el medidor y queda un tope duro de 3 000 aperturas (no interpreta nada).
   Peor caso medido: 2 999 `<div>` anidados ≈ 2,2 s; 7 900 variantes del truco → texto en < 1 s.
   Coste aceptado: documentos con más de 3 000 etiquetas (tablas de >600 filas) se ven como texto.
+- Panel sobre `fd67256`. Seguridad: `<table><td>` ×1 499 tardaba 6 s con el tope de 3 000 aperturas.
+  Pruebas: 800 elementos de formato distintos sin cerrar + 800 `<div>` (18 KB) agotaban la memoria,
+  así que ningún tope de aperturas acota el trabajo. Se sustituyó por `parse-budget.ts`: el mismo
+  parser (parse5 8.0.1, fijado y deduplicado con jsdom) cuenta nodos y profundidad con un adaptador
+  y aborta al pasar 20 000 nodos o 300 niveles; con scripting desactivado, como el DOMParser.
+  Medido: la plantilla, 3 000 párrafos y una tabla de 600 filas caben; el ataque 800 + 800, `<table><td>`
+  ×1 499, `<noscript>`, `<!-->` y `<div/>` se rechazan en milisegundos. 19 mutantes del presupuesto:
+  todos muertos salvo equivalentes (`catch` inalcanzable y tope de caracteres cubierto por el de nodos).
 
 ## Siguiente paso
 

@@ -73,7 +73,7 @@ export const SOURCES = {
   PERSONAL_LOAN_APR: s(
     "PERSONAL_LOAN_APR",
     "MARKET",
-    "Tasa media (APR) de un préstamo personal a 36 meses por puntaje FICO, nov 2026 (Experian/Curinos).",
+    "Tasa media (APR) de un préstamo personal a 36 meses por puntaje FICO, nov 2026 (Experian/Curinos). Cambia cada mes: revisar con cada actualización.",
     "https://www.experian.com/blogs/ask-experian/best-personal-loan-rates/",
   ),
   PERSONAL_LOAN_MIN: s(

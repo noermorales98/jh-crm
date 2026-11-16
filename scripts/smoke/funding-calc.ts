@@ -70,6 +70,11 @@ function main() {
   check("el mejor rango es el del préstamo personal (la línea no tiene monto)", biz.best?.product === "PERSONAL_LOAN" && biz.best.high === 24000, biz.best);
   check("el resultado lleva la versión del cálculo con fecha", /^fc02-2026-11-15$/.test(biz.version), biz.version);
 
+  // Línea de negocio lista pero sin ingreso personal: no hay monto y el panel no debe decir "no califica".
+  const lineOnly = computeFunding({ ...agustin, blockingNegatives: 0, scores: [700, 700, 700] }, { hasBusiness: true, monthlyIncome: null, monthlyRevenue: 5000, timeInBusiness: "1TO2Y", monthlyDebtOverride: null });
+  check("línea lista sin ingreso: estado READY y sin monto", lineOnly.status === "READY" && lineOnly.best === null && lineOnly.bestPotential === null, lineOnly);
+  const panelSrc = readFileSync("src/components/clients/client-funding-panel.tsx", "utf8");
+  check("el panel no dice «no califica» cuando el estado es READY sin monto", /result\.status === "READY"\s*\?\s*\n?\s*"Cumple los requisitos publicados/.test(panelSrc) && /else if \(result\.status === "READY"\)/.test(panelSrc));
   // Tasa por puntaje (Experian/Curinos nov 2026): el rango sube cuando baja la tasa.
   const at = (score: number) => computeFunding({ ...agustin, blockingNegatives: 0, scores: [score, score, score], reportMonthlyDebt: 0 }, { ...EMPTY_FUNDING_PROFILE, monthlyIncome: 20000 }).best;
   check("mismo ingreso: a 740 el rango alto no baja del de 640 (tasa 10.99% vs 17.58%)", (at(740)?.high ?? 0) >= (at(640)?.high ?? 1), [at(740), at(640)]);

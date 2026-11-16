@@ -71,23 +71,28 @@ async function main() {
     check("cliente de otra organización -> No encontrado y no escribe", (await errorText(() => call(a.staff, "crear_testimonio", { ...args, clientId: b.client.id }))) === "NotFoundError: No encontrado." && (await count()) === n1);
 
     console.log("editar_testimonio");
+    const editTool = testimonialsTools.find((t) => t.name === "editar_testimonio")!;
+    check("editar_testimonio es destructive y pide confirmación siempre", editTool.kind === "destructive" && /confirm/i.test(editTool.description) && /sea cual sea el estado/i.test(editTool.description), editTool.description);
     const token = (await prisma.testimonial.findUnique({ where: { id: String(t1.id) } }))!.updatedAt.toISOString();
-    const eArgs = { testimonioId: String(t1.id), actualizadoEn: token, clientId: a.client.id, displayName: `Ana ${MARK}`, body: "Texto corregido", rating: 4 };
-    check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "editar_testimonio", eArgs))).includes("Sin permiso"));
-    // Un testimonio con consentimiento, aprobado y publicado: editarlo lo devuelve a pendiente y lo despublica.
-    const live = await prisma.testimonial.create({ data: { organizationId: a.org.id, clientId: a.client.id, displayName: "Pública", body: "Texto", status: "APPROVED", consentGrantedAt: new Date(), consentVersion: "x", reviewedAt: new Date(), reviewedById: a.owner.userId, publishedAt: new Date() } });
+    check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "editar_testimonio", { testimonioId: String(t1.id), actualizadoEn: token, body: "x" }))).includes("Sin permiso"));
+    const aCase = await prisma.serviceCase.create({ data: { organizationId: a.org.id, clientId: a.client.id, serviceId: a.service.id, caseNumber: `SC-${MARK}`.slice(0, 30), stageId: a.stage.id } as never });
+    // Un testimonio con consentimiento, aprobado y publicado, con expediente y calificación.
+    const live = await prisma.testimonial.create({ data: { organizationId: a.org.id, clientId: a.client.id, serviceCaseId: aCase.id, displayName: "Pública", body: "Texto", rating: 4, status: "APPROVED", consentGrantedAt: new Date(), consentVersion: "x", reviewedAt: new Date(), reviewedById: a.owner.userId, publishedAt: new Date() } });
     calls.length = 0;
-    const edited = await call(a.staff, "editar_testimonio", { ...eArgs, testimonioId: live.id, actualizadoEn: live.updatedAt.toISOString() });
+    const edited = await call(a.staff, "editar_testimonio", { testimonioId: live.id, actualizadoEn: live.updatedAt.toISOString(), body: "Texto corregido" });
     const eRow = await prisma.testimonial.findUnique({ where: { id: live.id } });
-    check("editar uno aprobado: vuelve a PENDING, se despublica y se revoca el consentimiento", eRow?.status === "PENDING" && eRow.publishedAt === null && eRow.consentRevokedAt !== null && eRow.body === "Texto corregido", eRow);
-    check("devuelve el nuevo updatedAt", !!edited.updatedAt && String(edited.updatedAt) !== live.updatedAt.toISOString(), edited);
+    check("editar solo el texto: el nombre, la calificación y el expediente se conservan", eRow?.body === "Texto corregido" && eRow.displayName === "Pública" && eRow.rating === 4 && eRow.serviceCaseId === aCase.id, eRow);
+    check("vuelve a PENDING, se despublica y se revoca el consentimiento", eRow?.status === "PENDING" && eRow.publishedAt === null && eRow.consentRevokedAt !== null, eRow);
+    check("devuelve exactamente el nuevo updatedAt de la base de datos", !!eRow && (edited.updatedAt instanceof Date ? edited.updatedAt.toISOString() : String(edited.updatedAt)) === eRow.updatedAt.toISOString() && eRow.updatedAt.toISOString() !== live.updatedAt.toISOString(), { edited, db: eRow?.updatedAt });
     check("auditoría y refresco", (await auditOk("editar_testimonio", live.id)) && refreshes(), calls);
+    await call(a.staff, "editar_testimonio", { testimonioId: live.id, actualizadoEn: eRow!.updatedAt.toISOString(), rating: null, serviceCaseId: null });
+    const eRow2 = await prisma.testimonial.findUnique({ where: { id: live.id } });
+    check("null en calificación y expediente los borra; el texto se conserva", eRow2?.rating === null && eRow2.serviceCaseId === null && eRow2.body === "Texto corregido", eRow2);
     check("token viejo (alguien lo cambió) -> error y sin cambios",
-      (await errorText(() => call(a.staff, "editar_testimonio", { ...eArgs, testimonioId: live.id, actualizadoEn: live.updatedAt.toISOString(), body: "Otro" }))).startsWith("DomainError") && (await prisma.testimonial.findUnique({ where: { id: live.id } }))?.body === "Texto corregido");
-    check("cambiar de cliente -> error y sin cambios",
-      (await errorText(() => call(a.staff, "editar_testimonio", { ...eArgs, testimonioId: String(t1.id), actualizadoEn: token, clientId: b.client.id }))) !== "ok" && (await prisma.testimonial.findUnique({ where: { id: String(t1.id) } }))?.clientId === a.client.id);
+      (await errorText(() => call(a.staff, "editar_testimonio", { testimonioId: live.id, actualizadoEn: live.updatedAt.toISOString(), body: "Otro" }))).startsWith("DomainError") && (await prisma.testimonial.findUnique({ where: { id: live.id } }))?.body === "Texto corregido");
+    check("expediente de otro cliente -> error y sin cambios", (await errorText(() => call(a.staff, "editar_testimonio", { testimonioId: live.id, actualizadoEn: eRow2!.updatedAt.toISOString(), serviceCaseId: "no-es-suyo" }))).startsWith("DomainError"));
     const bT = await prisma.testimonial.create({ data: { organizationId: b.org.id, clientId: b.client.id, displayName: "Ajena", body: "Texto" } });
-    check("testimonio ajeno -> No encontrado y sin cambios", (await errorText(() => call(a.staff, "editar_testimonio", { ...eArgs, testimonioId: bT.id, actualizadoEn: bT.updatedAt.toISOString() }))) === "NotFoundError: No encontrado." && (await prisma.testimonial.findUnique({ where: { id: bT.id } }))?.body === "Texto");
+    check("testimonio ajeno -> No encontrado y sin cambios", (await errorText(() => call(a.staff, "editar_testimonio", { testimonioId: bT.id, actualizadoEn: bT.updatedAt.toISOString(), body: "Cambiado" }))) === "NotFoundError: No encontrado." && (await prisma.testimonial.findUnique({ where: { id: bT.id } }))?.body === "Texto");
 
     console.log("eliminar_testimonio (AC-7: borrado lógico)");
     const cur = (await prisma.testimonial.findUnique({ where: { id: String(t1.id) } }))!;

@@ -5,7 +5,9 @@
  *
  *   DATABASE_URL=mysql://root@127.0.0.1:3399/jh_gates npx tsx scripts/smoke/mcp-read-tools-4.ts
  */
+import { createHash } from "node:crypto";
 import { PrismaClient } from "@prisma/client";
+import { TESTIMONIAL_CONSENT_VERSION } from "../../src/lib/testimonials";
 import { assertDisposableDb, seedMcpOrg } from "./_lib/mcp-seed";
 
 assertDisposableDb();
@@ -37,6 +39,10 @@ async function errorText(fn: () => Promise<unknown>): Promise<string> {
   }
 }
 
+/** Misma huella que usa el servicio: nombre, texto y calificación (oráculo independiente). */
+const consentHash = (displayName: string, body: string, rating: number | null) =>
+  createHash("sha256").update(JSON.stringify([displayName, body, rating])).digest("hex");
+
 async function seed(suffix: string) {
   const s = await seedMcpOrg(prisma, `${MARK}${suffix}`);
   cleanups.push(s.cleanup);
@@ -55,7 +61,17 @@ async function seed(suffix: string) {
     data: { organizationId: orgId, processorId: processor.id, clientId, status: "ACTIVE", externalMemberId: EXT_ID, externalUrl: EXT_URL },
   });
   const testimonial = await prisma.testimonial.create({
-    data: { organizationId: orgId, clientId, displayName: `Ana ${suffix}`, body: `Excelente. SSN ${SSN}`, rating: 5, consentGrantedAt: new Date(), consentSignerName: "Firmante", consentEvidence: CONSENT_EVIDENCE, consentVersion: "v1" },
+    data: {
+      organizationId: orgId, clientId, displayName: `Ana ${suffix}`, body: `Excelente. SSN ${SSN}`, rating: 5,
+      consentGrantedAt: new Date(), consentSignerName: "Firmante", consentEvidence: CONSENT_EVIDENCE,
+      consentVersion: TESTIMONIAL_CONSENT_VERSION, consentContentHash: consentHash(`Ana ${suffix}`, `Excelente. SSN ${SSN}`, 5),
+    },
+  });
+  const staleTestimonial = await prisma.testimonial.create({
+    data: { organizationId: orgId, clientId, displayName: `Vieja ${suffix}`, body: "x", consentGrantedAt: new Date(), consentVersion: "version-antigua", consentContentHash: consentHash(`Vieja ${suffix}`, "x", null) },
+  });
+  const revokedTestimonial = await prisma.testimonial.create({
+    data: { organizationId: orgId, clientId, displayName: `Revocada ${suffix}`, body: "x", consentGrantedAt: new Date(), consentRevokedAt: new Date(), consentVersion: "v1" },
   });
   const deletedTestimonial = await prisma.testimonial.create({
     data: { organizationId: orgId, clientId, displayName: `Borrada ${suffix}`, body: "x", deletedAt: new Date() },
@@ -82,7 +98,7 @@ async function seed(suffix: string) {
   const application = await prisma.fundingApplication.create({
     data: { organizationId: orgId, fundingCaseId: fundingCase.id, lenderName: `Banco ${suffix} ${MARK}`, requestedAmount: 25000, status: "SUBMITTED", notes: `Notas ${suffix}` },
   });
-  return { s, service, archivedService, pkg, processor, inactiveProcessor, account, testimonial, deletedTestimonial, comparison, cItem, application, fServiceCase };
+  return { s, service, archivedService, pkg, processor, inactiveProcessor, account, testimonial, staleTestimonial, revokedTestimonial, deletedTestimonial, comparison, cItem, application, fServiceCase, creditCase };
 }
 
 async function run() {
@@ -133,9 +149,21 @@ async function run() {
   check("procesadores ACTIVE → el activo sí, el inactivo no", (await list("procesadores", { estado: "ACTIVE" })).includes(a.processor.id) && !(await list("procesadores", { estado: "ACTIVE" })).includes(a.inactiveProcessor.id));
   check("testimonios eliminados no salen", !(await list("testimonios")).includes(a.deletedTestimonial.id));
   check("ver testimonios eliminado → No encontrado", (await errorText(() => callTool(octx, "ver", { seccion: "testimonios", id: a.deletedTestimonial.id }, opts))) === "NotFoundError: No encontrado.");
+  const revoked = JSON.parse(JSON.stringify(await callTool(octx, "ver", { seccion: "testimonios", id: a.revokedTestimonial.id }, opts)));
+  check("ver testimonios con consentimiento revocado → hasConsent false", revoked.hasConsent === false, revoked);
+  const stale = JSON.parse(JSON.stringify(await callTool(octx, "ver", { seccion: "testimonios", id: a.staleTestimonial.id }, opts)));
+  check("ver testimonios con consentimiento de una versión antigua → hasConsent false (igual que la app)", stale.hasConsent === false, stale);
   check("testimonios PENDING incluye el propio; APPROVED no", (await list("testimonios", { estado: "pending" })).includes(a.testimonial.id) && !(await list("testimonios", { estado: "APPROVED" })).includes(a.testimonial.id));
   check("financiamiento SUBMITTED sí; DRAFT no", (await list("financiamiento", { estado: "submitted" })).includes(a.application.id) && !(await list("financiamiento", { estado: "DRAFT" })).includes(a.application.id));
   check("financiamiento por nombre del prestamista", (await list("financiamiento", { texto: `Banco A ${MARK}` })).includes(a.application.id));
+
+  // Un texto que no coincide deja fuera lo propio; uno que coincide con solo una de las dos filas la deja sola.
+  const NADA = `nada-coincide-${MARK}`;
+  for (const [seccion, id] of [["servicios", a.service.id], ["paquetes", a.pkg.id], ["procesadores", a.processor.id], ["testimonios", a.testimonial.id], ["comparaciones", a.comparison.id], ["financiamiento", a.application.id]] as const) {
+    check(`listar ${seccion} con un texto que no coincide → vacío`, !(await list(seccion, { texto: NADA })).includes(id));
+  }
+  check("servicios: el texto distingue entre dos servicios de la misma organización", !(await list("servicios", { texto: `Viejo A ${MARK}` })).includes(a.service.id) && (await list("servicios", { texto: `Viejo A ${MARK}` })).includes(a.archivedService.id));
+  check("procesadores: el texto distingue entre dos procesadores", !(await list("procesadores", { texto: `Inactivo A ${MARK}` })).includes(a.processor.id));
 
   const pkg = JSON.parse(JSON.stringify(await callTool(octx, "ver", { seccion: "paquetes", id: a.pkg.id }, opts)));
   check("ver paquetes → servicios con cantidad", pkg.items?.length === 1 && pkg.items[0].quantity === 2 && pkg.items[0].serviceId === a.service.id, pkg.items);
@@ -148,6 +176,13 @@ async function run() {
   const cmp = JSON.parse(JSON.stringify(await callTool(octx, "ver", { seccion: "comparaciones", id: a.comparison.id }, opts)));
   check("ver comparaciones → partidas con resultado efectivo (manual manda) y sin número de cuenta",
     cmp.itemList?.length === 1 && cmp.itemList[0].result === "VERIFIED" && cmp.itemList[0].autoResult === "NEW" && !JSON.stringify(cmp).includes("1234"), cmp.itemList);
+  check("ver comparaciones con pocas partidas → itemsTruncated false", cmp.itemsTruncated === false, cmp.itemsTruncated);
+  await prisma.reportComparisonItem.createMany({
+    data: Array.from({ length: 105 }, (_, n) => ({ comparisonId: a.comparison.id, autoResult: "NEW" as const, matchKey: `k${n}`, creditorName: `Extra ${String(n).padStart(3, "0")}`, bureau: "EXPERIAN" as const })),
+  });
+  const big = JSON.parse(JSON.stringify(await callTool(octx, "ver", { seccion: "comparaciones", id: a.comparison.id }, opts)));
+  check("ver comparaciones con más de 100 partidas → recorta a 100 y avisa", big.itemList?.length === 100 && big.itemsTruncated === true, { n: big.itemList?.length, t: big.itemsTruncated });
+  check("ver procesadores con pocas cuentas → accountsTruncated false", proc.accountsTruncated === false, proc.accountsTruncated);
   const fund = JSON.parse(JSON.stringify(await callTool(octx, "ver", { seccion: "financiamiento", id: a.application.id }, opts)));
   check("ver financiamiento → monto, expediente y updatedAt", fund.requestedAmount?.includes("25,000") && fund.serviceCaseId === a.fServiceCase.id && !!fund.updatedAt, fund);
 }

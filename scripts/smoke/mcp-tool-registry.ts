@@ -142,7 +142,7 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   vincular_cuenta_procesador: ["processors.manage", "write"],
   editar_cuenta_procesador: ["processors.manage", "write"],
   crear_testimonio: ["testimonials.manage", "write"],
-  editar_testimonio: ["testimonials.manage", "write"],
+  editar_testimonio: ["testimonials.manage", "destructive"],
   eliminar_testimonio: ["testimonials.manage", "destructive"],
   crear_comparacion: ["comparisons.manage", "write"],
   ajustar_resultado_comparacion: ["comparisons.manage", "write"],
@@ -176,9 +176,9 @@ check("ninguna herramienta borra pagos, recibos, planes ni contratos (AC-7: solo
 check("Claude no registra consentimientos, no aprueba ni publica testimonios (decisión humana)",
   !tools.some((t) => /consentimiento|aprobar_testimonio|rechazar_testimonio|publicar_testimonio/.test(t.name)), names);
 check("el catálogo, los procesadores y los testimonios no se borran de verdad (solo archivar, desactivar o borrado lógico)",
-  !tools.some((t) => /^(borrar|eliminar)_(servicio|paquete|procesador|cuenta)/.test(t.name)), names);
+  !tools.some((t) => /^(borrar|eliminar)_(servicio|paquete|procesador|cuenta|comparacion|solicitud)/.test(t.name)), names);
 check("archivar y eliminar testimonio piden confirmación (destructive)",
-  ["archivar_servicio", "archivar_paquete", "eliminar_testimonio"].every((n) => tools.find((t) => t.name === n)?.kind === "destructive"));
+  ["archivar_servicio", "archivar_paquete", "eliminar_testimonio", "editar_testimonio"].every((n) => tools.find((t) => t.name === n)?.kind === "destructive"));
 check("no hay herramientas de escritura fuera de la lista", unexpected.length === 0, unexpected);
 
 console.log("\n[mcp-tool-registry] limpieza de números largos (AC-6)\n");

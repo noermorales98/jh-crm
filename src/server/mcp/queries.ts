@@ -19,6 +19,7 @@ import { caseHref, creditAnalysisHref } from "@/src/lib/routes/case-routes";
 import { ForbiddenError, type OrganizationContext } from "@/src/server/auth/guards";
 import { can, type PermissionAction } from "@/src/server/auth/permissions";
 import { DomainError } from "@/src/server/errors";
+import { hasTestimonialConsent } from "@/src/server/testimonials";
 
 /**
  * Consultas de lectura del conector MCP que el asistente interno no tenía:
@@ -995,11 +996,12 @@ export async function listContractTemplatesMcp(ctx: OrganizationContext, filters
 // ── Catálogo: servicios y paquetes ─────────────────────────────────────────
 
 /** Estado de catálogo: solo se distingue activo de archivado. */
-function activeFilter(estado: string | undefined): boolean | undefined {
+function activeFilter(estado: string | undefined, inactiveAlias?: string): boolean | undefined {
   const value = estado?.trim().toUpperCase();
   if (!value) return undefined;
-  if (value !== "ACTIVE" && value !== "ARCHIVED") {
-    throw new DomainError("Estado no válido. Usa uno de: ACTIVE, ARCHIVED.");
+  const inactive = ["ARCHIVED", ...(inactiveAlias ? [inactiveAlias] : [])];
+  if (value !== "ACTIVE" && !inactive.includes(value)) {
+    throw new DomainError(`Estado no válido. Usa uno de: ACTIVE, ${inactive.join(", ")}.`);
   }
   return value === "ACTIVE";
 }
@@ -1106,6 +1108,8 @@ export async function getPackageDetail(ctx: OrganizationContext, id: string) {
  * Sin el enlace de afiliado, el identificador del cliente en el procesador ni la dirección de
  * su cuenta: solo se dice si existen.
  */
+const ACCOUNT_CAP = 50;
+
 const PROCESSOR_SELECT = {
   id: true,
   name: true,
@@ -1138,7 +1142,7 @@ function processorInfo(row: ProcessorRow) {
 
 export async function listProcessorsMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
   requireView(ctx, "processors.view");
-  const active = activeFilter(filters.estado === undefined ? undefined : filters.estado.toUpperCase() === "INACTIVE" ? "ARCHIVED" : filters.estado);
+  const active = activeFilter(filters.estado, "INACTIVE");
   const q = filters.texto?.trim();
   const rows = await prisma.creditProcessor.findMany({
     where: {
@@ -1162,7 +1166,7 @@ export async function getProcessorDetail(ctx: OrganizationContext, id: string) {
       instructions: true,
       accounts: {
         orderBy: { createdAt: "desc" },
-        take: 50,
+        take: ACCOUNT_CAP + 1,
         select: {
           id: true,
           status: true,
@@ -1180,7 +1184,8 @@ export async function getProcessorDetail(ctx: OrganizationContext, id: string) {
   return jsonSafe({
     ...processorInfo(row),
     instructions: row.instructions,
-    accountList: row.accounts.map((a) => ({
+    accountsTruncated: row.accounts.length > ACCOUNT_CAP,
+    accountList: row.accounts.slice(0, ACCOUNT_CAP).map((a) => ({
       id: a.id,
       status: a.status,
       startedAt: a.startedAt,
@@ -1205,6 +1210,9 @@ const TESTIMONIAL_SELECT = {
   status: true,
   consentGrantedAt: true,
   consentRevokedAt: true,
+  consentContentHash: true,
+  consentVersion: true,
+  body: true,
   publishedAt: true,
   updatedAt: true,
   createdAt: true,
@@ -1218,7 +1226,8 @@ function testimonialInfo(row: TestimonialRow) {
     displayName: row.displayName,
     rating: row.rating,
     status: row.status,
-    hasConsent: !!row.consentGrantedAt && !row.consentRevokedAt,
+    // La misma regla que la app para aprobar y publicar (vigente, de esta versión y del texto actual).
+    hasConsent: hasTestimonialConsent(row),
     published: !!row.publishedAt,
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -1252,7 +1261,7 @@ export async function getTestimonialDetail(ctx: OrganizationContext, id: string)
   requireView(ctx, "testimonials.view");
   const row = await prisma.testimonial.findFirst({
     where: { id, organizationId: ctx.organizationId, deletedAt: null },
-    select: { ...TESTIMONIAL_SELECT, body: true },
+    select: TESTIMONIAL_SELECT,
   });
   return row ? jsonSafe({ ...testimonialInfo(row), body: row.body }) : null;
 }

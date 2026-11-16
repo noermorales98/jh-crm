@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { prisma } from "@/src/lib/db";
 import { cuidSchema } from "@/src/lib/validation/common";
 import { DomainError, NotFoundError } from "@/src/server/errors";
 import * as testimonials from "@/src/server/testimonials";
@@ -84,22 +85,31 @@ const editarTestimonio = defineTool({
   name: "editar_testimonio",
   title: "Editar testimonio",
   description:
-    "Cambia el nombre, el texto o la calificación de un testimonio. Al editarlo vuelve a estado pendiente, se retira de publicación y se revoca el consentimiento que tuviera: una persona tendrá que revisarlo y registrar el consentimiento de nuevo. Pide confirmación a la persona antes de usarla en un testimonio ya aprobado o publicado.",
-  kind: "write",
+    "Cambia el nombre, el texto o la calificación de un testimonio; lo que no envíes se queda como estaba. Aunque cambies una sola coma, el testimonio vuelve a estado pendiente, se retira de publicación y se revoca el consentimiento que tuviera: una persona tendrá que revisarlo y registrar el consentimiento de nuevo. Pide confirmación a la persona antes de usarla, sea cual sea el estado del testimonio.",
+  kind: "destructive",
   permission: "testimonials.manage",
   inputSchema: z.object({
     testimonioId,
     actualizadoEn,
-    clientId: inputSchema.shape.clientId.describe("Identificador del cliente del testimonio (no se puede cambiar)."),
-    serviceCaseId: inputSchema.shape.serviceCaseId.describe(casoDesc),
-    displayName: inputSchema.shape.displayName.describe(nombreDesc),
-    body: inputSchema.shape.body.describe(textoDesc),
+    displayName: inputSchema.shape.displayName.optional().describe(nombreDesc),
+    body: inputSchema.shape.body.optional().describe(textoDesc),
     rating: inputSchema.shape.rating.describe(calificacionDesc),
+    serviceCaseId: inputSchema.shape.serviceCaseId.describe(`${casoDesc} null lo desvincula.`),
   }),
-  async run(ctx, { testimonioId: id, actualizadoEn: updatedAt, ...rest }) {
-    const row = await orNotFound(() =>
-      testimonials.changeTestimonial(ctx, id, updatedAt, { kind: "edit", data: inputSchema.parse(rest) }),
-    );
+  async run(ctx, { testimonioId: id, actualizadoEn: updatedAt, ...changes }) {
+    // El servicio reemplaza todo el contenido: se parte de los valores actuales (el cliente no cambia).
+    const current = await prisma.testimonial.findFirst({
+      where: { id, organizationId: ctx.organizationId, deletedAt: null },
+    });
+    if (!current) throw new NotFoundError();
+    const data = inputSchema.parse({
+      clientId: current.clientId,
+      serviceCaseId: changes.serviceCaseId !== undefined ? changes.serviceCaseId : current.serviceCaseId,
+      displayName: changes.displayName ?? current.displayName,
+      body: changes.body ?? current.body,
+      rating: changes.rating !== undefined ? changes.rating : current.rating,
+    });
+    const row = await orNotFound(() => testimonials.changeTestimonial(ctx, id, updatedAt, { kind: "edit", data }));
     return { id: row.id, status: row.status, clientId: row.clientId, updatedAt: row.updatedAt, href: TESTIMONIOS_HREF };
   },
   audit: auditTestimonial,

@@ -48,7 +48,18 @@ function contentHash(
     .update(JSON.stringify([data.displayName, data.body, data.rating ?? null]))
     .digest("hex");
 }
-export function hasTestimonialConsent(row: Testimonial) {
+export function hasTestimonialConsent(
+  row: Pick<
+    Testimonial,
+    | "consentGrantedAt"
+    | "consentRevokedAt"
+    | "consentContentHash"
+    | "consentVersion"
+    | "displayName"
+    | "body"
+    | "rating"
+  >,
+) {
   return Boolean(
     row.consentGrantedAt &&
     !row.consentRevokedAt &&

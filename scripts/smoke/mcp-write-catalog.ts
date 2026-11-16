@@ -88,7 +88,9 @@ async function main() {
     console.log("archivar_servicio (borrado lógico)");
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "archivar_servicio", { servicioId: String(svc.id) }))).includes("Sin permiso"));
     const n1 = await services();
+    calls.length = 0;
     const arch = await call(a.owner, "archivar_servicio", { servicioId: String(svc.id) });
+    check("archivar_servicio refresca servicios, paquetes y cotización nueva", refreshes(), calls);
     check("OWNER archiva: isActive false y el servicio sigue existiendo", arch.isActive === false && (await services()) === n1 && (await prisma.service.findUnique({ where: { id: String(svc.id) } }))?.isActive === false);
     check("auditoría", await auditOk("archivar_servicio", String(svc.id), "Service"));
     check("servicio ajeno -> No encontrado y sigue activo",
@@ -130,7 +132,9 @@ async function main() {
     console.log("archivar_paquete (borrado lógico)");
     check("VIEWER -> Sin permiso", (await errorText(() => call(a.viewer, "archivar_paquete", { paqueteId: String(pkg.id) }))).includes("Sin permiso"));
     const p2 = await packages();
+    calls.length = 0;
     const ap = await call(a.owner, "archivar_paquete", { paqueteId: String(pkg.id) });
+    check("archivar_paquete refresca servicios, paquetes y cotización nueva", refreshes(), calls);
     check("OWNER archiva: isActive false y el paquete sigue existiendo", ap.isActive === false && (await packages()) === p2 && (await prisma.servicePackage.findUnique({ where: { id: String(pkg.id) } }))?.isActive === false);
     check("auditoría", await auditOk("archivar_paquete", String(pkg.id), "ServicePackage"));
     check("paquete ajeno -> No encontrado y sigue activo",

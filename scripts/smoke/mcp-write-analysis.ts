@@ -5,6 +5,7 @@
  *   DATABASE_URL=mysql://root@127.0.0.1:3399/jh_gates npx tsx scripts/smoke/mcp-write-analysis.ts
  */
 import { PrismaClient } from "@prisma/client";
+import { CASE_ROUTE_PATTERN } from "../../src/lib/routes/case-routes";
 import { assertDisposableDb, errorName, meta, seedMcpOrg } from "./_lib/mcp-seed";
 
 async function errorText(fn: () => Promise<unknown>): Promise<string> {
@@ -87,7 +88,7 @@ async function main() {
     check("STAFF compara: guarda las partidas con resultado automático", !!cRow && cRow.items.length >= 3 && cRow.notes === "primera" && cRow.items.every((i) => !!i.autoResult), cRow?.items.map((i) => `${i.creditorName}:${i.autoResult}`));
     check("enlace a la ficha del caso", String(cmp.href).includes("/crm/clientes/"), cmp);
     check("auditoría via claude y entidad ReportComparison", await auditOk("crear_comparacion", String(cmp.id), "ReportComparison"));
-    check("refresca las páginas del caso (ruta dinámica, layout)", calls.some((c) => c.type === "layout"), calls);
+    check("refresca las páginas del caso (ruta dinámica, layout)", calls.some((c) => c.type === "layout" && c.path === CASE_ROUTE_PATTERN), calls);
     check("dos reportes iguales -> error y sin comparación nueva", (await errorText(() => call(a.staff, "crear_comparacion", { ...cargs, compareReportId: base.id }))).startsWith("DomainError"));
     const { creditCase: bCase } = await seedCase(b, "b");
     const bBase = await seedReport(b, bCase.id, "2026-01-10", ["Ajeno"]);
@@ -104,7 +105,7 @@ async function main() {
     await call(a.staff, "ajustar_resultado_comparacion", { itemId: item.id, manualResult: "VERIFIED", notes: " revisado " });
     const iRow = await prisma.reportComparisonItem.findUnique({ where: { id: item.id } });
     check("STAFF corrige a mano: guarda manualResult y notas; el automático se conserva", iRow?.manualResult === "VERIFIED" && iRow.notes === "revisado" && iRow.autoResult === item.autoResult, iRow);
-    check("auditoría y refresco", (await auditOk("ajustar_resultado_comparacion", item.id, "ReportComparisonItem")) && calls.some((c) => c.type === "layout"), calls);
+    check("auditoría y refresco", (await auditOk("ajustar_resultado_comparacion", item.id, "ReportComparisonItem")) && calls.some((c) => c.type === "layout" && c.path === CASE_ROUTE_PATTERN), calls);
     await call(a.staff, "ajustar_resultado_comparacion", { itemId: item.id, manualResult: null });
     const iRow2 = await prisma.reportComparisonItem.findUnique({ where: { id: item.id } });
     check("manualResult null quita la corrección y deja las notas (no se mandaron)", iRow2?.manualResult === null && iRow2.notes === "revisado", iRow2);
@@ -146,7 +147,7 @@ async function main() {
     const uRow = await prisma.fundingApplication.findUnique({ where: { id: String(app.id) } });
     check("STAFF cambia estado y fecha; el prestamista, el monto y las notas se conservan (no vuelven a vacío)",
       uRow?.status === "SUBMITTED" && uRow.submittedAt?.toISOString() === "2026-06-01T12:00:00.000Z" && uRow.lenderName === `Banco ${MARK}` && uRow.requestedAmount?.toString() === "25000" && uRow.notes === "nota", uRow);
-    check("devuelve el nuevo updatedAt", String(upd.updatedAt) !== token || !!upd.updatedAt, upd);
+    check("devuelve exactamente el nuevo updatedAt de la base de datos", (upd.updatedAt instanceof Date ? upd.updatedAt.toISOString() : String(upd.updatedAt)) === uRow!.updatedAt.toISOString() && uRow!.updatedAt.toISOString() !== token, { upd, db: uRow?.updatedAt });
     check("auditoría y refresco", (await auditOk("editar_solicitud_financiamiento", String(app.id), "FundingApplication")) && calls.some((c) => c.path === `/crm/expedientes/${fCase.id}`), calls);
     const fresh = async () => (await prisma.fundingApplication.findUnique({ where: { id: String(app.id) } }))!;
     await call(a.staff, "editar_solicitud_financiamiento", { expedienteId: fCase.id, solicitudId: String(app.id), actualizadoEn: (await fresh()).updatedAt.toISOString(), approvedAmount: "5000" });
@@ -154,7 +155,15 @@ async function main() {
     check("sin enviar el estado, no vuelve a DRAFT y conserva el resto", r3.status === "SUBMITTED" && r3.approvedAmount?.toString() === "5000" && r3.requestedAmount?.toString() === "25000" && r3.submittedAt?.toISOString() === "2026-06-01T12:00:00.000Z", r3);
     await call(a.staff, "editar_solicitud_financiamiento", { expedienteId: fCase.id, solicitudId: String(app.id), actualizadoEn: r3.updatedAt.toISOString(), requestedAmount: null });
     check("null borra el monto solicitado", (await fresh()).requestedAmount === null);
-    check("token viejo -> error y sin cambios", (await errorText(() => call(a.staff, "editar_solicitud_financiamiento", { ...eargs, status: "APPROVED" }))).startsWith("DomainError") && (await prisma.fundingApplication.findUnique({ where: { id: String(app.id) } }))?.status === "SUBMITTED");
+    // Fusión con los valores actuales: prestamista, notas y fecha de decisión.
+    await prisma.fundingApplication.update({ where: { id: String(app.id) }, data: { decisionAt: new Date("2026-07-01T12:00:00Z") } });
+    await call(a.staff, "editar_solicitud_financiamiento", { expedienteId: fCase.id, solicitudId: String(app.id), actualizadoEn: (await fresh()).updatedAt.toISOString(), status: "UNDER_REVIEW" });
+    const r4 = await fresh();
+    check("solo el estado: la fecha de decisión, el prestamista y las notas se conservan", r4.status === "UNDER_REVIEW" && r4.decisionAt?.toISOString() === "2026-07-01T12:00:00.000Z" && r4.lenderName === `Banco ${MARK}` && r4.notes === "nota", r4);
+    await call(a.staff, "editar_solicitud_financiamiento", { expedienteId: fCase.id, solicitudId: String(app.id), actualizadoEn: r4.updatedAt.toISOString(), lenderName: ` Otro ${MARK} `, notes: "nuevas", decisionAt: "2026-08-01T12:00:00Z" });
+    const r5 = await fresh();
+    check("prestamista, notas y decisión enviados reemplazan los actuales (y el estado se conserva)", r5.lenderName === `Otro ${MARK}` && r5.notes === "nuevas" && r5.decisionAt?.toISOString() === "2026-08-01T12:00:00.000Z" && r5.status === "UNDER_REVIEW", r5);
+    check("token viejo -> error y sin cambios", (await errorText(() => call(a.staff, "editar_solicitud_financiamiento", { ...eargs, status: "APPROVED" }))).startsWith("DomainError") && (await prisma.fundingApplication.findUnique({ where: { id: String(app.id) } }))?.status === "UNDER_REVIEW");
     check("solicitud de otro expediente -> No encontrado", (await errorText(() => call(a.staff, "editar_solicitud_financiamiento", { ...eargs, solicitudId: "cualquiera" }))) === "NotFoundError: No encontrado.");
     const bApp = await prisma.fundingApplication.create({ data: { organizationId: b.org.id, fundingCaseId: (await prisma.fundingCase.findFirstOrThrow({ where: { serviceCaseId: bF.id } })).id, lenderName: "Ajeno" } });
     check("solicitud ajena -> No encontrado y sin cambios", (await errorText(() => call(a.staff, "editar_solicitud_financiamiento", { expedienteId: bF.id, solicitudId: bApp.id, actualizadoEn: bApp.updatedAt.toISOString(), status: "APPROVED" }))) === "NotFoundError: No encontrado." && (await prisma.fundingApplication.findUnique({ where: { id: bApp.id } }))?.status === "DRAFT");

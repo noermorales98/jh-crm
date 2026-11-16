@@ -69,7 +69,11 @@ async function main() {
 
     console.log("editar_procesador");
     check("STAFF -> Sin permiso", (await errorText(() => call(a.staff, "editar_procesador", { procesadorId: String(proc.id), active: false }))).includes("Sin permiso"));
-    await call(a.owner, "editar_procesador", { procesadorId: String(proc.id), affiliateUrl: "", active: false, commission: 7 });
+    const keep = await call(a.owner, "editar_procesador", { procesadorId: String(proc.id), commission: 6 });
+    check("editar_procesador sin tocar el enlace no lo devuelve aunque exista", (await prisma.creditProcessor.findUnique({ where: { id: String(proc.id) } }))?.affiliateUrl === "https://aff.example.test/?id=SECRETO" && !JSON.stringify(keep).includes("SECRETO") && !JSON.stringify(keep).includes("aff.example"), keep);
+    calls.length = 0;
+    const edited = await call(a.owner, "editar_procesador", { procesadorId: String(proc.id), affiliateUrl: "", active: false, commission: 7 });
+    check("editar_procesador refresca la página de procesadores y no devuelve el enlace de afiliado", calls.some((c) => c.path === "/crm/procesadores") && !JSON.stringify(edited).includes("SECRETO"), { calls, edited });
     const eRow = await prisma.creditProcessor.findUnique({ where: { id: String(proc.id) } });
     check("OWNER desactiva, borra el enlace de afiliado y cambia la comisión; el nombre queda", eRow?.active === false && eRow.affiliateUrl === null && eRow.commission?.toString() === "7" && eRow.name === `Monitor ${MARK}`, eRow);
     check("el procesador desactivado sigue existiendo", (await procs()) === n0 + 1);
@@ -98,7 +102,8 @@ async function main() {
     console.log("editar_cuenta_procesador");
     check("STAFF -> Sin permiso", (await errorText(() => call(a.staff, "editar_cuenta_procesador", { cuentaId: String(acc.id), status: "CANCELLED" }))).includes("Sin permiso"));
     calls.length = 0;
-    await call(a.owner, "editar_cuenta_procesador", { cuentaId: String(acc.id), status: "CANCELLED", externalUrl: "", expiresAt: "2026-12-31T12:00:00Z" });
+    const editedAcc = await call(a.owner, "editar_cuenta_procesador", { cuentaId: String(acc.id), status: "CANCELLED", externalUrl: "", expiresAt: "2026-12-31T12:00:00Z" });
+    check("editar_cuenta_procesador no devuelve el identificador ni la dirección de la cuenta", !JSON.stringify(editedAcc).includes("MIEMBRO-123") && !JSON.stringify(editedAcc).includes("cuenta/777"), editedAcc);
     const uRow = await prisma.clientProcessorAccount.findUnique({ where: { id: String(acc.id) } });
     check("OWNER cancela, borra la dirección y fija vencimiento; el identificador queda", uRow?.status === "CANCELLED" && uRow.externalUrl === null && uRow.externalMemberId === "MIEMBRO-123" && uRow.expiresAt?.toISOString() === "2026-12-31T12:00:00.000Z", uRow);
     check("la cuenta cancelada sigue existiendo", (await accts()) === m1 + 0 && !!uRow);

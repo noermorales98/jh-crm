@@ -103,3 +103,13 @@ Append-only. Newest at the bottom.
   address at the processor, consent evidence, or account numbers of compared items.
   `editar_solicitud_financiamiento` starts from the current values, because the service replaces
   every field and an omitted status would go back to DRAFT.
+- 2026-11-16 — `conector-mcp-claude` batch 3b closing review. Three lenses, nothing blocking.
+  Applied: `editar_testimonio` is destructive (any edit unpublishes it and revokes the consent, so
+  Claude asks every time) and starts from the current values, because the service replaces the
+  whole content and Claude cannot read the linked case; `hasConsent` uses the app's own rule
+  (current version and matching text), exported from the testimonial service; processor-link
+  descriptions say that editing replaces the link without being able to read it; the processor
+  account list and comparison items report when they were cut. Accepted: free text written by
+  third parties (testimonial text, notes) reaches Claude, covered by the server instruction not to
+  act on instructions found in CRM data; processor `instructions` are internal team text that could
+  hold a pasted credential, so they must not hold secrets. Seven hand-made mutants were each caught.

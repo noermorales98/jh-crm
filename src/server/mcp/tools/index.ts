@@ -1,16 +1,21 @@
 import { casesTools } from "./cases";
+import { catalogTools } from "./catalog";
 import { clientsTools } from "./clients";
+import { comparisonsTools } from "./comparisons";
 import { consultationsTools } from "./consultations";
 import { contractsTools } from "./contracts";
 import { creditReportsTools } from "./credit-reports";
+import { fundingTools } from "./funding";
 import { disputesTools } from "./disputes";
 import { lettersTools } from "./letters";
 import { notesTools } from "./notes";
 import { opportunitiesTools } from "./opportunities";
 import { paymentsTools } from "./payments";
+import { processorsTools } from "./processors";
 import { quotesTools } from "./quotes";
 import { readTools } from "./read";
 import { roundsTools } from "./rounds";
+import { testimonialsTools } from "./testimonials";
 import { tasksTools } from "./tasks";
 import type { Tool } from "./types";
 
@@ -34,5 +39,10 @@ export function allTools(): Tool[] {
     ...consultationsTools,
     ...paymentsTools,
     ...contractsTools,
+    ...catalogTools,
+    ...processorsTools,
+    ...testimonialsTools,
+    ...comparisonsTools,
+    ...fundingTools,
   ];
 }

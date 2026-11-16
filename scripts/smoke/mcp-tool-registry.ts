@@ -18,7 +18,7 @@ function check(label: string, cond: boolean, detail?: unknown) {
 }
 
 /** Secciones de la tanda 1 que `listar` y `ver` deben cubrir. */
-export const BATCH1_SECTIONS = ["clientes", "casos", "casos_servicio", "tareas", "oportunidades", "cotizaciones", "rondas", "cartas", "reportes_credito", "consultas", "pagos", "recibos", "planes_pago", "contratos", "plantillas_contrato"];
+export const BATCH1_SECTIONS = ["clientes", "casos", "casos_servicio", "tareas", "oportunidades", "cotizaciones", "rondas", "cartas", "reportes_credito", "consultas", "pagos", "recibos", "planes_pago", "contratos", "plantillas_contrato", "servicios", "paquetes", "procesadores", "testimonios", "comparaciones", "financiamiento"];
 
 console.log("\n[mcp-tool-registry] registro\n");
 const tools = allTools();
@@ -131,6 +131,23 @@ const EXPECTED_WRITE_TOOLS: Record<string, [string, "write" | "destructive"]> = 
   crear_contrato: ["contracts.manage", "write"],
   marcar_contrato_enviado: ["contracts.manage", "destructive"],
   cancelar_contrato: ["contracts.manage", "destructive"],
+  crear_servicio: ["catalog.manage", "write"],
+  editar_servicio: ["catalog.manage", "write"],
+  archivar_servicio: ["catalog.manage", "destructive"],
+  crear_paquete: ["catalog.manage", "write"],
+  editar_paquete: ["catalog.manage", "write"],
+  archivar_paquete: ["catalog.manage", "destructive"],
+  crear_procesador: ["processors.manage", "write"],
+  editar_procesador: ["processors.manage", "write"],
+  vincular_cuenta_procesador: ["processors.manage", "write"],
+  editar_cuenta_procesador: ["processors.manage", "write"],
+  crear_testimonio: ["testimonials.manage", "write"],
+  editar_testimonio: ["testimonials.manage", "write"],
+  eliminar_testimonio: ["testimonials.manage", "destructive"],
+  crear_comparacion: ["comparisons.manage", "write"],
+  ajustar_resultado_comparacion: ["comparisons.manage", "write"],
+  crear_solicitud_financiamiento: ["cases.manage", "write"],
+  editar_solicitud_financiamiento: ["cases.manage", "write"],
 };
 for (const [name, [permission, kind]] of Object.entries(EXPECTED_WRITE_TOOLS)) {
   const tool = tools.find((t) => t.name === name);
@@ -156,6 +173,12 @@ check("Claude no firma contratos ni edita plantillas (la firma es del cliente; e
 check("anular_recibo solo para dueños y administradores", !can("STAFF", "receipts.void") && !can("SPECIALIST", "receipts.void") && can("ADMIN", "receipts.void"));
 check("ninguna herramienta borra pagos, recibos, planes ni contratos (AC-7: solo cancelar o anular)",
   !tools.some((t) => /^(borrar|eliminar)_(pago|recibo|plan|contrato)/.test(t.name)), names);
+check("Claude no registra consentimientos, no aprueba ni publica testimonios (decisión humana)",
+  !tools.some((t) => /consentimiento|aprobar_testimonio|rechazar_testimonio|publicar_testimonio/.test(t.name)), names);
+check("el catálogo, los procesadores y los testimonios no se borran de verdad (solo archivar, desactivar o borrado lógico)",
+  !tools.some((t) => /^(borrar|eliminar)_(servicio|paquete|procesador|cuenta)/.test(t.name)), names);
+check("archivar y eliminar testimonio piden confirmación (destructive)",
+  ["archivar_servicio", "archivar_paquete", "eliminar_testimonio"].every((n) => tools.find((t) => t.name === n)?.kind === "destructive"));
 check("no hay herramientas de escritura fuera de la lista", unexpected.length === 0, unexpected);
 
 console.log("\n[mcp-tool-registry] limpieza de números largos (AC-6)\n");

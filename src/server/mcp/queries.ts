@@ -3,6 +3,7 @@ import type {
   ContractStatus,
   CreditReportType,
   DisputeLetterStatus,
+  FundingApplicationStatus,
   OpportunityStage,
   PaymentPlanStatus,
   PaymentStatus,
@@ -989,4 +990,407 @@ export async function listContractTemplatesMcp(ctx: OrganizationContext, filters
     take: take(filters.limite),
   });
   return jsonSafe({ items: rows, href: "/crm/contratos" });
+}
+
+// ── Catálogo: servicios y paquetes ─────────────────────────────────────────
+
+/** Estado de catálogo: solo se distingue activo de archivado. */
+function activeFilter(estado: string | undefined): boolean | undefined {
+  const value = estado?.trim().toUpperCase();
+  if (!value) return undefined;
+  if (value !== "ACTIVE" && value !== "ARCHIVED") {
+    throw new DomainError("Estado no válido. Usa uno de: ACTIVE, ARCHIVED.");
+  }
+  return value === "ACTIVE";
+}
+
+const SERVICE_SELECT = {
+  id: true,
+  name: true,
+  code: true,
+  description: true,
+  defaultPrice: true,
+  currency: true,
+  isActive: true,
+  updatedAt: true,
+} satisfies Prisma.ServiceSelect;
+
+type ServiceRow = Prisma.ServiceGetPayload<{ select: typeof SERVICE_SELECT }>;
+function serviceInfo(row: ServiceRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    code: row.code,
+    description: row.description,
+    defaultPrice: formatMoney(row.defaultPrice, row.currency),
+    isActive: row.isActive,
+    updatedAt: row.updatedAt,
+    href: "/crm/servicios",
+  };
+}
+
+export async function listServicesMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "catalog.view");
+  const isActive = activeFilter(filters.estado);
+  const q = filters.texto?.trim();
+  const rows = await prisma.service.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(isActive !== undefined ? { isActive } : {}),
+      ...(q ? { OR: [{ name: { contains: q } }, { code: { contains: q } }] } : {}),
+    },
+    select: SERVICE_SELECT,
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(serviceInfo), href: "/crm/servicios" });
+}
+
+export async function getServiceDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "catalog.view");
+  const row = await prisma.service.findFirst({ where: { id, organizationId: ctx.organizationId }, select: SERVICE_SELECT });
+  return row ? jsonSafe(serviceInfo(row)) : null;
+}
+
+const PACKAGE_SELECT = {
+  id: true,
+  name: true,
+  description: true,
+  defaultPrice: true,
+  currency: true,
+  isActive: true,
+  updatedAt: true,
+  items: { select: { quantity: true, service: { select: { id: true, name: true } } }, orderBy: { id: "asc" } },
+} satisfies Prisma.ServicePackageSelect;
+
+type PackageRow = Prisma.ServicePackageGetPayload<{ select: typeof PACKAGE_SELECT }>;
+function packageInfo(row: PackageRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    defaultPrice: formatMoney(row.defaultPrice, row.currency),
+    isActive: row.isActive,
+    updatedAt: row.updatedAt,
+    items: row.items.map((i) => ({ serviceId: i.service.id, service: i.service.name, quantity: i.quantity })),
+    href: "/crm/servicios/paquetes",
+  };
+}
+
+export async function listPackagesMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "catalog.view");
+  const isActive = activeFilter(filters.estado);
+  const q = filters.texto?.trim();
+  const rows = await prisma.servicePackage.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(isActive !== undefined ? { isActive } : {}),
+      ...(q ? { name: { contains: q } } : {}),
+    },
+    select: PACKAGE_SELECT,
+    orderBy: [{ isActive: "desc" }, { name: "asc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(packageInfo), href: "/crm/servicios/paquetes" });
+}
+
+export async function getPackageDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "catalog.view");
+  const row = await prisma.servicePackage.findFirst({ where: { id, organizationId: ctx.organizationId }, select: PACKAGE_SELECT });
+  return row ? jsonSafe(packageInfo(row)) : null;
+}
+
+// ── Procesadores ───────────────────────────────────────────────────────────
+
+/**
+ * Sin el enlace de afiliado, el identificador del cliente en el procesador ni la dirección de
+ * su cuenta: solo se dice si existen.
+ */
+const PROCESSOR_SELECT = {
+  id: true,
+  name: true,
+  type: true,
+  websiteUrl: true,
+  affiliateUrl: true,
+  monthlyPrice: true,
+  commission: true,
+  active: true,
+  updatedAt: true,
+  _count: { select: { accounts: true } },
+} satisfies Prisma.CreditProcessorSelect;
+
+type ProcessorRow = Prisma.CreditProcessorGetPayload<{ select: typeof PROCESSOR_SELECT }>;
+function processorInfo(row: ProcessorRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    type: row.type,
+    websiteUrl: row.websiteUrl,
+    hasAffiliateLink: !!row.affiliateUrl,
+    monthlyPrice: row.monthlyPrice ? formatMoney(row.monthlyPrice, "USD") : null,
+    commission: row.commission ? formatMoney(row.commission, "USD") : null,
+    active: row.active,
+    accounts: row._count.accounts,
+    updatedAt: row.updatedAt,
+    href: "/crm/procesadores",
+  };
+}
+
+export async function listProcessorsMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "processors.view");
+  const active = activeFilter(filters.estado === undefined ? undefined : filters.estado.toUpperCase() === "INACTIVE" ? "ARCHIVED" : filters.estado);
+  const q = filters.texto?.trim();
+  const rows = await prisma.creditProcessor.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(active !== undefined ? { active } : {}),
+      ...(q ? { name: { contains: q } } : {}),
+    },
+    select: PROCESSOR_SELECT,
+    orderBy: [{ active: "desc" }, { name: "asc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(processorInfo), href: "/crm/procesadores" });
+}
+
+export async function getProcessorDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "processors.view");
+  const row = await prisma.creditProcessor.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: {
+      ...PROCESSOR_SELECT,
+      instructions: true,
+      accounts: {
+        orderBy: { createdAt: "desc" },
+        take: 50,
+        select: {
+          id: true,
+          status: true,
+          startedAt: true,
+          expiresAt: true,
+          externalMemberId: true,
+          externalUrl: true,
+          notes: true,
+          client: { select: CLIENT_SELECT },
+        },
+      },
+    },
+  });
+  if (!row) return null;
+  return jsonSafe({
+    ...processorInfo(row),
+    instructions: row.instructions,
+    accountList: row.accounts.map((a) => ({
+      id: a.id,
+      status: a.status,
+      startedAt: a.startedAt,
+      expiresAt: a.expiresAt,
+      hasExternalId: !!a.externalMemberId,
+      hasExternalLink: !!a.externalUrl,
+      notes: a.notes,
+      client: clientInfo(a.client),
+    })),
+  });
+}
+
+// ── Testimonios ────────────────────────────────────────────────────────────
+
+const TESTIMONIAL_STATUSES = ["PENDING", "APPROVED", "REJECTED"] as const;
+
+/** Sin la evidencia ni el texto del consentimiento: solo si está vigente. */
+const TESTIMONIAL_SELECT = {
+  id: true,
+  displayName: true,
+  rating: true,
+  status: true,
+  consentGrantedAt: true,
+  consentRevokedAt: true,
+  publishedAt: true,
+  updatedAt: true,
+  createdAt: true,
+  client: { select: CLIENT_SELECT },
+} satisfies Prisma.TestimonialSelect;
+
+type TestimonialRow = Prisma.TestimonialGetPayload<{ select: typeof TESTIMONIAL_SELECT }>;
+function testimonialInfo(row: TestimonialRow) {
+  return {
+    id: row.id,
+    displayName: row.displayName,
+    rating: row.rating,
+    status: row.status,
+    hasConsent: !!row.consentGrantedAt && !row.consentRevokedAt,
+    published: !!row.publishedAt,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    client: clientInfo(row.client),
+    href: "/crm/testimonios",
+  };
+}
+
+export async function listTestimonialsMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "testimonials.view");
+  const estado = filters.estado?.trim().toUpperCase();
+  if (estado && !(TESTIMONIAL_STATUSES as readonly string[]).includes(estado)) {
+    throw new DomainError(`Estado no válido. Usa uno de: ${TESTIMONIAL_STATUSES.join(", ")}.`);
+  }
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.testimonial.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      deletedAt: null,
+      ...(estado ? { status: estado as (typeof TESTIMONIAL_STATUSES)[number] } : {}),
+      ...(search ? { client: search } : {}),
+    },
+    select: TESTIMONIAL_SELECT,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(testimonialInfo), href: "/crm/testimonios" });
+}
+
+export async function getTestimonialDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "testimonials.view");
+  const row = await prisma.testimonial.findFirst({
+    where: { id, organizationId: ctx.organizationId, deletedAt: null },
+    select: { ...TESTIMONIAL_SELECT, body: true },
+  });
+  return row ? jsonSafe({ ...testimonialInfo(row), body: row.body }) : null;
+}
+
+// ── Comparaciones de reportes ──────────────────────────────────────────────
+
+const COMPARISON_SELECT = {
+  id: true,
+  createdAt: true,
+  caseId: true,
+  case: { select: { caseCode: true, client: { select: CLIENT_SELECT } } },
+  baseReport: { select: { id: true, reportDate: true } },
+  compareReport: { select: { id: true, reportDate: true } },
+  _count: { select: { items: true } },
+} satisfies Prisma.ReportComparisonSelect;
+
+type ComparisonRow = Prisma.ReportComparisonGetPayload<{ select: typeof COMPARISON_SELECT }>;
+function comparisonInfo(row: ComparisonRow) {
+  return {
+    id: row.id,
+    createdAt: row.createdAt,
+    case: { id: row.caseId, code: row.case.caseCode },
+    client: clientInfo(row.case.client),
+    baseReport: { id: row.baseReport.id, reportDate: row.baseReport.reportDate },
+    compareReport: { id: row.compareReport.id, reportDate: row.compareReport.reportDate },
+    items: row._count.items,
+    href: caseHref(row.case.client.id, row.caseId),
+  };
+}
+
+export async function listComparisonsMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "comparisons.view");
+  const search = clientSearch(filters.texto);
+  const rows = await prisma.reportComparison.findMany({
+    where: { organizationId: ctx.organizationId, ...(search ? { case: { client: search } } : {}) },
+    select: COMPARISON_SELECT,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(comparisonInfo) });
+}
+
+export async function getComparisonDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "comparisons.view");
+  const row = await prisma.reportComparison.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: {
+      ...COMPARISON_SELECT,
+      notes: true,
+      items: {
+        orderBy: [{ creditorName: "asc" }, { id: "asc" }],
+        take: ITEM_CAP + 1,
+        select: { id: true, creditorName: true, bureau: true, autoResult: true, manualResult: true, notes: true },
+      },
+    },
+  });
+  if (!row) return null;
+  return jsonSafe({
+    ...comparisonInfo(row),
+    notes: row.notes,
+    itemList: row.items.slice(0, ITEM_CAP).map((i) => ({
+      id: i.id,
+      creditor: i.creditorName,
+      bureau: i.bureau,
+      autoResult: i.autoResult,
+      manualResult: i.manualResult,
+      result: i.manualResult ?? i.autoResult,
+      notes: i.notes,
+    })),
+    itemsTruncated: row.items.length > ITEM_CAP,
+  });
+}
+
+// ── Financiamiento: solicitudes a prestamistas ─────────────────────────────
+
+const FUNDING_STATUSES: FundingApplicationStatus[] = ["DRAFT", "SUBMITTED", "UNDER_REVIEW", "APPROVED", "DENIED", "FUNDED", "WITHDRAWN"];
+
+const FUNDING_SELECT = {
+  id: true,
+  lenderName: true,
+  requestedAmount: true,
+  approvedAmount: true,
+  status: true,
+  submittedAt: true,
+  decisionAt: true,
+  updatedAt: true,
+  fundingCase: {
+    select: {
+      serviceCaseId: true,
+      serviceCase: { select: { caseNumber: true, client: { select: CLIENT_SELECT } } },
+    },
+  },
+} satisfies Prisma.FundingApplicationSelect;
+
+type FundingRow = Prisma.FundingApplicationGetPayload<{ select: typeof FUNDING_SELECT }>;
+function fundingInfo(row: FundingRow) {
+  const serviceCase = row.fundingCase.serviceCase;
+  return {
+    id: row.id,
+    lenderName: row.lenderName,
+    requestedAmount: row.requestedAmount ? formatMoney(row.requestedAmount, "USD") : null,
+    approvedAmount: row.approvedAmount ? formatMoney(row.approvedAmount, "USD") : null,
+    status: row.status,
+    submittedAt: row.submittedAt,
+    decisionAt: row.decisionAt,
+    updatedAt: row.updatedAt,
+    serviceCaseId: row.fundingCase.serviceCaseId,
+    caseNumber: serviceCase.caseNumber,
+    client: clientInfo(serviceCase.client),
+    href: `/crm/expedientes/${row.fundingCase.serviceCaseId}`,
+  };
+}
+
+export async function listFundingMcp(ctx: OrganizationContext, filters: ListFilters = {}) {
+  requireView(ctx, "cases.view");
+  const status = pickEnum(filters.estado, FUNDING_STATUSES, "Estado");
+  const q = filters.texto?.trim();
+  const search = clientSearch(q);
+  const rows = await prisma.fundingApplication.findMany({
+    where: {
+      organizationId: ctx.organizationId,
+      ...(status ? { status } : {}),
+      ...(q && search
+        ? { OR: [{ lenderName: { contains: q } }, { fundingCase: { serviceCase: { client: search } } }] }
+        : {}),
+    },
+    select: FUNDING_SELECT,
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    take: take(filters.limite),
+  });
+  return jsonSafe({ items: rows.map(fundingInfo) });
+}
+
+export async function getFundingDetail(ctx: OrganizationContext, id: string) {
+  requireView(ctx, "cases.view");
+  const row = await prisma.fundingApplication.findFirst({
+    where: { id, organizationId: ctx.organizationId },
+    select: { ...FUNDING_SELECT, notes: true },
+  });
+  return row ? jsonSafe({ ...fundingInfo(row), notes: row.notes }) : null;
 }

@@ -92,3 +92,14 @@ Append-only. Newest at the bottom.
   per-quote throttle on the WhatsApp payment link (same as the app button; it is destructive and
   open-world). Found, pre-existing and out of scope: the client name is inserted into the contract
   HTML without escaping and the sanitizer can miss `/onload=`; tracked as its own fix.
+- 2026-11-16 — `conector-mcp-claude` batch 3b plan. Batch 3 is split again: 3b catalog and
+  operations without mail (services, packages, processors, testimonials, report comparisons,
+  funding applications); mail moves to its own PR with the administration batch, because reading
+  inbound mail puts text written by third parties in front of Claude and sending it is an external
+  effect. In 3b Claude cannot record testimonial consent, approve or publish a testimonial (the
+  service itself asks for human approval and the client's consent); it creates, edits and
+  soft-deletes them. Archiving a service or package, deactivating a processor and cancelling a
+  processor account change status only. Reads never return the affiliate link, the client's id or
+  address at the processor, consent evidence, or account numbers of compared items.
+  `editar_solicitud_financiamiento` starts from the current values, because the service replaces
+  every field and an omitted status would go back to DRAFT.

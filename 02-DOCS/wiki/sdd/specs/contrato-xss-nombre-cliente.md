@@ -80,7 +80,8 @@ contratos existentes siguen en verde.
    (`presentContractHtml`) filtra su propia salida después de reescribir los chips; el icono del
    chip entra tras filtrar, solo junto a la apertura de un chip.
 3. Antes de DOMPurify, el HTML pasa por el mismo parser que usa jsdom (parse5, versión fijada) con un
-   presupuesto de 20 000 nodos y 300 niveles. Si lo supera, si tiene más de 1 000 000 caracteres o si
+   presupuesto: 20 000 nodos, 50 niveles, 100 atributos por etiqueta (40 000 en total), 5 000 hijos por
+   elemento y 500 palabras sueltas por etiqueta. Si lo supera, si tiene más de 1 000 000 caracteres o si
    cualquier paso falla, se entrega como texto escapado (falla cerrado). Igual en servidor y navegador.
 
 ## Acceptance criteria

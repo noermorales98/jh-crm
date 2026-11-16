@@ -113,3 +113,13 @@ Append-only. Newest at the bottom.
   third parties (testimonial text, notes) reaches Claude, covered by the server instruction not to
   act on instructions found in CRM data; processor `instructions` are internal team text that could
   hold a pasted credential, so they must not hold secrets. Seven hand-made mutants were each caught.
+- 2026-11-16 — `conector-mcp-claude` batch 3c plan (mail only). Reading mail puts text written by
+  third parties in front of Claude: lists and details carry a warning that it is not instructions,
+  only the plain text reaches Claude (never the HTML, which can hide text or links, nor the
+  translation), the body is cut at 6000 characters and the usual redaction applies. Writing mail:
+  drafts and folder moves are plain writes; `enviar_correo` is destructive and open-world (it sends
+  through the organization's SMTP and cannot be recalled), asks for explicit confirmation in its
+  description, and caps recipients at 5 (To and Cc together) so a mistake or an injected request
+  cannot become a mass mailing; it does not return the addresses. Left out: permanent delete (the
+  app deletes the row for real), inbox sync (external server, already automatic) and translation
+  (paid external service). The smoke sends to a fake SMTP server bound to 127.0.0.1.

@@ -7,13 +7,12 @@ timestamp: 2026-11-15T00:00:00Z
 topic: sdd
 slug: formulas-credito-respaldadas
 branch: claude/formulas-credito
-status: approved
-approved_by: Noeli, 2026-11-15 ("La apruebo")
+status: draft
 ---
 
 # Spec — Fórmulas de crédito y fondeo respaldadas
 
-> Slug: `formulas-credito-respaldadas` · Status: approved · Created: 2026-11-15
+> Slug: `formulas-credito-respaldadas` · Status: draft (pendiente de aprobación de Noe) · Created: 2026-11-15
 > Inherits: [constitution](../constitution.md). Evidencia: [formulas-credito-respaldo](../../guias/formulas-credito-respaldo.md).
 
 ## Problem & why

@@ -245,3 +245,9 @@ then integration (registry, `smoke:mcp-db` grows to 19 smokes).
   (filtro de estado, refresco, motivo, estado opcional, caso ajeno, filtro de organización), todos
   detectados.
 - Pendiente: XSS previo en el texto del contrato (nombre del cliente sin escapar), fuera de esta tanda.
+
+## Envío de la tanda 3a (2026-11-16)
+
+- PR #44 unido a main con el visto bueno del dueño (merge commit fe817b0). CI en verde.
+- AC-7 cumplido: cancelar un pago, un plan, una ronda o un contrato, reembolsar y anular un recibo solo cambian el estado.
+- Pendiente: prueba real en claude.ai de la 3a; tanda 3b (catálogo y operación) y 3c (administración y resto, cierra AC-5).

@@ -23,7 +23,7 @@ conector solo añade otra vía.
   con `dompurify@3.4.17`, versiones exactas; decisión de Noe 2026-11-14, enmienda de la spec):
   lista cerrada de etiquetas y atributos, `data:` solo como imagen PNG/JPEG/GIF/WebP en `src`,
   estilos filtrados (`url(`, escapes CSS, `image-set(`, `position: fixed|sticky`...), `rel` seguro con
-  `target`. Antes de DOMPurify, un presupuesto del parser (`parse-budget.ts`: parse5 con 20 000 nodos y 300
+  `target`. Antes de DOMPurify, un presupuesto del parser (`parse-budget.ts`: parse5 con 20 000 nodos, 50 niveles, 100 atributos por etiqueta y 5 000 hijos por elemento;
   niveles) y falla cerrado a texto escapado, porque jsdom es cuadrático con la profundidad y la
   reconstrucción de formato multiplica los nodos.
 - `presentContractHtml` (portal y vista previa del CRM) filtra su propia salida; el icono del chip

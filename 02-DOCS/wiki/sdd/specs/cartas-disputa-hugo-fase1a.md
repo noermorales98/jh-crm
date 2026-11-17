@@ -6,12 +6,12 @@ tags: [sdd, spec, disputas, cartas]
 timestamp: 2026-11-17T15:00:00Z
 topic: sdd
 slug: cartas-disputa-hugo-fase1a
-status: draft
+status: clarified
 ---
 
 # Spec — Cartas y estrategias de disputa según las reglas de Hugo (Fase 1, parte A)
 
-> Slug: `cartas-disputa-hugo-fase1a` · Status: draft · Created: 2026-11-17
+> Slug: `cartas-disputa-hugo-fase1a` · Status: clarified · Created: 2026-11-17
 > Inherits: [constitution](../constitution.md)
 > Fuente de reglas: `.claude/skills/asistente-de-disputas/SKILL.md` y `docs/hugo/IMPLEMENTACION-CRM.md` §1 y "Decisiones de Hugo (17/11/2026)".
 > Es la parte A de la Fase 1. La parte B (reglas en la IA y direcciones de burós) y la parte C (contrato CROA) van en specs aparte.
@@ -66,7 +66,11 @@ Un usuario con permiso para editar rondas puede, desde el caso:
 - Generar la carta de un tipo solo si su plantilla está aprobada. Las plantillas sin aprobar de Hugo
   se ven, pero no se pueden usar.
 
-Un administrador puede activar una plantilla pendiente cuando Hugo la apruebe.
+Solo el dueño y los administradores pueden activar una plantilla pendiente cuando Hugo la apruebe.
+El personal de STAFF puede usar las plantillas activas, pero no activar borradores.
+
+Los errores numerados de cada cuenta en la carta de charge-off los escribe la persona que revisa, uno
+por línea, en el detalle de la partida; la carta los numera. El CRM no los deduce solo en esta fase.
 
 ## What result they get
 La referencia aprobada es el **texto de las plantillas de la skill de Hugo** (exportado el 16/11/2026),
@@ -84,7 +88,9 @@ pendiente de su aprobación.
 - **Constitución:** una prueba en `scripts/smoke/` que falle sin el cambio, `lint` y `typecheck` en verde, y nada se da por hecho sin evidencia (principios 4, 5 y 7).
 - **Revisión humana:** ninguna carta pasa a FINAL ni a enviada sin revisión de una persona (regla del modelo de cartas).
 - **Datos existentes:** las rondas, cartas y disputas ya guardadas usan los valores `ACCURACY_R1`, `METHOD_R2`, etc. Siguen mostrándose bien y las estadísticas de efectividad por estrategia no se rompen.
-- **Plantillas ya copiadas a cada organización:** hoy se copian la primera vez que se usan y solo se crean las que faltan. Una organización que ya las tiene no recibiría el texto nuevo por sí sola.
+- **Plantillas ya copiadas a cada organización:** hoy se copian la primera vez que se usan y solo se crean las que faltan. Una plantilla que alguien editó nunca se pisa. Las no editadas pasan al texto de Hugo como versión nueva; las editadas se respetan y el CRM avisa que hay una versión nueva disponible.
+- **Una plantilla inactiva no se sustituye en silencio:** hoy, si falta la plantilla activa de un método, el CRM cae en la "general" o en la primera activa. Con borradores pendientes eso generaría una carta equivocada sin avisar; debe fallar con un mensaje claro.
+- **Permisos:** gestionar cartas lo tiene también STAFF. Activar borradores exige un permiso más estricto (dueño y admin).
 - **Skill de Hugo:** no se cambia el texto legal aprobado. Si una regla choca con el código, se señala.
 - **Conector con Claude:** Claude no recibe el cuerpo de las cartas ni el valor de la información personal (decisión del 13/11). Esto no cambia.
 - **Datos ficticios** en pruebas y seeds. Nunca datos reales de clientes.
@@ -114,6 +120,12 @@ pendiente de su aprobación.
 - Given el encabezado de una carta, When se lee, Then la dirección del buró está completa en tres líneas, sin "Dispute Department" y sin comas, con DATE, DOB y SSN a la derecha.
 - Given los anexos de una carta, When se lee la mención, Then nombra ID, comprobante de domicilio y tarjeta del Seguro Social.
 - Given una plantilla pendiente de aprobación de Hugo, When un usuario intenta generar su carta, Then no se genera y se le dice por qué.
+- Given una plantilla inactiva para el método elegido y otra plantilla general activa, When se genera la carta, Then no se usa la general en silencio: la generación falla con un mensaje que nombra el método.
+- Given un usuario STAFF, When intenta activar una plantilla pendiente, Then se le niega; Given un administrador, When la activa, Then queda disponible.
+- Given una organización con la plantilla vieja de charge-off sin editar, When se asegura el juego de plantillas, Then queda con el texto de Hugo como versión nueva.
+- Given una organización cuya plantilla fue editada a mano, When se asegura el juego de plantillas, Then el texto editado no cambia y se avisa que hay una versión nueva disponible.
+- Given la lista para elegir estrategia en una disputa nueva, When se abre, Then no ofrece "Exactitud entre burós (R1)".
+- Given una partida de charge-off con tres errores escritos, uno por línea, When se genera la carta, Then salen numerados 1, 2 y 3 bajo esa cuenta.
 - Given una cuenta de charge-off y otra de late que sigue atrasada, When el CRM sugiere estrategia, Then sugiere `CHARGE_OFF` para la primera y "esperar" para la segunda.
 - Given una partida con resultado "verificada", When se prepara la Ronda 2, Then se sugieren método de verificación y disputa directa al acreedor.
 - Given una carta o disputa guardada antes con `ACCURACY_R1`, When se abre, Then se muestra con su etiqueta y cuenta en las estadísticas de efectividad.
@@ -121,13 +133,35 @@ pendiente de su aprobación.
 - `npm run lint` y `npm run typecheck` pasan sin errores.
 
 ## Points to clarify
-- **pregunta abierta** — ¿Cómo reciben el texto nuevo las organizaciones que ya tienen las plantillas viejas copiadas? Opciones: reemplazar el texto de las que no se han editado, o crear versiones nuevas y desactivar las viejas.
-- **pregunta abierta** — ¿Qué pasa con `ACCURACY_R1`? Propongo conservarlo solo para datos viejos y que la Ronda 1 nueva use `CHARGE_OFF` (y los demás tipos), con `GENERAL` como respaldo "no recomendado". ¿Se oculta `ACCURACY_R1` de las listas para elegir?
-- **pregunta abierta** — Los errores numerados por cuenta de la carta de charge-off, ¿los escribe la persona que revisa o salen de otro dato? Hoy la carta solo lista lo disputado.
-- **pregunta abierta** — ¿Quién puede activar una plantilla pendiente? Propongo solo OWNER y ADMIN.
+- **suposición tomada** — Plantillas ya copiadas: se actualizan solo las no editadas; las editadas se respetan y se avisa. Ver *Clarifications*. *Base:* decisión de Noe en clarify, 2026-11-17. *Riesgo:* si Hugo pide otra cosa, cambia el criterio de aceptación correspondiente.
+- **suposición tomada** — `ACCURACY_R1` queda oculta para elegir en disputas nuevas; lo histórico se sigue viendo y contando. La Ronda 1 nueva usa `CHARGE_OFF` y los demás tipos, con `GENERAL` como respaldo "no recomendado". *Base:* decisión de Noe en clarify, 2026-11-17. *Riesgo:* si Hugo pide otra cosa, cambia el criterio de aceptación correspondiente.
+- **suposición tomada** — Los errores numerados por cuenta los escribe quien revisa, uno por línea, en el detalle de la partida. *Base:* sin migración no hay campos de DOFD ni de historial de los que deducirlos, y el detalle de la partida ya existe como texto libre. *Riesgo:* depende de la disciplina del revisor; la Fase 2 puede sugerirlos desde los datos de la cuenta.
+- **suposición tomada** — Activar una plantilla pendiente: solo dueño y admin, con un permiso nuevo definido en código. *Base:* decisión de Noe en clarify, 2026-11-17. *Riesgo:* si Hugo pide otra cosa, cambia el criterio de aceptación correspondiente.
 - **suposición tomada** — "Pendiente de Hugo" se guarda dejando la plantilla inactiva y poniendo "(borrador, pendiente de Hugo)" en el nombre. *Base:* no hay migración. *Riesgo:* si alguien la activa sin el visto bueno de Hugo, se usa un texto no aprobado; la Fase 2 debe agregar un estado propio.
 - **suposición tomada** — Las direcciones de los burós son constantes en el código por ahora (las tres de la skill). *Base:* la edición en Configuración necesita migración. *Riesgo:* si Hugo corrige una dirección hay que cambiar código.
 - **suposición tomada** — Hasta la Fase 2 no hay compuerta de confirmación del cliente. *Base:* toda carta pasa por revisión humana antes de FINAL. *Riesgo:* una carta de consultas podría enviarse sin que el cliente confirmara; el texto "I do not recognize" y la advertencia en pantalla lo reducen, no lo eliminan.
 - **decisión diferida** — Qué lleva la Ronda 3, qué hacer con una disputa "frívola" y cuándo dejar de disputar: siguen pendientes de Hugo.
 - **decisión diferida** — Estado "pendiente de aprobación", `deliveredAt`, `FRIVOLOUS`, `BUREAU_RESPONSE`: Fase 2.
 - **área no formulable** — Cómo se reflejan en la carta de colección los casos de colección interna del acreedor original frente a cobradores de terceros; Hugo no tiene plantilla guardada.
+
+## Clarifications
+- **2026-11-17 — Plantillas ya copiadas.** Q: ¿cómo reciben el texto nuevo las organizaciones que ya
+  tienen las viejas? → Se actualizan solo las no editadas (versión nueva); las editadas se respetan y se
+  avisa que hay versión nueva. *Por qué:* no se pierde trabajo de nadie y Hugo recibe el texto correcto
+  donde nadie lo cambió.
+- **2026-11-17 — Estrategia vieja de exactitud entre burós.** Q: ¿qué pasa con `ACCURACY_R1`? → Se oculta
+  para elegir en disputas nuevas y se conserva para lo histórico y las estadísticas. *Por qué:* es el
+  argumento que Hugo descarta, y borrar el valor rompería los registros viejos.
+- **2026-11-17 — Quién activa borradores.** Q: ¿quién activa una plantilla pendiente? → Solo dueño y
+  admin. *Por qué:* STAFF ya puede gestionar cartas; sin esta barrera un borrador sin aprobar podría
+  usarse.
+- **2026-11-17 — Hallazgo del código.** Hoy una plantilla inactiva hace que el CRM use la general en
+  silencio. Se añadió un criterio para que falle con mensaje. *Por qué:* con borradores pendientes sería
+  una carta equivocada sin aviso.
+- **2026-11-17 — Errores por cuenta.** Los escribe quien revisa (suposición tomada, ver arriba).
+
+### Resultado por punto
+- Plantillas ya copiadas: preguntada. `ACCURACY_R1`: preguntada. Errores por cuenta: validada como suposición. Quién activa: preguntada.
+- Pendiente por estado, direcciones fijas y falta de compuerta del cliente: suposiciones validadas, se mantienen.
+- Ronda 3, frívolas, cuándo dejar de disputar, campos de Fase 2: decisiones diferidas, sin tocar.
+- Colección interna vs. cobrador: área no formulable, sin cambio (Hugo no tiene plantilla).

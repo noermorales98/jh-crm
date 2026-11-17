@@ -138,3 +138,10 @@ Append-only. Newest at the bottom.
   which is the strongest control against exfiltration but changes how sending is used. Replies
   restricted to the original sender were rejected on purpose: in this threat model the sender is the
   attacker. Nine hand-made mutants were each caught.
+
+- 2026-11-17 — Kit de Hugo instalado (`docs/hugo/` y dos skills). La Fase 1 se divide en tres specs:
+  A `cartas-disputa-hugo-fase1a` (estrategias y plantillas), B (reglas en la IA y direcciones de burós)
+  y C (contrato CROA). Decisiones de Noe: plantillas sin aprobar de Hugo quedan inactivas y con
+  "(borrador, pendiente de Hugo)" en el nombre; direcciones de burós fijas en código hasta la Fase 2;
+  se para a pedir aprobación en cada fase (sin autopilot). Aviso para la spec C: el 2026-11-15 se
+  decidió no cambiar el comportamiento de la cancelación de 3 días hasta la respuesta del abogado.

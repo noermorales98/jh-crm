@@ -14,6 +14,7 @@
 | sdd/progress | [rondas-y-pagos-contrato-firmado](sdd/progress/rondas-y-pagos-contrato-firmado.md) | Review result and open test gaps for PR #39 |
 | sdd/specs | [pruebas-bd-en-ci](sdd/specs/pruebas-bd-en-ci.md) | Run the contract DB smoke in GitHub CI |
 | sdd/specs | [conector-mcp-claude](sdd/specs/conector-mcp-claude.md) | Remote MCP connector so Claude can read, create, edit and delete CRM data |
+| sdd/specs | [cartas-disputa-hugo-fase1a](sdd/specs/cartas-disputa-hugo-fase1a.md) | Fase 1A del kit de Hugo: estrategias y plantillas de carta según sus reglas, sin migración (borrador) |
 | sdd/plans | [conector-mcp-claude](sdd/plans/conector-mcp-claude.md) | Technical plan for MCP connector batch 1: own OAuth server, MCP endpoint, six sections |
 | sdd/analysis | [conector-mcp-claude](sdd/analysis/conector-mcp-claude.md) | Pre-implement consistency gate for the MCP connector: PASS (run 2, 4 LOW) |
 | sdd | [config](sdd/config.yaml) | SDD runtime config: commands, strict TDD, DB smokes |

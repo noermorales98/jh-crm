@@ -6,12 +6,12 @@ tags: [sdd, spec, disputas, cartas]
 timestamp: 2026-11-17T15:00:00Z
 topic: sdd
 slug: cartas-disputa-hugo-fase1a
-status: clarified
+status: approved
 ---
 
 # Spec — Cartas y estrategias de disputa según las reglas de Hugo (Fase 1, parte A)
 
-> Slug: `cartas-disputa-hugo-fase1a` · Status: clarified · Created: 2026-11-17
+> Slug: `cartas-disputa-hugo-fase1a` · Status: approved (Noe, 2026-11-17: "Sí, apruebo") · Created: 2026-11-17
 > Inherits: [constitution](../constitution.md)
 > Fuente de reglas: `.claude/skills/asistente-de-disputas/SKILL.md` y `docs/hugo/IMPLEMENTACION-CRM.md` §1 y "Decisiones de Hugo (17/11/2026)".
 > Es la parte A de la Fase 1. La parte B (reglas en la IA y direcciones de burós) y la parte C (contrato CROA) van en specs aparte.
@@ -122,7 +122,9 @@ pendiente de su aprobación.
 - Given una plantilla pendiente de aprobación de Hugo, When un usuario intenta generar su carta, Then no se genera y se le dice por qué.
 - Given una plantilla inactiva para el método elegido y otra plantilla general activa, When se genera la carta, Then no se usa la general en silencio: la generación falla con un mensaje que nombra el método.
 - Given un usuario STAFF, When intenta activar una plantilla pendiente, Then se le niega; Given un administrador, When la activa, Then queda disponible.
-- Given una organización con la plantilla vieja de charge-off sin editar, When se asegura el juego de plantillas, Then queda con el texto de Hugo como versión nueva.
+- Given una organización con la plantilla vieja de consultas o de información personal sin editar, When se asegura el juego de plantillas, Then queda con el texto de Hugo como versión nueva y activa.
+- Given una organización con una plantilla activa de seguimiento (R2), lates o CFPB, When se asegura el juego de plantillas, Then esa plantilla sigue activa y el texto nuevo queda aparte como borrador inactivo pendiente de Hugo; al aprobarlo reemplaza a la anterior.
+- Given una carta generada por un usuario con permiso de datos sensibles, When se lee su encabezado, Then SSN y fecha de nacimiento van completos; Given un usuario sin ese permiso, Then van enmascarados.
 - Given una organización cuya plantilla fue editada a mano, When se asegura el juego de plantillas, Then el texto editado no cambia y se avisa que hay una versión nueva disponible.
 - Given la lista para elegir estrategia en una disputa nueva, When se abre, Then no ofrece "Exactitud entre burós (R1)".
 - Given una partida de charge-off con tres errores escritos, uno por línea, When se genera la carta, Then salen numerados 1, 2 y 3 bajo esa cuenta.
@@ -165,3 +167,7 @@ pendiente de su aprobación.
 - Pendiente por estado, direcciones fijas y falta de compuerta del cliente: suposiciones validadas, se mantienen.
 - Ronda 3, frívolas, cuándo dejar de disputar, campos de Fase 2: decisiones diferidas, sin tocar.
 - Colección interna vs. cobrador: área no formulable, sin cambio (Hugo no tiene plantilla).
+
+## Revisions
+- **2026-11-17 (plan):** el criterio de actualización hablaba de la "plantilla vieja de charge-off", que no existe (no había plantilla de charge-off). Se corrigió a consultas e información personal, y se añadió el caso de R2, lates y CFPB: su texto nuevo es borrador y no reemplaza la plantilla activa hasta que Hugo la apruebe, para no romper lo que ya funciona.
+- **2026-11-17 (plan):** decisión de Noe sobre el encabezado: SSN y fecha de nacimiento completos (contra la recomendación de enmascarar). Se añadió el criterio de permiso de datos sensibles y queda registrado el riesgo.

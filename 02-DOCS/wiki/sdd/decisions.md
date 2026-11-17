@@ -145,3 +145,10 @@ Append-only. Newest at the bottom.
   "(borrador, pendiente de Hugo)" en el nombre; direcciones de burós fijas en código hasta la Fase 2;
   se para a pedir aprobación en cada fase (sin autopilot). Aviso para la spec C: el 2026-11-15 se
   decidió no cambiar el comportamiento de la cancelación de 3 días hasta la respuesta del abogado.
+
+- 2026-11-17 — Plan de `cartas-disputa-hugo-fase1a`. Noe aprobó la spec ("Sí, apruebo"). Decisiones: lógica
+  en módulos puros y dos servicios con BD; las versiones sin migración son una fila inactiva aparte que
+  al aprobarse reemplaza a la activa; pendiente = inactiva + sufijo "(borrador, pendiente de Hugo)";
+  sin respaldo silencioso a la plantilla general. Noe decidió que el encabezado lleve SSN y fecha de
+  nacimiento completos (se recomendó enmascarar); se completan solo con `sensitive.view`, quedan en el
+  registro de actividad y el cambio se revisa como nivel 2. Implementación aislada en worktree propio.
